@@ -192,7 +192,7 @@ package body Wrapping.Runtime.Analysis is
                else
                   Apply_Wrapping_Program
                     (A_Language_Entity,
-                     A_Command.Nested_Actions);
+                     A_Command.Else_Actions);
                end if;
             end if;
          end if;

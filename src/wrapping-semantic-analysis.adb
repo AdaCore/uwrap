@@ -400,6 +400,18 @@ package body Wrapping.Semantic.Analysis is
             end if;
          end loop;
       end if;
+
+      if A_Command.Else_Actions /= null then
+         if A_Command.Else_Actions.all in Command_Type then
+            Resolve_Command_Names (Structure.Command (A_Command.Else_Actions));
+         else
+            for C of A_Command.Else_Actions.Children_Ordered loop
+               if C.all in Command_Type'Class then
+                  Resolve_Command_Names (Structure.Command (C));
+               end if;
+            end loop;
+         end if;
+      end if;
    end Resolve_Command_Names;
 
 end Wrapping.Semantic.Analysis;
