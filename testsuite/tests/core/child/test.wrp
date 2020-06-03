@@ -1,0 +1,10 @@
+match entity () {
+    match not child (entity ())
+    wrap standard.out ("NO CHILDREN: \e<f_name>\n");
+
+    # TODO: This doesn't work because when computing children, we
+    # only initialize the next level down (which is a list in lal).
+    # a naive fix would be an extra primitive "Initialize_Children_If_Needed"
+    match child (c: entity ())
+    wrap standard.out ("FIRST CHILD OF \e<self.f_name> is \e<c.f_name>\n");
+}

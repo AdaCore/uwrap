@@ -1,0 +1,17 @@
+module standard {
+    
+    # instances of this template will be written on disk at the end of the 
+    # wrapping process. Users can either use this template directly, or
+    # derive it in multiple template (in particular if a given language entity
+    # needs to be wrapped to files multiple times),
+    template file {
+        var path : text;
+        var content : text;
+    }
+
+    # instances of this template will be displayed on the output
+    # at the end of the wrapping process
+    template out {
+        var content : text;
+    }
+}

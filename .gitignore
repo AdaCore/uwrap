@@ -1,0 +1,15 @@
+**/*.pyc
+**/*.o
+**/*.exe
+**/*.ali
+**/*.stdout
+**/*.stderr
+**/b__*
+**/.#*
+
+obj/**
+lang_template/build/**
+lang_test/build/**
+
+testsuite/tests/**/out/*
+

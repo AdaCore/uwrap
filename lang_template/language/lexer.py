@@ -1,0 +1,97 @@
+from langkit.lexer import Lexer, LexerToken, Literal, WithText, Pattern, Ignore, WithSymbol, WithTrivia
+
+
+class Token(LexerToken):
+    Module     = WithText()
+    Import     = WithText()
+    
+    Template   = WithText()
+    Extends    = WithText()
+    Pattern    = WithText()
+    Var        = WithText()
+
+    Match      = WithText()
+    Else       = WithText()
+    Weave      = WithText()
+    Wrap       = WithText()    
+    With       = WithText()
+    
+    Command    = WithText()
+    Apply      = WithText()
+    
+    And        = WithText()
+    Or         = WithText()
+    Not        = WithText()
+
+    LPar       = WithText()
+    RPar       = WithText()
+    LBrk       = WithText()
+    RBrk       = WithText()
+    Comma      = WithText()
+    Colon      = WithText()
+    Semicolon  = WithText()
+    Arrow      = WithText()
+    Dot        = WithText()
+    Assign     = WithText()
+
+    String     = WithText()
+    Comment    = WithTrivia()
+    Integer    = WithText()
+    Identifier = WithSymbol()
+
+    LitTrue   = WithText()
+    LitFalse   = WithText()
+
+    Null        = WithText()
+
+template_lexer = Lexer(Token)
+
+template_lexer.add_patterns(
+    ("STRING_DBQ", r'\"(\\\"|[^\n\"])*\"'),
+    ("STRING_SQ",  r"'(\\'|[^\n'])*'"),
+    ("MLSTRING_DBQ", r'\"\"\"([^"]|("[^"])|(""[^"])|\n)*\"\"\"'),
+    ("MLSTRING_SQ", r"'''([^']|('[^'])|(''[^'])|\n)*'''"),
+)
+
+template_lexer.add_rules(
+    (Pattern(r"[ \t\r\n]+"), Ignore()),
+    (Pattern(r"#(.?)+"),     Token.Comment),
+
+    (Literal("module"), Token.Module),
+    (Literal("import"), Token.Import),
+    
+    (Literal ("template"), Token.Template),
+    (Literal ("extends"), Token.Template),
+    (Literal ("pattern"), Token.Pattern),
+    (Literal ("var"), Token.Var),
+
+    (Literal("match"), Token.Match),
+    (Literal("else"), Token.Match),
+    (Literal("wrap"), Token.Wrap),
+    (Literal("weave"), Token.Weave),
+    (Literal("apply"), Token.Apply),
+    (Literal("command"), Token.Command),
+    (Literal("and"), Token.And),
+    (Literal("or"), Token.Or),
+    (Literal("not"), Token.Not),
+    (Literal("null"), Token.Null),
+    (Literal("with"), Token.With),
+    (Literal("("), Token.LPar),
+    (Literal(")"), Token.RPar),
+    (Literal("{"), Token.LBrk),
+    (Literal("}"), Token.RBrk),
+    (Literal(","), Token.Comma),
+    (Literal(":"), Token.Colon),
+    (Literal(";"), Token.Semicolon),
+    (Literal("=>"), Token.Arrow),
+    (Literal("."), Token.Dot),
+    (Literal(":="), Token.Assign),
+
+    (Literal("true"), Token.LitTrue),
+    (Literal("false"), Token.LitFalse),
+
+    (Pattern('({MLSTRING_SQ}|{MLSTRING_DBQ}'
+             '|{STRING_SQ}|{STRING_DBQ})'), Token.String),
+    (Pattern(r"([0-9]+)"), Token.Integer),
+    (Pattern(r"[a-zA-Z][a-zA-Z0-9_]*"), Token.Identifier),
+)

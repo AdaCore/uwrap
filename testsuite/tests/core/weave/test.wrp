@@ -1,0 +1,21 @@
+template main {
+    var title : text;
+    var content : text;
+}
+
+match entity () {
+    match f_name ("A")
+    weave self with main (title => "SELF TEMPLATE FOR A\n");
+
+    match f_name ("A")
+    weave main (title => "IMPLICIT TEMPLATE FOR A\n");
+
+    match parent (p: f_name ("A"))
+    weave p with main (content => "'A' HAS A CHILD NAMED '\e<f_name>'\n");
+
+    match parent (entity () and parent (p: f_name ("A")))
+    weave p with main (content => "'A' HAS A GRAND CHILD NAMED '\e<f_name>'\n");
+}
+
+match main ()
+wrap standard.out ("\e<title>{\n\e<content>}");

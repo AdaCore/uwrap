@@ -1,0 +1,4 @@
+*.ads text eol=lf
+*.adb text eol=lf
+*.txt text eol=lf
+testsuite/**/*.out text eol=lf

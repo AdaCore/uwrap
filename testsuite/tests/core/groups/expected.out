@@ -1,0 +1,25 @@
+AB:A-B
+ABC:A-B-C
+ABC:A-BC
+AD:A-D
+AE:A-E
+AF:A-F
+'AF1' has for parent AF
+AF1:A-F-1
+AF1:A-F1
+'AF2' has for parent AF1
+AF2:A-F-2
+AF2:A-F2
+'AF3' has for parent AF2
+AF3:A-F-3
+AF3:A-F3
+'AF4' has for parent AF3
+AF4:A-F-4
+AF4:A-F4
+'AF5' has for parent AF4
+AF5:A-F-5
+AF5:A-F5
+GA:G-A
+GB:G-B
+GC:G-C
+
