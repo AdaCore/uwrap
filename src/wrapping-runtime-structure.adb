@@ -329,10 +329,15 @@ package body Wrapping.Runtime.Structure is
    is
       function Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
          Result : Runtime_Object;
-         Stacked_Entity : Runtime_Language_Entity;
       begin
-         Stacked_Entity := new Runtime_Language_Entity_Type'(Value => Language_Entity (E), others => <>);
-         Top_Frame.Data_Stack.Append (Runtime_Object (Stacked_Entity));
+         --  There is a subtetly in the browsing functions. The self reference
+         --  within these calls isn't the entity currently analyzed anymore but
+         --  directly the entity that is being evaluated under these calls.
+         --  However, we cannot create a sub frame as whatever we match needs
+         --  to find its way to the command frame (otherwise any extracted
+         --  group would be deleted upon frame popped).
+         --  TODO: these specificities needs to be duly documented in the UG.
+         Push_Entity (E, True);
 
          if Evaluate_Match_Expression = null then
             Evaluate_Expression (Match_Expression);

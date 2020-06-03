@@ -3,9 +3,6 @@ match entity () {
     weave standard.out ("PREV (\e<f_name>) = \e<x.f_name>\n");
 
     match r: f_name ("B") {
-        # PB here, we evaluate the browse next, stack a non self parameter,
-        # then when we reach the name the system beleives we're selecting
-        # on next and not on self...
         match next (x: not f_name ("\e<r.f_name>"))
         weave standard.out ("NEXT NOT MATCH (\e<r.f_name>) = \e<x.f_name>\n");
     }

@@ -20,4 +20,6 @@ package Wrapping.Runtime.Analysis is
    --  Match a pattern with a text, adding group and captured variables on the
    --  top frame
 
+   procedure Push_Entity (An_Entity : access Language_Entity_Type'Class; Is_Implicit_Self : Boolean := False);
+
 end Wrapping.Runtime.Analysis;

@@ -39,6 +39,11 @@ package body Wrapping.Runtime.Analysis is
       Wrapping.Pop_Error_Location;
    end Pop_Error_Location;
 
+   procedure Push_Entity (An_Entity : access Language_Entity_Type'Class; Is_Implicit_Self : Boolean := False) is
+   begin
+      Top_Frame.Data_Stack.Append (new Runtime_Language_Entity_Type'(Value => Language_Entity (An_Entity), Is_Implicit_Self => Is_Implicit_Self));
+   end Push_Entity;
+
    procedure Push_Frame (Lexical_Scope : access Semantic.Structure.Entity_Type'Class) is
       New_Frame : Data_Frame := new Data_Frame_Type;
    begin
@@ -121,12 +126,7 @@ package body Wrapping.Runtime.Analysis is
          --  will in particular receive the matching groups and the temporary
          --  values that can be used consistently in the various clauses
          Push_Frame (A_Command);
-
-         Self_Element := new Runtime_Language_Entity_Type;
-         Self_Element.Value := A_Language_Entity;
-         Self_Element.Is_Implicit_Self := True;
-
-         Top_Frame.Data_Stack.Append (Runtime_Object (Self_Element));
+         Push_Entity (A_Language_Entity, True);
 
          if not A_Command.Match_Expression.Is_Null then
             Top_Frame.Context := Match_Context;
