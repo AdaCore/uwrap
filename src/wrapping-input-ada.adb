@@ -273,12 +273,9 @@ package body Wrapping.Input.Ada is
       end if;
 
       if Name = "designated_type" then
-         Top_Frame.Data_Stack.Append
-           (new Runtime_Language_Entity_Type'
-              (Value            => An_Entity.Type_Name.Parent,
-               Is_Implicit_Self => False));
+         Push_Entity (An_Entity.Type_Name.Parent);
 
-           return True;
+         return True;
       end if;
 
       return False;
@@ -318,10 +315,7 @@ package body Wrapping.Input.Ada is
       end if;
 
       if Name = "designated_type" then
-         Top_Frame.Data_Stack.Append
-           (new Runtime_Language_Entity_Type'
-              (Value            => An_Entity.Type_Name.Parent,
-               Is_Implicit_Self => False));
+         Push_Entity (An_Entity.Type_Name.Parent);
 
          return True;
       end if;
@@ -385,12 +379,9 @@ package body Wrapping.Input.Ada is
       end if;
 
       if Name = "designated_type" then
-         Top_Frame.Data_Stack.Append
-           (new Runtime_Language_Entity_Type'
-              (Value            => An_Entity.Type_Name.Parent,
-               Is_Implicit_Self => False));
+         Push_Entity (An_Entity.Type_Name.Parent);
 
-           return True;
+         return True;
       end if;
 
       return False;

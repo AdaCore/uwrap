@@ -370,9 +370,7 @@ package body Wrapping.Runtime.Structure is
 
    procedure Push_Match_True (An_Entity : access Language_Entity_Type) is
    begin
-      Top_Frame.Data_Stack.Append
-        (new Runtime_Language_Entity_Type'
-           (Value => Language_Entity (An_Entity), Is_Implicit_Self => True));
+      Push_Entity (An_Entity);
    end Push_Match_True;
 
    procedure Push_Match_True (An_Entity : access Runtime_Object_Type'Class) is
@@ -448,7 +446,6 @@ package body Wrapping.Runtime.Structure is
    is
       use Wrapping.Semantic.Structure;
 
-      New_Value : Runtime_Object;
       Named_Entity : Entity;
       Result : Runtime_Object;
    begin
@@ -459,8 +456,7 @@ package body Wrapping.Runtime.Structure is
       -- First cover the case of a variable or a pattern
 
       if Name = "origin" then
-         New_Value := new Runtime_Language_Entity_Type'(Value => An_Entity.Origin, Is_Implicit_Self => False);
-         Top_Frame.Data_Stack.Append (New_Value);
+         Push_Entity (An_Entity.Origin);
 
          return True;
       else
@@ -472,10 +468,7 @@ package body Wrapping.Runtime.Structure is
                --  as a text expression. This will need to be evaluated, push
                --  self on the stack
 
-               Top_Frame.Data_Stack.Append
-                 (new Runtime_Language_Entity_Type'
-                    (Value => Language_Entity (An_Entity),
-                     Is_Implicit_Self => True)); -- TODO: shouldn't that implicit self be false?
+               Push_Entity (An_Entity);
 
                Evaluate_Expression (Wrapping.Semantic.Structure.Pattern (Named_Entity).Pattern_Expression);
 
@@ -644,9 +637,7 @@ package body Wrapping.Runtime.Structure is
            Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
 
          for T of Matched_Entity.Templates_By_Full_Id loop
-            Top_Frame.Data_Stack.Append
-              (new Runtime_Language_Entity_Type'
-                 (Value => Language_Entity (T), Is_Implicit_Self => False));
+            Push_Entity (T);
             Evaluate_Expression (Match_Expression);
 
             Result := Top_Frame.Data_Stack.Last_Element;
