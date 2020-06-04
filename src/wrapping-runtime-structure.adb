@@ -224,6 +224,8 @@ package body Wrapping.Runtime.Structure is
       Next_Children_List : Language_Entity_Vectors.Vector;
    begin
       if Include_Self then
+         Language_Entity_Type'Class (An_Entity.all).Pre_Visit;
+
          case Visitor (An_Entity) is
             when Stop =>
                return Stop;
@@ -261,6 +263,8 @@ package body Wrapping.Runtime.Structure is
       if A_Mode = Child_Breadth then
          loop
             for C of Current_Children_List loop
+               Language_Entity_Type'Class (C.all).Pre_Visit;
+
                case Visitor (C) is
                   when Stop =>
                      return Stop;
@@ -283,6 +287,8 @@ package body Wrapping.Runtime.Structure is
          end loop;
       else
          while Current /= null loop
+            Language_Entity_Type'Class (Current.all).Pre_Visit;
+
             case Visitor (Current) is
                when Stop =>
                   return Stop;

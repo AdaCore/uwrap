@@ -151,6 +151,8 @@ package Wrapping.Runtime.Structure is
 
    type Visit_Action is (Over, Into, Stop);
 
+   procedure Pre_Visit (An_Entity : access Language_Entity_Type) is null;
+
    function Traverse
      (An_Entity    : access Language_Entity_Type;
       A_Mode       : Browse_Mode;

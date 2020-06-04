@@ -10,27 +10,18 @@ with Libtestlang.Common; use Libtestlang.Common;
 
 package body Wrapping.Input.Kit is
 
-   function Traverse
-     (An_Entity : access Kit_Language_Entity_Type;
-      A_Mode    : Browse_Mode;
-      Include_Self : Boolean;
-      Visitor   : access function (E : access Language_Entity_Type'Class) return Visit_Action)
-      return Visit_Action
-   is
+   procedure Pre_Visit (An_Entity : access Kit_Language_Entity_Type) is
       New_Entity : Language_Entity;
    begin
-      if not An_Entity.Children_Computed then
-         for C of An_Entity.Node.Children loop
-            New_Entity := new Kit_Language_Entity_Type'(Node => C, others => <>);
-            Add_Child (An_Entity, New_Entity);
-         end loop;
+       if not An_Entity.Children_Computed then
+            for C of An_Entity.Node.Children loop
+               New_Entity := new Kit_Language_Entity_Type'(Node => C, others => <>);
+               Add_Child (An_Entity, New_Entity);
+            end loop;
 
-         An_Entity.Children_Computed := True;
+            An_Entity.Children_Computed := True;
       end if;
-
-      return Language_Entity_Type (An_Entity.all).Traverse
-        (A_Mode, Include_Self, Visitor);
-   end Traverse;
+   end Pre_Visit;
 
    function Get_Field (Node : Test_Node; Name : Text_Type) return Test_Node is
       Field_Node : Any_Node_Data_Reference;

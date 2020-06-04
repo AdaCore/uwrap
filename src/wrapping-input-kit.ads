@@ -9,12 +9,8 @@ package Wrapping.Input.Kit is
       Children_Computed : Boolean := False;
    end record;
 
-   function Traverse
-     (An_Entity : access Kit_Language_Entity_Type;
-      A_Mode    : Browse_Mode;
-      Include_Self : Boolean;
-      Visitor   : access function (E : access Language_Entity_Type'Class) return Visit_Action)
-      return Visit_Action;
+   overriding
+   procedure Pre_Visit (An_Entity : access Kit_Language_Entity_Type);
 
    overriding
    function Push_Value
