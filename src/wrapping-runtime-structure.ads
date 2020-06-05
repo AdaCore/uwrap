@@ -194,6 +194,8 @@ package Wrapping.Runtime.Structure is
       Symbols : Runtime_Object_Maps.Map;
 
       Origin : Language_Entity;
+
+      Is_Wrapping : Boolean := False;
    end record;
 
    overriding

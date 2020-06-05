@@ -1,0 +1,21 @@
+wrap A
+weave first child AB
+wrap AB
+weave first child ABC
+wrap ABC
+wrap AD
+weave first child AE
+wrap AE
+wrap AF
+weave first child AF1
+wrap AF1
+weave first child AF2
+wrap AF2
+weave first child AF3
+wrap AF3
+weave first child AF4
+wrap AF4
+weave first child AF5
+wrap AF5
+wrap AG
+

@@ -175,10 +175,15 @@ package body Wrapping.Runtime.Analysis is
 
                   if A_Command.Template_Clause.all in Weave_Type'Class
                     or else A_Template_Instance = null
+                    or else A_Template_Instance.Is_Wrapping = False
                   then
                      if A_Template_Instance = null then
                         A_Template_Instance := Entity_Target.Create_Template_Instance
                           (A_Command.Template_Clause.Template_Reference);
+                     end if;
+
+                     if  A_Command.Template_Clause.all in Wrap_Type'Class then
+                        A_Template_Instance.Is_Wrapping := True;
                      end if;
 
                      Handle_Template_Call
