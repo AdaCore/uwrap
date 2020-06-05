@@ -1,5 +1,7 @@
 with Ada.Containers.Vectors;
+with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
 with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Wide_Wide_Text_IO;
 
 with Langkit_Support; use Langkit_Support;
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
@@ -17,7 +19,7 @@ package body Wrapping.Semantic.Analysis is
    Entity_Stack : Entity_Vectors.Vector;
 
    function Build_Template_Structure (Node : Template_Node) return Structure.Template;
-   function Build_Module_Structure (Node : Template_Node; Is_File_Root : Boolean := False) return Structure.Module;
+   function Build_Module_Structure (Node : Template_Node; Module_Name : Text_Type) return Structure.Module;
    function Build_Command_Structure (Node : Template_Node) return Structure.Command;
    function Build_Command_Function_Structure (Node : Template_Node) return Structure.Command_Function;
    function Build_Variable_Structure (Node : Template_Node) return Structure.Var;
@@ -26,45 +28,39 @@ package body Wrapping.Semantic.Analysis is
    procedure Resolve_Template_Names (A_Template : Structure.Template);
    procedure Resolve_Module_Names (A_Module : Structure.Module);
    procedure Resolve_Command_Names (A_Command : Structure.Command);
+   procedure Resolve_Namespace_Names (A_Namespace : Structure.Namespace);
    function Get_Template_By_Name (Current_Scope : Entity; Name : Dotted_Name) return Structure.Template;
 
-   procedure Analyze (Unit : Analysis_Unit);
+   procedure Load_Module (Unit : Analysis_Unit; Name : String);
 
-   package Unit_Vectors is new Ada.Containers.Vectors (Positive, Analysis_Unit);
-   Unit_List : Unit_Vectors.Vector;
+   Context : constant Analysis_Context := Create_Context;
 
-   procedure Analyze is
-      Context : constant Analysis_Context := Create_Context;
-
+   procedure Load_Module (Path : String; Name : String) is
       Unit : Analysis_Unit;
    begin
-      for File of Files loop
-         Unit := Get_From_File (Context, File);
+      Unit := Get_From_File (Context, Path);
 
-         if Has_Diagnostics (Unit) then
-            for D of Libtemplatelang.Analysis.Diagnostics (Unit) loop
-               Put_Line (File & ":" & To_Pretty_String (D));
-            end loop;
-         end if;
+      if Has_Diagnostics (Unit) then
+         for D of Libtemplatelang.Analysis.Diagnostics (Unit) loop
+            Put_Line (Path & ":" & To_Pretty_String (D));
+         end loop;
+      end if;
 
-         Unit_List.Append (Unit);
-      end loop;
+      Load_Module (Unit, Name);
+   end Load_Module;
 
-      for U of Unit_List loop
-         Analyze (U);
-      end loop;
-
-      Resolve_Module_Names (Root_Module);
+   procedure Analyze is
+   begin
+      Resolve_Namespace_Names (Root);
    end Analyze;
 
-   procedure Analyze (Unit : Analysis_Unit) is
+   procedure Load_Module (Unit : Analysis_Unit; Name : String) is
       File_Module : Structure.Module;
    begin
-      Entity_Stack.Append (Entity (Root_Module));
-      File_Module := Build_Module_Structure (Unit.Root, True);
-      Root_Module.Modules_Ordered.Append (File_Module);
+      Entity_Stack.Append (Entity (Root));
+      File_Module := Build_Module_Structure (Unit.Root, To_Text (Name));
       Entity_Stack.Delete_Last;
-   end Analyze;
+   end Load_Module;
 
    procedure Push_Error_Location (Node : Template_Node'Class) is
    begin
@@ -79,6 +75,16 @@ package body Wrapping.Semantic.Analysis is
       An_Entity.Node := Template_Node (Node);
       Entity_Stack.Append (Entity (An_Entity));
    end Push_Entity;
+
+   procedure Push_Named_Entity
+     (An_Entity : access Entity_Type'Class;
+      Node      : Template_Node'Class;
+      Name      : Text_Type) is
+   begin
+      Add_Child (Entity_Stack.Last_Element, Entity (An_Entity), Name);
+      An_Entity.Node := Template_Node (Node);
+      Entity_Stack.Append (Entity (An_Entity));
+   end Push_Named_Entity;
 
    procedure Push_Named_Entity (An_Entity : access Named_Entity_Type'Class; Node : Template_Node'Class; Name_Node : Template_Node'Class) is
    begin
@@ -100,32 +106,30 @@ package body Wrapping.Semantic.Analysis is
       Lexical_Scope_Stack.Delete_Last;
    end Pop_Lexical_Scope_Entity;
 
-   function Build_Module_Structure (Node : Template_Node; Is_File_Root : Boolean := False) return Structure.Module is
+   function Build_Module_Structure
+     (Node        : Template_Node;
+      Module_Name : Text_Type)
+      return Structure.Module
+   is
       A_Module : Structure.Module := new Module_Type;
+      A_Namespace : Structure.Namespace;
 
       Dummy_Command : Structure.Command;
 
       Program_Node : Template_Node;
    begin
-      if Is_File_Root then
-         Push_Entity (A_Module, Node);
-         Program_Node := Template_Node (Node.As_File.F_Program);
-      else
-         Push_Named_Entity (A_Module, Node, Node.As_Module.F_Name);
-         Program_Node := Template_Node (Node.As_Module.F_Program);
-      end if;
+      A_Namespace := Get_Namespace_Prefix (Module_Name, True);
+
+      --  The module needs to be stacked manually, as it's not a child of
+      --  the currently stacked entity (the root node) but of the namespace.
+      Add_Child (A_Namespace, A_Module, Suffix (Module_Name));
+      A_Module.Node := Node;
+      Entity_Stack.Append (Entity (A_Module));
+
+      Program_Node := Template_Node (Node.As_Module.F_Program);
 
       for C of Program_Node.Children loop
          case C.Kind is
-            when Template_Module =>
-               A_Module.Modules_Ordered.Append
-                 (Build_Module_Structure (C));
-
-               A_Module.Modules_Indexed.Insert
-                 (C.As_Module.F_Name.Text,
-                  A_Module.Modules_Ordered.Last_Element);
-
-               Pop_Entity;
             when Template_Template =>
                A_Module.Templates_Ordered.Append
                  (Build_Template_Structure (C));
@@ -299,33 +303,40 @@ package body Wrapping.Semantic.Analysis is
       return Container_Entity;
    end Build_Command_Scope_Structure;
 
+   procedure Resolve_Namespace_Names (A_Namespace : Structure.Namespace) is
+   begin
+      for C of A_Namespace.Children_Ordered loop
+         if C.all in Namespace_Type'Class then
+            Resolve_Namespace_Names (Namespace (C));
+         elsif C.all in Module_Type'Class then
+            Resolve_Module_Names (Structure.Module (C));
+         end if;
+      end loop;
+   end Resolve_Namespace_Names;
+
    procedure Resolve_Module_Names (A_Module : Structure.Module) is
    begin
-      if not A_Module.Node.Is_Null and then A_Module.Node.Kind = Template_File then
-         for C of A_Module.Node.As_File.F_Use_Clauses.Children loop
-            Push_Error_Location (C);
+      for C of A_Module.Node.As_Module.F_Import_Clauses.Children loop
+         Push_Error_Location (C);
 
-            if C.Kind = Template_Import then
-               declare
-                  Imported : Structure.Module :=
-                    Resolve_Module_By_Name (Root_Module, C.As_Import.F_Name.Text);
-               begin
-                  if Imported = null then
-                     Error ("can't find module '" & C.As_Import.F_Name.Text & "'");
-                  end if;
+         if C.Kind = Template_Import then
+            declare
+               Imported : Structure.Module :=
+                 Resolve_Module_By_Name (C.As_Import.F_Name.Text);
+            begin
+               if Imported = null then
+                  Error ("can't find module '" & C.As_Import.F_Name.Text & "'");
+               end if;
 
-                  A_Module.Imported_Modules.Insert (C.As_Import.F_Name.Text, Imported);
-               end;
-            end if;
+               A_Module.Imported_Modules.Insert (C.As_Import.F_Name.Text, Imported);
+            end;
+         end if;
 
-            Pop_Error_Location;
-         end loop;
-      end if;
+         Pop_Error_Location;
+      end loop;
 
       for C of A_Module.Children_Ordered loop
-         if C.all in Module_Type'Class then
-            Resolve_Module_Names (Structure.Module (C));
-         elsif C.all in Template_Type'Class then
+         if C.all in Template_Type'Class then
             Resolve_Template_Names (Structure.Template (C));
          elsif C.all in Command_Type'Class then
             Resolve_Command_Names (Structure.Command (C));
@@ -337,10 +348,26 @@ package body Wrapping.Semantic.Analysis is
 
       function Get_Visible_Template (An_Entity : Entity; Name : Text_Type) return Structure.Template is
       begin
-         if An_Entity.all in Module_Type and then
-           Module_Type (An_Entity.all).Templates_Indexed.Contains (Name)
-         then
-            return Module_Type (An_Entity.all).Templates_Indexed.Element (Name);
+         if An_Entity.all in Module_Type then
+            declare
+               Potential_Template : Structure.Template;
+            begin
+               if Module_Type (An_Entity.all).Templates_Indexed.Contains (Name) then
+                  Potential_Template := Module_Type (An_Entity.all).Templates_Indexed.Element (Name);
+               end if;
+
+               for M of Module_Type (An_Entity.all).Imported_Modules loop
+                  if M.Templates_Indexed.Contains (Name) then
+                     if Potential_Template /= null then
+                        Error ("template name ambiguous, multiple import clauses hiding");
+                     else
+                        Potential_Template := M.Templates_Indexed.Element (Name);
+                     end if;
+                  end if;
+               end loop;
+
+               return Potential_Template;
+            end;
          elsif An_Entity.Parent /= null then
             return Get_Visible_Template (An_Entity.Parent, Name);
          else
@@ -355,7 +382,7 @@ package body Wrapping.Semantic.Analysis is
 
       if not Name.F_Prefix.Is_Null then
          Extending_Module := Resolve_Module_By_Name
-           (Root_Module, Name.F_Prefix.Text);
+           (Name.F_Prefix.Text);
 
          if Extending_Module.Templates_Indexed.Contains
            (Name.F_Suffix.Text)

@@ -55,5 +55,19 @@ package body Wrapping.Utils is
       return Result (Result'First .. Result_Index);
    end Unident;
 
+   function Suffix (Text : Text_Type) return Text_Type is
+   begin
+      for C in reverse Text'Range loop
+         if Text (C) = '.' then
+            if C = Text'Last then
+               return "";
+            else
+               return Text (C + 1 .. Text'Last);
+            end if;
+         end if;
+      end loop;
+
+      return Text;
+   end Suffix;
 
 end Wrapping.Utils;

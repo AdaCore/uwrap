@@ -14,4 +14,6 @@ package Wrapping.Utils is
    --  Remove as many spaces in front of each lines as possible while keeping
    --  the current indentation
 
+   function Suffix (Text : Text_Type) return Text_Type;
+
 end Wrapping.Utils;

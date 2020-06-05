@@ -1,0 +1,37 @@
+import a.x;
+
+template base_template {
+    var content : text;
+}
+
+match entity () {
+    match (f_name ("A"))
+    wrap x.t_in_x ("x.t_in_x (\e<f_name>)\n");
+
+    match (f_name ("B"))
+    wrap t_in_x ("a.x.t_in_x (\e<f_name>)\n");
+
+    match (f_name ("B"))
+    wrap a.b.y.t_in_y ("a.b.y.t_in_y (\e<f_name>)\n");
+
+    match (f_name ("A"))
+    wrap base_template ("base_template (\e<f_name>)\n");
+}
+
+match base_template ()
+weave standard.out ("base_template = \e<content>");
+
+match x.t_in_x ()
+weave standard.out ("x.t_in_x = \e<content>");
+
+match a.x.t_in_x ()
+weave standard.out ("a.x.t_in_x = \e<content>");
+
+match a.b.y.t_in_y ()
+weave standard.out ("a.b.y.t_in_y = \e<content>");
+
+match a.c.z.t_in_z ()
+weave standard.out ("a.c.z.t_in_z = \e<content>");
+
+match t_in_x ()
+weave standard.out ("a.x.t_in_x = \e<content>");

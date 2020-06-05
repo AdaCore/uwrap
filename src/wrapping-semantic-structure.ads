@@ -23,6 +23,13 @@ package Wrapping.Semantic.Structure is
    package Named_Entity_Vectors is new Ada.Containers.Vectors (Positive, Named_Entity);
    use Named_Entity_Vectors;
 
+   type Namespace_Type;
+   type Namespace is access all Namespace_Type'Class;
+   package Namespace_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Namespace);
+   use Namespace_Maps;
+   package Namespace_Vectors is new Ada.Containers.Vectors (Positive, Namespace);
+   use Namespace_Vectors;
+
    type Module_Type;
    type Module is access all Module_Type'Class;
    package Module_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Module);
@@ -83,6 +90,8 @@ package Wrapping.Semantic.Structure is
 
    procedure Add_Child (Parent, Child : access Entity_Type'Class; Name_Node : Template_Node'Class);
 
+   procedure Add_Child (Parent, Child : access Entity_Type'Class; Name : Text_Type);
+
    function Full_Name (An_Entity : Entity_Type) return Text_Type;
 
    function Find_Visible_Entity (An_Entity : Entity_Type'Class; Name : Text_Type) return Entity;
@@ -93,7 +102,11 @@ package Wrapping.Semantic.Structure is
 
    function Full_Name (An_Entity : Named_Entity_Type) return Text_Type;
 
-   type Module_Type is new Named_Entity_Type with record
+   type Namespace_Type is new Entity_Type with record
+      null;
+   end record;
+
+   type Module_Type is new Entity_Type with record
       Templates_Ordered : Template_Vectors.Vector;
       Templates_Indexed : Template_Maps.Map;
 
@@ -103,7 +116,7 @@ package Wrapping.Semantic.Structure is
       Imported_Modules : Module_Maps.Map;
    end record;
 
-   function Resolve_Module_By_Name (A_Module : Module; Name : Text_Type) return Module;
+   function Resolve_Module_By_Name (Name : Text_Type) return Module;
 
    type Template_Type is new Named_Entity_Type with record
       Extends : Template;
@@ -119,6 +132,8 @@ package Wrapping.Semantic.Structure is
    function Get_Variable_For_Index (A_Template : Template_Type; Index : Positive) return Var;
 
    function Get_Component (A_Template : Template_Type; Name : Text_Type) return Entity;
+
+   function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return Namespace;
 
    type Var_Type is new Named_Entity_Type with record
       null;

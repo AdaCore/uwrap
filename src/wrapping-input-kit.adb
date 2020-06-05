@@ -71,12 +71,13 @@ package body Wrapping.Input.Kit is
    overriding
    function Push_Match_Result
      (An_Entity : access Kit_Language_Entity_Type;
-      Name      : Text_Type;
+      Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
    is
       Result : Runtime_Object;
+      Name : Text_Type := Selector.To_Text;
    begin
-      if Language_Entity_Type (An_Entity.all).Push_Match_Result (Name, Params) then
+      if Language_Entity_Type (An_Entity.all).Push_Match_Result (Selector, Params) then
          return True;
       end if;
 

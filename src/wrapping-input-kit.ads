@@ -20,7 +20,7 @@ package Wrapping.Input.Kit is
    overriding
    function Push_Match_Result
      (An_Entity : access Kit_Language_Entity_Type;
-      Name      : Text_Type;
+      Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
 
 end Wrapping.Input.Kit;

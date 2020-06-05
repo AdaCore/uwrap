@@ -1,0 +1,9 @@
+base_template = base_template (A)
+x.t_in_x = x.t_in_x (A)
+a.c.z.t_in_z = a.c.z.t_in_z (A)
+a.b.y.t_in_y = a.b.y.t_in_y (B)
+a.x.t_in_x = a.x.t_in_x (B)
+a.x.t_in_x = a.x.t_in_x (B)
+x.t_in_x = a.x.t_in_x (B)
+a.c.z.t_in_z = a.c.z.t_in_z (B)
+

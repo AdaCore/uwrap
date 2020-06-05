@@ -64,6 +64,19 @@ package body Wrapping.Runtime.Analysis is
       Free (Old_Frame);
    end Pop_Frame;
 
+   function Get_Self return Language_Entity is
+   begin
+      for I in reverse Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index loop
+         if Top_Frame.Data_Stack.Element (I).all in Runtime_Language_Entity_Type
+           and then Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Is_Implicit_Self
+         then
+            return Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Value;
+         end if;
+      end loop;
+
+      return null;
+   end Get_Self;
+
    function Match (Pattern, Text : Text_Type) return Boolean is
       Text_Str : String := To_String (Text);
       Matches : Match_Obj :=
@@ -208,7 +221,9 @@ package body Wrapping.Runtime.Analysis is
       for Wrapping_Entity of reverse Lexical_Scope.Children_Ordered loop
          if Wrapping_Entity.all in Command_Type then
             Apply_Command (Command (Wrapping_Entity));
-         elsif Wrapping_Entity.all in Module_Type then
+         elsif Wrapping_Entity.all in Module_Type'Class
+           or else Wrapping_Entity.all in Namespace_Type'Class
+         then
             Apply_Wrapping_Program
               (A_Language_Entity, Wrapping_Entity);
          end if;
@@ -237,7 +252,7 @@ package body Wrapping.Runtime.Analysis is
       begin
          Apply_Wrapping_Program
            (Language_Entity (E),
-            Wrapping.Semantic.Analysis.Root_Module);
+            Wrapping.Semantic.Analysis.Root);
 
          return Into;
       end Visitor;
@@ -259,11 +274,11 @@ package body Wrapping.Runtime.Analysis is
         (Child_Depth, True, Visitor'Access);
 
       File_Template := Wrapping.Semantic.Structure.Template
-        (Resolve_Module_By_Name (Root_Module, "standard").
+        (Resolve_Module_By_Name ("standard").
              Children_Indexed.Element ("file"));
 
       Out_Template := Wrapping.Semantic.Structure.Template
-        (Resolve_Module_By_Name (Root_Module, "standard").
+        (Resolve_Module_By_Name ("standard").
              Children_Indexed.Element ("out"));
 
       Get_Root_Language_Entity ("template").Children_Ordered.Append
@@ -281,7 +296,7 @@ package body Wrapping.Runtime.Analysis is
                Content_Object : Runtime_Object;
                Output_File : File_Type;
             begin
-               Push_Frame (Root_Module);
+               Push_Frame (Root);
 
                if not A_Template_Instance.Push_Value ("path") then
                   Error ("'path' component not found in file template");
@@ -312,7 +327,7 @@ package body Wrapping.Runtime.Analysis is
             declare
                Content_Object : Runtime_Object;
             begin
-               Push_Frame (Root_Module);
+               Push_Frame (Root);
 
                if not A_Template_Instance.Push_Value ("content") then
                   Error ("'content' component not found in file template");
@@ -373,8 +388,7 @@ package body Wrapping.Runtime.Analysis is
                Node.As_Selector.F_Left.Traverse (Visit_Expression'Access);
                Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
                Result := Top_Frame.Data_Stack.Last_Element;
-               Top_Frame.Data_Stack.Delete_Last;
-               Top_Frame.Data_Stack.Delete_Last;
+               Top_Frame.Data_Stack.Delete_Last (2);
                Top_Frame.Data_Stack.Append (Result);
             end;
 
@@ -614,52 +628,109 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class) is
       Prefix_Entity : Language_Entity;
-      Prefix_Module : Semantic.Structure.Module;
       Tentative_Symbol : Runtime_Object;
       A_Semantic_Entity : Semantic.Structure.Entity;
 
       procedure Handle_Global_Identifier is
+         A_Module : Semantic.Structure.Module;
+         Name : Text_Type := Node.Text;
       begin
-         Tentative_Symbol := Get_Visible_Symbol (Top_Frame.all, Node.Text);
+         -- Check in the dynamic symols in the frame
 
-         for Imported of Top_Frame.Imported_Frames loop
-            if Imported.Symbols.Contains (Node.Text) then
+         Tentative_Symbol := Get_Visible_Symbol (Top_Frame.all, Name);
+
+         A_Module := Get_Module (Top_Frame.all);
+
+         -- TODO: there's a conflict here between the static and dynamic
+         --  resolution of template name. Writing:
+         --  match some_template_name ()
+         --  would check that the template contains a template of said name.
+         --  this could be different from;
+         --
+         -- template some_template_name()
+         --
+         -- match some_template_name()
+         --
+         -- if some_template_name() also comes from a different place.
+         -- We need to change that to make sure that template names are always
+         -- resolved statically (requires changes in the Push_Match_Result
+         -- function of template, now looking for a template instance to be
+         -- stacked?). Also need a test to first exhibit the issue and second
+         -- fix it.
+
+         -- Check in the static symbols in the module
+
+         if A_Module.Children_Indexed.Contains (Name) then
+            if Tentative_Symbol = null then
+               A_Semantic_Entity := A_Module.Children_Indexed (Name);
+
+               if A_Semantic_Entity.all in Template_Type'Class then
+                  Tentative_Symbol := new Runtime_Static_Entity_Type'
+                    (An_Entity => A_Semantic_Entity);
+               end if;
+            else
+               Error ("can't reference " & Node.Text & ", multiple definitions hiding");
+            end if;
+         end if;
+
+          -- Check in the imported symbols in the module
+
+         for Imported of A_Module.Imported_Modules loop
+            if Imported.Children_Indexed.Contains (Name) then
                if Tentative_Symbol = null then
-                  Tentative_Symbol := Imported.Symbols.Element (Node.Text);
+                  A_Semantic_Entity := Imported.Children_Indexed (Name);
+
+                  if A_Semantic_Entity.all in Template_Type'Class then
+                     Tentative_Symbol := new Runtime_Static_Entity_Type'
+                       (An_Entity => A_Semantic_Entity);
+                  end if;
                else
-                  Error ("can't reference " & Node.Text & ", multiple clause hiding");
+                  Error ("can't reference " & Node.Text & ", multiple definitions hiding");
                end if;
             end if;
          end loop;
 
+         -- Check in the namesaces symbols
+
+         if Root.Children_Indexed.Contains (Name) then
+            if Tentative_Symbol = null then
+               A_Semantic_Entity := Root.Children_Indexed.Element (Name);
+
+               if A_Semantic_Entity.all in Namespace_Type'Class
+                 or else A_Semantic_Entity.all in Module_Type'Class
+               then
+                  Tentative_Symbol := new Runtime_Static_Entity_Type'
+                    (An_Entity => A_Semantic_Entity);
+               end if;
+            else
+               Error ("can't reference " & Node.Text & ", multiple definitions hiding");
+            end if;
+         end if;
+
          if Tentative_Symbol = null then
-            Error ("can't find global reference to '" & Node.Text & "'");
+            Error ("can't find global reference to '" & Name & "'");
          else
             Top_Frame.Data_Stack.Append (Tentative_Symbol);
          end if;
       end Handle_Global_Identifier;
 
-      procedure Handle_Module_Selection is
+      procedure Handle_Static_Entity_Selection is
+         An_Entity : Semantic.Structure.Entity;
       begin
-         -- We're resolving a reference to a module here
-         Prefix_Module := Runtime_Module_Reference (Top_Frame.Data_Stack.Last_Element).A_Module;
-         Top_Frame.Data_Stack.Delete_Last;
+         An_Entity := Runtime_Static_Entity (Top_Frame.Data_Stack.Last_Element).An_Entity;
 
-         if not Prefix_Module.Children_Indexed.Contains (Node.Text) then
-            Error ("'" & Node.Text & "' not found in module '" & Prefix_Module.Name_Node.Text);
+         if not An_Entity.Children_Indexed.Contains (Node.Text) then
+            Error ("'" & Node.Text & "' not found");
          end if;
 
-         A_Semantic_Entity := Prefix_Module.Children_Indexed.Element (Node.Text);
+         A_Semantic_Entity := An_Entity.Children_Indexed.Element (Node.Text);
 
-         if A_Semantic_Entity.all in Module_Type'Class then
-            Top_Frame.Data_Stack.Append
-              (new Runtime_Module_Reference_Type'(A_Module => Semantic.Structure.Module (A_Semantic_Entity)));
-         else
-            Error ("'" & Node.Text & "' is not a module");
-         end if;
-      end Handle_Module_Selection;
+         Top_Frame.Data_Stack.Append
+           (new Runtime_Static_Entity_Type'(An_Entity => A_Semantic_Entity));
+      end Handle_Static_Entity_Selection;
 
       procedure Handle_Language_Entity_Selection is
+         Name : Text_Type := Node.Text;
       begin
          -- We're resolving a reference to an entity
 
@@ -667,7 +738,7 @@ package body Wrapping.Runtime.Analysis is
 
          if Runtime_Language_Entity
            (Top_Frame.Data_Stack.Last_Element).Is_Implicit_Self
-           and then Node.Text = "self"
+           and then Name = "self"
          then
             --  We're just refering to self here, re-stack it without the implicit
             --  flag, it's now explicit
@@ -682,7 +753,7 @@ package body Wrapping.Runtime.Analysis is
          --  TODO: If there's already a template instance set, this should allow
          --  to retreive it (later call is only doing creation on the implicit
          --  self). Push Value should take that into account (it doesn't yet)
-         if Prefix_Entity.Push_Value (Node.Text) then
+         if Prefix_Entity.Push_Value (Name) then
             --  We found a component of the entity and it has been pushed
             return;
          end if;
@@ -695,14 +766,14 @@ package body Wrapping.Runtime.Analysis is
             --  for global references.
             Handle_Global_Identifier;
          else
-            Error ("'" & Node.Text & "' component not found");
+            Error ("'" & Name & "' component not found");
          end if;
       end Handle_Language_Entity_Selection;
 
    begin
       if Top_Frame.Data_Stack.Length /= 0 then
-         if Top_Frame.Data_Stack.Last_Element.all in Runtime_Module_Reference_Type then
-            Handle_Module_Selection;
+         if Top_Frame.Data_Stack.Last_Element.all in Runtime_Static_Entity_Type'Class then
+            Handle_Static_Entity_Selection;
          elsif Top_Frame.Data_Stack.Last_Element.all in Runtime_Language_Entity_Type then
             Handle_Language_Entity_Selection;
          else
@@ -788,19 +859,67 @@ package body Wrapping.Runtime.Analysis is
       end Handle_Function_Call;
 
       procedure Handle_Match is
+         Match_Object : Runtime_Object;
          Self : Language_Entity;
+         Scope : Semantic.Structure.Entity;
+         Selected : Semantic.Structure.Entity;
+         A_Module : Semantic.Structure.Module;
       begin
-         Self := Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
+         Match_Object := Top_Frame.Data_Stack.Last_Element;
 
-         if not Self.Push_Match_Result
-           (Node.As_Call_Expr.F_Called.Text, Node.As_Call_Expr.F_Args)
-         then
-            --  By convention, there's always a result from a match call. This
-            --  result is either the object being matched, or a false match if
-            --  not
+         --  At this point, we stacked references to various namespaces. They
+         --  will get unstacked when exiting the selectors. We do need to
+         --  retreive the value of self earlier in the stack.
+         Self := Get_Self;
 
-            Push_Match_False;
+         if Match_Object.all in Runtime_Language_Entity_Type'Class then
+            if Runtime_Language_Entity (Match_Object).Value.Push_Match_Result
+              (new Runtime_Text_Type'
+                 (Value => To_Unbounded_Text (Node.As_Call_Expr.F_Called.Text)),
+               Node.As_Call_Expr.F_Args)
+            then
+               return;
+            end if;
          end if;
+
+         A_Module := Get_Module (Top_Frame.all);
+
+         if Match_Object.all in Runtime_Static_Entity_Type'Class then
+            Scope := Runtime_Static_Entity (Match_Object).An_Entity;
+         else
+            Scope := Entity (A_Module);
+         end if;
+
+         if Scope.Children_Indexed.Contains (Node.As_Call_Expr.F_Called.Text) then
+            Selected := Scope.Children_Indexed.Element (Node.As_Call_Expr.F_Called.Text);
+
+            --  TODO: We might be able to go without a pointer in the signature
+            --  of match result, avoiding dynamic memory allocation here.
+            if Self.Push_Match_Result
+              (new Runtime_Static_Entity_Type'(An_Entity => Selected),
+               Node.As_Call_Expr.F_Args)
+            then
+               return;
+            end if;
+         end if;
+
+         for Imported of A_Module.Imported_Modules loop
+            if Imported.Children_Indexed.Contains (Node.As_Call_Expr.F_Called.Text) then
+
+               Selected := Imported.Children_Indexed.Element (Node.As_Call_Expr.F_Called.Text);
+
+               --  TODO: We might be able to go without a pointer in the signature
+               --  of match result, avoiding dynamic memory allocation here.
+               if Self.Push_Match_Result
+                 (new Runtime_Static_Entity_Type'(An_Entity => Selected),
+                  Node.As_Call_Expr.F_Args)
+               then
+                  return;
+               end if;
+            end if;
+         end loop;
+
+         Push_Match_False;
       end Handle_Match;
 
    begin

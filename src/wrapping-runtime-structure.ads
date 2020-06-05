@@ -68,8 +68,8 @@ package Wrapping.Runtime.Structure is
    type Runtime_Function_Reference_Type;
    type Runtime_Function_Reference is access all Runtime_Function_Reference_Type'Class;
 
-   type Runtime_Module_Reference_Type;
-   type Runtime_Module_Reference is access all Runtime_Module_Reference_Type'Class;
+   type Runtime_Static_Entity_Type;
+   type Runtime_Static_Entity is access all Runtime_Static_Entity_Type'Class;
 
    type Runtime_Expression_Type;
    type Runtime_Expression is access all Runtime_Expression_Type'Class;
@@ -94,12 +94,13 @@ package Wrapping.Runtime.Structure is
       Symbols         : Runtime_Object_Maps.Map;
       Matched_Groups  : Runtime_Object_Vectors.Vector;
       Data_Stack      : Runtime_Object_Vectors.Vector;
-      Imported_Frames : Data_Frame_Vectors.Vector;
       Context         : Frame_Context := Generic_Context;
       Lexical_Scope   : Semantic.Structure.Entity;
    end record;
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return Runtime_Object;
+
+   function Get_Module (A_Frame : Data_Frame_Type) return Semantic.Structure.Module;
 
    type Language_Entity_Class_Type is tagged record
       null;
@@ -144,7 +145,7 @@ package Wrapping.Runtime.Structure is
 
    function Push_Match_Result
      (An_Entity : access Language_Entity_Type;
-      Name      : Text_Type;
+      Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
 
    type Browse_Mode is (Parent, Child_Depth, Child_Breadth, Next, Prev);
@@ -209,7 +210,7 @@ package Wrapping.Runtime.Structure is
    overriding
    function Push_Match_Result
      (An_Entity : access Template_Instance_Type;
-      Name      : Text_Type;
+      Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
 
    overriding
@@ -295,8 +296,8 @@ package Wrapping.Runtime.Structure is
       Prefix : Language_Entity;
    end record;
 
-   type Runtime_Module_Reference_Type is new Runtime_Object_Type with record
-      A_Module : Semantic.Structure.Module;
+   type Runtime_Static_Entity_Type is new Runtime_Object_Type with record
+      An_Entity : Semantic.Structure.Entity;
    end record;
 
    type Runtime_Expression_Type is new Runtime_Object_Type with record

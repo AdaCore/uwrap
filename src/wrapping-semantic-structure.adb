@@ -1,6 +1,9 @@
 with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
 with Ada.Containers; use Ada.Containers;
 
+with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
+with Wrapping.Utils; use Wrapping.Utils;
+
 package body Wrapping.Semantic.Structure is
 
    procedure Add_Child (Parent, Child : access Entity_Type'Class) is
@@ -19,6 +22,12 @@ package body Wrapping.Semantic.Structure is
    begin
       Add_Child (Parent, Child);
       Parent.Children_Indexed.Insert (Name_Node.Text, Entity (Child));
+   end Add_Child;
+
+   procedure Add_Child (Parent, Child : access Entity_Type'Class; Name : Text_Type) is
+   begin
+      Add_Child (Parent, Child);
+      Parent.Children_Indexed.Insert (Name, Entity (Child));
    end Add_Child;
 
    function Full_Name (An_Entity : Entity_Type) return Text_Type is
@@ -67,48 +76,19 @@ package body Wrapping.Semantic.Structure is
       end if;
    end Full_Name;
 
-   function Resolve_Module_By_Name (A_Module : Module; Name : Text_Type) return Module is
-      First, Last, Dot : Integer;
-      Result : Module;
+   function Resolve_Module_By_Name (Name : Text_Type) return Module is
+      Result : Entity;
+      A_Namespace : Namespace;
+      A_Suffix : Text_Type := Suffix (Name);
    begin
-      if  A_Module.Name_Node.Is_Null or else A_Module.Name_Node.Text = "" then
-         -- Skip modules of empty name
+      A_Namespace := Get_Namespace_Prefix (Name);
 
-         for M of A_Module.Modules_Ordered loop
-            Result := Resolve_Module_By_Name (M, Name);
+      if A_Namespace.Children_Indexed.Contains (A_Suffix) then
+         Result := A_Namespace.Children_Indexed.Element (A_Suffix);
 
-            if Result /= null then
-               return Result;
-            end if;
-         end loop;
-
-         return null;
-      else
-
-         First := Name'First;
-         Last := Name'Last;
-
-         Dot := Index (Name (First .. Name'Last), ".");
-
-         declare
-            Section : Text_Type :=
-              (if Dot /= 0 then Name (First .. Dot - 1)
-               else Name (First .. Name'Last));
-         begin
-            if A_Module.Name_Node.Text = Section then
-               if Dot = 0 then
-                  return A_Module;
-               else
-                  for M of A_Module.Modules_Ordered loop
-                     Result := Resolve_Module_By_Name (M, Name (Dot + 1 .. Name'Last));
-
-                     if Result /= null then
-                        return Result;
-                     end if;
-                  end loop;
-               end if;
-            end if;
-         end;
+         if Result.all in Module_Type then
+            return Module (Result);
+         end if;
       end if;
 
       return null;
@@ -177,5 +157,45 @@ package body Wrapping.Semantic.Structure is
          return A_Template.Extends.Get_Component (Name);
       end if;
    end Get_Component;
+
+   function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return Namespace is
+      First, Dot : Integer;
+      Tentative : Entity;
+      Current : Namespace := Wrapping.Semantic.Analysis.Root;
+      New_Namespace : Namespace;
+   begin
+      First := Full_Name'First;
+
+      loop
+         Dot := Index (Full_Name (First .. Full_Name'Last), ".");
+
+         if Dot = 0 then
+            return Current;
+         else
+            declare
+               Section : Text_Type := Full_Name (First .. Dot - 1);
+            begin
+
+               if Current.Children_Indexed.Contains (Section) then
+                  Tentative := Current.Children_Indexed.Element (Section);
+
+                  if Tentative.all not in Namespace_Type then
+                     Error ("Expected namsepace");
+                  else
+                     Current := Namespace (Tentative);
+                  end if;
+               elsif Create_If_Null then
+                  New_Namespace := new Namespace_Type;
+                  Add_Child (Current, New_Namespace, Section);
+                  Current := New_Namespace;
+               else
+                  return null;
+               end if;
+            end;
+         end if;
+
+         First := Dot + 1;
+      end loop;
+   end Get_Namespace_Prefix;
 
 end Wrapping.Semantic.Structure;

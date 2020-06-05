@@ -1,0 +1,3 @@
+template t_in_x {
+    var content : text;
+}

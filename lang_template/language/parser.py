@@ -10,15 +10,11 @@ class TemplateNode(ASTNode):
     """
     pass
 
-class Module(TemplateNode):
-    name = Field()
-    program = Field()
-
 class Import(TemplateNode):
     name = Field()
 
-class File(TemplateNode):
-    use_clauses = Field()
+class Module(TemplateNode):
+    import_clauses = Field()
     program = Field()
 
 class Template(TemplateNode):
@@ -138,14 +134,13 @@ template_grammar = Grammar('main_rule')
 G = template_grammar
 
 template_grammar.add_rules(
-    main_rule=File (List (G.import_clause, empty_valid=True), G.module_scope),
+    main_rule=Module (List (G.import_clause, empty_valid=True), G.module_scope),
     import_clause=Import('import', G.dotted_name, ';'),
     
-    module_scope=List(Or (G.module, G.template, G.command, G.command_function, G.var, NestedScope ('{', G.module_scope, '}')), empty_valid=True),
+    module_scope=List(Or (G.template, G.command, G.command_function, G.var, NestedScope ('{', G.module_scope, '}')), empty_valid=True),
     command_scope=List(Or (G.command, G.command_function, G.var, NestedScope ('{', G.command_scope, '}')), empty_valid=True),
     template_scope=List(Or (G.var, G.pattern), empty_valid=True),
 
-    module=Module('module', G.dotted_name, '{', G.module_scope, '}'),
     template=Template('template', G.identifier, Opt ('extends', G.dotted_name), '{', G.template_scope, '}'),
     
     var=Var('var', G.identifier, ':', G.identifier, Opt (':=', G.expr), ';'), 

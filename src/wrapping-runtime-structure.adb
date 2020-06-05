@@ -31,6 +31,18 @@ package body Wrapping.Runtime.Structure is
       end if;
    end Get_Visible_Symbol;
 
+   function Get_Module (A_Frame : Data_Frame_Type) return Semantic.Structure.Module is
+      use Semantic.Structure;
+
+      Scope : Semantic.Structure.Entity := A_Frame.Lexical_Scope;
+   begin
+      while Scope /= null and then Scope.all not in Module_Type'Class loop
+         Scope := Scope.Parent;
+      end loop;
+
+      return Semantic.Structure.Module (Scope);
+   end Get_Module;
+
    procedure Add_Child (Parent, Child : access Language_Entity_Type'Class) is
    begin
       Child.Parent := Language_Entity (Parent);
@@ -205,11 +217,11 @@ package body Wrapping.Runtime.Structure is
 
    function Push_Match_Result
      (An_Entity : access Language_Entity_Type;
-      Name      : Text_Type;
+      Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
    is
    begin
-      return Push_Browse_Result (An_Entity, Name, Params);
+      return Push_Browse_Result (An_Entity, Selector.To_Text, Params);
    end Push_Match_Result;
 
    function Traverse
@@ -524,7 +536,7 @@ package body Wrapping.Runtime.Structure is
 
    function Push_Match_Result
      (An_Entity : access Template_Instance_Type;
-      Name      : Text_Type;
+      Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
    is
       use Wrapping.Semantic.Structure;
@@ -565,8 +577,9 @@ package body Wrapping.Runtime.Structure is
          end if;
       end Is_Instance_Of;
 
+      Name : Text_Type := Selector.To_Text;
    begin
-      if Language_Entity_Type (An_Entity.all).Push_Match_Result (Name, Params) then
+      if Language_Entity_Type (An_Entity.all).Push_Match_Result (Selector, Params) then
          return True;
       end if;
 
@@ -593,36 +606,46 @@ package body Wrapping.Runtime.Structure is
          end if;
 
          return True;
-      elsif Name = "template" or else Is_Instance_Of (An_Entity.Template.all, Name) then
-         --  We're checking against this current template and its variables.
-         --  Take the argument one by one and check them
+      elsif Selector.all in Runtime_Static_Entity_Type'Class then
+         declare
+            Selected : Semantic.Structure.Entity := Runtime_Static_Entity (Selector).An_Entity;
+         begin
+            if Selected.all in Semantic.Structure.Template_Type'Class then
+               --  TODO how do we handle the case of "template ()"?
+               --  perhaps create a root template?
+               if Instance_Of
+                 (An_Entity.Template,
+                  Semantic.Structure.Template (Selected))
+               then
+                  for Arg of Params loop
+                     -- TODO: Can we support positional notation here?
 
-         for Arg of Params loop
-            -- TODO: Can we support positional notation here?
+                     if An_Entity.Template.Has_Variable (Arg.F_Name.Text) then
+                        Match_Variable_Value (Arg.F_Value.Text, Arg.F_Value);
 
-            if An_Entity.Template.Has_Variable (Arg.F_Name.Text) then
-               Match_Variable_Value (Arg.F_Value.Text, Arg.F_Value);
+                        Result := Top_Frame.Data_Stack.Last_Element;
+                        Top_Frame.Data_Stack.Delete_Last;
 
-               Result := Top_Frame.Data_Stack.Last_Element;
-               Top_Frame.Data_Stack.Delete_Last;
+                        if Result = Match_False then
+                           Push_Match_False;
 
-               if Result = Match_False then
-                  Push_Match_False;
+                           return True;
+                        end if;
+                     else
+                        Push_Match_False;
+
+                        return True;
+                     end if;
+                  end loop;
+
+                  --  If we passed all arguments, we matched
+
+                  Push_Match_True (An_Entity);
 
                   return True;
                end if;
-            else
-               Push_Match_False;
-
-               return True;
             end if;
-         end loop;
-
-         --  If we passed all arguments, we matched
-
-         Push_Match_True (An_Entity);
-
-         return True;
+         end;
       end if;
 
       return False;
