@@ -13,13 +13,14 @@ package body Wrapping.Input.Kit is
    procedure Pre_Visit (An_Entity : access Kit_Language_Entity_Type) is
       New_Entity : Language_Entity;
    begin
-       if not An_Entity.Children_Computed then
-            for C of An_Entity.Node.Children loop
-               New_Entity := new Kit_Language_Entity_Type'(Node => C, others => <>);
-               Add_Child (An_Entity, New_Entity);
-            end loop;
+      if not An_Entity.Children_Computed then
+         for C of An_Entity.Node.Children loop
+            New_Entity := new Kit_Language_Entity_Type'(Node => C, others => <>);
+            Add_Child (An_Entity, New_Entity);
+            An_Entity.Children_By_Node.Insert (C, Kit_Language_Entity (New_Entity));
+         end loop;
 
-            An_Entity.Children_Computed := True;
+         An_Entity.Children_Computed := True;
       end if;
    end Pre_Visit;
 
@@ -76,53 +77,86 @@ package body Wrapping.Input.Kit is
    is
       Result : Runtime_Object;
       Name : Text_Type := Selector.To_Text;
+      Matched : Boolean;
    begin
       if Language_Entity_Type (An_Entity.all).Push_Match_Result (Selector, Params) then
          return True;
       end if;
 
-      if Name = "test_node" then
-         if Params.Children_Count = 0 then
+      if Selector.all in Runtime_Field_Reference_Type'Class then
+         if Name = "test_node" then
+            if Params.Children_Count = 0 then
+               Push_Match_True (An_Entity);
+            else
+               Error ("no arguments allowed");
+            end if;
+
+            return True;
+         elsif To_Lower (To_Wide_Wide_String (An_Entity.Node.Kind_Name)) = To_Lower (Name) then
+            if Params.Children_Count = 0 then
+               Push_Match_True (An_Entity);
+            elsif Params.Children_Count = 1 then
+               -- fields are browsing functions similar to prev, next, etc...
+               -- they push the node so that it can be captured.
+               Push_Entity (An_Entity, True);
+
+               Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+
+               Result := Top_Frame.Data_Stack.Last_Element;
+               Top_Frame.Data_Stack.Delete_Last (2); -- Delete result and self
+
+               Matched := Result /= Match_False;
+
+               if Matched then
+                  Push_Match_True (An_Entity);
+               else
+                  Push_Match_False;
+               end if;
+            else
+               Error ("no more than one parameter allowed for entity matching");
+            end if;
+
+            return True;
+         else
+            declare
+               Node : Test_Node := Get_Field (An_Entity.Node, Name);
+            begin
+               if not Node.Is_Null then
+                  if Params.Children_Count = 0 then
+                     Push_Match_True (An_Entity);
+                  elsif Params.Children_Count = 1 then
+                     -- fields are browsing functions similar to prev, next, etc...
+                     -- they push the node so that it can be captured.
+                     Push_Entity (An_Entity.Children_By_Node.Element (Node), True);
+
+                     Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+
+                     Result := Top_Frame.Data_Stack.Last_Element;
+                     Top_Frame.Data_Stack.Delete_Last (2); -- Delete result and self
+
+                     Matched := Result /= Match_False;
+
+                     if Matched then
+                        Push_Match_True (An_Entity);
+                     else
+                        Push_Match_False;
+                     end if;
+                  else
+                     Error ("no more than one parameter allowed for field matching");
+                  end if;
+
+                  return True;
+               end if;
+            end;
+         end if;
+      elsif Selector.all in Runtime_Text_Expression_Type'Class then
+         if Match (Name, An_Entity.Node.Text) then
             Push_Match_True (An_Entity);
          else
-            Error ("no arguments allowed");
+            Push_Match_False;
          end if;
 
          return True;
-      elsif To_Lower (To_Wide_Wide_String (An_Entity.Node.Kind_Name)) = To_Lower (Name) then
-         Push_Match_True (An_Entity);
-         return True;
-      else
-         declare
-            Node : Test_Node := Get_Field (An_Entity.Node, Name);
-            Matched : Boolean;
-         begin
-            if not Node.Is_Null then
-               if Params.Children_Count = 0 then
-                  Push_Match_True (An_Entity);
-               elsif Params.Children_Count = 1 then
-                  Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-
-                  Result := Top_Frame.Data_Stack.Last_Element;
-                  Top_Frame.Data_Stack.Delete_Last;
-
-                  Matched :=
-                    Match
-                      (Result.To_Text,
-                       Node.Text);
-
-                  if Matched then
-                     Push_Match_True (An_Entity);
-                  else
-                     Push_Match_False;
-                  end if;
-               else
-                  Error ("no more than one parameter allowed for field matching");
-               end if;
-
-               return True;
-            end if;
-         end;
       end if;
 
       return False;

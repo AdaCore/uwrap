@@ -71,6 +71,9 @@ package Wrapping.Runtime.Structure is
    type Runtime_Static_Entity_Type;
    type Runtime_Static_Entity is access all Runtime_Static_Entity_Type'Class;
 
+   type Runtime_Field_Reference_Type;
+   type Runtime_Field_Reference is access all Runtime_Field_Reference_Type'Class;
+
    type Runtime_Expression_Type;
    type Runtime_Expression is access all Runtime_Expression_Type'Class;
 
@@ -301,6 +304,14 @@ package Wrapping.Runtime.Structure is
    type Runtime_Static_Entity_Type is new Runtime_Object_Type with record
       An_Entity : Semantic.Structure.Entity;
    end record;
+
+   type Runtime_Field_Reference_Type is new Runtime_Object_Type with record
+      Name : Unbounded_Text_Type;
+   end record;
+
+   overriding
+   function To_Text (Object : Runtime_Field_Reference_Type) return Text_Type is
+      (To_Text (Object.Name));
 
    type Runtime_Expression_Type is new Runtime_Object_Type with record
       Expression : Libtemplatelang.Analysis.Template_Node;

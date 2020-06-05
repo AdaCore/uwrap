@@ -10,6 +10,11 @@ class Entity(TestNode):
     name = Field()
     nested = Field()
 
+class Call(TestNode):
+    name = Field()
+    args = Field()
+    nested = Field()
+
 class Identifier(TestNode):
     token_node = True
 
@@ -18,7 +23,8 @@ G = test_grammar
 
 test_grammar.add_rules(
     main_rule=G.entity_list,
-    entity_list=List (G.entity, sep=',', empty_valid=True),
+    entity_list=List (Or (G.call, G.entity), sep=',', empty_valid=True),
     entity=Entity (G.identifier, Opt ('{', G.entity_list, '}')),
+    call=Call (G.identifier, '(', G.entity_list, ')', Opt ('{', G.entity_list, '}')),
     identifier=Identifier(Token.Identifier)
 )

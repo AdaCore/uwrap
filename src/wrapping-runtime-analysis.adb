@@ -460,7 +460,6 @@ package body Wrapping.Runtime.Analysis is
             return Over;
 
          when Template_Literal =>
-
             if Node.Text = "true" then
                Push_Match_True (Top_Frame.Data_Stack.Last_Element);
             elsif Node.Text = "false" then
@@ -494,6 +493,18 @@ package body Wrapping.Runtime.Analysis is
             begin
                Analyze_Replace_String (Content, Node.Unit.Context);
             end;
+
+            if Top_Frame.Context = Match_Context then
+               declare
+                  To_Match : Runtime_Object := Top_Frame.Data_Stack.Last_Element;
+               begin
+                  Top_Frame.Data_Stack.Delete_Last;
+
+                  if not Get_Self.Push_Match_Result (To_Match, No_Argument_List) then
+                     Push_Match_False;
+                  end if;
+               end;
+            end if;
 
             Pop_Error_Location;
             return Over;
@@ -645,23 +656,6 @@ package body Wrapping.Runtime.Analysis is
          Tentative_Symbol := Get_Visible_Symbol (Top_Frame.all, Name);
 
          A_Module := Get_Module (Top_Frame.all);
-
-         -- TODO: there's a conflict here between the static and dynamic
-         --  resolution of template name. Writing:
-         --  match some_template_name ()
-         --  would check that the template contains a template of said name.
-         --  this could be different from;
-         --
-         -- template some_template_name()
-         --
-         -- match some_template_name()
-         --
-         -- if some_template_name() also comes from a different place.
-         -- We need to change that to make sure that template names are always
-         -- resolved statically (requires changes in the Push_Match_Result
-         -- function of template, now looking for a template instance to be
-         -- stacked?). Also need a test to first exhibit the issue and second
-         -- fix it.
 
          -- Check in the static symbols in the module
 
@@ -879,8 +873,8 @@ package body Wrapping.Runtime.Analysis is
 
          if Match_Object.all in Runtime_Language_Entity_Type'Class then
             if Runtime_Language_Entity (Match_Object).Value.Push_Match_Result
-              (new Runtime_Text_Type'
-                 (Value => To_Unbounded_Text (Node.As_Call_Expr.F_Called.Text)),
+              (new Runtime_Field_Reference_Type'
+                 (Name => To_Unbounded_Text (Node.As_Call_Expr.F_Called.Text)),
                Node.As_Call_Expr.F_Args)
             then
                return;

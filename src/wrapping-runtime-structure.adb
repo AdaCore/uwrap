@@ -235,6 +235,8 @@ package body Wrapping.Runtime.Structure is
       Current_Children_List : Language_Entity_Vectors.Vector;
       Next_Children_List : Language_Entity_Vectors.Vector;
    begin
+      Language_Entity_Type'Class (An_Entity.all).Pre_Visit;
+
       if Include_Self then
          Language_Entity_Type'Class (An_Entity.all).Pre_Visit;
 
