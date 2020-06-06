@@ -22,14 +22,10 @@ class Template(TemplateNode):
     extending = Field()
     definition = Field()
 
-class Pattern(TemplateNode):
-    name = Field()
-    expression = Field()
-
 class Var(TemplateNode):
     name = Field()
     typ = Field()
-    default_expression=Field()
+    args = Field()
 
 class Command(TemplateNode):
     match_clause = Field()
@@ -139,12 +135,11 @@ template_grammar.add_rules(
     
     module_scope=List(Or (G.template, G.command, G.command_function, G.var, NestedScope ('{', G.module_scope, '}')), empty_valid=True),
     command_scope=List(Or (G.command, G.command_function, G.var, NestedScope ('{', G.command_scope, '}')), empty_valid=True),
-    template_scope=List(Or (G.var, G.pattern), empty_valid=True),
+    template_scope=List(G.var, empty_valid=True),
 
     template=Template('template', G.identifier, Opt ('extends', G.dotted_name), '{', G.template_scope, '}'),
     
-    var=Var('var', G.identifier, ':', G.identifier, Opt (':=', G.expr), ';'), 
-    pattern=Pattern('pattern', G.identifier, '(', G.expr, ')', ';'),
+    var=Var('var', G.identifier, ':', G.identifier, Opt ('(', G.arg_list, ')'), ';'), 
 
     command=Command(
         Opt(G.match_clause),

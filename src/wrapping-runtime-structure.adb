@@ -483,38 +483,44 @@ package body Wrapping.Runtime.Structure is
          Named_Entity := An_Entity.Template.Get_Component (Name);
 
          if Named_Entity /= null then
-            if Named_Entity.all in Pattern_Type then
-               --  If it's a pattern, just return the current value of the result
-               --  as a text expression. This will need to be evaluated, push
-               --  self on the stack
+            if Named_Entity.all in Var_Type then
+               declare
+                  A_Var : Semantic.Structure.Var :=  Semantic.Structure.Var (Named_Entity);
+               begin
+                  if A_Var.Kind = Text_Kind then
+                     if Top_Frame.Context /= Match_Context then
+                        if not An_Entity.Symbols.Contains (Name) then
+                           An_Entity.Symbols.Insert (Name, new Runtime_Text_Container_Type);
+                        end if;
 
-               Push_Entity (An_Entity);
+                        Top_Frame.Data_Stack.Append (An_Entity.Symbols.Element (Name));
 
-               Evaluate_Expression (Wrapping.Semantic.Structure.Pattern (Named_Entity).Pattern_Expression);
+                        return True;
+                     else
+                        Top_Frame.Data_Stack.Append
+                          (new Runtime_Function_Reference_Type'
+                             (Name   => To_Unbounded_Text (Name),
+                              Prefix => Language_Entity (An_Entity)));
 
-               Result := Top_Frame.Data_Stack.Last_Element;
-               Top_Frame.Data_Stack.Delete_Last (2);
+                        return True;
+                     end if;
+                  elsif A_Var.Kind = Pattern_Kind then
+                     --  If it's a pattern, just return the current value of the result
+                     --  as a text expression. This will need to be evaluated, push
+                     --  self on the stack
 
-               Top_Frame.Data_Stack.Append (Result);
+                     Push_Entity (An_Entity);
 
-               return True;
-            elsif Named_Entity.all in Var_Type then
-               if Top_Frame.Context /= Match_Context then
-                  if not An_Entity.Symbols.Contains (Name) then
-                     An_Entity.Symbols.Insert (Name, new Runtime_Text_Container_Type);
+                     Evaluate_Expression (A_Var.Args.Child (1).As_Argument.F_Value);
+
+                     Result := Top_Frame.Data_Stack.Last_Element;
+                     Top_Frame.Data_Stack.Delete_Last (2);
+
+                     Top_Frame.Data_Stack.Append (Result);
+
+                     return True;
                   end if;
-
-                  Top_Frame.Data_Stack.Append (An_Entity.Symbols.Element (Name));
-
-                  return True;
-               else
-                  Top_Frame.Data_Stack.Append
-                    (new Runtime_Function_Reference_Type'
-                       (Name   => To_Unbounded_Text (Name),
-                        Prefix => Language_Entity (An_Entity)));
-
-                  return True;
-               end if;
+               end;
             end if;
          end if;
       end if;
@@ -668,7 +674,7 @@ package body Wrapping.Runtime.Structure is
            Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
 
          for T of Matched_Entity.Templates_By_Full_Id loop
-            Push_Entity (T);
+            Push_Entity (T, True);
             Evaluate_Expression (Match_Expression);
 
             Result := Top_Frame.Data_Stack.Last_Element;

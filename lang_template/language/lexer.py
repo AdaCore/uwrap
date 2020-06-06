@@ -7,7 +7,6 @@ class Token(LexerToken):
     
     Template   = WithText()
     Extends    = WithText()
-    Pattern    = WithText()
     Var        = WithText()
 
     Match      = WithText()
@@ -57,12 +56,10 @@ template_lexer.add_rules(
     (Pattern(r"[ \t\r\n]+"), Ignore()),
     (Pattern(r"#(.?)+"),     Token.Comment),
 
-    (Literal("module"), Token.Module),
     (Literal("import"), Token.Import),
     
     (Literal ("template"), Token.Template),
     (Literal ("extends"), Token.Template),
-    (Literal ("pattern"), Token.Pattern),
     (Literal ("var"), Token.Var),
 
     (Literal("match"), Token.Match),

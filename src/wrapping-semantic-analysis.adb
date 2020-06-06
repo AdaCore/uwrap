@@ -173,15 +173,6 @@ package body Wrapping.Semantic.Analysis is
                  (C.As_Var.F_Name.Text,
                   A_Template.Variables_Ordered.Last_Element);
 
-            when Template_Pattern =>
-               declare
-                  A_Pattern : Structure.Pattern := new Pattern_Type;
-               begin
-                  Push_Named_Entity (A_Pattern, C, C.As_Pattern.F_Name);
-                  A_Pattern.Pattern_Expression := C.As_Pattern.F_Expression;
-                  Pop_Entity;
-               end;
-
             when others =>
                Error ("unsupported node for templates: '" & C.Kind'Wide_Wide_Image & "'");
          end case;
@@ -272,6 +263,25 @@ package body Wrapping.Semantic.Analysis is
       A_Var : Structure.Var := new Var_Type;
    begin
       Push_Named_Entity (A_Var, Node, Node.As_Var.F_Name);
+
+      if Node.As_Var.F_Typ.Text = "text" then
+         A_Var.Kind := Text_Kind;
+
+         if Node.As_Var.F_Args.Children_Count /= 0 then
+            Error ("no argument expected for text var");
+         end if;
+      elsif Node.As_Var.F_Typ.Text = "pattern" then
+         A_Var.Kind := Pattern_Kind;
+
+         if Node.As_Var.F_Args.Children_Count /= 1 then
+            Error ("missing parameter for pattern");
+         end if;
+      else
+         Error ("unknown var type: '"
+                & Node.As_Var.F_Typ.Text & "', use text or pattern instead");
+      end if;
+
+      A_Var.Args := Node.As_Var.F_Args;
 
       Pop_Entity;
 
@@ -394,10 +404,6 @@ package body Wrapping.Semantic.Analysis is
          Result := Get_Visible_Template (Current_Scope, Name.Text);
       end if;
 
-      if Result = null then
-         Error ("can't find template '" & Name.Text & "'");
-      end if;
-
       Pop_Error_Location;
 
       return Result;
@@ -418,6 +424,16 @@ package body Wrapping.Semantic.Analysis is
          A_Command.Template_Clause.Template_Reference := Get_Template_By_Name
            (A_Command.Parent,
             A_Command.Template_Clause.Node.F_Template_Set.F_Name);
+
+         if A_Command.Template_Clause.Template_Reference = null then
+
+            if A_Command.Template_Clause.Node.Kind = Template_Wrap_Clause then
+               Error ("template instances can only be weaved, not wrapped");
+            end if;
+
+            A_Command.Template_Clause.Template_Instance_Expression :=
+              Template_Node (A_Command.Template_Clause.Node.F_Template_Set.F_Name);
+         end if;
       end if;
 
       if A_Command.Nested_Actions /= null then

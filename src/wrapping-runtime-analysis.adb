@@ -170,26 +170,45 @@ package body Wrapping.Runtime.Analysis is
                      Entity_Target := A_Language_Entity;
                   end if;
 
-                  A_Template_Instance := Entity_Target.Get_Template_Instance
-                    (A_Command.Template_Clause.Template_Reference);
+                  if A_Command.Template_Clause.Template_Reference /= null then
+                     A_Template_Instance := Entity_Target.Get_Template_Instance
+                       (A_Command.Template_Clause.Template_Reference);
 
-                  if A_Command.Template_Clause.all in Weave_Type'Class
-                    or else A_Template_Instance = null
-                    or else A_Template_Instance.Is_Wrapping = False
-                  then
-                     if A_Template_Instance = null then
-                        A_Template_Instance := Entity_Target.Create_Template_Instance
-                          (A_Command.Template_Clause.Template_Reference);
+                     if A_Command.Template_Clause.all in Weave_Type'Class
+                       or else A_Template_Instance = null
+                       or else A_Template_Instance.Is_Wrapping = False
+                     then
+                        if A_Template_Instance = null then
+                           A_Template_Instance := Entity_Target.Create_Template_Instance
+                             (A_Command.Template_Clause.Template_Reference);
+                        end if;
+
+                        if  A_Command.Template_Clause.all in Wrap_Type'Class then
+                           A_Template_Instance.Is_Wrapping := True;
+                        end if;
+                     else
+                        A_Template_Instance := null;
+                     end if;
+                  else
+                     Evaluate_Expression (A_Command.Template_Clause.Template_Instance_Expression);
+
+                     if Top_Frame.Data_Stack.Last_Element.all not in Runtime_Language_Entity_Type'Class
+                       or else Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value.all not in
+                       Template_Instance_Type'Class
+                     then
+                        Error ("template instance not found");
                      end if;
 
-                     if  A_Command.Template_Clause.all in Wrap_Type'Class then
-                        A_Template_Instance.Is_Wrapping := True;
-                     end if;
+                     A_Template_Instance :=  Template_Instance
+                       (Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value);
+                     Top_Frame.Data_Stack.Delete_Last;
+                  end if;
 
-                     Handle_Template_Call
-                       (Entity_Target,
-                        A_Template_Instance,
-                        A_Command.Template_Clause.Arguments);
+                  if A_Template_Instance /= null then
+                      Handle_Template_Call
+                          (Entity_Target,
+                           A_Template_Instance,
+                           A_Command.Template_Clause.Arguments);
                   end if;
                end;
             elsif not A_Command.Apply_Expression.Is_Null then
@@ -376,9 +395,28 @@ package body Wrapping.Runtime.Analysis is
 
             Node.As_Match_Capture.F_Expression.Traverse (Visit_Expression'Access);
 
-            Top_Frame.Symbols.Include
-              (Node.As_Match_Capture.F_Captured.Text,
-               Top_Frame.Data_Stack.Last_Element);
+            if Top_Frame.Data_Stack.Last_Element /= Match_False then
+               Top_Frame.Symbols.Include
+                 (Node.As_Match_Capture.F_Captured.Text,
+                  Top_Frame.Data_Stack.Last_Element);
+            end if;
+
+            Pop_Error_Location;
+            return Over;
+         when Template_Dotted_Name =>
+            declare
+               Result : Runtime_Object;
+            begin
+               if not Node.As_Dotted_Name.F_Prefix.Is_Null then
+                  Node.As_Dotted_Name.F_Prefix.Traverse (Visit_Expression'Access);
+                  Node.As_Dotted_Name.F_Suffix.Traverse (Visit_Expression'Access);
+                  Result := Top_Frame.Data_Stack.Last_Element;
+                  Top_Frame.Data_Stack.Delete_Last (2);
+                  Top_Frame.Data_Stack.Append (Result);
+               else
+                  Node.As_Dotted_Name.F_Suffix.Traverse (Visit_Expression'Access);
+               end if;
+            end;
 
             Pop_Error_Location;
             return Over;

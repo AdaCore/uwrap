@@ -51,13 +51,6 @@ package Wrapping.Semantic.Structure is
    package Var_Vectors is new Ada.Containers.Vectors (Positive, Var);
    use Var_Vectors;
 
-   type Pattern_Type;
-   type Pattern is access all Pattern_Type'Class;
-   package Pattern_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Pattern);
-   use Pattern_Maps;
-   package Pattern_Vectors is new Ada.Containers.Vectors (Positive, Pattern);
-   use Pattern_Vectors;
-
    type Weave_Or_Wrap_Type;
    type Weave_Or_Wrap is access all Weave_Or_Wrap_Type'Class;
    package Weave_Or_Wrap_Vectors is new Ada.Containers.Vectors (Positive, Weave_Or_Wrap);
@@ -135,12 +128,11 @@ package Wrapping.Semantic.Structure is
 
    function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return Namespace;
 
-   type Var_Type is new Named_Entity_Type with record
-      null;
-   end record;
+   type Var_Type_Kind is (Text_Kind, Pattern_Kind);
 
-   type Pattern_Type is new Named_Entity_Type with record
-      Pattern_Expression : Template_Node;
+   type Var_Type is new Named_Entity_Type with record
+      Kind : Var_Type_Kind;
+      Args : Argument_List;
    end record;
 
    type Match_Type is new Entity_Type with record
@@ -151,6 +143,7 @@ package Wrapping.Semantic.Structure is
       Node : Template_Clause;
       Target_Object    : Template_Node;
       Template_Reference : Template;
+      Template_Instance_Expression : Template_Node;
 
       Arguments  : Argument_List;
    end record;

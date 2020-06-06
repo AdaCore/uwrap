@@ -1,0 +1,56 @@
+template w_root {
+    var name : text;
+    var level : text;
+    var contents : text;
+}
+
+template w_entity {
+    var name : text;
+    var level : text;
+    var output : pattern ("'\e<name>' [\e<level>]\n");
+}
+
+template w_option {
+    var option : text;
+}
+
+match entity () {
+    match not (parent (entity ()))
+    wrap w_root (
+        name => f_name,
+        level => "0"
+    );
+
+    match parent (entity ())
+    wrap w_entity (
+        name => f_name,
+        level => "1"
+    );    
+
+    match parent (entity (parent (entity ())))
+    wrap w_entity (
+        name => f_name,
+        level => "2+"
+    );
+
+    match not f_name ("A")
+    wrap w_option ("NOT A");
+}
+
+match w_root ()
+weave self (contents => "PROCESSING ROOT \e<origin.f_name>\n");
+
+match w_entity () and parent (w: w_root ())
+weave w (contents => self.output);
+
+#match w_entity () and origin (template (o: w_option ())) and parent (w: w_root ())
+#weave w (contents => "OPTION FROM ORIGIN: \e<o.option>");
+
+#match w_entity () and sibling (o: w_option ()) and parent (w: w_root ())
+#weave w (contents => "OPTION FROM SIBLING: \e<o.option>");
+
+#match w_entity () and (prev (o: w_option ()) or next (o: w_option ())) and parent (w: w_root ())
+#weave w (contents => "OPTION FROM PREV OR NEXT: \e<o.option>");
+
+match w_root ()
+wrap standard.out ("DISPLAYING ROOT\n\e<contents>");
