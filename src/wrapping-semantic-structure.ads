@@ -170,6 +170,7 @@ package Wrapping.Semantic.Structure is
       Template_Clause : Weave_Or_Wrap;
 
       Apply_Expression : Template_Node;
+      Traverse_Expression : Template_Node;
       Nested_Actions   : Entity;
       Else_Actions     : Entity;
    end Record;

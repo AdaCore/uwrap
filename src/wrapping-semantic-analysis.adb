@@ -238,6 +238,10 @@ package body Wrapping.Semantic.Analysis is
                end case;
 
                return Over;
+            when Template_Traverse_Clause =>
+               A_Command.Traverse_Expression := Template_Node (Node);
+               return Over;
+
             when others =>
                return Into;
          end case;

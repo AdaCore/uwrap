@@ -20,10 +20,13 @@ with Wrapping.Runtime.Functions; use Wrapping.Runtime.Functions;
 
 package body Wrapping.Runtime.Analysis is
 
-   procedure Handle_Template_Call
-     (An_Entity : Language_Entity;
-      A_Template_Instance : Template_Instance;
-      Args : Libtemplatelang.Analysis.Argument_List);
+   procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class);
+   procedure Handle_Call (Node : Libtemplatelang.Analysis.Template_Node'Class);
+   procedure Handle_Traverse_Step (Node : Libtemplatelang.Analysis.Template_Node'Class);
+   procedure Handle_Template_Call (An_Entity : Language_Entity; A_Template_Instance : Template_Instance; Args : Libtemplatelang.Analysis.Argument_List);
+
+   procedure Analyze_Replace_String (Str : Text_Type; Context : Libtemplatelang.Analysis.Analysis_Context);
+   function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
 
    procedure Push_Error_Location
      (An_Entity : access Semantic.Structure.Entity_Type'Class)
@@ -112,7 +115,8 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Apply_Wrapping_Program
      (A_Language_Entity : Language_Entity;
-      Lexical_Scope     : access Semantic.Structure.Entity_Type'Class)
+      Lexical_Scope     : access Semantic.Structure.Entity_Type'Class;
+      A_Visit_Action    : in out Visit_Action)
    is
       Self_Element : Runtime_Language_Entity := new Runtime_Language_Entity_Type; -- TODO: We may not need to instantiate here
 
@@ -220,7 +224,38 @@ package body Wrapping.Runtime.Analysis is
             elsif A_Command.Nested_Actions /= null then
                Apply_Wrapping_Program
                  (A_Language_Entity,
-                  A_Command.Nested_Actions);
+                  A_Command.Nested_Actions,
+                  A_Visit_Action);
+            elsif not A_Command.Traverse_Expression.Is_Null then
+               if not A_Language_Entity.Traverse_Applied then
+                  A_Language_Entity.Traverse_Applied := True;
+
+                  A_Command.Traverse_Expression.Traverse (Visit_Expression'Access);
+
+                  if Top_Frame.Data_Stack.Last_Element.all in Runtime_Traverse_Decision_Type'Class then
+                     --  In this case, a decision was taken as to the continuation of the
+                     --  iteration.
+
+                     declare
+                        A_Decision : Runtime_Traverse_Decision := Runtime_Traverse_Decision
+                          (Top_Frame.Data_Stack.Last_Element);
+                     begin
+                        Top_Frame.Data_Stack.Delete_Last;
+
+                        if A_Decision.A_Visit_Action = Over then
+                           A_Visit_Action := Over;
+                        else
+                           if A_Decision.Into_Expression.Is_Null then
+                              A_Visit_Action := Into;
+                           else
+                              Error ("traverse into functions not yet implemented");
+
+                              A_Visit_Action := Over;
+                           end if;
+                        end if;
+                     end;
+                  end if;
+               end if;
             end if;
          else
             if A_Command.Else_Actions /= null then
@@ -229,7 +264,8 @@ package body Wrapping.Runtime.Analysis is
                else
                   Apply_Wrapping_Program
                     (A_Language_Entity,
-                     A_Command.Else_Actions);
+                     A_Command.Else_Actions,
+                     A_Visit_Action);
                end if;
             end if;
          end if;
@@ -238,7 +274,6 @@ package body Wrapping.Runtime.Analysis is
 
          Pop_Frame;
       end Apply_Command;
-
    begin
       Push_Frame (Lexical_Scope);
 
@@ -249,7 +284,7 @@ package body Wrapping.Runtime.Analysis is
            or else Wrapping_Entity.all in Namespace_Type'Class
          then
             Apply_Wrapping_Program
-              (A_Language_Entity, Wrapping_Entity);
+              (A_Language_Entity, Wrapping_Entity, A_Visit_Action);
          end if;
       end loop;
 
@@ -267,26 +302,27 @@ package body Wrapping.Runtime.Analysis is
       Analyse (Get_Root_Language_Entity (Language));
    end Analyse;
 
+   function Analyze_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
+      A_Visit_Action : Visit_Action := Into;
+   begin
+      Apply_Wrapping_Program
+        (Language_Entity (E),
+         Wrapping.Semantic.Analysis.Root,
+         A_Visit_Action);
+
+      return A_Visit_Action;
+   end Analyze_Visitor;
+
    procedure Analyse (Root_Entity : Language_Entity) is
       File_Template : Wrapping.Semantic.Structure.Template;
       Out_Template : Wrapping.Semantic.Structure.Template;
       A_Template_Instance : Template_Instance;
-
-      function Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
-      begin
-         Apply_Wrapping_Program
-           (Language_Entity (E),
-            Wrapping.Semantic.Analysis.Root);
-
-         return Into;
-      end Visitor;
-
       Dummy_Action : Visit_Action;
    begin
       Register_Standard_Globals;
 
       Dummy_Action := Root_Entity.Traverse
-        (Child_Depth, True, Visitor'Access);
+        (Child_Depth, True, Analyze_Visitor'Access);
 
       Get_Root_Language_Entity ("template").Children_Ordered.Append
         (Get_Root_Language_Entity ("template_tmp").Children_Ordered);
@@ -295,7 +331,7 @@ package body Wrapping.Runtime.Analysis is
       Get_Root_Language_Entity ("template_tmp").Children_Indexed.Clear;
 
       Dummy_Action := Get_Root_Language_Entity ("template").Traverse
-        (Child_Depth, True, Visitor'Access);
+        (Child_Depth, True, Analyze_Visitor'Access);
 
       File_Template := Wrapping.Semantic.Structure.Template
         (Resolve_Module_By_Name ("standard").
@@ -368,15 +404,10 @@ package body Wrapping.Runtime.Analysis is
       end loop;
    end Analyse;
 
-   procedure Analyze_Replace_String (Str : Text_Type; Context : Libtemplatelang.Analysis.Analysis_Context);
-   procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class);
-   procedure Handle_Call (Node : Libtemplatelang.Analysis.Template_Node'Class);
-
-   function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
-
    procedure Evaluate_Expression
      (Node : Libtemplatelang.Analysis.Template_Node'Class)
    is
+      -- TODO: Review the need for this confusing function that doesn't really traverse
       Dummy : Libtemplatelang.Common.Visit_Status := Visit_Expression (Node);
    begin
       null;
@@ -554,6 +585,37 @@ package body Wrapping.Runtime.Analysis is
             --  Resolved the called identifier
 
             Handle_Call (Node);
+
+            Pop_Error_Location;
+            return Over;
+
+         when Template_Traverse_Clause =>
+            Pop_Error_Location;
+            return Into;
+
+         when Template_Traverse_Sequence =>
+            Pop_Error_Location;
+            return Into;
+
+         when Template_Traverse_Step =>
+            Handle_Traverse_Step (Node);
+
+            Pop_Error_Location;
+            return Over;
+
+         when Template_Traverse_End_Into =>
+            Top_Frame.Data_Stack.Append
+              (new Runtime_Traverse_Decision_Type'
+                 (A_Visit_Action => Into,
+                  Into_Expression => Template_Node (Node.As_Traverse_End_Into.F_Call)));
+
+            Pop_Error_Location;
+            return Over;
+
+         when Template_Traverse_End_Over =>
+            Top_Frame.Data_Stack.Append
+              (new Runtime_Traverse_Decision_Type'
+                 (A_Visit_Action => Over, others => <>));
 
             Pop_Error_Location;
             return Over;
@@ -843,10 +905,6 @@ package body Wrapping.Runtime.Analysis is
          Parameter_Value := Top_Frame.Data_Stack.Last_Element;
          Top_Frame.Data_Stack.Delete_Last;
 
-         if Parameter_Value.all not in Runtime_Text_Expression_Type'Class then
-            Error ("expected text expression");
-         end if;
-
          if not Param.As_Argument.F_Name.Is_Null then
             In_Named_Section := True;
             Name_Node := Param.As_Argument.F_Name;
@@ -876,7 +934,7 @@ package body Wrapping.Runtime.Analysis is
                  (Name_Node.Text, Runtime_Object (Container));
             end if;
 
-            Container.Texts.Append (Runtime_Text_Expression (Parameter_Value));
+             Container.Texts.Append (Parameter_Value.To_Text_Expression);
          end;
 
          Parameter_Index := Parameter_Index + 1;
@@ -978,5 +1036,25 @@ package body Wrapping.Runtime.Analysis is
          end if;
       end if;
    end Handle_Call;
+
+   procedure Handle_Traverse_Step (Node : Libtemplatelang.Analysis.Template_Node'Class) is
+      Entity : Language_Entity;
+
+      Dummy_Action : Visit_Action;
+   begin
+      Node.As_Traverse_Step.F_Expression.Traverse (Visit_Expression'Access);
+      Entity := Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
+
+      if Node.As_Traverse_Step.F_Into.Is_Null then
+         Dummy_Action := Entity.Traverse (Child_Depth, True, Analyze_Visitor'Access);
+         Top_Frame.Data_Stack.Delete_Last;
+      else
+         Error ("traversing into functions not implemented");
+      end if;
+
+      if not Node.As_Traverse_Step.F_Then.Is_Null then
+         Node.As_Traverse_Step.F_Then.Traverse (Visit_Expression'Access);
+      end if;
+   end Handle_Traverse_Step;
 
 end Wrapping.Runtime.Analysis;

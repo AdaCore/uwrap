@@ -117,7 +117,7 @@ package body Wrapping.Run is
 
                   Root_Entity := new Kit_Language_Entity_Type'(Node => Unit.Root, others => <>);
 
-                  Wrapping.Runtime.analysis.Analyse (Root_Entity);
+                  Wrapping.Runtime.Analysis.Analyse (Root_Entity);
                end loop;
             end;
          else

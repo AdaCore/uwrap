@@ -58,9 +58,7 @@ package body Wrapping.Input.Kit is
          Node : Test_Node := Get_Field (An_Entity.Node, Name);
       begin
          if not Node.Is_Null then
-            Top_Frame.Data_Stack.Append
-              (new Runtime_Text_Type'
-                 (Value => To_Unbounded_Text (Node.Text)));
+            Push_Entity (An_Entity.Children_By_Node.Element (Node));
 
             return True;
          end if;
@@ -161,5 +159,11 @@ package body Wrapping.Input.Kit is
 
       return False;
    end Push_Match_Result;
+
+   overriding
+   function To_Text (Object : Kit_Language_Entity_Type) return Text_Type is
+   begin
+      return Object.Node.Text;
+   end To_Text;
 
 end Wrapping.Input.Kit;

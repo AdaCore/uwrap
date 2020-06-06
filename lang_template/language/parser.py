@@ -123,6 +123,24 @@ class Selector(TemplateNode):
 class NestedScope (TemplateNode):
     scope=Field()
 
+class TraverseClause (TemplateNode):
+    actions=Field()
+
+class TraverseSequence (TemplateNode):
+    first=Field()
+    end=Field()
+
+class TraverseStep(TemplateNode):
+    expression=Field()
+    into=Field()
+    then=Field()
+
+class TraverseEndInto (TemplateNode):
+    call=Field()
+
+class TraverseEndOver (TemplateNode):
+    pass
+
 class NoNode(TemplateNode):
     pass
 
@@ -148,7 +166,8 @@ template_grammar.add_rules(
         Or(
             Pick (G.wrap_clause),
             Pick (G.weave_clause),
-            Pick (G.apply_clause)
+            Pick (G.apply_clause),
+            Pick (G.traverse_clause)
         ),
         Or (
             Pick (';', NoNode()),
@@ -165,6 +184,17 @@ template_grammar.add_rules(
     wrap_clause=WrapClause('wrap', Opt (G.expr, 'with'), TemplateSet (G.dotted_name, '(', G.arg_list, ')')),
     weave_clause=WeaveClause('weave', Opt (G.expr, 'with'), TemplateSet (G.dotted_name, '(', G.arg_list, ')')),
     apply_clause=ApplyClause('apply', G.call_expr),
+
+    traverse_clause=TraverseClause('traverse', Or (G.traverse_sequence, G.traverse_end)),
+    traverse_sequence=TraverseSequence(
+        G.traverse_step,
+        Opt ('then', G.traverse_end)),
+    traverse_step=TraverseStep(
+        G.expr, 
+        Opt ('into', G.call_expr), 
+        Opt ('then', G.traverse_step)),
+    traverse_end=Opt(Or(TraverseEndInto ('into', Opt (G.call_expr)), TraverseEndOver ('over'))),
+
     match_expr=Or(
         Pick('(', G.match_expr, ')'),
         MatchCapture(G.identifier, ':', G.match_expr),

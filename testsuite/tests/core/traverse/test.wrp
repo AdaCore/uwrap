@@ -1,0 +1,23 @@
+match call () {
+    wrap standard.out ("CALL TRAVERSED \e<f_name>\n");
+
+    traverse over;
+
+    match f_name ("^INTO$")
+    traverse into;
+
+    match f_name ("^ARGS_THEN_OVER$")
+    traverse f_args then over;
+
+    match f_name ("^NESTED_THEN_ARGS_THEN_OVER$")
+    traverse f_nested then f_args then over;
+
+    match f_name ("^ARGS_THEN_NESTED_THEN_OVER$")
+    traverse f_args then f_nested then over;
+
+    match f_name ("^ARGS_THEN_INTO$")
+    traverse f_args then into;
+}
+
+match entity ()
+weave standard.out ("ENTITY TRAVERSED: \e<f_name>\n");

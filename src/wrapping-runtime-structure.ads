@@ -59,7 +59,7 @@ package Wrapping.Runtime.Structure is
    type Runtime_Text_Type;
    type Runtime_Text is access all Runtime_Text_Type'Class;
 
-   type Runtime_Template_Variable_Reference_Type;
+   type Runtime_Template_Variable_Reference_Type; -- TODO: Probably get rid of this
    type Runtime_Template_Variable_Reference is access all Runtime_Template_Variable_Reference_Type'Class;
 
    type Runtime_Language_Entity_Type;
@@ -76,6 +76,9 @@ package Wrapping.Runtime.Structure is
 
    type Runtime_Expression_Type;
    type Runtime_Expression is access all Runtime_Expression_Type'Class;
+
+   type Runtime_Traverse_Decision_Type;
+   type Runtime_Traverse_Decision is access all Runtime_Traverse_Decision_Type'Class;
 
    type Parameter_Type;
    type Parameter is access all Parameter_Type;
@@ -119,7 +122,9 @@ package Wrapping.Runtime.Structure is
       Templates_By_Full_Id : Template_Instance_Maps.Map;
       Templates_Ordered : Template_Instance_Vectors.Vector;
 
-      A_Class : Language_Entity_Class;
+      A_Class : Language_Entity_Class; -- TODO: Probably get rid of this
+
+      Traverse_Applied : Boolean := False;
    end record;
 
    procedure Add_Child (Parent, Child : access Language_Entity_Type'Class);
@@ -297,6 +302,14 @@ package Wrapping.Runtime.Structure is
       Is_Implicit_Self : Boolean := False;
    end record;
 
+   overriding
+   function To_Text (Object : Runtime_Language_Entity_Type) return Text_Type is
+     (if Object.Value /= null then Object.Value.To_Text else "");
+
+   overriding
+   function To_Text_Expression (Object : access Runtime_Language_Entity_Type) return Runtime_Text_Expression
+   is (new Runtime_Text_Type'(Value => To_Unbounded_Text (Object.To_Text)));
+
    type Runtime_Function_Reference_Type is new Runtime_Object_Type with record
       Name : Unbounded_Text_Type;
       Prefix : Language_Entity;
@@ -316,6 +329,11 @@ package Wrapping.Runtime.Structure is
 
    type Runtime_Expression_Type is new Runtime_Object_Type with record
       Expression : Libtemplatelang.Analysis.Template_Node;
+   end record;
+
+   type Runtime_Traverse_Decision_Type is new Runtime_Object_Type with record
+      A_Visit_Action : Visit_Action;
+      Into_Expression : Template_Node;
    end record;
 
    type Data_Type is (Text, Expression);

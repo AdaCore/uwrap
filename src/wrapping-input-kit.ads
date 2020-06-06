@@ -33,4 +33,7 @@ package Wrapping.Input.Kit is
       Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
 
+   overriding
+   function To_Text (Object : Kit_Language_Entity_Type) return Text_Type;
+
 end Wrapping.Input.Kit;

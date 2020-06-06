@@ -22,6 +22,11 @@ class Token(LexerToken):
     Or         = WithText()
     Not        = WithText()
 
+    Traverse   = WithText()
+    Then       = WithText()
+    Into       = WithText()
+    Over       = WithText()
+
     LPar       = WithText()
     RPar       = WithText()
     LBrk       = WithText()
@@ -71,6 +76,12 @@ template_lexer.add_rules(
     (Literal("and"), Token.And),
     (Literal("or"), Token.Or),
     (Literal("not"), Token.Not),
+    
+    (Literal("traverse"), Token.Traverse),
+    (Literal("then"), Token.Then),
+    (Literal("into"), Token.Into),
+    (Literal("over"), Token.Over),
+
     (Literal("null"), Token.Null),
     (Literal("with"), Token.With),
     (Literal("("), Token.LPar),
