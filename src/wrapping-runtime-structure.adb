@@ -144,66 +144,79 @@ package body Wrapping.Runtime.Structure is
       Name      : Text_Type;
       Params    : Argument_List) return Boolean
    is
+      A_Mode : Browse_Mode;
    begin
       if Name = "parent" then
+         A_Mode := Parent;
+
          if Params.Children_Count = 0 then
             if An_Entity.Parent /= null then
                Push_Match_True (An_Entity);
             else
                Push_Match_False;
             end if;
-         elsif Params.Children_Count = 1 then
-            Evaluate_Bowse_Functions (An_Entity, Parent, Params.Child (1).As_Argument.F_Value);
-         else
-            Error ("parent matcher takes only 1 argument");
          end if;
-
-         return True;
       elsif Name = "child" then
+         A_Mode := Child_Breadth;
+
          if Params.Children_Count = 0 then
             if An_Entity.Children_Indexed.Length > 0 then
                Push_Match_True (An_Entity);
             else
                Push_Match_False;
             end if;
-         elsif Params.Children_Count = 1 then
-            Evaluate_Bowse_Functions (An_Entity, Child_Breadth, Params.Child (1).As_Argument.F_Value);
-         else
-            Error ("parent matcher takes only 1 argument");
          end if;
-
-         return True;
       elsif Name = "prev" then
+         A_Mode := Prev;
+
          if Params.Children_Count = 0 then
             if An_Entity.Prev /= null then
                Push_Match_True (An_Entity);
             else
                Push_Match_False;
             end if;
-         elsif Params.Children_Count = 1 then
-            Evaluate_Bowse_Functions (An_Entity, Prev, Params.Child (1).As_Argument.F_Value);
-         else
-            Error ("parent matcher takes only 1 argument");
          end if;
-
-         return True;
       elsif Name = "next" then
+         A_Mode := Next;
+
          if Params.Children_Count = 0 then
             if An_Entity.Next /= null then
                Push_Match_True (An_Entity);
             else
                Push_Match_False;
             end if;
-         elsif Params.Children_Count = 1 then
-            Evaluate_Bowse_Functions (An_Entity, Next, Params.Child (1).As_Argument.F_Value);
-         else
-            Error ("parent matcher takes only 1 argument");
          end if;
+      elsif Name = "sibling" then
+         A_Mode := Sibling;
 
-         return True;
+         if Params.Children_Count = 0 then
+            if An_Entity.Prev /= null or else An_Entity.Next /= null then
+               Push_Match_True (An_Entity);
+            else
+               Push_Match_False;
+            end if;
+         end if;
+      elsif Name = "template" then
+          A_Mode := Template;
+
+         if Params.Children_Count = 0 then
+            if An_Entity.Templates_By_Name.Length > 0 then
+               Push_Match_True (An_Entity);
+            else
+               Push_Match_False;
+            end if;
+         end if;
+      else
+         return False;
       end if;
 
-      return False;
+      if Params.Children_Count = 1 then
+         Evaluate_Bowse_Functions (An_Entity, A_Mode, Params.Child (1).As_Argument.F_Value);
+      elsif Params.Children_Count > 1 then
+         Error ("matcher takes only 1 argument");
+      end if;
+
+      return True;
    end Push_Browse_Result;
 
    function Push_Call_Result
@@ -252,6 +265,45 @@ package body Wrapping.Runtime.Structure is
          end case;
       end if;
 
+      if A_Mode = Sibling then
+         case Language_Entity_Type'Class (An_Entity.all).Traverse
+           (Prev,
+            False,
+            Visitor)
+         is
+            when Stop =>
+               return Stop;
+
+            when Over =>
+               return Over;
+
+            when Into =>
+               null;
+         end case;
+
+         return Language_Entity_Type'Class (An_Entity.all).Traverse
+           (Next,
+            False,
+            Visitor);
+      elsif A_Mode = Template then
+         for T of An_Entity.Templates_Ordered loop
+            Language_Entity_Type'Class (T.all).Pre_Visit;
+
+            case Visitor (T) is
+               when Over =>
+                  null;
+
+               when Stop =>
+                  return Stop;
+
+               when Into =>
+                  null;
+            end case;
+         end loop;
+
+         return Into;
+      end if;
+
       case A_Mode is
          when Parent =>
             Current := An_Entity.Parent;
@@ -271,6 +323,9 @@ package body Wrapping.Runtime.Structure is
             for C of An_Entity.Children_Ordered loop
                Current_Children_List.Append (C);
             end loop;
+
+         when Sibling | Template =>
+            null;
 
       end case;
 
@@ -334,6 +389,10 @@ package body Wrapping.Runtime.Structure is
 
                when Child_Breadth =>
                   null;
+
+               when Sibling | Template =>
+                  null;
+
             end case;
          end loop;
       end if;
@@ -429,6 +488,7 @@ package body Wrapping.Runtime.Structure is
       An_Entity.A_Class := Language_Class_Registry.Element ("template");
       An_Entity.Templates_By_Name.Insert (A_Template.Name_Node.Text, New_Template);
       An_Entity.Templates_By_Full_Id.Insert (A_Template.Full_Name, New_Template);
+      An_Entity.Templates_Ordered.Append (New_Template);
 
       Add_Child (Get_Root_Language_Entity ("template_tmp"), New_Template);
 
@@ -591,7 +651,31 @@ package body Wrapping.Runtime.Structure is
          return True;
       end if;
 
-      if An_Entity.Template.Children_Indexed.Contains (Name) then
+      if Name = "origin" then
+         if Params.Children_Count = 0 then
+            --  We just checked for the existence of this var and
+            --  disregard the actual value
+
+            Push_Match_True (An_Entity);
+         elsif Params.Children_Count = 1 then
+            Push_Entity (An_Entity.Origin, True);
+
+            Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+
+            Result := Top_Frame.Data_Stack.Last_Element;
+            Top_Frame.Data_Stack.Delete_Last (2); -- unstack origin and result
+
+            if Result = Match_False then
+               Push_Match_False;
+            else
+               Push_Match_True (An_Entity);
+            end if;
+
+            return True;
+         else
+            Error ("only one parameter expected");
+         end if;
+      elsif An_Entity.Template.Children_Indexed.Contains (Name) then
          -- If the name is a template variable, match the argument
          A_Named_Entity := Named_Entity
            (An_Entity.Template.Children_Indexed.Element (Name));
@@ -673,7 +757,7 @@ package body Wrapping.Runtime.Structure is
          Matched_Entity :=
            Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
 
-         for T of Matched_Entity.Templates_By_Full_Id loop
+         for T of Matched_Entity.Templates_Ordered loop
             Push_Entity (T, True);
             Evaluate_Expression (Match_Expression);
 

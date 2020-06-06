@@ -466,6 +466,10 @@ package body Wrapping.Runtime.Analysis is
                   if Left /= Match_False then
                      Push_Match_True (Top_Frame.Data_Stack.Last_Element);
                   else
+                     Node.As_Binary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
+                     Right := Top_Frame.Data_Stack.Last_Element;
+                     Top_Frame.Data_Stack.Delete_Last;
+
                      if Right /= Match_False then
                         Push_Match_True (Top_Frame.Data_Stack.Last_Element);
                      else

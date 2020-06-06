@@ -117,6 +117,7 @@ package Wrapping.Runtime.Structure is
 
       Templates_By_Name : Template_Instance_Maps.Map;
       Templates_By_Full_Id : Template_Instance_Maps.Map;
+      Templates_Ordered : Template_Instance_Vectors.Vector;
 
       A_Class : Language_Entity_Class;
    end record;
@@ -151,7 +152,7 @@ package Wrapping.Runtime.Structure is
       Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
 
-   type Browse_Mode is (Parent, Child_Depth, Child_Breadth, Next, Prev);
+   type Browse_Mode is (Parent, Child_Depth, Child_Breadth, Next, Prev, Sibling, Template);
 
    type Visit_Action is (Over, Into, Stop);
 
