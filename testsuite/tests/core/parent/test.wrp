@@ -1,10 +1,10 @@
 match entity () {
     match not parent (entity ())
-    wrap standard.out ("NO PARENT: \e<f_name>\n");
+    wrap with standard.out ("NO PARENT: \e<f_name>\n");
 
     match parent (entity ())
-    wrap standard.out ("AT LEAST ONE PARENT: \e<f_name>\n"); 
+    wrap with standard.out ("AT LEAST ONE PARENT: \e<f_name>\n"); 
 
     match parent (entity () and parent (entity ()))
-    wrap standard.out ("AT LEAST TWO PARENTS: \e<f_name>\n");
+    wrap with standard.out ("AT LEAST TWO PARENTS: \e<f_name>\n");
 }

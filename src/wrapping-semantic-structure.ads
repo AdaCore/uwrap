@@ -9,6 +9,8 @@ with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 package Wrapping.Semantic.Structure is
    -- The purpose is to create the "program" of the wrapping.
 
+   type Visit_Action is (Over, Into, Stop, Unknown);
+
    type Entity_Type;
    type Entity is access all Entity_Type'Class;
    package Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Entity);
@@ -140,12 +142,12 @@ package Wrapping.Semantic.Structure is
    end record;
 
    type Weave_Or_Wrap_Type is tagged record
-      Node : Template_Clause;
-      Target_Object    : Template_Node;
-      Template_Reference : Template;
-      Template_Instance_Expression : Template_Node;
-
-      Arguments  : Argument_List;
+      Node                         : Template_Clause;
+      Is_All                       : Boolean := False;
+      Target_Object                : Template_Node;
+      Template_Reference           : Template;
+      Arguments                    : Argument_List;
+      A_Visit_Action               : Visit_Action := Unknown;
    end record;
 
    type Wrap_Type is new Weave_Or_Wrap_Type with record
@@ -169,7 +171,6 @@ package Wrapping.Semantic.Structure is
 
       Template_Clause : Weave_Or_Wrap;
 
-      Apply_Expression : Template_Node;
       Traverse_Expression : Template_Node;
       Nested_Actions   : Entity;
       Else_Actions     : Entity;

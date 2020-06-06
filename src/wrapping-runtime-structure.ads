@@ -3,7 +3,7 @@ with Ada.Containers.Vectors;
 
 with Langkit_Support.Text; use Langkit_Support.Text;
 
-with Wrapping.Semantic.Structure;
+with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Utils; use Wrapping.Utils;
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 
@@ -158,8 +158,6 @@ package Wrapping.Runtime.Structure is
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
 
    type Browse_Mode is (Parent, Child_Depth, Child_Breadth, Next, Prev, Sibling, Template);
-
-   type Visit_Action is (Over, Into, Stop);
 
    procedure Pre_Visit (An_Entity : access Language_Entity_Type) is null;
 

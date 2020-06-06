@@ -262,6 +262,9 @@ package body Wrapping.Runtime.Structure is
 
             when Into =>
                null;
+
+            when Unknown =>
+               null;
          end case;
       end if;
 
@@ -278,6 +281,9 @@ package body Wrapping.Runtime.Structure is
                return Over;
 
             when Into =>
+               null;
+
+            when Unknown =>
                null;
          end case;
 
@@ -297,6 +303,9 @@ package body Wrapping.Runtime.Structure is
                   return Stop;
 
                when Into =>
+                  null;
+
+               when Unknown =>
                   null;
             end case;
          end loop;
@@ -345,6 +354,9 @@ package body Wrapping.Runtime.Structure is
                      for C2 of C.Children_Ordered loop
                         Next_Children_List.Append (C2);
                      end loop;
+
+                  when Unknown =>
+                     null;
                end case;
             end loop;
 
@@ -375,6 +387,9 @@ package body Wrapping.Runtime.Structure is
                            null;
                      end case;
                   end if;
+
+               when Unknown =>
+                  null;
             end case;
 
             case A_Mode is

@@ -22,9 +22,9 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class);
    procedure Handle_Call (Node : Libtemplatelang.Analysis.Template_Node'Class);
-   procedure Handle_Traverse_Step (Node : Libtemplatelang.Analysis.Template_Node'Class);
    procedure Handle_Template_Call (An_Entity : Language_Entity; A_Template_Instance : Template_Instance; Args : Libtemplatelang.Analysis.Argument_List);
 
+   function Analyze_Visitor (E : access Language_Entity_Type'Class) return Visit_Action;
    procedure Analyze_Replace_String (Str : Text_Type; Context : Libtemplatelang.Analysis.Analysis_Context);
    function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
 
@@ -135,6 +135,46 @@ package body Wrapping.Runtime.Analysis is
          Evaluate_Expression (Expression);
       end Create_And_Set_Template_Instance;
 
+      procedure Apply_Template_Action
+        (A_Language_Entity : Language_Entity; Template_Clause : Weave_Or_Wrap)
+      is
+         A_Template_Instance : Template_Instance;
+      begin
+         if Template_Clause.Template_Reference /= null then
+            A_Template_Instance := A_Language_Entity.Get_Template_Instance
+              (Template_Clause.Template_Reference);
+         elsif Template_Clause.Template_Reference = null then
+            if A_Language_Entity.all in Template_Instance_Type'Class then
+               A_Template_Instance := Template_Instance (A_Language_Entity);
+            else
+               Error ("only template instances can be self weaved");
+            end if;
+         end if;
+
+         if Template_Clause.all in Weave_Type'Class
+           or else A_Template_Instance = null
+           or else A_Template_Instance.Is_Wrapping = False
+         then
+            if A_Template_Instance = null then
+               A_Template_Instance := A_Language_Entity.Create_Template_Instance
+                 (Template_Clause.Template_Reference);
+            end if;
+
+            if Template_Clause.all in Wrap_Type'Class then
+               A_Template_Instance.Is_Wrapping := True;
+            end if;
+         else
+            A_Template_Instance := null;
+         end if;
+
+         if A_Template_Instance /= null then
+            Handle_Template_Call
+              (A_Language_Entity,
+               A_Template_Instance,
+               Template_Clause.Arguments);
+         end if;
+      end Apply_Template_Action;
+
       procedure Apply_Command (A_Command : Command) is
          Matched : Boolean;
          Match_Result : Runtime_Object;
@@ -162,65 +202,76 @@ package body Wrapping.Runtime.Analysis is
             if A_Command.Template_Clause /= null then
                -- HANDLE WEAVE OR WRAP
 
-               declare
-                  Entity_Target : Language_Entity;
-                  A_Template_Instance : Template_Instance;
-               begin
-                  if not A_Command.Template_Clause.Target_Object.Is_Null then
-                     Evaluate_Expression (A_Command.Template_Clause.Target_Object);
-                     Entity_Target := Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
-                     Top_Frame.Data_Stack.Delete_Last;
-                  else
-                     Entity_Target := A_Language_Entity;
+               if A_Command.Template_Clause.A_Visit_Action /= Unknown then
+                  -- TODO: consider differences between weave and wrap here
+                  if not A_Language_Entity.Traverse_Applied then
+                     A_Language_Entity.Traverse_Applied := True;
+                     A_Visit_Action := A_Command.Template_Clause.A_Visit_Action;
                   end if;
+               else
+                  declare
+                     Entity_Target : Language_Entity;
+                  begin
+                     if not A_Command.Template_Clause.Target_Object.Is_Null then
+                        Evaluate_Expression (A_Command.Template_Clause.Target_Object);
+                        Entity_Target := Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
+                        Top_Frame.Data_Stack.Delete_Last;
 
-                  if A_Command.Template_Clause.Template_Reference /= null then
-                     A_Template_Instance := Entity_Target.Get_Template_Instance
-                       (A_Command.Template_Clause.Template_Reference);
+                        --  A number of the function below assume that
+                        -- children for the entity are set - make sure that
+                        -- they are
+                        Language_Entity_Type'Class (Entity_Target.all).Pre_Visit;
+                     else
+                        Entity_Target := A_Language_Entity;
+                     end if;
 
-                     if A_Command.Template_Clause.all in Weave_Type'Class
-                       or else A_Template_Instance = null
-                       or else A_Template_Instance.Is_Wrapping = False
+                     if A_Command.Template_Clause.Template_Reference /= null
+                       or else not A_Command.Template_Clause.Arguments.Is_Null
                      then
-                        if A_Template_Instance = null then
-                           A_Template_Instance := Entity_Target.Create_Template_Instance
-                             (A_Command.Template_Clause.Template_Reference);
-                        end if;
+                        -- There is an explicit template call. Pass this on either the
+                        -- current template or the whole tree
 
-                        if  A_Command.Template_Clause.all in Wrap_Type'Class then
-                           A_Template_Instance.Is_Wrapping := True;
+                        if A_Command.Template_Clause.Is_All then
+                           declare
+                              function Apply_Template (E : access Language_Entity_Type'Class) return Visit_Action
+                              is
+                              begin
+                                 Apply_Template_Action (Language_Entity (E), A_Command.Template_Clause);
+
+                                 return Into;
+                              end Apply_Template;
+                           begin
+                              A_Visit_Action := Entity_Target.Traverse
+                                (A_Mode       => Child_Depth,
+                                 Include_Self => True,
+                                 Visitor      => Apply_Template'Access);
+                           end;
+                        else
+                           Apply_Template_Action (Entity_Target, A_Command.Template_Clause);
                         end if;
                      else
-                        A_Template_Instance := null;
+                        -- TODO: implement support for functions here.
+                        if A_Command.Template_Clause.Is_All then
+                           --  There is no template call. Apply the current
+                           --  program to all children. Avoid to apply it on the
+                           --  current entity which is already being analyzed
+                           --  under the current program.
+
+                           for E of Entity_Target.Children_Ordered loop
+                              declare
+                                 Dummy_Action : Visit_Action;
+                              begin
+                                 Dummy_Action := E.Traverse
+                                   (Child_Depth, True, Analyze_Visitor'Access);
+                              end;
+                           end loop;
+                        else
+                           -- TODO: APPLY THE CURRENT PROGRAM ON THE TARGET ONLY
+                           null;
+                        end if;
                      end if;
-                  else
-                     Evaluate_Expression (A_Command.Template_Clause.Template_Instance_Expression);
-
-                     if Top_Frame.Data_Stack.Last_Element.all not in Runtime_Language_Entity_Type'Class
-                       or else Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value.all not in
-                       Template_Instance_Type'Class
-                     then
-                        Error ("template instance not found");
-                     end if;
-
-                     A_Template_Instance :=  Template_Instance
-                       (Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value);
-                     Top_Frame.Data_Stack.Delete_Last;
-                  end if;
-
-                  if A_Template_Instance /= null then
-                      Handle_Template_Call
-                          (Entity_Target,
-                           A_Template_Instance,
-                           A_Command.Template_Clause.Arguments);
-                  end if;
-               end;
-            elsif not A_Command.Apply_Expression.Is_Null then
-               -- TODO
-               -- Create a frame, independent from the other ones
-               -- Resolve parameters and put them on the new stack
-               -- call the command
-               null;
+                  end;
+               end if;
             elsif A_Command.Nested_Actions /= null then
                Apply_Wrapping_Program
                  (A_Language_Entity,
@@ -585,37 +636,6 @@ package body Wrapping.Runtime.Analysis is
             --  Resolved the called identifier
 
             Handle_Call (Node);
-
-            Pop_Error_Location;
-            return Over;
-
-         when Template_Traverse_Clause =>
-            Pop_Error_Location;
-            return Into;
-
-         when Template_Traverse_Sequence =>
-            Pop_Error_Location;
-            return Into;
-
-         when Template_Traverse_Step =>
-            Handle_Traverse_Step (Node);
-
-            Pop_Error_Location;
-            return Over;
-
-         when Template_Traverse_End_Into =>
-            Top_Frame.Data_Stack.Append
-              (new Runtime_Traverse_Decision_Type'
-                 (A_Visit_Action => Into,
-                  Into_Expression => Template_Node (Node.As_Traverse_End_Into.F_Call)));
-
-            Pop_Error_Location;
-            return Over;
-
-         when Template_Traverse_End_Over =>
-            Top_Frame.Data_Stack.Append
-              (new Runtime_Traverse_Decision_Type'
-                 (A_Visit_Action => Over, others => <>));
 
             Pop_Error_Location;
             return Over;
@@ -1036,25 +1056,5 @@ package body Wrapping.Runtime.Analysis is
          end if;
       end if;
    end Handle_Call;
-
-   procedure Handle_Traverse_Step (Node : Libtemplatelang.Analysis.Template_Node'Class) is
-      Entity : Language_Entity;
-
-      Dummy_Action : Visit_Action;
-   begin
-      Node.As_Traverse_Step.F_Expression.Traverse (Visit_Expression'Access);
-      Entity := Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
-
-      if Node.As_Traverse_Step.F_Into.Is_Null then
-         Dummy_Action := Entity.Traverse (Child_Depth, True, Analyze_Visitor'Access);
-         Top_Frame.Data_Stack.Delete_Last;
-      else
-         Error ("traversing into functions not implemented");
-      end if;
-
-      if not Node.As_Traverse_Step.F_Then.Is_Null then
-         Node.As_Traverse_Step.F_Then.Traverse (Visit_Expression'Access);
-      end if;
-   end Handle_Traverse_Step;
 
 end Wrapping.Runtime.Analysis;

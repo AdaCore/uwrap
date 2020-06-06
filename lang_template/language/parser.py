@@ -44,8 +44,7 @@ class MatchClause(TemplateNode):
 
 @abstract
 class TemplateClause(TemplateNode):
-    target = Field()
-    template_set = Field()
+    action=Field()
 
 class WrapClause(TemplateClause):
     pass
@@ -53,12 +52,9 @@ class WrapClause(TemplateClause):
 class WeaveClause(TemplateClause):
     pass
 
-class TemplateSet(TemplateNode):
+class TemplateCall(TemplateNode):
     name = Field()
     args = Field()
-
-class ApplyClause(TemplateNode):
-    expression = Field()
 
 class ElseClause(TemplateNode):
     actions = Field()
@@ -123,26 +119,24 @@ class Selector(TemplateNode):
 class NestedScope (TemplateNode):
     scope=Field()
 
-class TraverseClause (TemplateNode):
-    actions=Field()
+class TraverseInto (TemplateNode):
+    pass
 
-class TraverseSequence (TemplateNode):
-    first=Field()
-    end=Field()
-
-class TraverseStep(TemplateNode):
-    expression=Field()
-    into=Field()
-    then=Field()
-
-class TraverseEndInto (TemplateNode):
-    call=Field()
-
-class TraverseEndOver (TemplateNode):
+class TraverseOver (TemplateNode):
     pass
 
 class NoNode(TemplateNode):
     pass
+
+class EntityReference(TemplateNode):
+    value=Field()
+
+class TreeReference(EntityReference):
+    pass
+
+class TemplateOperation(TemplateNode):
+    entity=Field()
+    call=Field()
 
 template_grammar = Grammar('main_rule')
 G = template_grammar
@@ -166,8 +160,6 @@ template_grammar.add_rules(
         Or(
             Pick (G.wrap_clause),
             Pick (G.weave_clause),
-            Pick (G.apply_clause),
-            Pick (G.traverse_clause)
         ),
         Or (
             Pick (';', NoNode()),
@@ -181,19 +173,20 @@ template_grammar.add_rules(
     command_function=CommandFunction('command', G.identifier, '(', Opt (List (G.identifier)), ')', G.nested_commands),
     nested_commands=NestedScope ('{', G.command_scope, '}'),
     match_clause=MatchClause('match', G.match_expr),
-    wrap_clause=WrapClause('wrap', Opt (G.expr, 'with'), TemplateSet (G.dotted_name, '(', G.arg_list, ')')),
-    weave_clause=WeaveClause('weave', Opt (G.expr, 'with'), TemplateSet (G.dotted_name, '(', G.arg_list, ')')),
-    apply_clause=ApplyClause('apply', G.call_expr),
-
-    traverse_clause=TraverseClause('traverse', Or (G.traverse_sequence, G.traverse_end)),
-    traverse_sequence=TraverseSequence(
-        G.traverse_step,
-        Opt ('then', G.traverse_end)),
-    traverse_step=TraverseStep(
-        G.expr, 
-        Opt ('into', G.call_expr), 
-        Opt ('then', G.traverse_step)),
-    traverse_end=Opt(Or(TraverseEndInto ('into', Opt (G.call_expr)), TraverseEndOver ('over'))),
+    wrap_clause=WrapClause('wrap', G.template_operation_generic),
+    weave_clause=WeaveClause('weave', G.template_operation_generic),
+    template_operation_generic=Or (
+        G.template_operation,
+        G.traverse_decision),
+    template_operation=
+        Or(
+            TemplateOperation(G.template_target_expression, Opt (G.template_call_expression)),
+            TemplateOperation(Opt (G.template_target_expression), G.template_call_expression)),
+    template_target_expression=Or(
+            TreeReference('all', Opt (G.expr)),
+            EntityReference (G.expr)),
+    template_call_expression=TemplateCall('with', Opt (G.dotted_name), '(', G.arg_list, ')'),
+    traverse_decision=Or(TraverseInto ('into'), TraverseOver ('over')),
 
     match_expr=Or(
         Pick('(', G.match_expr, ')'),

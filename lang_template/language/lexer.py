@@ -16,16 +16,14 @@ class Token(LexerToken):
     With       = WithText()
     
     Command    = WithText()
-    Apply      = WithText()
     
     And        = WithText()
     Or         = WithText()
     Not        = WithText()
 
-    Traverse   = WithText()
-    Then       = WithText()
     Into       = WithText()
     Over       = WithText()
+    All        = WithText()
 
     LPar       = WithText()
     RPar       = WithText()
@@ -64,23 +62,21 @@ template_lexer.add_rules(
     (Literal("import"), Token.Import),
     
     (Literal ("template"), Token.Template),
-    (Literal ("extends"), Token.Template),
+    (Literal ("extends"), Token.Extends),
     (Literal ("var"), Token.Var),
 
     (Literal("match"), Token.Match),
-    (Literal("else"), Token.Match),
+    (Literal("else"), Token.Else),
     (Literal("wrap"), Token.Wrap),
     (Literal("weave"), Token.Weave),
-    (Literal("apply"), Token.Apply),
     (Literal("command"), Token.Command),
     (Literal("and"), Token.And),
     (Literal("or"), Token.Or),
     (Literal("not"), Token.Not),
     
-    (Literal("traverse"), Token.Traverse),
-    (Literal("then"), Token.Then),
     (Literal("into"), Token.Into),
     (Literal("over"), Token.Over),
+    (Literal("all"), Token.All),
 
     (Literal("null"), Token.Null),
     (Literal("with"), Token.With),

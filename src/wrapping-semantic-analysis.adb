@@ -203,18 +203,6 @@ package body Wrapping.Semantic.Analysis is
 
                A_Command.Template_Clause.Node := Node.As_Template_Clause;
 
-               if not Node.As_Template_Clause.F_Target.Is_Null then
-                  A_Command.Template_Clause.Target_Object := Node.As_Template_Clause.F_Target;
-               end if;
-
-               A_Command.Template_Clause.Arguments := Node.As_Template_Clause.F_Template_Set.F_Args;
-
-               return Over;
-
-            when Template_Apply_Clause =>
-               A_Command.Apply_Expression := Template_Node
-                 (Node.As_Apply_Clause.F_Expression);
-
                return Over;
             when Template_Nested_Scope =>
                A_Command.Nested_Actions :=
@@ -237,9 +225,6 @@ package body Wrapping.Semantic.Analysis is
 
                end case;
 
-               return Over;
-            when Template_Traverse_Clause =>
-               A_Command.Traverse_Expression := Template_Node (Node);
                return Over;
 
             when others =>
@@ -425,19 +410,47 @@ package body Wrapping.Semantic.Analysis is
    procedure Resolve_Command_Names (A_Command : Structure.Command) is
    begin
       if A_Command.Template_Clause /= null then
-         A_Command.Template_Clause.Template_Reference := Get_Template_By_Name
-           (A_Command.Parent,
-            A_Command.Template_Clause.Node.F_Template_Set.F_Name);
+         case A_Command.Template_Clause.Node.F_Action.Kind is
+            when Template_Template_Operation =>
+               declare
+                  An_Operation : Template_Operation :=
+                    A_Command.Template_Clause.Node.F_Action.As_Template_Operation;
+               begin
+                  if not An_Operation.F_Entity.Is_Null then
+                     if An_Operation.F_Entity.Kind in Template_Tree_Reference then
+                        A_Command.Template_Clause.Is_All := True;
+                     end if;
 
-         if A_Command.Template_Clause.Template_Reference = null then
+                     A_Command.Template_Clause.Target_Object :=
+                       An_Operation.F_Entity.F_Value;
+                  end if;
 
-            if A_Command.Template_Clause.Node.Kind = Template_Wrap_Clause then
-               Error ("template instances can only be weaved, not wrapped");
-            end if;
+                  if not An_Operation.F_Call.Is_Null then
+                     if An_Operation.F_Call.F_Name.Is_Null then
+                        if A_Command.Template_Clause.Node.Kind = Template_Wrap_Clause then
+                           Error ("template instances can only be weaved, not wrapped");
+                        end if;
+                     else
+                        A_Command.Template_Clause.Template_Reference := Get_Template_By_Name
+                          (A_Command.Parent,
+                           An_Operation.F_Call.F_Name);
+                     end if;
 
-            A_Command.Template_Clause.Template_Instance_Expression :=
-              Template_Node (A_Command.Template_Clause.Node.F_Template_Set.F_Name);
-         end if;
+                     A_Command.Template_Clause.Arguments := An_Operation.F_Call.F_Args;
+                  end if;
+               end;
+
+            when Template_Traverse_Into =>
+               A_Command.Template_Clause.A_Visit_Action := Into;
+
+            when Template_Traverse_Over =>
+               A_Command.Template_Clause.A_Visit_Action := Over;
+
+            when others =>
+               Error ("unrecognized template action: "
+                      & A_Command.Template_Clause.Node.F_Action.Kind'Wide_Wide_Image);
+
+         end case;
       end if;
 
       if A_Command.Nested_Actions /= null then
