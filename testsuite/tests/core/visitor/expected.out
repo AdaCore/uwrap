@@ -1,0 +1,16 @@
+sub_analyze: A1, A, 1
+default: S1
+default: S2
+sub_analyze: B2, B, 2
+default: S3
+default: S4
+sub_analyze: C3, C, 3
+sub_analyze: R1, C, 3
+sub_analyze: R2, C, 3
+sub_analyze: S5, C, 3
+sub_analyze: S6, C, 3
+sub_analyze: R3, D, 4
+sub_analyze: R4, D, 4
+default: D4
+default: Z999
+

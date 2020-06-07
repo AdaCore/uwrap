@@ -15,7 +15,7 @@ class Token(LexerToken):
     Wrap       = WithText()    
     With       = WithText()
     
-    Command    = WithText()
+    Visitor    = WithText()
     
     And        = WithText()
     Or         = WithText()
@@ -69,7 +69,7 @@ template_lexer.add_rules(
     (Literal("else"), Token.Else),
     (Literal("wrap"), Token.Wrap),
     (Literal("weave"), Token.Weave),
-    (Literal("command"), Token.Command),
+    (Literal("visitor"), Token.Visitor),
     (Literal("and"), Token.And),
     (Literal("or"), Token.Or),
     (Literal("not"), Token.Not),

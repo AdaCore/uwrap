@@ -10,7 +10,7 @@ with Langkit_Support.Diagnostics;
 with Langkit_Support.Text; use Langkit_Support.Text;
 
 with Libtemplatelang.Common;
-with Libtemplatelang.Analysis;
+
 
 with Wrapping.Regex; use Wrapping.Regex;
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
@@ -23,7 +23,11 @@ package body Wrapping.Runtime.Analysis is
    procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class);
    procedure Handle_Call (Node : Libtemplatelang.Analysis.Template_Node'Class);
    procedure Handle_Template_Call (An_Entity : Language_Entity; A_Template_Instance : Template_Instance; Args : Libtemplatelang.Analysis.Argument_List);
-
+   procedure Handle_Visitor_Call
+     (An_Entity : Language_Entity;
+      A_Visitor : Semantic.Structure.Visitor;
+      Args : Libtemplatelang.Analysis.Argument_List;
+      Apply_To_All : Boolean);
    function Analyze_Visitor (E : access Language_Entity_Type'Class) return Visit_Action;
    procedure Analyze_Replace_String (Str : Text_Type; Context : Libtemplatelang.Analysis.Analysis_Context);
    function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
@@ -140,31 +144,35 @@ package body Wrapping.Runtime.Analysis is
       is
          A_Template_Instance : Template_Instance;
       begin
-         if Template_Clause.Template_Reference /= null then
-            A_Template_Instance := A_Language_Entity.Get_Template_Instance
-              (Template_Clause.Template_Reference);
-         elsif Template_Clause.Template_Reference = null then
-            if A_Language_Entity.all in Template_Instance_Type'Class then
+         if Template_Clause.Call_Reference = null then
+            --  No name to the call, that means that we're expecting to self-weave
+            --  the current template.
+            if Template_Clause.all not in Weave_Type'Class then
+               Error ("self wrap not allowed, either weave or provide a template or visitor name");
+            elsif A_Language_Entity.all in Template_Instance_Type'Class then
                A_Template_Instance := Template_Instance (A_Language_Entity);
             else
                Error ("only template instances can be self weaved");
             end if;
-         end if;
+         elsif Template_Clause.Call_Reference.all in Template_Type'Class then
+            A_Template_Instance := A_Language_Entity.Get_Template_Instance
+              (Semantic.Structure.Template (Template_Clause.Call_Reference));
 
-         if Template_Clause.all in Weave_Type'Class
-           or else A_Template_Instance = null
-           or else A_Template_Instance.Is_Wrapping = False
-         then
-            if A_Template_Instance = null then
-               A_Template_Instance := A_Language_Entity.Create_Template_Instance
-                 (Template_Clause.Template_Reference);
-            end if;
+            if Template_Clause.all in Weave_Type'Class
+              or else A_Template_Instance = null
+              or else A_Template_Instance.Is_Wrapping = False
+            then
+               if A_Template_Instance = null then
+                  A_Template_Instance := A_Language_Entity.Create_Template_Instance
+                    (Semantic.Structure.Template (Template_Clause.Call_Reference));
+               end if;
 
-            if Template_Clause.all in Wrap_Type'Class then
-               A_Template_Instance.Is_Wrapping := True;
+               if Template_Clause.all in Wrap_Type'Class then
+                  A_Template_Instance.Is_Wrapping := True;
+               end if;
+            else
+               A_Template_Instance := null;
             end if;
-         else
-            A_Template_Instance := null;
          end if;
 
          if A_Template_Instance /= null then
@@ -225,13 +233,24 @@ package body Wrapping.Runtime.Analysis is
                         Entity_Target := A_Language_Entity;
                      end if;
 
-                     if A_Command.Template_Clause.Template_Reference /= null
+                     if A_Command.Template_Clause.Call_Reference /= null
                        or else not A_Command.Template_Clause.Arguments.Is_Null
                      then
                         -- There is an explicit template call. Pass this on either the
                         -- current template or the whole tree
 
-                        if A_Command.Template_Clause.Is_All then
+                        if A_Command.Template_Clause.Call_Reference/= null
+                          and then A_Command.Template_Clause.Call_Reference.all in Visitor_Type'Class
+                        then
+                           Handle_Visitor_Call
+                             (Entity_Target,
+                              Semantic.Structure.Visitor (A_Command.Template_Clause.Call_Reference),
+                              A_Command.Template_Clause.Arguments,
+                              A_Command.Template_Clause.Is_All);
+                        elsif A_Command.Template_Clause.Is_All then
+                           -- TODO: This could all be moved to Handle Template Call instead, and
+                           -- would be consistent with the fact that everything above is
+                           -- in Handle_Visitor_Call
                            declare
                               function Apply_Template (E : access Language_Entity_Type'Class) return Visit_Action
                               is
@@ -907,10 +926,10 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Identifier;
 
-   procedure Handle_Template_Call
-     (An_Entity : Language_Entity;
-      A_Template_Instance : Template_Instance;
-      Args : Libtemplatelang.Analysis.Argument_List)
+   procedure Handle_Call_Parameters
+     (Args : Libtemplatelang.Analysis.Argument_List;
+      Name_For_Position : access function (Position : Integer) return Libtemplatelang.Analysis.Template_Node;
+      Store_Param_Value : access procedure (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : Runtime_Object))
    is
       Parameter_Index : Integer;
       Parameter_Value : Runtime_Object;
@@ -928,38 +947,118 @@ package body Wrapping.Runtime.Analysis is
          if not Param.As_Argument.F_Name.Is_Null then
             In_Named_Section := True;
             Name_Node := Param.As_Argument.F_Name;
-
-            if not A_Template_Instance.Template.Has_Variable (Name_Node.Text) then
-               Error ("no variable '" & Name_Node.Text & "' for template '" & Full_Name (A_Template_Instance.Template.all) & "'");
-            end if;
          else
             if In_Named_Section then
                Error ("can't have positional arguments after named ones");
             end if;
 
-            --
-            Name_Node := A_Template_Instance.Template.Get_Variable_For_Index
-              (Parameter_Index).Name_Node;
+            Name_Node := Name_For_Position.all (Parameter_Index);
          end if;
 
-         declare
-            Container : Runtime_Text_Container;
-         begin
-            if A_Template_Instance.Symbols.Contains (Name_Node.Text) then
-               Container := Runtime_Text_Container
-                 (A_Template_Instance.Symbols.Element (Name_Node.Text));
-            else
-               Container := new Runtime_Text_Container_Type;
-               A_Template_Instance.Symbols.Insert
-                 (Name_Node.Text, Runtime_Object (Container));
-            end if;
-
-             Container.Texts.Append (Parameter_Value.To_Text_Expression);
-         end;
+         Store_Param_Value (Name_Node, Parameter_Value);
 
          Parameter_Index := Parameter_Index + 1;
       end loop;
+   end Handle_Call_Parameters;
+
+   procedure Handle_Template_Call
+     (An_Entity : Language_Entity;
+      A_Template_Instance : Template_Instance;
+      Args : Libtemplatelang.Analysis.Argument_List)
+   is
+      function Name_For_Position (Position : Integer) return Libtemplatelang.Analysis.Template_Node is
+      begin
+         return A_Template_Instance.Template.Get_Variable_For_Index
+           (Position).Name_Node;
+      end Name_For_Position;
+
+      procedure Store_Param_Value (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : Runtime_Object) is
+         Container : Runtime_Text_Container;
+      begin
+         if A_Template_Instance.Symbols.Contains (Name_Node.Text) then
+            Container := Runtime_Text_Container
+              (A_Template_Instance.Symbols.Element (Name_Node.Text));
+         else
+            Container := new Runtime_Text_Container_Type;
+            A_Template_Instance.Symbols.Insert
+              (Name_Node.Text, Runtime_Object (Container));
+         end if;
+
+         Container.Texts.Append (Value.To_Text_Expression);
+      end Store_Param_Value;
+   begin
+      Handle_Call_Parameters
+        (Args,
+         Name_For_Position'Access,
+         Store_Param_Value'Access);
    end Handle_Template_Call;
+
+   procedure Handle_Visitor_Call
+     (An_Entity : Language_Entity;
+      A_Visitor : Semantic.Structure.Visitor;
+      Args : Libtemplatelang.Analysis.Argument_List;
+      Apply_To_All : Boolean)
+   is
+      Symbols : Runtime_Object_Maps.Map;
+
+      function Name_For_Position (Position : Integer) return Libtemplatelang.Analysis.Template_Node is
+      begin
+         return A_Visitor.Arguments_Ordered.Element (Position).Name_Node;
+      end Name_For_Position;
+
+      procedure Store_Param_Value (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : Runtime_Object) is
+      begin
+         Symbols.Insert (Name_Node.Text, Runtime_Object (Value.To_Text_Expression));
+      end Store_Param_Value;
+
+      function Sub_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
+         A_Visit_Action : Visit_Action := Into;
+      begin
+         Apply_Wrapping_Program
+           (Language_Entity (E),
+            A_Visitor,
+            A_Visit_Action);
+
+         return A_Visit_Action;
+      end Sub_Visitor;
+
+      A_Visit_Action : Visit_Action := Unknown;
+   begin
+      -- The analysis needs to be done within the previous frame (in particular
+      -- to get capture groups) then all valuated symbols needs to be allocated
+      -- to the next frame (in particular to be destroyed when popping).
+
+      Handle_Call_Parameters
+        (Args,
+         Name_For_Position'Access,
+         Store_Param_Value'Access);
+
+      Push_Frame (A_Visitor);
+
+      Top_Frame.Symbols.Move (Symbols);
+
+      -- Apply_Wrapping_Program will push its own frame, which is local to the
+      -- actual entity to be analyzed. The one pushed above is global to all
+      -- calls and contains parameter evaluation, to be done only once.
+
+      if not Apply_To_All then
+         Apply_Wrapping_Program
+           (An_Entity,
+            A_Visitor,
+            A_Visit_Action);
+      else
+         A_Visit_Action := An_Entity.Traverse
+           (Child_Depth,
+            True,
+            Sub_Visitor'Access);
+      end if;
+
+      if A_Visit_Action in Over | Stop then
+         Error ("visit action from visitor to caller not implemented");
+      end if;
+
+      Pop_Frame;
+   end Handle_Visitor_Call;
 
    procedure Handle_Call (Node : Libtemplatelang.Analysis.Template_Node'Class) is
       use Libtemplatelang.Analysis;

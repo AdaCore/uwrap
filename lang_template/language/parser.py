@@ -99,10 +99,10 @@ class UnaryExpr(Expr):
     op = Field()
     rhs = Field()
 
-class CommandFunction(Expr):
+class Visitor(Expr):
     name = Field()
     args = Field()
-    commands = Field()
+    program = Field()
 
 class CallExpr (TemplateNode):
     called = Field()
@@ -145,8 +145,8 @@ template_grammar.add_rules(
     main_rule=Module (List (G.import_clause, empty_valid=True), G.module_scope),
     import_clause=Import('import', G.dotted_name, ';'),
     
-    module_scope=List(Or (G.template, G.command, G.command_function, G.var, NestedScope ('{', G.module_scope, '}')), empty_valid=True),
-    command_scope=List(Or (G.command, G.command_function, G.var, NestedScope ('{', G.command_scope, '}')), empty_valid=True),
+    module_scope=List(Or (G.template, G.command, G.visitor, NestedScope ('{', G.module_scope, '}')), empty_valid=True),
+    command_scope=List(Or (G.command, NestedScope ('{', G.command_scope, '}')), empty_valid=True),
     template_scope=List(G.var, empty_valid=True),
 
     template=Template('template', G.identifier, Opt ('extends', G.dotted_name), '{', G.template_scope, '}'),
@@ -170,7 +170,7 @@ template_grammar.add_rules(
         G.nested_commands,
         Opt ('else', ElseClause(Or (G.nested_commands, G.command)))
     ),
-    command_function=CommandFunction('command', G.identifier, '(', Opt (List (G.identifier)), ')', G.nested_commands),
+    visitor=Visitor('visitor', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.nested_commands),
     nested_commands=NestedScope ('{', G.command_scope, '}'),
     match_clause=MatchClause('match', G.match_expr),
     wrap_clause=WrapClause('wrap', G.template_operation_generic),

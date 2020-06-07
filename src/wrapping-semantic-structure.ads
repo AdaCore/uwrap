@@ -63,12 +63,12 @@ package Wrapping.Semantic.Structure is
    package Command_Vectors is new Ada.Containers.Vectors (Positive, Command);
    use Command_Vectors;
 
-   type Command_Function_Type;
-   type Command_Function is access all Command_Function_Type'Class;
-   package Command_Function_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Command_Function);
-   use Command_Function_Maps;
-   package Command_Function_Vectors is new Ada.Containers.Vectors (Positive, Command_Function);
-   use Command_Function_Vectors;
+   type Visitor_Type;
+   type Visitor is access all Visitor_Type'Class;
+   package Visitor_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Visitor);
+   use Visitor_Maps;
+   package Visitor_Vectors is new Ada.Containers.Vectors (Positive, Visitor);
+   use Visitor_Vectors;
 
    type Entity_Type is tagged record
       Node : Template_Node;
@@ -105,9 +105,7 @@ package Wrapping.Semantic.Structure is
       Templates_Ordered : Template_Vectors.Vector;
       Templates_Indexed : Template_Maps.Map;
 
-      Modules_Indexed : Module_Maps.Map;
-      Modules_Ordered : Module_Vectors.Vector;
-      Command_Function_Indexed : Command_Function_Maps.Map;
+      Visitors_Indexed : Visitor_Maps.Map;
       Imported_Modules : Module_Maps.Map;
    end record;
 
@@ -145,7 +143,7 @@ package Wrapping.Semantic.Structure is
       Node                         : Template_Clause;
       Is_All                       : Boolean := False;
       Target_Object                : Template_Node;
-      Template_Reference           : Template;
+      Call_Reference               : Entity;
       Arguments                    : Argument_List;
       A_Visit_Action               : Visit_Action := Unknown;
    end record;
@@ -176,8 +174,9 @@ package Wrapping.Semantic.Structure is
       Else_Actions     : Entity;
    end Record;
 
-   type Command_Function_Type is new Named_Entity_Type with record
-      null;
+   type Visitor_Type is new Named_Entity_Type with record
+      Arguments_Ordered : Var_Vectors.Vector;
+      Arguments_Indexed : Var_Maps.Map;
    end record;
 
 end Wrapping.Semantic.Structure;

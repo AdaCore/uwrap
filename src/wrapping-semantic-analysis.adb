@@ -21,15 +21,16 @@ package body Wrapping.Semantic.Analysis is
    function Build_Template_Structure (Node : Template_Node) return Structure.Template;
    function Build_Module_Structure (Node : Template_Node; Module_Name : Text_Type) return Structure.Module;
    function Build_Command_Structure (Node : Template_Node) return Structure.Command;
-   function Build_Command_Function_Structure (Node : Template_Node) return Structure.Command_Function;
+   function Build_Visitor_Structure (Node : Template_Node) return Structure.Visitor;
    function Build_Variable_Structure (Node : Template_Node) return Structure.Var;
    function Build_Command_Scope_Structure (Node : Template_Node'Class) return Entity;
 
    procedure Resolve_Template_Names (A_Template : Structure.Template);
    procedure Resolve_Module_Names (A_Module : Structure.Module);
    procedure Resolve_Command_Names (A_Command : Structure.Command);
+   procedure Resolve_Visitor_Names (A_Visitor : Structure.Visitor);
    procedure Resolve_Namespace_Names (A_Namespace : Structure.Namespace);
-   function Get_Template_By_Name (Current_Scope : Entity; Name : Dotted_Name) return Structure.Template;
+   function Get_Static_Entity_By_Name (Current_Scope : Entity; Name : Dotted_Name) return Structure.Entity;
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String);
 
@@ -140,10 +141,10 @@ package body Wrapping.Semantic.Analysis is
             when Template_Command =>
                Dummy_Command := Build_Command_Structure (C);
 
-            when Template_Command_Function =>
-               A_Module.Command_Function_Indexed.Insert
-                 (C.As_Command_Function.F_Name.Text,
-                  Build_Command_Function_Structure (C));
+            when Template_Visitor =>
+               A_Module.Visitors_Indexed.Insert
+                 (C.As_Visitor.F_Name.Text,
+                  Build_Visitor_Structure (C));
 
             when Template_Import | Template_Import_List =>
                null;
@@ -243,10 +244,43 @@ package body Wrapping.Semantic.Analysis is
       return A_Command;
    end Build_Command_Structure;
 
-   function Build_Command_Function_Structure (Node : Template_Node) return Structure.Command_Function is
+   function Build_Visitor_Structure (Node : Template_Node) return Structure.Visitor is
+      A_Visitor : Semantic.Structure.Visitor := new Visitor_Type;
+      Program_Node : Template_Node;
+      Dummy_Command : Structure.Command;
    begin
-      return null;
-   end Build_Command_Function_Structure;
+      Push_Named_Entity (A_Visitor, Node, Node.As_Visitor.F_Name);
+
+      for A of Node.As_Visitor.F_Args loop
+         declare
+            A_Var : Semantic.Structure.Var := new Var_Type;
+         begin
+            Push_Named_Entity (A_Var, A, A);
+
+            A_Var.Kind := Text_Kind;
+            A_Visitor.Arguments_Ordered.Append (A_Var);
+            A_Visitor.Arguments_Indexed.Insert (A.Text, A_Var);
+
+            Pop_Entity;
+         end;
+      end loop;
+
+      Program_Node := Template_Node (Node.As_Visitor.F_Program.F_Scope);
+
+      for C of Program_Node.Children loop
+         case C.Kind is
+            when Template_Command =>
+               Dummy_Command := Build_Command_Structure (C);
+
+            when others =>
+               Error ("unsupported node for visitor: '" & C.Kind'Wide_Wide_Image & "'");
+         end case;
+      end loop;
+
+      Pop_Entity;
+
+      return A_Visitor;
+   end Build_Visitor_Structure;
 
    function Build_Variable_Structure (Node : Template_Node) return Structure.Var is
       A_Var : Structure.Var := new Var_Type;
@@ -339,43 +373,45 @@ package body Wrapping.Semantic.Analysis is
             Resolve_Template_Names (Structure.Template (C));
          elsif C.all in Command_Type'Class then
             Resolve_Command_Names (Structure.Command (C));
+         elsif C.all in Visitor_Type'Class then
+            Resolve_Visitor_Names (Structure.Visitor (C));
          end if;
       end loop;
    end Resolve_Module_Names;
 
-   function Get_Template_By_Name (Current_Scope : Entity; Name : Dotted_Name) return Structure.Template is
+   function Get_Static_Entity_By_Name (Current_Scope : Entity; Name : Dotted_Name) return Structure.Entity is
 
-      function Get_Visible_Template (An_Entity : Entity; Name : Text_Type) return Structure.Template is
+      function Get_Visible_Entity (An_Entity : Entity; Name : Text_Type) return Structure.Entity is
       begin
          if An_Entity.all in Module_Type then
             declare
-               Potential_Template : Structure.Template;
+               Potential_Entity : Structure.Entity;
             begin
-               if Module_Type (An_Entity.all).Templates_Indexed.Contains (Name) then
-                  Potential_Template := Module_Type (An_Entity.all).Templates_Indexed.Element (Name);
+               if Module_Type (An_Entity.all).Children_Indexed.Contains (Name) then
+                  Potential_Entity := Module_Type (An_Entity.all).Children_Indexed.Element (Name);
                end if;
 
                for M of Module_Type (An_Entity.all).Imported_Modules loop
-                  if M.Templates_Indexed.Contains (Name) then
-                     if Potential_Template /= null then
-                        Error ("template name ambiguous, multiple import clauses hiding");
+                  if M.Children_Indexed.Contains (Name) then
+                     if Potential_Entity /= null then
+                        Error ("entity name ambiguous, multiple import clauses hiding");
                      else
-                        Potential_Template := M.Templates_Indexed.Element (Name);
+                        Potential_Entity := M.Children_Indexed.Element (Name);
                      end if;
                   end if;
                end loop;
 
-               return Potential_Template;
+               return Potential_Entity;
             end;
          elsif An_Entity.Parent /= null then
-            return Get_Visible_Template (An_Entity.Parent, Name);
+            return Get_Visible_Entity (An_Entity.Parent, Name);
          else
             return null;
          end if;
-      end Get_Visible_Template;
+      end Get_Visible_Entity;
 
       Extending_Module : Structure.Module;
-      Result : Structure.Template;
+      Result : Structure.Entity;
    begin
       Push_Error_Location (Name);
 
@@ -383,27 +419,34 @@ package body Wrapping.Semantic.Analysis is
          Extending_Module := Resolve_Module_By_Name
            (Name.F_Prefix.Text);
 
-         if Extending_Module.Templates_Indexed.Contains
+         if Extending_Module.Children_Indexed.Contains
            (Name.F_Suffix.Text)
          then
-            Result := Extending_Module.Templates_Indexed.Element
+            Result := Extending_Module.Children_Indexed.Element
               (Name.F_Suffix.Text);
          end if;
       else
-         Result := Get_Visible_Template (Current_Scope, Name.Text);
+         Result := Get_Visible_Entity (Current_Scope, Name.Text);
       end if;
 
       Pop_Error_Location;
 
       return Result;
-   end Get_Template_By_Name;
+   end Get_Static_Entity_By_Name;
 
    procedure Resolve_Template_Names (A_Template : Structure.Template) is
+      An_Entity : Entity;
    begin
       if not A_Template.Node.As_Template.F_Extending.Is_Null then
-         A_Template.Extends :=
-           Get_Template_By_Name
+         An_Entity :=
+           Get_Static_Entity_By_Name
              (A_Template.Parent, A_Template.Node.As_Template.F_Extending);
+
+         if An_Entity.all not in Template_Type'Class then
+            Error ("expected template name");
+         end if;
+
+         A_Template.Extends := Structure.Template (An_Entity);
       end if;
    end Resolve_Template_Names;
 
@@ -431,9 +474,15 @@ package body Wrapping.Semantic.Analysis is
                            Error ("template instances can only be weaved, not wrapped");
                         end if;
                      else
-                        A_Command.Template_Clause.Template_Reference := Get_Template_By_Name
+                        A_Command.Template_Clause.Call_Reference := Get_Static_Entity_By_Name
                           (A_Command.Parent,
                            An_Operation.F_Call.F_Name);
+
+                        if A_Command.Template_Clause.Call_Reference.all not in Template_Type'Class
+                          and then A_Command.Template_Clause.Call_Reference.all not in Visitor_Type'Class
+                        then
+                           Error ("expected visitor or template name");
+                        end if;
                      end if;
 
                      A_Command.Template_Clause.Arguments := An_Operation.F_Call.F_Args;
@@ -473,5 +522,14 @@ package body Wrapping.Semantic.Analysis is
          end if;
       end if;
    end Resolve_Command_Names;
+
+   procedure Resolve_Visitor_Names (A_Visitor : Structure.Visitor) is
+   begin
+      for C of A_Visitor.Children_Ordered loop
+         if C.all in Command_Type'Class then
+            Resolve_Command_Names (Structure.Command (C));
+         end if;
+      end loop;
+   end Resolve_Visitor_Names;
 
 end Wrapping.Semantic.Analysis;
