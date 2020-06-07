@@ -2,11 +2,9 @@ with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
 with Ada.Characters.Conversions; use Ada.Characters.Conversions;
 with Ada.Containers.Vectors; use Ada.Containers;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
-
-with Libtestlang.Introspection; use Libtestlang.Introspection;
+with Ada.Text_IO;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
-with Libtestlang.Common; use Libtestlang.Common;
 
 package body Wrapping.Input.Kit is
 
@@ -15,16 +13,18 @@ package body Wrapping.Input.Kit is
    begin
       if not An_Entity.Children_Computed then
          for C of An_Entity.Node.Children loop
-            New_Entity := new Kit_Language_Entity_Type'(Node => C, others => <>);
-            Add_Child (An_Entity, New_Entity);
-            An_Entity.Children_By_Node.Insert (C, Kit_Language_Entity (New_Entity));
+            if not C.Is_Null then
+               New_Entity := new Kit_Language_Entity_Type'(Node => C, others => <>);
+               Add_Child (An_Entity, New_Entity);
+               An_Entity.Children_By_Node.Insert (C, Kit_Language_Entity (New_Entity));
+            end if;
          end loop;
 
          An_Entity.Children_Computed := True;
       end if;
    end Pre_Visit;
 
-   function Get_Field (Node : Test_Node; Name : Text_Type) return Test_Node is
+   function Get_Field (Node : Kit_Node; Name : Text_Type) return Kit_Node is
       Field_Node : Any_Node_Data_Reference;
    begin
       if Name'Length > 2
@@ -41,7 +41,7 @@ package body Wrapping.Input.Kit is
          end;
       end if;
 
-      return No_Test_Node;
+      return No_Kit_Node;
    end Get_Field;
 
 
@@ -55,7 +55,7 @@ package body Wrapping.Input.Kit is
       end if;
 
       declare
-         Node : Test_Node := Get_Field (An_Entity.Node, Name);
+         Node : Kit_Node := Get_Field (An_Entity.Node, Name);
       begin
          if not Node.Is_Null then
             Push_Entity (An_Entity.Children_By_Node.Element (Node));
@@ -117,7 +117,7 @@ package body Wrapping.Input.Kit is
             return True;
          else
             declare
-               Node : Test_Node := Get_Field (An_Entity.Node, Name);
+               Node : Kit_Node := Get_Field (An_Entity.Node, Name);
             begin
                if not Node.Is_Null then
                   if Params.Children_Count = 0 then
@@ -165,5 +165,29 @@ package body Wrapping.Input.Kit is
    begin
       return Object.Node.Text;
    end To_Text;
+
+   procedure Analyze_File (File : String) is
+      Unit : Analysis_Unit;
+      Context : Analysis_Context := Create_Context;
+
+   begin
+      Unit := Get_From_File (Context, File);
+
+      if Has_Diagnostics (Unit) then
+         for D of Diagnostics (Unit) loop
+            Ada.Text_IO.Put_Line (File & ":" & To_Pretty_String (D));
+         end loop;
+      end if;
+
+      Analyze_Unit (Unit);
+   end Analyze_File;
+
+   procedure Analyze_Unit (Unit : Analysis_Unit) is
+      Root_Entity : Language_Entity;
+   begin
+      Root_Entity := new Kit_Language_Entity_Type'(Node => Unit.Root, others => <>);
+
+      Wrapping.Runtime.Analysis.Analyse (Root_Entity);
+   end Analyze_Unit;
 
 end Wrapping.Input.Kit;

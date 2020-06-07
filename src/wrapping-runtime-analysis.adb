@@ -269,7 +269,6 @@ package body Wrapping.Runtime.Analysis is
                            Apply_Template_Action (Entity_Target, A_Command.Template_Clause);
                         end if;
                      else
-                        -- TODO: implement support for functions here.
                         if A_Command.Template_Clause.Is_All then
                            --  There is no template call. Apply the current
                            --  program to all children. Avoid to apply it on the
@@ -280,6 +279,11 @@ package body Wrapping.Runtime.Analysis is
                               declare
                                  Dummy_Action : Visit_Action;
                               begin
+                                 -- TODO: This only works for the main program.
+                                 -- implement support in case this is called
+                                 -- from a visitor (the visitor should be
+                                 -- traversed, not the main program.
+
                                  Dummy_Action := E.Traverse
                                    (Child_Depth, True, Analyze_Visitor'Access);
                               end;
