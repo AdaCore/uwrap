@@ -22,4 +22,8 @@ package Wrapping.Runtime.Analysis is
 
    procedure Push_Entity (An_Entity : access Language_Entity_Type'Class; Is_Implicit_Self : Boolean := False);
 
+   --  TODO: generalize the usage of this instead of manual deleting from the
+   --  stack
+   procedure Pop_Entity (Number : Positive := 1);
+
 end Wrapping.Runtime.Analysis;

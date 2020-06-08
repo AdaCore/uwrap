@@ -51,6 +51,11 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Data_Stack.Append (new Runtime_Language_Entity_Type'(Value => Language_Entity (An_Entity), Is_Implicit_Self => Is_Implicit_Self));
    end Push_Entity;
 
+   procedure Pop_Entity (Number : Positive := 1) is
+   begin
+      Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
+   end Pop_Entity;
+
    procedure Push_Frame (Lexical_Scope : access Semantic.Structure.Entity_Type'Class) is
       New_Frame : Data_Frame := new Data_Frame_Type;
    begin

@@ -718,36 +718,27 @@ package body Wrapping.Runtime.Structure is
             Selected : Semantic.Structure.Entity := Runtime_Static_Entity (Selector).An_Entity;
          begin
             if Selected.all in Semantic.Structure.Template_Type'Class then
-               --  TODO how do we handle the case of "template ()"?
-               --  perhaps create a root template?
                if Instance_Of
                  (An_Entity.Template,
                   Semantic.Structure.Template (Selected))
                then
-                  for Arg of Params loop
-                     -- TODO: Can we support positional notation here?
+                  if Params.Children_Count = 0 then
+                     Push_Match_True (An_Entity);
+                  elsif Params.Children_Count = 1 then
+                     Push_Entity (An_Entity, True);
 
-                     if An_Entity.Template.Has_Variable (Arg.F_Name.Text) then
-                        Match_Variable_Value (Arg.F_Value.Text, Arg.F_Value);
+                     Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+                     Result := Top_Frame.Data_Stack.Last_Element;
+                     Pop_Entity (2);
 
-                        Result := Top_Frame.Data_Stack.Last_Element;
-                        Top_Frame.Data_Stack.Delete_Last;
-
-                        if Result = Match_False then
-                           Push_Match_False;
-
-                           return True;
-                        end if;
-                     else
+                     if Result = Match_False then
                         Push_Match_False;
-
-                        return True;
+                     else
+                        Push_Match_True (An_Entity);
                      end if;
-                  end loop;
-
-                  --  If we passed all arguments, we matched
-
-                  Push_Match_True (An_Entity);
+                  else
+                     Error ("only one parameter allowed for template match");
+                  end if;
 
                   return True;
                end if;

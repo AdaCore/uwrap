@@ -478,6 +478,10 @@ package body Wrapping.Semantic.Analysis is
                           (A_Command.Parent,
                            An_Operation.F_Call.F_Name);
 
+                        if A_Command.Template_Clause.Call_Reference = null then
+                           Error ("can't find reference to '" & An_Operation.F_Call.F_Name.Text & "'");
+                        end if;
+
                         if A_Command.Template_Clause.Call_Reference.all not in Template_Type'Class
                           and then A_Command.Template_Clause.Call_Reference.all not in Visitor_Type'Class
                         then
