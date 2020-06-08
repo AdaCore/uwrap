@@ -24,7 +24,7 @@ package body Wrapping.Input.Kit is
       end if;
    end Pre_Visit;
 
-   function Get_Field (Node : Kit_Node; Name : Text_Type) return Kit_Node is
+   function Eval_Field (Node : Kit_Node; Name : Text_Type) return Runtime_Object is
       Field_Node : Any_Node_Data_Reference;
    begin
       if Name'Length > 2
@@ -36,13 +36,41 @@ package body Wrapping.Input.Kit is
             Field_Node := Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (F_Name));
 
             if Field_Node /= None then
-               return Eval_Field (Node, Field_Node);
+               return new Runtime_Node_Type'(A_Node => Eval_Field (Node, Field_Node));
             end if;
          end;
       end if;
 
-      return No_Kit_Node;
-   end Get_Field;
+      return null;
+   end Eval_Field;
+
+   function Eval_Property (Node : Kit_Node; Name : Text_Type) return Runtime_Object is
+      Property_Node : Any_Node_Data_Reference;
+   begin
+      if Name'Length > 2
+        and then Name (Name'First .. Name'First + 1) = "p_"
+      then
+         declare
+            P_Name : Text_Type := To_Lower (Name (Name'First + 2 .. Name'Last));
+            Value : Value_Type;
+         begin
+            Property_Node := Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (P_Name));
+
+            if Property_Node /= None then
+               Value := Eval_Property (Node, Property_Node, (1 .. 0 => <>));
+
+               if Kind (Value) = Text_Type_Value then
+                  return new Runtime_Text_Type'
+                    (Value => To_Unbounded_Text (As_Text_Type (Value)));
+               else
+                  Error ("unsupported property kind: " & Any_Value_Kind'Wide_Wide_Image (Kind (Value)));
+               end if;
+            end if;
+         end;
+      end if;
+
+      return null;
+   end Eval_Property;
 
 
    function Push_Value
@@ -55,10 +83,16 @@ package body Wrapping.Input.Kit is
       end if;
 
       declare
-         Node : Kit_Node := Get_Field (An_Entity.Node, Name);
+         Result : Runtime_Object;
       begin
-         if not Node.Is_Null then
-            Push_Entity (An_Entity.Children_By_Node.Element (Node));
+         Result := Eval_Field (An_Entity.Node, Name);
+
+         if Result = null then
+            Result := Eval_Property (An_Entity.Node, Name);
+         end if;
+
+         if Result /= null then
+            Top_Frame.Data_Stack.Append (Result);
 
             return True;
          end if;
@@ -112,12 +146,23 @@ package body Wrapping.Input.Kit is
             return True;
          else
             declare
-               Node : Kit_Node := Get_Field (An_Entity.Node, Name);
+               Result : Runtime_Object;
+               Node : Kit_Node;
             begin
-               if not Node.Is_Null then
+               Result := Eval_Field (An_Entity.Node, Name);
+
+               if Result = null then
+                  Result := Eval_Property (An_Entity.Node, Name);
+               end if;
+
+               if Result /= null then
                   if Params.Children_Count = 0 then
                      Push_Match_True (An_Entity);
-                  elsif Params.Children_Count = 1 then
+                  elsif Params.Children_Count /= 1 then
+                     Error ("no more than one parameter allowed for field matching");
+                  elsif Result.all in Runtime_Node_Type then
+                     Node := Runtime_Node_Type (Result.all).A_Node;
+
                      -- fields are browsing functions similar to prev, next, etc...
                      -- they push the node so that it can be captured.
                      Push_Entity (An_Entity.Children_By_Node.Element (Node), True);
@@ -134,8 +179,8 @@ package body Wrapping.Input.Kit is
                      else
                         Push_Match_False;
                      end if;
-                  else
-                     Error ("no more than one parameter allowed for field matching");
+                  elsif Result.all in Runtime_Text_Type then
+                     Error ("matching text property not yet implemented");
                   end if;
 
                   return True;

@@ -41,7 +41,11 @@ package body Wrapping.Run is
          Default_Charset            => Libtestlang.Common.Default_Charset,
          No_Unit_Provider_Reference => Libtestlang.Analysis.No_Unit_Provider_Reference,
          No_Node_Type_Id            => Libtestlang.Common.None,
-         Root                       => Libtestlang.Analysis.Root);
+         Any_Value_Kind             => Libtestlang.Common.Any_Value_Kind,
+         Value_Type                 => Libtestlang.Introspection.Value_Type,
+         Value_Array                => Libtestlang.Introspection.Value_Array,
+         Root                       => Libtestlang.Analysis.Root,
+         Text_Type_Value            => Libtestlang.Common.Text_Type_Value);
    end Testlang;
 
    package Adalang is
@@ -65,7 +69,11 @@ package body Wrapping.Run is
          Default_Charset            => Libadalang.Common.Default_Charset,
          No_Unit_Provider_Reference => Libadalang.Analysis.No_Unit_Provider_Reference,
          No_Node_Type_Id            => Libadalang.Common.None,
-         Root                       => Libadalang.Analysis.Root);
+         Any_Value_Kind             => Libadalang.Common.Any_Value_Kind,
+         Value_Type                 => Libadalang.Introspection.Value_Type,
+         Value_Array                => Libadalang.Introspection.Value_Array,
+         Root                       => Libadalang.Analysis.Root,
+         Text_Type_Value            => Libadalang.Common.Text_Type_Value);
    end Adalang;
 
    procedure App_Post_Process

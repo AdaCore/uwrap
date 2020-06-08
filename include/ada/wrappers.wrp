@@ -5,11 +5,27 @@ template w_Ada {
 template w_Unit extends w_Ada {
    var spec : text;
    var body : text;
+
+   var body_with_clauses : text;
+
+   var spec_text : pattern ("""
+   \e<spec>
+   """);
+
+   var body_text : pattern ("""
+   \e<body_with_clauses>
+
+   \e<body>
+   """);
 }
 
 template w_NamedEntity extends w_Ada {
   var name : text;
   var original_name : text;
+}
+
+template w_WithClause extends w_Ada {
+  var ref : text;
 }
 
 template w_PackageDecl extends w_NamedEntity {
@@ -84,6 +100,9 @@ visitor ada_to_wrappers () {
     
     match SubpDecl()
     wrap with w_SubpDecl();
+
+    match WithClause() and child(d: DottedName ())
+    wrap with w_WithClause(ref => d);
 }
 
 visitor wrappers_post_process () {
@@ -93,21 +112,26 @@ visitor wrappers_post_process () {
       else weave with (function_or_procedure => "function");
 
       match child (w_ParamSpec ())
-      weave with (lparen => "(", rparen => ">");
+      weave with (lparen => "(", rparen => ")");
 
       weave p with (spec_content => self.spec, body_content => self.body);
     }
     
-    match p: w_PackageDecl (parent (u: w_Unit ())) {
-      weave u with (spec => p.spec, body => p.body);
-    }
+    match p: w_PackageDecl (parent (u: w_Unit ()))
+    weave u with 
+        (spec => p.spec,
+         body => p.body,
+         body_with_clauses => "with \e<p.original_name>;");
+
+    match w_WithClause () and parent (u: w_Unit ())
+    weave u with (body_with_clauses => "with \e<ref>;");
 
     match w_DefiningName () and parent (n: w_NamedEntity ())
-    weave n with (name => self.name, original_name => self.origin);
+    weave n with (name => self.name, original_name => n.origin.p_fully_qualified_name);
 
     match w_Unit () and child (p: w_PackageDecl ()) {
-      wrap with spec_file (path => "\e<p.name>.ads", content => self.spec);
-      wrap with body_file (path => "\e<p.name>.adb", content => self.body);
+      wrap with spec_file (path => "\e<to_lower (p.name)>.ads", content => self.spec_text);
+      wrap with body_file (path => "\e<to_lower (p.name)>.adb", content => self.body_text);
     }
 }
 

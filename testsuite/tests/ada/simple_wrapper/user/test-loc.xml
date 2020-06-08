@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<Locations >
+  <Project>
+    <vfs_file>C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\test.gpr</vfs_file>
+    <file_marker column=" 1" line=" 1" >
+      <vfs_project>C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\test.gpr</vfs_project>
+      <vfs_file>C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\src\pck.ads</vfs_file>
+    </file_marker>
+    <file_marker column=" 1" line=" 1" >
+      <vfs_project>C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\test.gpr</vfs_project>
+      <vfs_file>C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\src\pck.adb</vfs_file>
+    </file_marker>
+    <file_marker current="true" column=" 4" line=" 5" >
+      <vfs_project>C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\test.gpr</vfs_project>
+      <vfs_file>C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\main.adb</vfs_file>
+    </file_marker>
+  </Project>
+</Locations>

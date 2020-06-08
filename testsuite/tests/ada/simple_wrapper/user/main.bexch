@@ -1,0 +1,21 @@
+[GENERATED OBJECT FILE]
+b__main.o
+[PROJECT FILES]
+C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\test.gpr
+20200608192926 6d092cafa6384e2dfab773b030035aa6
+[BOUND OBJECT FILES]
+C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\pck.o
+C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\pck_wrapped.o
+C:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\main.o
+[GENERATED SOURCE FILES]
+b__main.ads
+b__main.adb
+b__main.ali
+[RESULTING OPTIONS]
+-LC:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\
+-LC:\home\ochem\uwrap\testsuite\tests\ada\simple_wrapper\user\
+-LC:/home/ochem/sandbox/x86_64-windows/gnat/install/lib/gcc/x86_64-pc-mingw32/9.3.1/adalib/
+-static
+-static-libgcc
+C:/home/ochem/sandbox/x86_64-windows/gnat/install/lib/gcc/x86_64-pc-mingw32/9.3.1/adalib/libgnat.a
+-Wl,--stack=0x2000000
