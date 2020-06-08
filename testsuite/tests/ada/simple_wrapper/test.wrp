@@ -1,0 +1,6 @@
+import ada.wrappers;
+
+wrap with wrap_ada_specs ();
+
+match DefiningName ("(.*)Suffix")
+wrap with w_DefiningName ("\1");

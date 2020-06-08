@@ -1,0 +1,120 @@
+template w_Ada {
+  
+}
+
+template w_Unit extends w_Ada {
+   var spec : text;
+   var body : text;
+}
+
+template w_NamedEntity extends w_Ada {
+  var name : text;
+  var original_name : text;
+}
+
+template w_PackageDecl extends w_NamedEntity {
+   var spec_content : text;
+   var body_content : text;
+
+   var spec : pattern ("""
+      package \e<name> is
+        \e<spec_content>
+      end \e<name>; 
+      """);
+
+   var body : pattern ("""
+      package body \e<name> is
+        \e<body_content>
+      end \e<name>;
+   """);
+}
+
+template w_SubpDecl extends w_NamedEntity {
+   var function_or_procedure : text;
+   var lparen : text;
+   var rparen : text;
+
+   var profile : pattern ("""
+   \e<function_or_procedure> \e<name> \e<lparen> \e<rparen>
+   """); 
+
+   var spec : pattern ("""
+   \e<profile>;
+   """); 
+
+   var body : pattern ("""
+   \e<profile> is
+   begin
+      \e<original_name> \e<lparen> \e<rparen>;
+   end \e<name>;
+   """); 
+}
+
+template w_ReturnedSubtype extends w_Ada {
+  
+}
+
+template w_ParamSpec extends w_NamedEntity {
+  
+}
+
+template w_DefiningName extends w_Ada {
+  var name : text;
+}
+
+template spec_file extends standard.file {}
+
+template body_file extends standard.file {}
+
+visitor ada_to_wrappers () {
+    match CompilationUnit () {
+      wrap with w_Unit ();
+    }
+
+    match PackageDecl () 
+    wrap with w_PackageDecl();
+    
+    match DefiningName () {
+      match parent (PackageDecl ())
+      wrap with w_DefiningName (name => "\e<self>_Wrapped");
+
+      match parent (BasicDecl () and parent (PackageDecl ()))
+      wrap with w_DefiningName (name => "\e<self>");
+    }
+    
+    match SubpDecl()
+    wrap with w_SubpDecl();
+}
+
+visitor wrappers_post_process () {
+    match w_SubpDecl() and parent (p : w_PackageDecl ()) {
+      match not child (w_ReturnedSubtype ())
+      weave with (function_or_procedure => "procedure")
+      else weave with (function_or_procedure => "function");
+
+      match child (w_ParamSpec ())
+      weave with (lparen => "(", rparen => ">");
+
+      weave p with (spec_content => self.spec, body_content => self.body);
+    }
+    
+    match p: w_PackageDecl (parent (u: w_Unit ())) {
+      weave u with (spec => p.spec, body => p.body);
+    }
+
+    match w_DefiningName () and parent (n: w_NamedEntity ())
+    weave n with (name => self.name, original_name => self.origin);
+
+    match w_Unit () and child (p: w_PackageDecl ()) {
+      wrap with spec_file (path => "\e<p.name>.ads", content => self.spec);
+      wrap with body_file (path => "\e<p.name>.adb", content => self.body);
+    }
+}
+
+visitor wrap_ada_specs () {
+   match AdaNode ()
+   wrap with ada_to_wrappers ();
+
+   match w_Ada ()
+   wrap with wrappers_post_process ();
+}
