@@ -29,7 +29,7 @@ package body Wrapping.Run is
         (Kit_Node                   => Libtestlang.Analysis.Test_Node,
          Kit_Node_Array             => Libtestlang.Analysis.Test_Node_Array,
          Any_Node_Data_Reference    => Libtestlang.Common.Any_Node_Data_Reference,
-         Node_Type_Id               => Libtestlang.Common.Node_Type_Id,
+         Any_Node_Type_Id           => Libtestlang.Common.Any_Node_Type_Id,
          Kit_Node_Kind_Type         => Libtestlang.Common.Test_Node_Kind_Type,
          Analysis_Unit              => Libtestlang.Analysis.Analysis_Unit,
          Analysis_Context           => Libtestlang.Analysis.Analysis_Context,
@@ -40,6 +40,7 @@ package body Wrapping.Run is
          Default_Grammar_Rule       => Libtestlang.Common.Default_Grammar_Rule,
          Default_Charset            => Libtestlang.Common.Default_Charset,
          No_Unit_Provider_Reference => Libtestlang.Analysis.No_Unit_Provider_Reference,
+         No_Node_Type_Id            => Libtestlang.Common.None,
          Root                       => Libtestlang.Analysis.Root);
    end Testlang;
 
@@ -52,7 +53,7 @@ package body Wrapping.Run is
         (Kit_Node                   => Libadalang.Analysis.Ada_Node,
          Kit_Node_Array             => Libadalang.Analysis.Ada_Node_Array,
          Any_Node_Data_Reference    => Libadalang.Common.Any_Node_Data_Reference,
-         Node_Type_Id               => Libadalang.Common.Node_Type_Id,
+         Any_Node_Type_Id           => Libadalang.Common.Any_Node_Type_Id,
          Kit_Node_Kind_Type         => Libadalang.Common.Ada_Node_Kind_Type,
          Analysis_Unit              => Libadalang.Analysis.Analysis_Unit,
          Analysis_Context           => Libadalang.Analysis.Analysis_Context,
@@ -63,6 +64,7 @@ package body Wrapping.Run is
          Default_Grammar_Rule       => Libadalang.Common.Default_Grammar_Rule,
          Default_Charset            => Libadalang.Common.Default_Charset,
          No_Unit_Provider_Reference => Libadalang.Analysis.No_Unit_Provider_Reference,
+         No_Node_Type_Id            => Libadalang.Common.None,
          Root                       => Libadalang.Analysis.Root);
    end Adalang;
 

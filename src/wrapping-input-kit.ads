@@ -10,7 +10,7 @@ generic
    type Kit_Node is tagged private;
    type Kit_Node_Array is array (Positive range <>) of Kit_Node;
    type Any_Node_Data_Reference is (<>);
-   type Node_Type_Id is (<>);
+   type Any_Node_Type_Id is (<>);
    type Kit_Node_Kind_Type is (<>);
    type Analysis_Unit is tagged private;
    type Analysis_Context is tagged private;
@@ -22,12 +22,13 @@ generic
    Default_Grammar_Rule : Grammar_Rule;
    Default_Charset : String;
    No_Unit_Provider_Reference : Unit_Provider_Reference;
+   No_Node_Type_Id : Any_Node_Type_Id;
 
    with function Children (Node : Kit_Node'Class) return Kit_Node_Array is <>;
    with function Hash (Node : Kit_Node) return Ada.Containers.Hash_Type is <>;
    with function Lookup_Node_Data
-     (Id : Node_Type_Id; Name : String) return Any_Node_Data_Reference is <>;
-   with function Id_For_Kind (Kind : Kit_Node_Kind_Type) return Node_Type_Id is <>;
+     (Id : Any_Node_Type_Id; Name : String) return Any_Node_Data_Reference is <>;
+   with function Id_For_Kind (Kind : Kit_Node_Kind_Type) return Any_Node_Type_Id is <>;
    with function Eval_Field
      (Node : Kit_Node'Class; Field : Any_Node_Data_Reference) return Kit_Node is <>;
    with function Kind (Node : Kit_Node'Class) return Kit_Node_Kind_Type is <>;
@@ -46,6 +47,8 @@ generic
    with function Has_Diagnostics (Unit : Analysis_Unit'Class) return Boolean is <>;
    with function Diagnostics (Unit : Analysis_Unit'Class) return Diagnostics_Array is <>;
    with function Root (Unit : Analysis_Unit'Class) return Kit_Node is <>;
+   with function Lookup_DSL_Name (Name : String) return Any_Node_Type_Id is <>;
+   with function Is_Derived_From (Id, Parent : Any_Node_Type_Id) return Boolean is <>;
 package Wrapping.Input.Kit is
 
    type Kit_Language_Entity_Type;

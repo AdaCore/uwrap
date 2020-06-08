@@ -6,7 +6,7 @@ template main_2 {
     var content : text;
 }
 
-match entity () {
+match Entity () {
     match f_name (".*A.*")
     wrap with main_1 ("MATCHES A: \e<f_name>\n");
 

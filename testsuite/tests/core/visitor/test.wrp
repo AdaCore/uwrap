@@ -1,9 +1,9 @@
 visitor sub_analyze (p1, p2) {
-    match entity () or call ()
+    match Entity () or Call ()
     wrap with standard.out ("sub_analyze: \e<f_name>, \e<p1>, \e<p2>\n"); 
 }
 
-match entity () or call ()
+match Entity () or Call ()
 wrap with standard.out ("default: \e<f_name>\n");
 
 match f_name("A(.*)")

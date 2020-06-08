@@ -6,10 +6,10 @@ template w_entity {
 
 }
 
-match entity () and f_Name ("A|D")
+match Entity () and f_Name ("A|D")
 wrap with w_root ();
 
-match entity () and f_Name ("B|C|I")
+match Entity () and f_Name ("B|C|I")
 wrap with w_entity ();
 
 match w_root () and child (c : w_entity (origin (f_Name ("I"))))

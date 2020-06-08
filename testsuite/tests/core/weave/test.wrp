@@ -3,7 +3,7 @@ template main {
     var content : text;
 }
 
-match entity () {
+match Entity () {
     match f_name ("A")
     weave self with main (title => "SELF TEMPLATE FOR A\n");
 
@@ -13,7 +13,7 @@ match entity () {
     match parent (p: f_name ("A"))
     weave p with main (content => "'A' HAS A CHILD NAMED '\e<f_name>'\n");
 
-    match parent (entity () and parent (p: f_name ("A")))
+    match parent (Entity () and parent (p: f_name ("A")))
     weave p with main (content => "'A' HAS A GRAND CHILD NAMED '\e<f_name>'\n");
 }
 

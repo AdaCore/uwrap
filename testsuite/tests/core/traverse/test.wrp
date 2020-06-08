@@ -1,4 +1,4 @@
-match call () {
+match Call () {
     weave with standard.out ("CALL TRAVERSED \e<f_name>\n");
 
     wrap over;
@@ -29,5 +29,5 @@ match call () {
     }
 }
 
-match entity ()
+match Entity ()
 weave with standard.out ("ENTITY TRAVERSED: \e<f_name>\n");

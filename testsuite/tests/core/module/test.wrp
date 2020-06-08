@@ -4,7 +4,7 @@ template base_template {
     var content : text;
 }
 
-match entity () {
+match Entity () {
     match (f_name ("A"))
     wrap with x.t_in_x ("x.t_in_x (\e<f_name>)\n");
 

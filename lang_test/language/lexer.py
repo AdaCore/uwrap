@@ -8,6 +8,7 @@ class Token(LexerToken):
     Comma      = WithText()
     Comment    = WithTrivia()
     Identifier = WithSymbol()
+    Integer    = WithText()
 
 test_lexer = Lexer(Token)
 
@@ -20,5 +21,6 @@ test_lexer.add_rules(
     (Literal(")"), Token.RPar),
     (Literal(","), Token.Comma),
     (Pattern(r"[a-zA-Z][a-zA-Z0-9_]*"), Token.Identifier),
+    (Pattern(r"[0-9]+"), Token.Integer),
     
 )

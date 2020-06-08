@@ -76,21 +76,16 @@ package body Wrapping.Input.Kit is
       Result : Runtime_Object;
       Name : Text_Type := Selector.To_Text;
       Matched : Boolean;
+      Id : Any_Node_Type_Id;
    begin
       if Language_Entity_Type (An_Entity.all).Push_Match_Result (Selector, Params) then
          return True;
       end if;
 
       if Selector.all in Runtime_Field_Reference_Type'Class then
-         if Name = "test_node" then
-            if Params.Children_Count = 0 then
-               Push_Match_True (An_Entity);
-            else
-               Error ("no arguments allowed");
-            end if;
+         Id := Lookup_DSL_Name (To_String (Name));
 
-            return True;
-         elsif To_Lower (To_Wide_Wide_String (An_Entity.Node.Kind_Name)) = To_Lower (Name) then
+         if Id /= No_Node_Type_Id and then Is_Derived_From (Id_For_Kind (An_Entity.Node.Kind), Id) then
             if Params.Children_Count = 0 then
                Push_Match_True (An_Entity);
             elsif Params.Children_Count = 1 then

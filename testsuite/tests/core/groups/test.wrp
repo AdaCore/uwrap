@@ -1,4 +1,4 @@
-match entity () {
+match Entity () {
     match f_name ("A(.+)")
     weave with standard.out ("\e<f_name>:A-\1\n");
 

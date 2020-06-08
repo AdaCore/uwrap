@@ -14,20 +14,20 @@ template w_option {
     var option : text;
 }
 
-match entity () {
-    match not (parent (entity ()))
+match Entity () {
+    match not (parent (Entity ()))
     wrap with w_root (
         name => f_name,
         level => "0"
     );
 
-    match parent (entity ())
+    match parent (Entity ())
     wrap with w_entity (
         name => f_name,
         level => "1"
     );    
 
-    match parent (entity (parent (entity ())))
+    match parent (Entity (parent (Entity ())))
     wrap with w_entity (
         name => f_name,
         level => "2+"

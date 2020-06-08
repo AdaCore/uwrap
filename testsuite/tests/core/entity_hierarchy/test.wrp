@@ -1,0 +1,2 @@
+match NamedEntity ()
+weave with standard.out ("\e<f_Name>\n");
