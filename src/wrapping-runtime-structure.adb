@@ -130,6 +130,8 @@ package body Wrapping.Runtime.Structure is
         or else Name = "child"
         or else Name = "next"
         or else Name = "prev"
+        or else Name = "sibling"
+        or else Name = "template"
         or else Name = "tmp"
       then
          Top_Frame.Data_Stack.Append
@@ -155,7 +157,7 @@ package body Wrapping.Runtime.Structure is
 
          if Params.Children_Count = 0 then
             if An_Entity.Parent /= null then
-               Push_Match_True (An_Entity);
+               Push_Match_True (An_Entity.Parent);
             else
                Push_Match_False;
             end if;
@@ -164,8 +166,8 @@ package body Wrapping.Runtime.Structure is
          A_Mode := Child_Breadth;
 
          if Params.Children_Count = 0 then
-            if An_Entity.Children_Indexed.Length > 0 then
-               Push_Match_True (An_Entity);
+            if An_Entity.Children_Ordered.Length > 0 then
+               Push_Match_True (An_Entity.Children_Ordered.First_Element);
             else
                Push_Match_False;
             end if;
@@ -175,7 +177,7 @@ package body Wrapping.Runtime.Structure is
 
          if Params.Children_Count = 0 then
             if An_Entity.Prev /= null then
-               Push_Match_True (An_Entity);
+               Push_Match_True (An_Entity.Prev);
             else
                Push_Match_False;
             end if;
@@ -185,7 +187,7 @@ package body Wrapping.Runtime.Structure is
 
          if Params.Children_Count = 0 then
             if An_Entity.Next /= null then
-               Push_Match_True (An_Entity);
+               Push_Match_True (An_Entity.Next);
             else
                Push_Match_False;
             end if;
@@ -194,8 +196,10 @@ package body Wrapping.Runtime.Structure is
          A_Mode := Sibling;
 
          if Params.Children_Count = 0 then
-            if An_Entity.Prev /= null or else An_Entity.Next /= null then
-               Push_Match_True (An_Entity);
+            if An_Entity.Prev /= null then
+               Push_Match_True (An_Entity.Prev);
+            elsif An_Entity.Next /= null then
+               Push_Match_True (An_Entity.Next);
             else
                Push_Match_False;
             end if;
@@ -204,12 +208,34 @@ package body Wrapping.Runtime.Structure is
           A_Mode := Template;
 
          if Params.Children_Count = 0 then
-            if An_Entity.Templates_By_Name.Length > 0 then
-               Push_Match_True (An_Entity);
+            if An_Entity.Templates_Ordered.Length > 0 then
+               Push_Match_True (An_Entity.Templates_Ordered.First_Element);
             else
                Push_Match_False;
             end if;
          end if;
+      elsif Name = "self" then
+         if Params.Children_Count = 0 then
+            Push_Match_True (An_Entity);
+         elsif Params.Children_Count = 1 then
+            declare
+               Result : Runtime_Object;
+            begin
+               Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+
+               Result := Pop_Entity;
+
+               if Result /= Match_False then
+                  Push_Match_True (An_Entity);
+               else
+                  Push_Match_False;
+               end if;
+            end;
+         else
+            Error ("self only takes 1 argument");
+         end if;
+
+         return True;
       else
          return False;
       end if;
@@ -474,15 +500,24 @@ package body Wrapping.Runtime.Structure is
          end if;
       end Visitor;
 
+      Previous_Context : Frame_Context := Top_Frame.Context;
+
    begin
+      Top_Frame.Context := Match_Context;
+
       if Language_Entity_Type'Class(An_Entity.all).Traverse (A_Mode, False, Visitor'Access) /= Stop then
+         if Previous_Context /= Match_Context then
+            Error ("query failed in wrap or weave clause, consider move to match instead");
+         end if;
+
          --  If we browsed the tree without finding a match, then push false.
          Push_Match_False;
       else
-         -- Otherwise, delete the match and push the current entity
-         Top_Frame.Data_Stack.Delete_Last;
-         Push_Match_True (An_Entity);
+         -- Otherwise, keep the current result
+         null;
       end if;
+
+      Top_Frame.Context := Previous_Context;
    end Evaluate_Bowse_Functions;
 
 
@@ -493,11 +528,7 @@ package body Wrapping.Runtime.Structure is
 
    procedure Push_Match_True (An_Entity : access Runtime_Object_Type'Class) is
    begin
-      if An_Entity.all not in Runtime_Language_Entity_Type'Class then
-         Error ("expected language entity type");
-      else
-         Push_Match_True (Runtime_Language_Entity_Type (An_Entity.all).Value);
-      end if;
+      Top_Frame.Data_Stack.Append (Runtime_Object (An_Entity));
    end Push_Match_True;
 
    procedure Push_Match_False is
@@ -646,6 +677,8 @@ package body Wrapping.Runtime.Structure is
       Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
    is
+      Dummy_Boolean : Boolean;
+
       use Wrapping.Semantic.Structure;
 
       procedure Match_Variable_Value (Name : Text_Type; Expression : Libtemplatelang.Analysis.Template_Node) is
@@ -664,7 +697,7 @@ package body Wrapping.Runtime.Structure is
          end if;
 
          if Matched then
-            Push_Match_True (An_Entity);
+            Dummy_Boolean := An_Entity.Push_Value (Name);
          else
             Push_Match_False;
          end if;
@@ -695,7 +728,7 @@ package body Wrapping.Runtime.Structure is
             --  We just checked for the existence of this var and
             --  disregard the actual value
 
-            Push_Match_True (An_Entity);
+            Push_Match_True (An_Entity.Origin);
          elsif Params.Children_Count = 1 then
             Push_Implicit_Self (An_Entity.Origin);
 
@@ -707,7 +740,7 @@ package body Wrapping.Runtime.Structure is
             if Result = Match_False then
                Push_Match_False;
             else
-               Push_Match_True (An_Entity);
+               Push_Match_True (An_Entity.Origin);
             end if;
 
             return True;
@@ -728,8 +761,8 @@ package body Wrapping.Runtime.Structure is
                --  We just checked for the existence of this var and
                --  disregard the actual value
 
-               Push_Match_True (An_Entity);
-            elsif Params.Children_Count = 1 then
+               Dummy_Boolean := An_Entity.Push_Value (Name);
+            elsif Params.Children_Count = 1 then  -- TODO: WE SHOULD RETURN A REFERENCE TO THE FIELD INSTEAD
                Match_Variable_Value (A_Named_Entity.Name_Node.Text, Params.Child (1));
             else
                Error ("var matcher only takes one parameter");
@@ -824,7 +857,7 @@ package body Wrapping.Runtime.Structure is
       Result : Unbounded_Text_Type;
    begin
       for T of Object.Texts loop
-         Result := Result & T.To_Text;
+         Result := Result & (if T /= null then T.To_Text else "");
       end loop;
 
       return To_Text (Result);

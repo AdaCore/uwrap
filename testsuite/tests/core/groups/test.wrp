@@ -10,6 +10,6 @@ match Entity () {
     match f_name ("G(?<suffix>.+)")
     weave with standard.out ("\e<f_name>:G-\e<suffix>\n");
 
-    match a: parent (b: f_name ("F"))
-    weave with standard.out ("'\e<a.f_name>' has for parent \e<b.f_name>\n");
+    match b: parent (f_name ("F"))
+    weave with standard.out ("'\e<f_name>' has for parent \e<b.f_name>\n");
 }

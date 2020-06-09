@@ -6,6 +6,8 @@
 **/*.stderr
 **/b__*
 **/.#*
+**/*.bexch
+**/*-loc.xml
 
 obj/**
 lang_template/build/**

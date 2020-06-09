@@ -1,0 +1,16 @@
+match Entity () {
+    match f_name ("A") and c: child (Entity ('B'))
+    weave with standard.out ("(1) FIRST CHILD IS: \e<c.f_name>\n");
+
+    match f_name ("A") and child (c: Entity ('B'))
+    weave with standard.out ("(2) FIRST CHILD IS: \e<c.f_name>\n");
+
+    match f_name ("A") and c: self (child (Entity ('B')))
+    weave with standard.out ("(3) SELF IS: \e<c.f_name>\n");
+
+    match c: self (f_name ("A") and child (Entity ('B')))
+    weave with standard.out ("(4) SELF IS: \e<c.f_name>\n");
+
+    match f_name ("A")
+    weave with standard.out ("(5) FIRST CHILD IS: \e<self.child (Entity ('B'))>\n");
+}

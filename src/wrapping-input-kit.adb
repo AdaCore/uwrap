@@ -181,6 +181,7 @@ package body Wrapping.Input.Kit is
             declare
                Result : Runtime_Object;
                Node : Kit_Node;
+               Field_Entity : Kit_Language_Entity;
             begin
                Result := Eval_Field (An_Entity.Node, Name);
 
@@ -189,8 +190,11 @@ package body Wrapping.Input.Kit is
                end if;
 
                if Result /= null then
+                  Node := Runtime_Node_Type (Result.all).A_Node;
+                  Field_Entity := An_Entity.Children_By_Node.Element (Node);
+
                   if Params.Children_Count = 0 then
-                     Push_Match_True (An_Entity);
+                     Push_Match_True (Field_Entity);
                   elsif Params.Children_Count /= 1 then
                      Error ("no more than one parameter allowed for field matching");
                   elsif Result.all in Runtime_Node_Type then
@@ -208,7 +212,7 @@ package body Wrapping.Input.Kit is
                      Matched := Result /= Match_False;
 
                      if Matched then
-                        Push_Match_True (An_Entity);
+                        Push_Match_True (Field_Entity);
                      else
                         Push_Match_False;
                      end if;
@@ -222,7 +226,7 @@ package body Wrapping.Input.Kit is
          end if;
       elsif Selector.all in Runtime_Text_Expression_Type'Class then
          if Match (Name, An_Entity.Node.Text) then
-            Push_Match_True (An_Entity);
+            Push_Match_True (Selector);
          else
             Push_Match_False;
          end if;
