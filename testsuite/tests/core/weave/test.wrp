@@ -18,4 +18,4 @@ match Entity () {
 }
 
 match main ()
-wrap with standard.out ("\e<title>{\n\e<content>}");
+wrap with standard.out ("\e<title>{\n\e<self.content>}");

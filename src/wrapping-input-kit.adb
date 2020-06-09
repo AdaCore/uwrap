@@ -92,7 +92,12 @@ package body Wrapping.Input.Kit is
          end if;
 
          if Result /= null then
-            Top_Frame.Data_Stack.Append (Result);
+            if Result.all in Runtime_Node_Type then
+               Push_Entity
+                 (An_Entity.Children_By_Node.Element (Runtime_Node_Type (Result.all).A_Node));
+            else
+               Top_Frame.Data_Stack.Append (Result);
+            end if;
 
             return True;
          end if;
@@ -125,7 +130,7 @@ package body Wrapping.Input.Kit is
             elsif Params.Children_Count = 1 then
                -- fields are browsing functions similar to prev, next, etc...
                -- they push the node so that it can be captured.
-               Push_Entity (An_Entity, True);
+               Push_Implicit_Self (An_Entity);
 
                Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 
@@ -165,7 +170,7 @@ package body Wrapping.Input.Kit is
 
                      -- fields are browsing functions similar to prev, next, etc...
                      -- they push the node so that it can be captured.
-                     Push_Entity (An_Entity.Children_By_Node.Element (Node), True);
+                     Push_Implicit_Self (An_Entity.Children_By_Node.Element (Node));
 
                      Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 

@@ -13,4 +13,4 @@ match Entity () and f_Name ("B|C|I")
 wrap with w_entity ();
 
 match w_root () and child (c : w_entity (origin (f_Name ("I"))))
-weave with standard.out ("\e<origin.f_name> as a child weaved under \e<c.origin.f_name>\n");
+weave with standard.out ("\e<self.origin.f_name> as a child weaved under \e<c.origin.f_name>\n");

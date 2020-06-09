@@ -1,0 +1,24 @@
+template main {
+    var a1 : text;
+    var a2 : text;
+    var a3 : text;
+    var a4 : text;
+}
+
+match Entity ()
+weave with main (a2 => "a1 value is '\e<a1>'");
+
+match Entity ()
+weave with main (a4 => "a3 value is '\e<new.a3>'");
+
+match main ()
+weave with (a1 => self.origin.f_name);
+
+match main ()
+weave with (a3 => origin.f_name);
+
+match main ()
+weave with standard.out ("\e<a2>\n");
+
+match main ()
+weave with standard.out ("\e<a4>\n");

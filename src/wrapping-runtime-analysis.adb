@@ -46,14 +46,40 @@ package body Wrapping.Runtime.Analysis is
       Wrapping.Pop_Error_Location;
    end Pop_Error_Location;
 
-   procedure Push_Entity (An_Entity : access Language_Entity_Type'Class; Is_Implicit_Self : Boolean := False) is
+   procedure Push_Entity (An_Entity : access Language_Entity_Type'Class) is
    begin
-      Top_Frame.Data_Stack.Append (new Runtime_Language_Entity_Type'(Value => Language_Entity (An_Entity), Is_Implicit_Self => Is_Implicit_Self));
+      Top_Frame.Data_Stack.Append (new Runtime_Language_Entity_Type'(Value => Language_Entity (An_Entity), others => <>));
    end Push_Entity;
+
+   procedure Push_Implicit_Self (An_Entity : access Language_Entity_Type'Class) is
+   begin
+      Top_Frame.Data_Stack.Append
+        (new Runtime_Language_Entity_Type'
+           (Value => Language_Entity (An_Entity),
+            Is_Implicit_Selfff => True,
+            others => <>));
+   end Push_Implicit_Self;
+
+   procedure Push_Implicit_New (An_Entity : access Language_Entity_Type'Class) is
+   begin
+      Top_Frame.Data_Stack.Append
+        (new Runtime_Language_Entity_Type'
+           (Value => Language_Entity (An_Entity),
+            Is_Implicit_New => True,
+            others => <>));
+   end Push_Implicit_New;
 
    procedure Pop_Entity (Number : Positive := 1) is
    begin
       Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
+   end Pop_Entity;
+
+   function Pop_Entity return Runtime_Object is
+      Result : Runtime_Object;
+   begin
+      Result := Top_Frame.Data_Stack.Last_Element;
+      Pop_Entity;
+      return Result;
    end Pop_Entity;
 
    procedure Push_Frame (Lexical_Scope : access Semantic.Structure.Entity_Type'Class) is
@@ -76,18 +102,31 @@ package body Wrapping.Runtime.Analysis is
       Free (Old_Frame);
    end Pop_Frame;
 
-   function Get_Self return Language_Entity is
+   function Get_Implicit_Self return Language_Entity is
    begin
       for I in reverse Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index loop
          if Top_Frame.Data_Stack.Element (I).all in Runtime_Language_Entity_Type
-           and then Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Is_Implicit_Self
+           and then Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Is_Implicit_Selfff
          then
             return Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Value;
          end if;
       end loop;
 
       return null;
-   end Get_Self;
+   end Get_Implicit_Self;
+
+   function Get_Implicit_New return Language_Entity is
+   begin
+      for I in reverse Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index loop
+         if Top_Frame.Data_Stack.Element (I).all in Runtime_Language_Entity_Type
+           and then Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Is_Implicit_New
+         then
+            return Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Value;
+         end if;
+      end loop;
+
+      return null;
+   end Get_Implicit_New;
 
    function Match (Pattern, Text : Text_Type) return Boolean is
       Text_Str : String := To_String (Text);
@@ -148,6 +187,7 @@ package body Wrapping.Runtime.Analysis is
         (A_Language_Entity : Language_Entity; Template_Clause : Weave_Or_Wrap)
       is
          A_Template_Instance : Template_Instance;
+         Self_Weave : Boolean := False;
       begin
          if Template_Clause.Call_Reference = null then
             --  No name to the call, that means that we're expecting to self-weave
@@ -159,6 +199,8 @@ package body Wrapping.Runtime.Analysis is
             else
                Error ("only template instances can be self weaved");
             end if;
+
+            Self_Weave := True;
          elsif Template_Clause.Call_Reference.all in Template_Type'Class then
             A_Template_Instance := A_Language_Entity.Get_Template_Instance
               (Semantic.Structure.Template (Template_Clause.Call_Reference));
@@ -181,10 +223,18 @@ package body Wrapping.Runtime.Analysis is
          end if;
 
          if A_Template_Instance /= null then
+            if not Self_Weave then
+               Push_Implicit_New (A_Template_Instance);
+            end if;
+
             Handle_Template_Call
               (A_Language_Entity,
                A_Template_Instance,
                Template_Clause.Arguments);
+
+            if not Self_Weave then
+               Pop_Entity;
+            end if;
          end if;
       end Apply_Template_Action;
 
@@ -196,7 +246,7 @@ package body Wrapping.Runtime.Analysis is
          --  will in particular receive the matching groups and the temporary
          --  values that can be used consistently in the various clauses
          Push_Frame (A_Command);
-         Push_Entity (A_Language_Entity, True);
+         Push_Implicit_Self (A_Language_Entity);
 
          if not A_Command.Match_Expression.Is_Null then
             Top_Frame.Context := Match_Context;
@@ -652,7 +702,7 @@ package body Wrapping.Runtime.Analysis is
                begin
                   Top_Frame.Data_Stack.Delete_Last;
 
-                  if not Get_Self.Push_Match_Result (To_Match, No_Argument_List) then
+                  if not Get_Implicit_Self.Push_Match_Result (To_Match, No_Argument_List) then
                      Push_Match_False;
                   end if;
                end;
@@ -882,42 +932,71 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Handle_Language_Entity_Selection is
          Name : Text_Type := Node.Text;
+
+         Implicit_Self : Language_Entity;
+         Implicit_New  : Language_Entity;
+
+         Found_Self_Entity : Boolean;
+         Found_New_Entity : Boolean;
+
+         Self_Object : Runtime_Object;
       begin
          -- We're resolving a reference to an entity
 
          Prefix_Entity := Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
 
          if Runtime_Language_Entity
-           (Top_Frame.Data_Stack.Last_Element).Is_Implicit_Self
-           and then Name = "self"
+           (Top_Frame.Data_Stack.Last_Element).Is_Implicit
          then
-            --  We're just refering to self here, re-stack it without the implicit
-            --  flag, it's now explicit
-            Top_Frame.Data_Stack.Append
-              (new Runtime_Language_Entity_Type'
-                 (Value            => Prefix_Entity,
-                  Is_Implicit_Self => False));
+            Implicit_Self := Get_Implicit_Self;
+            Implicit_New := Get_Implicit_New;
 
-            return;
-         end if;
+            if Name = "self" then
+               Push_Entity (Get_Implicit_Self);
 
-         --  TODO: If there's already a template instance set, this should allow
-         --  to retreive it (later call is only doing creation on the implicit
-         --  self). Push Value should take that into account (it doesn't yet)
-         if Prefix_Entity.Push_Value (Name) then
-            --  We found a component of the entity and it has been pushed
-            return;
-         end if;
+               return;
+            elsif Name = "new" and then Implicit_New /= null then
+               Push_Entity (Get_Implicit_New);
 
-         if Runtime_Language_Entity
-           (Top_Frame.Data_Stack.Last_Element).Is_Implicit_Self
-         then
-            --  We stacked the implicit self but didn't find a component, so
-            --  we're actually not trying to select on the implicit self. Look
-            --  for global references.
+               return;
+            else
+               --  Retreive the entity from implicit self. If Implicit new
+               --  exist, we need to also attempt at retreiving its value.
+               --  We'll return either the entity coming from one of the two,
+               --  or raise an error if both contain such name.
+
+               Found_Self_Entity := Implicit_Self.Push_Value (Name);
+
+               if Implicit_New /= null then
+                  if not Found_Self_Entity then
+                     if Implicit_New.Push_Value (Name) then
+                        return;
+                     end if;
+                  else
+                     Self_Object := Pop_Entity;
+
+                     Found_New_Entity := Implicit_New.Push_Value (Name);
+
+                     if not Found_New_Entity then
+                        Top_Frame.Data_Stack.Append (Self_Object);
+                        return;
+                     else
+                        Error ("ambiguous reference to '" & Name & "' between self and new objects");
+                     end if;
+                  end if;
+               elsif Found_Self_Entity then
+                  return;
+               end if;
+            end if;
+
             Handle_Global_Identifier;
          else
-            Error ("'" & Name & "' component not found");
+            if Prefix_Entity.Push_Value (Name) then
+               --  We found a component of the entity and it has been pushed
+               return;
+            else
+               Error ("'" & Name & "' component not found");
+            end if;
          end if;
       end Handle_Language_Entity_Selection;
 
@@ -1097,7 +1176,7 @@ package body Wrapping.Runtime.Analysis is
          --  At this point, we stacked references to various namespaces. They
          --  will get unstacked when exiting the selectors. We do need to
          --  retreive the value of self earlier in the stack.
-         Self := Get_Self;
+         Self := Get_Implicit_Self;
 
          if Match_Object.all in Runtime_Language_Entity_Type'Class then
             if Runtime_Language_Entity (Match_Object).Value.Push_Match_Result

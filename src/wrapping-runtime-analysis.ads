@@ -20,10 +20,16 @@ package Wrapping.Runtime.Analysis is
    --  Match a pattern with a text, adding group and captured variables on the
    --  top frame
 
-   procedure Push_Entity (An_Entity : access Language_Entity_Type'Class; Is_Implicit_Self : Boolean := False);
+   procedure Push_Entity (An_Entity : access Language_Entity_Type'Class);
+
+   procedure Push_Implicit_Self (An_Entity : access Language_Entity_Type'Class);
+
+   procedure Push_Implicit_New (An_Entity : access Language_Entity_Type'Class);
 
    --  TODO: generalize the usage of this instead of manual deleting from the
    --  stack
    procedure Pop_Entity (Number : Positive := 1);
+
+   function Pop_Entity return Runtime_Object;
 
 end Wrapping.Runtime.Analysis;

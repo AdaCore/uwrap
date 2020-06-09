@@ -1,9 +1,9 @@
 template main_1 {
-    var content : text;
+    var txt : text;
 }
 
 template main_2 {
-    var content : text;
+    var txt : text;
 }
 
 match Entity () {
@@ -21,7 +21,7 @@ match Entity () {
 }
 
 match main_1 ()
-wrap with standard.out ("\e<content>");
+wrap with standard.out ("\e<txt>");
 
 match main_2 ()
-wrap with standard.out ("\e<content>");
+wrap with standard.out ("\e<txt>");

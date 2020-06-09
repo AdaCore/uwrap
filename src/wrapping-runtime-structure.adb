@@ -123,10 +123,7 @@ package body Wrapping.Runtime.Structure is
    is
    begin
       if An_Entity.Templates_By_Name.Contains (Name) then
-         Top_Frame.Data_Stack.Append
-           (new Runtime_Language_Entity_Type'
-              (Value => Language_Entity (An_Entity.Templates_By_Name.Element (Name)),
-               Is_Implicit_Self => False));
+         Push_Entity (An_Entity.Templates_By_Name.Element (Name));
 
          return True;
       elsif Name = "parent" or else Name = "child" or else Name = "next" or else Name = "prev" then
@@ -431,7 +428,7 @@ package body Wrapping.Runtime.Structure is
          --  to find its way to the command frame (otherwise any extracted
          --  group would be deleted upon frame popped).
          --  TODO: these specificities needs to be duly documented in the UG.
-         Push_Entity (E, True);
+         Push_Implicit_Self (E);
 
          if Evaluate_Match_Expression = null then
             Evaluate_Expression (Match_Expression);
@@ -673,7 +670,7 @@ package body Wrapping.Runtime.Structure is
 
             Push_Match_True (An_Entity);
          elsif Params.Children_Count = 1 then
-            Push_Entity (An_Entity.Origin, True);
+            Push_Implicit_Self (An_Entity.Origin);
 
             Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 
@@ -725,7 +722,7 @@ package body Wrapping.Runtime.Structure is
                   if Params.Children_Count = 0 then
                      Push_Match_True (An_Entity);
                   elsif Params.Children_Count = 1 then
-                     Push_Entity (An_Entity, True);
+                     Push_Implicit_Self (An_Entity);
 
                      Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
                      Result := Top_Frame.Data_Stack.Last_Element;
@@ -764,7 +761,7 @@ package body Wrapping.Runtime.Structure is
            Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
 
          for T of Matched_Entity.Templates_Ordered loop
-            Push_Entity (T, True);
+            Push_Implicit_Self (T);
             Evaluate_Expression (Match_Expression);
 
             Result := Top_Frame.Data_Stack.Last_Element;

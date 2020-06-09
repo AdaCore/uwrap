@@ -296,9 +296,12 @@ package Wrapping.Runtime.Structure is
    type Runtime_Language_Entity_Type is new Runtime_Object_Type with record
       Value : Language_Entity;
 
-      -- True if this is the implicit self element passed to commands
-      Is_Implicit_Self : Boolean := False;
+      Is_Implicit_Selfff : Boolean := False;
+      Is_Implicit_New: Boolean := False;
    end record;
+
+   function Is_Implicit (Object : Runtime_Language_Entity_Type) return Boolean is
+      (Object.Is_Implicit_Selfff or else Object.Is_Implicit_New);
 
    overriding
    function To_Text (Object : Runtime_Language_Entity_Type) return Text_Type is
