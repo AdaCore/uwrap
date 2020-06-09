@@ -13,6 +13,8 @@ package Wrapping.Runtime.Analysis is
 
    procedure Analyse (Root_Entity : Language_Entity);
 
+   -- TODO: Make a version of that function that pops and return the result.
+   -- it should be used in many places
    procedure Evaluate_Expression
      (Node : Libtemplatelang.Analysis.Template_Node'Class);
 
@@ -25,6 +27,10 @@ package Wrapping.Runtime.Analysis is
    procedure Push_Implicit_Self (An_Entity : access Language_Entity_Type'Class);
 
    procedure Push_Implicit_New (An_Entity : access Language_Entity_Type'Class);
+
+   --  Push the temporary of the given name on the stack. If one needs to be
+   --  created, counter will be used to append to the name and be incremented.
+   procedure Push_Temporary_Name (Name : Text_Type; Counter : in out Integer);
 
    --  TODO: generalize the usage of this instead of manual deleting from the
    --  stack

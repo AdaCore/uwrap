@@ -8,6 +8,8 @@ with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
 
 package body Wrapping.Input.Kit is
 
+   Global_Node_Registry : Kit_Language_Entity_Node_Maps.Map;
+
    procedure Pre_Visit (An_Entity : access Kit_Language_Entity_Type) is
       New_Entity : Language_Entity;
    begin
@@ -17,6 +19,7 @@ package body Wrapping.Input.Kit is
                New_Entity := new Kit_Language_Entity_Type'(Node => C, others => <>);
                Add_Child (An_Entity, New_Entity);
                An_Entity.Children_By_Node.Insert (C, Kit_Language_Entity (New_Entity));
+               Global_Node_Registry.Insert (C, Kit_Language_Entity (New_Entity));
             end if;
          end loop;
 
@@ -44,6 +47,27 @@ package body Wrapping.Input.Kit is
       return null;
    end Eval_Field;
 
+   function Get_Entity_For_Node (Node : Kit_Node) return Kit_Language_Entity is
+      Parent : Kit_Language_Entity;
+      New_Entity : Kit_Language_Entity;
+   begin
+      if Global_Node_Registry.Contains (Node) then
+         return Global_Node_Registry.Element (Node);
+      elsif not Node.Parent.Is_Null then
+         Parent := Get_Entity_For_Node (Node.Parent);
+         Parent.Pre_Visit;
+
+         return
+           Kit_Language_Entity_Type (Parent.all).
+           Children_By_Node.Element (Node);
+      else
+         New_Entity := new Kit_Language_Entity_Type'(Node => Node, others => <>);
+         Global_Node_Registry.Insert (Node, New_Entity);
+         return New_Entity;
+      end if;
+   end Get_Entity_For_Node;
+
+
    function Eval_Property (Node : Kit_Node; Name : Text_Type) return Runtime_Object is
       Property_Node : Any_Node_Data_Reference;
    begin
@@ -62,6 +86,10 @@ package body Wrapping.Input.Kit is
                if Kind (Value) = Text_Type_Value then
                   return new Runtime_Text_Type'
                     (Value => To_Unbounded_Text (As_Text_Type (Value)));
+               elsif Kind (Value) = Node_Value then
+                  return new Runtime_Language_Entity_Type'
+                    (Value => Language_Entity
+                       (Get_Entity_For_Node (As_Node (Value))), others => <>);
                else
                   Error ("unsupported property kind: " & Any_Value_Kind'Wide_Wide_Image (Kind (Value)));
                end if;
@@ -230,7 +258,7 @@ package body Wrapping.Input.Kit is
    procedure Analyze_Unit (Unit : Analysis_Unit) is
       Root_Entity : Language_Entity;
    begin
-      Root_Entity := new Kit_Language_Entity_Type'(Node => Unit.Root, others => <>);
+      Root_Entity := Language_Entity (Get_Entity_For_Node (Unit.Root));
 
       Wrapping.Runtime.Analysis.Analyse (Root_Entity);
    end Analyze_Unit;

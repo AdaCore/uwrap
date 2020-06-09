@@ -126,11 +126,18 @@ package body Wrapping.Runtime.Structure is
          Push_Entity (An_Entity.Templates_By_Name.Element (Name));
 
          return True;
-      elsif Name = "parent" or else Name = "child" or else Name = "next" or else Name = "prev" then
+      elsif Name = "parent"
+        or else Name = "child"
+        or else Name = "next"
+        or else Name = "prev"
+        or else Name = "tmp"
+      then
          Top_Frame.Data_Stack.Append
            (new Runtime_Function_Reference_Type'
               (Name   => To_Unbounded_Text (Name),
                Prefix => Language_Entity (An_Entity)));
+
+         return True;
       end if;
 
       return False;
@@ -222,7 +229,27 @@ package body Wrapping.Runtime.Structure is
       Params    : Argument_List) return Boolean
    is
    begin
-     return Push_Browse_Result (An_Entity, Name, Params);
+      if Push_Browse_Result (An_Entity, Name, Params) then
+         return True;
+      elsif Name = "tmp" then
+         if Params.Children_Count = 0 then
+            Push_Temporary_Name
+              ("",
+               An_Entity.Tmp_Counter);
+         elsif Params.Children_Count = 1 then
+            Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+
+            Push_Temporary_Name
+              (Pop_Entity.To_Text,
+               An_Entity.Tmp_Counter);
+         else
+            Error ("tmp only accepts one argument");
+         end if;
+
+         return True;
+      else
+         return False;
+      end if;
    end Push_Call_Result;
 
    function Push_Match_Result

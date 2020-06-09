@@ -94,6 +94,8 @@ package Wrapping.Runtime.Structure is
      (Generic_Context,
       Match_Context);
 
+   package Text_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Text_Type);
+
    type Data_Frame_Type is record
       Parent_Frame : Data_Frame;
 
@@ -102,6 +104,8 @@ package Wrapping.Runtime.Structure is
       Data_Stack      : Runtime_Object_Vectors.Vector;
       Context         : Frame_Context := Generic_Context;
       Lexical_Scope   : Semantic.Structure.Entity;
+
+      Temp_Names      : Text_Maps.Map;
    end record;
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return Runtime_Object;
@@ -125,6 +129,8 @@ package Wrapping.Runtime.Structure is
       A_Class : Language_Entity_Class; -- TODO: Probably get rid of this
 
       Traverse_Applied : Boolean := False;
+
+      Tmp_Counter : Integer := 0;
    end record;
 
    procedure Add_Child (Parent, Child : access Language_Entity_Type'Class);
@@ -296,12 +302,12 @@ package Wrapping.Runtime.Structure is
    type Runtime_Language_Entity_Type is new Runtime_Object_Type with record
       Value : Language_Entity;
 
-      Is_Implicit_Selfff : Boolean := False;
+      Is_Implicit_Self : Boolean := False;
       Is_Implicit_New: Boolean := False;
    end record;
 
    function Is_Implicit (Object : Runtime_Language_Entity_Type) return Boolean is
-      (Object.Is_Implicit_Selfff or else Object.Is_Implicit_New);
+      (Object.Is_Implicit_Self or else Object.Is_Implicit_New);
 
    overriding
    function To_Text (Object : Runtime_Language_Entity_Type) return Text_Type is

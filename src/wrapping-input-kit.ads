@@ -28,8 +28,10 @@ generic
    No_Node_Type_Id : Any_Node_Type_Id;
 
    Text_Type_Value : Any_Value_Kind;
+   Node_Value : Any_Value_Kind;
 
    with function Children (Node : Kit_Node'Class) return Kit_Node_Array is <>;
+   with function Parent (Node : Kit_Node'Class) return Kit_Node is <>;
    with function Hash (Node : Kit_Node) return Ada.Containers.Hash_Type is <>;
    with function Lookup_Node_Data
      (Id : Any_Node_Type_Id; Name : String) return Any_Node_Data_Reference is <>;
@@ -59,6 +61,7 @@ generic
       Arguments : Value_Array) return Value_Type is <>;
    with function Kind (Self : Value_Type) return Any_Value_Kind is <>;
    with function As_Text_Type (Self : Value_Type) return Text_Type is <>;
+   with function As_Node (Self : Value_Type) return Kit_Node is <>;
 package Wrapping.Input.Kit is
 
    type Kit_Language_Entity_Type;

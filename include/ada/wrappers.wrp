@@ -49,9 +49,24 @@ template w_SubpDecl extends w_NamedEntity {
    var function_or_procedure : text;
    var lparen : text;
    var rparen : text;
+ 
+   var param_spec_list : text;
+   var result_subtype_indication : text;
+
+   var pre_call_decl : text;
+   var pre_call_stmt : text;
+   var call_decl_exp : text;
+   var call_decl : text;
+   var call_stmt : text;
+   var post_call_decl : text;
+   var post_call_stmt : text;
+
+   var return_stmt : text;
+   var call_assoc_list : text;
+   var call : text;
 
    var profile : pattern ("""
-   \e<function_or_procedure> \e<name> \e<lparen> \e<rparen>
+   \e<function_or_procedure> \e<name> \e<lparen> \e<param_spec_list> \e<rparen>
    """); 
 
    var spec : pattern ("""
@@ -60,8 +75,19 @@ template w_SubpDecl extends w_NamedEntity {
 
    var body : pattern ("""
    \e<profile> is
+      \e<pre_call_decl>
    begin
-      \e<original_name> \e<lparen> \e<rparen>;
+      \e<pre_call_stmt>
+      declare
+         \e<call_decl>
+      begin
+         \e<call_stmt>
+         declare
+            \e<post_call_decl>
+         begin
+            \e<call>
+         end;
+      end;
    end \e<name>;
    """); 
 }
@@ -71,7 +97,14 @@ template w_ReturnedSubtype extends w_Ada {
 }
 
 template w_ParamSpec extends w_NamedEntity {
-  
+   var formal_text : text;
+   var actual_text : text;
+
+   var pre_call_decl  : text;
+   var pre_call_stmt  : text;
+   var actual_value   : text;
+   var post_call_decl : text;
+   var post_call_stmt : text;
 }
 
 template w_DefiningName extends w_Ada {
@@ -83,26 +116,32 @@ template spec_file extends standard.file {}
 template body_file extends standard.file {}
 
 visitor ada_to_wrappers () {
-    match CompilationUnit () {
+   match CompilationUnit () {
       wrap with w_Unit ();
-    }
+   }
 
-    match PackageDecl () 
-    wrap with w_PackageDecl();
+   match PackageDecl () 
+   wrap with w_PackageDecl();
     
-    match DefiningName () {
+   match SubpDecl()
+   wrap with w_SubpDecl();
+
+   match ParamSpec() and child (s : SubtypeIndication ()) and parent (sb: SubpDecl ())
+   wrap with w_ParamSpec(
+      pre_call_decl => "\e<sb.tmp ('local')> : \e<p_type_expression> with Address => \e<name>'Address;\n",
+      actual_value => sb.tmp ('local')
+   );
+
+   match WithClause() and child(d: DottedName ())
+   wrap with w_WithClause(ref => d);
+
+   match DefiningName () {
       match parent (PackageDecl ())
       wrap with w_DefiningName (name => "\e<self>_Wrapped");
 
       match parent (BasicDecl () and parent (PackageDecl ()))
       wrap with w_DefiningName (name => "\e<self>");
-    }
-    
-    match SubpDecl()
-    wrap with w_SubpDecl();
-
-    match WithClause() and child(d: DottedName ())
-    wrap with w_WithClause(ref => d);
+   }
 }
 
 visitor wrappers_post_process () {
@@ -111,10 +150,32 @@ visitor wrappers_post_process () {
       weave with (function_or_procedure => "procedure")
       else weave with (function_or_procedure => "function");
 
+      weave with (
+         call => "\e<origin.p_fully_qualified_name> \e<lparen> \e<call_assoc_list> \e<rparen>;"
+      );
+
       match child (w_ParamSpec ())
       weave with (lparen => "(", rparen => ")");
 
       weave p with (spec_content => self.spec, body_content => self.body);
+    }
+
+    match w_ParamSpec () and parent (s : w_SubpDecl()) {
+       # TODO need to cater for the case where the spec parameter is removed
+       # (e.g. when an explicit expression is provided)
+       match prev (w_ParamSpec ())
+       weave with (formal_text => "; \e<name> : \e<origin.p_type_expression>")
+       else weave with (formal_text => "\e<name> : \e<origin.p_type_expression>");
+
+       match prev (w_ParamSpec ())
+       weave with (actual_text => ", \e<actual_value>")
+       else weave with (actual_text => "\e<actual_value>");
+
+       weave s with (
+          param_spec_list => formal_text,
+          pre_call_decl => pre_call_decl,
+          call_assoc_list => actual_text
+       );
     }
     
     match p: w_PackageDecl (parent (u: w_Unit ()))

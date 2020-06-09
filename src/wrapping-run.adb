@@ -45,7 +45,8 @@ package body Wrapping.Run is
          Value_Type                 => Libtestlang.Introspection.Value_Type,
          Value_Array                => Libtestlang.Introspection.Value_Array,
          Root                       => Libtestlang.Analysis.Root,
-         Text_Type_Value            => Libtestlang.Common.Text_Type_Value);
+         Text_Type_Value            => Libtestlang.Common.Text_Type_Value,
+         Node_Value                 => Libtestlang.Common.Node_Value);
    end Testlang;
 
    package Adalang is
@@ -73,7 +74,8 @@ package body Wrapping.Run is
          Value_Type                 => Libadalang.Introspection.Value_Type,
          Value_Array                => Libadalang.Introspection.Value_Array,
          Root                       => Libadalang.Analysis.Root,
-         Text_Type_Value            => Libadalang.Common.Text_Type_Value);
+         Text_Type_Value            => Libadalang.Common.Text_Type_Value,
+         Node_Value                 => Libadalang.Common.Node_Value);
    end Adalang;
 
    procedure App_Post_Process

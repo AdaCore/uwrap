@@ -1,0 +1,6 @@
+import ada.wrappers;
+
+wrap with wrap_ada_specs ();
+
+match ParamSpec () and child (c: DefiningName ("(.*)"))
+wrap c with w_DefiningName ("\1_Suffix");

@@ -3,7 +3,8 @@ with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
 with Ada.Containers; use Ada.Containers;
 with Ada.Characters.Conversions; use Ada.Characters.Conversions;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-
+with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
+with Ada.Strings; use Ada.Strings;
 with GNAT.Regpat; use GNAT.Regpat;
 
 with Langkit_Support.Diagnostics;
@@ -56,7 +57,7 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Data_Stack.Append
         (new Runtime_Language_Entity_Type'
            (Value => Language_Entity (An_Entity),
-            Is_Implicit_Selfff => True,
+            Is_Implicit_Self => True,
             others => <>));
    end Push_Implicit_Self;
 
@@ -68,6 +69,28 @@ package body Wrapping.Runtime.Analysis is
             Is_Implicit_New => True,
             others => <>));
    end Push_Implicit_New;
+
+   procedure Push_Temporary_Name (Name : Text_Type; Counter : in out Integer) is
+   begin
+      if Top_Frame.Temp_Names.Contains (Name) then
+         Top_Frame.Data_Stack.Append
+           (new Runtime_Text_Type'
+              (Value => To_Unbounded_Text (Top_Frame.Temp_Names.Element (Name))));
+      else
+         Counter := Counter + 1;
+
+         declare
+            Tmp : Text_Type := "Temp_" &
+            (if Name /= "" then Name & "_" else "")
+              & Trim (Integer'Wide_Wide_Image (Counter), Both);
+         begin
+            Top_Frame.Temp_Names.Insert (Name, Tmp);
+
+            Top_Frame.Data_Stack.Append
+              (new Runtime_Text_Type'(Value => To_Unbounded_Text (Tmp)));
+         end;
+      end if;
+   end Push_Temporary_Name;
 
    procedure Pop_Entity (Number : Positive := 1) is
    begin
@@ -106,7 +129,7 @@ package body Wrapping.Runtime.Analysis is
    begin
       for I in reverse Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index loop
          if Top_Frame.Data_Stack.Element (I).all in Runtime_Language_Entity_Type
-           and then Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Is_Implicit_Selfff
+           and then Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Is_Implicit_Self
          then
             return Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Value;
          end if;
