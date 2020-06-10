@@ -49,6 +49,7 @@ template w_PackageDecl extends w_NamedEntity {
 
 template w_SubpDecl extends w_NamedEntity {
    var function_or_procedure : text;
+   var return_spec : text;
    var lparen : text;
    var rparen : text;
  
@@ -68,7 +69,7 @@ template w_SubpDecl extends w_NamedEntity {
    var call : text;
 
    var profile : pattern ("""
-   \e<function_or_procedure> \e<name> \e<lparen> \e<param_spec_list> \e<rparen>
+   \e<function_or_procedure> \e<name> \e<lparen> \e<param_spec_list> \e<rparen> \e<return_spec>
    """); 
 
    var spec : pattern ("""
@@ -87,7 +88,8 @@ template w_SubpDecl extends w_NamedEntity {
          declare
             \e<post_call_decl>
          begin
-            \e<call>
+            \e<post_call_stmt>
+            \e<return_stmt>
          end;
       end;
    end \e<name>;
@@ -137,12 +139,22 @@ visitor ada_to_wrappers () {
    match PackageDecl () 
    wrap with w_PackageDecl();
     
-   match SubpDecl()
-   wrap with w_SubpDecl();
+   match SubpDecl() {
+      wrap with w_SubpDecl
+         (call_stmt => call, 
+          return_stmt => "null;");
+
+      match child (f_subp_kind ("function")) and child (si: SubtypeIndication()) 
+      wrap with w_SubpDecl
+         (call_decl => "\e<self.tmp ('result_orig')> : aliased \e<si> := \e<call>\n",
+          post_call_decl => "\e<self.tmp ('result_wrapped')> : aliased \e<result_subtype_indication> with Address => \e<self.tmp ('result_orig')>'Address;\n",
+          call_stmt => "null;", 
+          return_stmt => "return \e<self.tmp ('result_wrapped')>;");
+   }
 
    match ParamSpec() and child (s: SubtypeIndication ()) and parent (sb: SubpDecl ())
    wrap with w_ParamSpec(
-      pre_call_decl => "\e<sb.tmp ('local')> : \e<p_type_expression> with Address => \e<name>'Address;\n",
+      pre_call_decl => "\e<sb.tmp ('local')> : aliased \e<p_type_expression> with Address => \e<name>'Address;\n",
       actual_value => sb.tmp ('local')
    );
 
@@ -169,9 +181,12 @@ visitor ada_to_wrappers () {
 
 visitor wrappers_post_process () {
     match w_SubpDecl() and parent (p : w_PackageDecl ()) {
-      match not child (w_ReturnedSubtype ())
-      weave with (function_or_procedure => "procedure")
-      else weave with (function_or_procedure => "function");
+      match not return_stmt ("null;") and child (si: w_SubtypeIndication ())
+      weave with
+         (function_or_procedure => "function", 
+          return_spec => "return \e<result_subtype_indication>",
+          result_subtype_indication => si.txt)
+      else weave with (function_or_procedure => "procedure");
 
       weave with (
          call => "\e<origin.p_fully_qualified_name> \e<lparen> \e<call_assoc_list> \e<rparen>;"
