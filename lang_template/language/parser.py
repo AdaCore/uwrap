@@ -172,7 +172,7 @@ template_grammar.add_rules(
     ),
     visitor=Visitor('visitor', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.nested_commands),
     nested_commands=NestedScope ('{', G.command_scope, '}'),
-    match_clause=MatchClause('match', G.match_expr),
+    match_clause=MatchClause('match', G.expression),
     wrap_clause=WrapClause('wrap', G.template_operation_generic),
     weave_clause=WeaveClause('weave', G.template_operation_generic),
     template_operation_generic=Or (
@@ -183,54 +183,35 @@ template_grammar.add_rules(
             TemplateOperation(G.template_target_expression, Opt (G.template_call_expression)),
             TemplateOperation(Opt (G.template_target_expression), G.template_call_expression)),
     template_target_expression=Or(
-            TreeReference('all', Opt (G.expr)),
-            EntityReference (G.expr)),
+            TreeReference('all', Opt (G.expression)),
+            EntityReference (G.expression)),
     template_call_expression=TemplateCall('with', Opt (G.dotted_name), '(', G.arg_list, ')'),
     traverse_decision=Or(TraverseInto ('into'), TraverseOver ('over')),
 
-    match_expr=Or(
-        Pick('(', G.match_expr, ')'),
-        MatchCapture(G.identifier, ':', G.match_expr),
-        UnaryExpr(Operator.alt_not('not'), G.match_expr),
-        BinaryExpr(G.match_expr,
-            Or(Operator.alt_and('and'),
-               Operator.alt_or('or')),
-               G.match_expr),
-        Selector (G.match_expr, '.', G.match_expr),
-        G.match_call_or_single
-    ),
-    match_call_or_single=Or(
-        G.match_call_expr,
-        G.call_or_single
-    ),
-    match_call_expr=CallExpr (G.identifier, '(', G.match_arg_list, ')'),
-    match_arg_list = List(
-        Argument(
-            Opt (G.identifier, "=>"), G.match_expr), 
-        sep=',', empty_valid=True
-    ),
-    expr=Or(
-       Pick('(', G.expr, ')'),
-       UnaryExpr(Operator.alt_not('not'), G.expr),
-       BinaryExpr(G.expr,
-            Or(Operator.alt_and('and'),
-              Operator.alt_or('or')),
-            G.expr),
-       Selector (G.expr, '.', G.expr),
-       G.call_or_single
-   ),
-   call_or_single=Or(
-    G.call_expr,
-    G.identifier,
-    G.literal,
-    G.integer,
-    G.str
-    ),
-   call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
-   arg_list=List(Argument(Opt (G.identifier, "=>"), G.expr), sep=',', empty_valid=True),
-   identifier=Or (TokenTemplate ('template'), Identifier(Token.Identifier)),
-   dotted_name=DottedName(Opt (G.dotted_name, '.'), G.identifier),
-   integer=Number(Token.Integer),
-   literal=Literal(Or ("true", "false")),
-   str=Str(Token.String)
+    expression=Or (
+        BinaryExpr (G.relation, Or (Operator.alt_and('and'), Operator.alt_or('or')), G.expression),
+        G.relation),
+    relation=G.simple_expression,
+    simple_expression=G.term,
+    term=G.factor,
+    factor=Or(UnaryExpr (Operator.alt_not('not'), G.primary), MatchCapture(G.identifier, ':', G.primary), G.primary),
+    primary=Or(
+     Pick ('(', G.expression, ')'),
+     G.literal,
+     G.integer,
+     G.str,
+     G.name,
+     ),
+    name=Or (G.call_expr, G.selected_component, G.identifier),
+    selected_component=Selector (G.selector_name, '.', G.suffix),
+    selector_name=Or (G.call_expr, G.identifier),
+    suffix=G.name,
+
+    call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
+    arg_list=List(Argument(Opt (G.identifier, "=>"), G.expression), sep=',', empty_valid=True),
+    identifier=Or (TokenTemplate ('template'), Identifier(Token.Identifier)),
+    dotted_name=DottedName(Opt (G.dotted_name, '.'), G.identifier),
+    integer=Number(Token.Integer),
+    literal=Literal(Or ("true", "false")),
+    str=Str(Token.String)
 )

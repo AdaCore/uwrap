@@ -465,7 +465,7 @@ package body Wrapping.Semantic.Analysis is
                      end if;
 
                      A_Command.Template_Clause.Target_Object :=
-                       An_Operation.F_Entity.F_Value;
+                       Template_Node (An_Operation.F_Entity.F_Value);
                   end if;
 
                   if not An_Operation.F_Call.Is_Null then

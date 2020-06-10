@@ -99,7 +99,7 @@ package body Wrapping.Runtime.Structure is
             end if;
          end if;
 
-         Expressions (Parameter_Index) := Param.F_Value;
+         Expressions (Parameter_Index) := Template_Node (Param.F_Value);
 
          if not In_Named_Section then
             Parameter_Index := Parameter_Index + 1;
@@ -468,7 +468,7 @@ package body Wrapping.Runtime.Structure is
    procedure Evaluate_Bowse_Functions
      (An_Entity                 : access Language_Entity_Type;
       A_Mode                    : Browse_Mode;
-      Match_Expression          : Template_Node;
+      Match_Expression          : Template_Node'Class;
       Evaluate_Match_Expression : access procedure := null)
    is
       function Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
@@ -681,7 +681,7 @@ package body Wrapping.Runtime.Structure is
 
       use Wrapping.Semantic.Structure;
 
-      procedure Match_Variable_Value (Name : Text_Type; Expression : Libtemplatelang.Analysis.Template_Node) is
+      procedure Match_Variable_Value (Name : Text_Type; Expression : Libtemplatelang.Analysis.Template_Node'Class) is
          Result : Runtime_Object;
          String_Entity : Language_Entity;
       begin
@@ -814,7 +814,7 @@ package body Wrapping.Runtime.Structure is
    procedure Evaluate_Bowse_Functions
      (An_Entity                 : access Template_Instance_Type;
       A_Mode                    : Browse_Mode;
-      Match_Expression          : Template_Node;
+      Match_Expression          : Template_Node'Class;
       Evaluate_Match_Expression : access procedure := null)
    is
       procedure Match_Callback is

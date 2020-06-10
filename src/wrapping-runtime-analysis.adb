@@ -805,7 +805,7 @@ package body Wrapping.Runtime.Analysis is
                          (Context  => Context,
                           Filename => "internal expression" & Expression_Unit_Number'Img,
                           Buffer   => To_String (Str (Current + 1 .. Next_Index - 1)),
-                          Rule     => Expr_Rule);
+                          Rule     => Expression_Rule);
                   begin
                      if Has_Diagnostics (Expression_Unit) then
                         Error (To_Text (Diagnostics (Expression_Unit)(1).Message));

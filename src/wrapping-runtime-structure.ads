@@ -180,7 +180,7 @@ package Wrapping.Runtime.Structure is
    procedure Evaluate_Bowse_Functions
      (An_Entity                 : access Language_Entity_Type;
       A_Mode                    : Browse_Mode;
-      Match_Expression          : Template_Node;
+      Match_Expression          : Template_Node'Class;
       Evaluate_Match_Expression : access procedure := null
       -- This override the standard expression matching. If not null, the
       -- expected ABI is:
@@ -235,7 +235,7 @@ package Wrapping.Runtime.Structure is
    procedure Evaluate_Bowse_Functions
      (An_Entity                 : access Template_Instance_Type;
       A_Mode                    : Browse_Mode;
-      Match_Expression          : Template_Node;
+      Match_Expression          : Template_Node'Class;
       Evaluate_Match_Expression : access procedure := null);
 
    --  This type can be used for example when there's a string comparison to
