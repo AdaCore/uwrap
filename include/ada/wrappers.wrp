@@ -6,10 +6,15 @@ template w_Unit extends w_Ada {
    var spec : text;
    var body : text;
 
+   var spec_with_clauses : text;
+   var spec_use_clauses : text;
    var body_with_clauses : text;
    var body_use_clauses : text;
 
    var spec_text : pattern ("""
+   \e<spec_with_clauses>
+   \e<spec_use_clauses>
+
    \e<spec>
    """);
 
@@ -55,6 +60,7 @@ template w_SubpDecl extends w_NamedEntity {
  
    var param_spec_list : text;
    var result_subtype_indication : text;
+   var original_result_subtype_indication : text;
 
    var pre_call_decl : text;
    var pre_call_stmt : text;
@@ -104,6 +110,9 @@ template w_ParamSpec extends w_NamedEntity {
    var formal_text : text;
    var actual_text : text;
 
+   var original_subtype_indication : text;
+   var subtype_indication : text;
+
    var pre_call_decl  : text;
    var pre_call_stmt  : text;
    var actual_value   : text;
@@ -146,15 +155,17 @@ visitor ada_to_wrappers () {
 
       match child (f_subp_kind ("function")) and child (si: SubtypeIndication()) 
       wrap with w_SubpDecl
-         (call_decl => "\e<self.tmp ('result_orig')> : aliased \e<si> := \e<call>\n",
-          post_call_decl => "\e<self.tmp ('result_wrapped')> : aliased \e<result_subtype_indication> with Address => \e<self.tmp ('result_orig')>'Address;\n",
+         (result_subtype_indication => original_result_subtype_indication,
+          call_decl => "\e<self.tmp ('result_orig')> : aliased \e<si> := \e<call>\n",
+          post_call_decl => "\e<self.tmp ('result_wrapped')> : aliased \e<result_subtype_indication> with Address => \e<self.tmp ('result_orig')>'Address, Import;\n",
           call_stmt => "null;", 
           return_stmt => "return \e<self.tmp ('result_wrapped')>;");
    }
 
    match ParamSpec() and child (s: SubtypeIndication ()) and parent (sb: SubpDecl ())
    wrap with w_ParamSpec(
-      pre_call_decl => "\e<sb.tmp ('local')> : aliased \e<p_type_expression> with Address => \e<name>'Address;\n",
+      subtype_indication => original_subtype_indication,
+      pre_call_decl => "\e<sb.tmp ('local')> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n",
       actual_value => sb.tmp ('local')
    );
 
@@ -185,7 +196,7 @@ visitor wrappers_post_process () {
       weave with
          (function_or_procedure => "function", 
           return_spec => "return \e<result_subtype_indication>",
-          result_subtype_indication => si.txt)
+          original_result_subtype_indication => si.txt)
       else weave with (function_or_procedure => "procedure");
 
       weave with (
@@ -199,11 +210,13 @@ visitor wrappers_post_process () {
     }
 
     match w_ParamSpec () and parent (s : w_SubpDecl()) and child (si: w_SubtypeIndication ()) {
-       # TODO need to cater for the case where the spec parameter is removed
-       # (e.g. when an explicit expression is provided)
        match prev (w_ParamSpec ())
-       weave with (formal_text => "; \e<name> : \e<si.txt>")
-       else weave with (formal_text => "\e<name> : \e<si.txt>");
+       weave with (
+          original_subtype_indication => si.txt,
+          formal_text => "; \e<name> : \e<subtype_indication>")
+       else weave with (
+          original_subtype_indication => si.txt,
+          formal_text => "\e<name> : \e<subtype_indication>");
 
        match prev (w_ParamSpec ())
        weave with (actual_text => ", \e<actual_value>")
@@ -212,7 +225,10 @@ visitor wrappers_post_process () {
        weave s with (
           param_spec_list => formal_text,
           pre_call_decl => pre_call_decl,
-          call_assoc_list => actual_text
+          pre_call_stmt => pre_call_stmt,
+          call_assoc_list => actual_text,
+          post_call_decl => post_call_decl,
+          post_call_stmt => post_call_stmt
        );
     }
 
@@ -245,11 +261,14 @@ visitor wrappers_post_process () {
     weave u with 
         (spec => p.spec,
          body => p.body,
-         body_with_clauses => "with \e<p.original_name>;",
-         body_use_clauses => "use \e<p.original_name>;");
+         body_with_clauses => "with \e<p.original_name>;\n",
+         body_use_clauses => "use \e<p.original_name>;\n");
 
     match w_WithClause () and parent (u: w_Unit ())
-    weave u with (body_with_clauses => "with \e<ref>;");
+    weave u with (
+       spec_with_clauses => "with \e<ref>;\n",
+       body_with_clauses => "with \e<ref>;\n"
+    );
 
     match w_DefiningName () and parent (n: w_NamedEntity ())
     weave n with (name => self.name, original_name => n.origin.p_fully_qualified_name);

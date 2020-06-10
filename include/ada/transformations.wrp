@@ -1,0 +1,19 @@
+import ada.wrappers;
+
+visitor chars_into_string () {
+   match ParamSpec() and parent (sb: SubpDecl())
+   wrap with w_ParamSpec (
+      subtype_indication => "String",
+      pre_call_decl => "\e<sb.tmp ('c_string')> : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (\e<name>);\n",
+      actual_value => "\e<sb.tmp ('c_string')>",
+      post_call_stmt => "Interfaces.C.Strings.Free (\e<sb.tmp ('c_string')>);\n"
+   );
+
+   match SubpDecl()
+   wrap with w_SubpDecl (
+      result_subtype_indication => "String",
+      call_decl => "\e<self.tmp ('c_string')> : aliased Interfaces.C.Strings.chars_ptr := \e<call>\n",
+      call_stmt => "null;", 
+      return_stmt => "return Interfaces.C.Strings.Value (\e<self.tmp ('c_string')>);"
+   );
+}

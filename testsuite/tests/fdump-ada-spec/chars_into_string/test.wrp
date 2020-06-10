@@ -1,0 +1,15 @@
+import ada.wrappers;
+import ada.transformations;
+
+wrap with wrap_ada_specs ();
+
+match DefiningName ("(.*)_h")
+wrap with w_DefiningName ("\1_Wrapped");
+
+match ParamSpec() 
+   and child (SubtypeIndication("Interfaces.C.Strings.chars_ptr")) 
+   and not child (DefiningName ("^leaveMeAlone$"))
+wrap with chars_into_string ();
+
+match SubpDecl() and child (f_subp_kind ("function")) and child (SubtypeIndication("Interfaces.C.Strings.chars_ptr")) 
+wrap with chars_into_string ();
