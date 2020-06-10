@@ -683,20 +683,24 @@ package body Wrapping.Runtime.Structure is
 
       procedure Match_Variable_Value (Name : Text_Type; Expression : Libtemplatelang.Analysis.Template_Node) is
          Result : Runtime_Object;
-         Matched : Boolean;
+         String_Entity : Language_Entity;
       begin
-         Evaluate_Expression (Expression);
-
-         Result := Top_Frame.Data_Stack.Last_Element;
-         Top_Frame.Data_Stack.Delete_Last;
-
          if An_Entity.Symbols.Contains (Name) then
-            Matched := Runtime.Analysis.Match (Result.To_Text, An_Entity.Symbols.Element (Name).To_Text);
+            String_Entity := new String_Langage_Entity_Type'
+              (Value => To_Unbounded_Text (An_Entity.Symbols.Element (Name).To_Text), others => <>);
          else
-            Matched := Runtime.Analysis.Match (Result.To_Text, "");
+            String_Entity := new String_Langage_Entity_Type'
+                 (Value => To_Unbounded_Text (An_Entity.Symbols.Element (Name).To_Text), others => <>);
          end if;
 
-         if Matched then
+         Push_Implicit_Self (String_Entity);
+
+         Evaluate_Expression (Expression);
+
+         Result := Pop_Entity;
+         Pop_Entity;
+
+         if Result /= Match_False then
             Dummy_Boolean := An_Entity.Push_Value (Name);
          else
             Push_Match_False;
@@ -762,8 +766,8 @@ package body Wrapping.Runtime.Structure is
                --  disregard the actual value
 
                Dummy_Boolean := An_Entity.Push_Value (Name);
-            elsif Params.Children_Count = 1 then  -- TODO: WE SHOULD RETURN A REFERENCE TO THE FIELD INSTEAD
-               Match_Variable_Value (A_Named_Entity.Name_Node.Text, Params.Child (1));
+            elsif Params.Children_Count = 1 then
+               Match_Variable_Value (A_Named_Entity.Name_Node.Text, Params.Child (1).As_Argument.F_Value);
             else
                Error ("var matcher only takes one parameter");
             end if;
@@ -839,6 +843,25 @@ package body Wrapping.Runtime.Structure is
       An_Entity.Origin.Evaluate_Bowse_Functions
         (A_Mode, Match_Expression, Match_Callback'Access);
    end Evaluate_Bowse_Functions;
+
+   overriding
+   function Push_Match_Result
+     (An_Entity : access String_Langage_Entity_Type;
+      Selector  : Runtime_Object;
+      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
+   is
+      Matched : Boolean;
+   begin
+      Matched := Runtime.Analysis.Match (Selector.To_Text, To_Text (An_Entity.Value));
+
+      if Matched then
+         Push_Match_True (An_Entity);
+      else
+         Push_Match_False;
+      end if;
+
+      return True;
+   end Push_Match_Result;
 
    overriding
    function To_Text (Object : Runtime_Integer_Type) return Text_Type

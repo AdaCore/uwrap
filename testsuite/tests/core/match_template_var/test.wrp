@@ -1,0 +1,35 @@
+template main {
+    var txt : text;
+}
+
+match Entity () {
+    match f_name ("A")
+    wrap with main ("FIRST");
+
+    match f_name ("B")
+    wrap with main ("SECOND");
+}
+
+match txt ("FIRST")
+weave with standard.out ("(1) FIRST \e<self.origin.f_name>\n");
+
+match main () and not txt ("FIRST")
+weave with standard.out ("(1) NOT FIRST \e<self.origin.f_name>\n");
+
+match txt ("SECOND")
+weave with standard.out ("(1) SECOND \e<self.origin.f_name>\n");
+
+match main () and not txt ("SECOND")
+weave with standard.out ("(1) NOT SECOND \e<self.origin.f_name>\n");
+
+match main (txt ("FIRST"))
+weave with standard.out ("(2) FIRST \e<self.origin.f_name>\n");
+
+match main (not txt ("FIRST"))
+weave with standard.out ("(2) NOT FIRST \e<self.origin.f_name>\n");
+
+match main (txt ("SECOND"))
+weave with standard.out ("(2) SECOND \e<self.origin.f_name>\n");
+
+match main (not txt ("SECOND"))
+weave with standard.out ("(2) NOT SECOND \e<self.origin.f_name>\n");

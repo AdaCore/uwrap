@@ -666,14 +666,14 @@ package body Wrapping.Runtime.Analysis is
             return Over;
          when Template_Unary_Expr =>
             declare
-               Left : Runtime_Object;
+               Right : Runtime_Object;
             begin
                Node.As_Unary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
-               Left := Top_Frame.Data_Stack.Last_Element;
+               Right := Top_Frame.Data_Stack.Last_Element;
                Top_Frame.Data_Stack.Delete_Last;
 
                if Node.As_Unary_Expr.F_Op.Kind = Template_Operator_Not then
-                  if Left = Match_False then
+                  if Right = Match_False then
                      Push_Match_True (Top_Frame.Data_Stack.Last_Element);
                   else
                      Push_Match_False;

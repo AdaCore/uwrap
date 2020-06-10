@@ -37,6 +37,9 @@ package Wrapping.Runtime.Structure is
    package Template_Instance_Vectors is new Ada.Containers.Vectors (Positive, Template_Instance);
    use Template_Instance_Vectors;
 
+   type String_Langage_Entity_Type;
+   type String_Langage_Entity is access all String_Langage_Entity_Type;
+
    type Runtime_Object_Type;
    type Runtime_Object is access all Runtime_Object_Type'Class;
    package Runtime_Object_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Runtime_Object);
@@ -234,6 +237,19 @@ package Wrapping.Runtime.Structure is
       A_Mode                    : Browse_Mode;
       Match_Expression          : Template_Node;
       Evaluate_Match_Expression : access procedure := null);
+
+   --  This type can be used for example when there's a string comparison to
+   --  prepare in a match context. See the behavior of strings in the
+   --  expression evaluator.
+   type String_Langage_Entity_Type is new Language_Entity_Type with record
+      Value : Unbounded_Text_Type;
+   end record;
+
+   overriding
+   function Push_Match_Result
+     (An_Entity : access String_Langage_Entity_Type;
+      Selector  : Runtime_Object;
+      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
 
    type Runtime_Object_Type is tagged record
       null;
