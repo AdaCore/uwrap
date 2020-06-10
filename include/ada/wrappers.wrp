@@ -7,6 +7,7 @@ template w_Unit extends w_Ada {
    var body : text;
 
    var body_with_clauses : text;
+   var body_use_clauses : text;
 
    var spec_text : pattern ("""
    \e<spec>
@@ -14,6 +15,7 @@ template w_Unit extends w_Ada {
 
    var body_text : pattern ("""
    \e<body_with_clauses>
+   \e<body_use_clauses>
 
    \e<body>
    """);
@@ -111,6 +113,18 @@ template w_DefiningName extends w_Ada {
   var name : text;
 }
 
+template w_SubtypeIndication extends w_Ada {
+   var txt : text;
+}
+
+template w_TypeDecl extends w_NamedEntity {
+  var component_declarations : text;
+}
+
+template w_ComponentDecl extends w_NamedEntity {
+  
+}
+
 template spec_file extends standard.file {}
 
 template body_file extends standard.file {}
@@ -126,14 +140,23 @@ visitor ada_to_wrappers () {
    match SubpDecl()
    wrap with w_SubpDecl();
 
-   match ParamSpec() and child (s : SubtypeIndication ()) and parent (sb: SubpDecl ())
+   match ParamSpec() and child (s: SubtypeIndication ()) and parent (sb: SubpDecl ())
    wrap with w_ParamSpec(
       pre_call_decl => "\e<sb.tmp ('local')> : \e<p_type_expression> with Address => \e<name>'Address;\n",
       actual_value => sb.tmp ('local')
    );
 
+   match TypeDecl ()
+   wrap with w_TypeDecl ();
+
+   match ComponentDecl ()
+   wrap with w_ComponentDecl ();
+
    match WithClause() and child(d: DottedName ())
    wrap with w_WithClause(ref => d);
+
+   match SubtypeIndication ()
+   wrap with w_SubtypeIndication ();
 
    match DefiningName () {
       match parent (PackageDecl ())
@@ -160,12 +183,12 @@ visitor wrappers_post_process () {
       weave p with (spec_content => self.spec, body_content => self.body);
     }
 
-    match w_ParamSpec () and parent (s : w_SubpDecl()) {
+    match w_ParamSpec () and parent (s : w_SubpDecl()) and child (si: w_SubtypeIndication ()) {
        # TODO need to cater for the case where the spec parameter is removed
        # (e.g. when an explicit expression is provided)
        match prev (w_ParamSpec ())
-       weave with (formal_text => "; \e<name> : \e<origin.p_type_expression>")
-       else weave with (formal_text => "\e<name> : \e<origin.p_type_expression>");
+       weave with (formal_text => "; \e<name> : \e<si.txt>")
+       else weave with (formal_text => "\e<name> : \e<si.txt>");
 
        match prev (w_ParamSpec ())
        weave with (actual_text => ", \e<actual_value>")
@@ -177,12 +200,38 @@ visitor wrappers_post_process () {
           call_assoc_list => actual_text
        );
     }
+
+    match w_ComponentDecl () and parent (t : w_TypeDecl ()) and child (si : w_SubtypeIndication ()) {
+      weave t with (
+         component_declarations => "\e<name> : \e<si.txt>;\n"
+      );
+    }
+
+    match w_TypeDecl () and parent (p : w_PackageDecl()) {
+       match origin (child (RecordTypeDef ()))
+       weave p with (spec_content => """
+       type \e<name> is record
+          \e<component_declarations>
+       end record;
+       """)
+       else match origin (child (t: TypeDef ())) 
+       weave p with (spec_content => """
+       type \e<name> is \e<t>;
+       """);
+    }
+
+    match w_SubtypeIndication (o: origin (child (i: Identifier ()))) {
+      match o.p_designated_type_decl.template (w: w_TypeDecl ())
+      weave with (txt => w.name)
+      else weave with (txt => o);
+    }
     
     match p: w_PackageDecl (parent (u: w_Unit ()))
     weave u with 
         (spec => p.spec,
          body => p.body,
-         body_with_clauses => "with \e<p.original_name>;");
+         body_with_clauses => "with \e<p.original_name>;",
+         body_use_clauses => "use \e<p.original_name>;");
 
     match w_WithClause () and parent (u: w_Unit ())
     weave u with (body_with_clauses => "with \e<ref>;");
