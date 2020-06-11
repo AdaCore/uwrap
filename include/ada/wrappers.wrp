@@ -110,7 +110,6 @@ template w_ParamSpec extends w_NamedEntity {
    var formal_text : text;
    var actual_text : text;
 
-   var original_subtype_indication : text;
    var subtype_indication : text;
 
    var pre_call_decl  : text;
@@ -155,7 +154,7 @@ visitor ada_to_wrappers () {
 
       match child (f_subp_kind ("function")) and child (si: SubtypeIndication()) 
       wrap with w_SubpDecl
-         (result_subtype_indication => original_result_subtype_indication,
+         (result_subtype_indication => lambda (new.child (w_SubtypeIndication()).txt),
           call_decl => "\e<self.tmp ('result_orig')> : aliased \e<si> := \e<call>\n",
           post_call_decl => "\e<self.tmp ('result_wrapped')> : aliased \e<result_subtype_indication> with Address => \e<self.tmp ('result_orig')>'Address, Import;\n",
           call_stmt => "null;", 
@@ -164,7 +163,7 @@ visitor ada_to_wrappers () {
 
    match ParamSpec() and child (s: SubtypeIndication ()) and parent (sb: SubpDecl ())
    wrap with w_ParamSpec(
-      subtype_indication => original_subtype_indication,
+      subtype_indication => lambda (new.child (w_SubtypeIndication()).txt),
       pre_call_decl => "\e<sb.tmp ('local')> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n",
       actual_value => sb.tmp ('local')
    );
@@ -192,11 +191,10 @@ visitor ada_to_wrappers () {
 
 visitor wrappers_post_process () {
     match w_SubpDecl() and parent (p : w_PackageDecl ()) {
-      match not return_stmt ("null;") and child (si: w_SubtypeIndication ())
+      match not return_stmt ("null;")
       weave with
          (function_or_procedure => "function", 
-          return_spec => "return \e<result_subtype_indication>",
-          original_result_subtype_indication => si.txt)
+          return_spec => "return \e<result_subtype_indication>")
       else weave with (function_or_procedure => "procedure");
 
       weave with (
@@ -209,13 +207,11 @@ visitor wrappers_post_process () {
       weave p with (spec_content => self.spec, body_content => self.body);
     }
 
-    match w_ParamSpec () and parent (s : w_SubpDecl()) and child (si: w_SubtypeIndication ()) {
+    match w_ParamSpec () and parent (s : w_SubpDecl()) {
        match prev (w_ParamSpec ())
        weave with (
-          original_subtype_indication => si.txt,
           formal_text => "; \e<name> : \e<subtype_indication>")
        else weave with (
-          original_subtype_indication => si.txt,
           formal_text => "\e<name> : \e<subtype_indication>");
 
        match prev (w_ParamSpec ())
