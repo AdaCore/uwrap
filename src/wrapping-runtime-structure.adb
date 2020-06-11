@@ -74,49 +74,6 @@ package body Wrapping.Runtime.Structure is
       return Root_Entity;
    end Get_Root_Language_Entity;
 
-   procedure Stack_Parameters
-     (A_Profile         : Profile_Type;
-      Actual_Parameters : Argument_List)
-   is
-      Parameter_Index : Integer := 1;
-      In_Named_Section : Boolean := False;
-
-      Name : Unbounded_Text_Type;
-      Expressions : array (1 .. Integer (A_Profile.Parameters_By_Position.Length)) of Template_Node;
-      A_Runtime_Expression : Runtime_Expression;
-   begin
-      for Param of Actual_Parameters loop
-         if Parameter_Index > Integer (A_Profile.Parameters_By_Position.Length) then
-            Error ("too many parameters");
-         elsif not Param.As_Argument.F_Name.Is_Null then
-            In_Named_Section := True;
-
-            Parameter_Index := A_Profile.Parameters_By_Name.Element
-              (Param.As_Argument.F_Name.Text).Index;
-         else
-            if In_Named_Section then
-               Error ("can't have positional arguments after named ones");
-            end if;
-         end if;
-
-         Expressions (Parameter_Index) := Template_Node (Param.F_Value);
-
-         if not In_Named_Section then
-            Parameter_Index := Parameter_Index + 1;
-         end if;
-      end loop;
-
-      for Parameter_Index in Expressions'Range loop
-         if A_Profile.Parameters_By_Position.Element (Parameter_Index).A_Data_Type = Expression then
-            A_Runtime_Expression := new Runtime_Expression_Type;
-            A_Runtime_Expression.Expression := Expressions (Parameter_Index);
-            Top_Frame.Data_Stack.Append (Runtime_Object (A_Runtime_Expression));
-         else
-            Evaluate_Expression (Expressions (Parameter_Index));
-         end if;
-      end loop;
-   end Stack_Parameters;
-
    function Push_Value
      (An_Entity : access Language_Entity_Type;
       Name      : Text_Type) return Boolean
@@ -165,7 +122,7 @@ package body Wrapping.Runtime.Structure is
       elsif Name = "child" then
          A_Mode := Child_Breadth;
 
-         if Params.Children_Count = 0 then
+         if Params.Children_Count = 0 then -- TODO: this and other don't work for templates! (we need to check the children from child origin entities
             if An_Entity.Children_Ordered.Length > 0 then
                Push_Match_True (An_Entity.Children_Ordered.First_Element);
             else
@@ -241,7 +198,8 @@ package body Wrapping.Runtime.Structure is
       end if;
 
       if Params.Children_Count = 1 then
-         Evaluate_Bowse_Functions (An_Entity, A_Mode, Params.Child (1).As_Argument.F_Value);
+         Language_Entity_Type'Class (An_Entity.all).Evaluate_Bowse_Functions
+           (A_Mode, Params.Child (1).As_Argument.F_Value);
       elsif Params.Children_Count > 1 then
          Error ("matcher takes only 1 argument");
       end if;
@@ -284,7 +242,8 @@ package body Wrapping.Runtime.Structure is
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
    is
    begin
-      return Push_Browse_Result (An_Entity, Selector.To_Text, Params);
+      return Language_Entity_Type'Class
+        (An_Entity.all).Push_Browse_Result (Selector.To_Text, Params);
    end Push_Match_Result;
 
    function Traverse
@@ -466,10 +425,10 @@ package body Wrapping.Runtime.Structure is
    end Traverse;
 
    procedure Evaluate_Bowse_Functions
-     (An_Entity                 : access Language_Entity_Type;
-      A_Mode                    : Browse_Mode;
-      Match_Expression          : Template_Node'Class;
-      Evaluate_Match_Expression : access procedure := null)
+     (An_Entity        : access Language_Entity_Type;
+      A_Mode           : Browse_Mode;
+      Match_Expression : Template_Node'Class;
+      Match_Visitor    : access function (E : access Language_Entity_Type'Class) return Visit_Action := null)
    is
       function Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
          Result : Runtime_Object;
@@ -483,11 +442,7 @@ package body Wrapping.Runtime.Structure is
          --  TODO: these specificities needs to be duly documented in the UG.
          Push_Implicit_Self (E);
 
-         if Evaluate_Match_Expression = null then
-            Evaluate_Expression (Match_Expression);
-         else
-            Evaluate_Match_Expression.all;
-         end if;
+         Evaluate_Expression (Match_Expression);
 
          Result := Top_Frame.Data_Stack.Last_Element;
          Top_Frame.Data_Stack.Delete_Last (2);
@@ -505,7 +460,11 @@ package body Wrapping.Runtime.Structure is
    begin
       Top_Frame.Context := Match_Context;
 
-      if Language_Entity_Type'Class(An_Entity.all).Traverse (A_Mode, False, Visitor'Access) /= Stop then
+      if Language_Entity_Type'Class(An_Entity.all).Traverse
+        (A_Mode,
+         False,
+         (if Match_Visitor /= null then Match_Visitor else Visitor'Access)) /= Stop
+      then
          if Previous_Context /= Match_Context then
             Error ("query failed in wrap or weave clause, consider move to match instead");
          end if;
@@ -665,7 +624,7 @@ package body Wrapping.Runtime.Structure is
    is
 
    begin
-      if Language_Entity_Type (An_Entity.all).Push_Value (Name) then
+      if Language_Entity_Type (An_Entity.all).Push_Call_Result (Name, Params) then
          return True;
       end if;
 
@@ -733,6 +692,8 @@ package body Wrapping.Runtime.Structure is
             --  disregard the actual value
 
             Push_Match_True (An_Entity.Origin);
+
+            return True;
          elsif Params.Children_Count = 1 then
             Push_Implicit_Self (An_Entity.Origin);
 
@@ -815,16 +776,12 @@ package body Wrapping.Runtime.Structure is
      (An_Entity                 : access Template_Instance_Type;
       A_Mode                    : Browse_Mode;
       Match_Expression          : Template_Node'Class;
-      Evaluate_Match_Expression : access procedure := null)
+      Match_Visitor    : access function (E : access Language_Entity_Type'Class) return Visit_Action := null)
    is
-      procedure Match_Callback is
-         Matched_Entity : Language_Entity;
+      function Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
          Result : Runtime_Object;
       begin
-         Matched_Entity :=
-           Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
-
-         for T of Matched_Entity.Templates_Ordered loop
+         for T of E.Templates_Ordered loop
             Push_Implicit_Self (T);
             Evaluate_Expression (Match_Expression);
 
@@ -832,16 +789,16 @@ package body Wrapping.Runtime.Structure is
             Top_Frame.Data_Stack.Delete_Last (2);
 
             if Result /= Match_False then
-               Push_Match_True (Result);
-               return;
+               Push_Match_True (T);
+               return Stop;
             end if;
          end loop;
 
-         Push_Match_False;
-      end Match_Callback;
+         return Into;
+      end Visitor;
    begin
       An_Entity.Origin.Evaluate_Bowse_Functions
-        (A_Mode, Match_Expression, Match_Callback'Access);
+        (A_Mode, Match_Expression, Visitor'Access);
    end Evaluate_Bowse_Functions;
 
    overriding
@@ -904,17 +861,11 @@ package body Wrapping.Runtime.Structure is
    end To_Text_Expression;
 
    overriding
-   function To_Text (Object : Runtime_Template_Variable_Reference_Type) return Text_Type
+   function To_Text (Object : Runtime_Lambda_Type) return Text_Type
    is
    begin
-      return "";
+      Run_Lambda (Object);
+      return Pop_Entity.To_Text;
    end To_Text;
-
-   overriding
-   function To_Text_Expression (Object : access Runtime_Template_Variable_Reference_Type) return Runtime_Text_Expression
-   is
-   begin
-      return Runtime_Text_Expression (Object);
-   end To_Text_Expression;
 
 end Wrapping.Runtime.Structure;

@@ -30,8 +30,15 @@ package body Wrapping.Runtime.Analysis is
       Args : Libtemplatelang.Analysis.Argument_List;
       Apply_To_All : Boolean);
    function Analyze_Visitor (E : access Language_Entity_Type'Class) return Visit_Action;
-   procedure Analyze_Replace_String (Str : Text_Type; Context : Libtemplatelang.Analysis.Analysis_Context);
+
+   procedure Analyze_Replace_String
+     (Str : Text_Type;
+      Context : Libtemplatelang.Analysis.Analysis_Context;
+      On_Group : access procedure (Index : Integer; Value : Runtime_Object) := null;
+      On_Expression : access procedure (Expression : Libtemplatelang.Analysis.Template_Node) := null);
+
    function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
+   procedure Build_Lambda (A_Lambda : Runtime_Lambda; Lambda_Expression : Libtemplatelang.Analysis.Template_Node);
 
    procedure Push_Error_Location
      (An_Entity : access Semantic.Structure.Entity_Type'Class)
@@ -741,6 +748,15 @@ package body Wrapping.Runtime.Analysis is
             Pop_Error_Location;
             return Over;
 
+         when Template_Lambda_Expr =>
+            declare
+               A_Lambda : Runtime_Lambda := new Runtime_Lambda_Type;
+            begin
+               Build_Lambda (A_Lambda, Node.As_Lambda_Expr.F_Expression);
+               Top_Frame.Data_Stack.Append (Runtime_Object (A_Lambda));
+               return Over;
+            end;
+
          when others =>
             Error ("unexpected expression node kind: '" & Node.Kind'Wide_Wide_Image & "'");
             Pop_Error_Location;
@@ -754,7 +770,12 @@ package body Wrapping.Runtime.Analysis is
 
    Expression_Unit_Number : Integer := 1;
 
-   procedure Analyze_Replace_String (Str : Text_Type; Context : Libtemplatelang.Analysis.Analysis_Context) is
+   procedure Analyze_Replace_String
+     (Str : Text_Type;
+      Context : Libtemplatelang.Analysis.Analysis_Context;
+      On_Group : access procedure (Index : Integer; Value : Runtime_Object) := null;
+      On_Expression : access procedure (Expression : Libtemplatelang.Analysis.Template_Node) := null)
+   is
       use Libtemplatelang.Analysis;
       use Libtemplatelang.Common;
       use Langkit_Support.Diagnostics;
@@ -811,11 +832,13 @@ package body Wrapping.Runtime.Analysis is
                         Error (To_Text (Diagnostics (Expression_Unit)(1).Message));
                      end if;
 
-                     Evaluate_Expression (Expression_Unit.Root);
-
-                     Result.Texts.Append (Top_Frame.Data_Stack.Last_Element.To_Text_Expression);
-
-                     Top_Frame.Data_Stack.Delete_Last;
+                     if On_Expression /= null then
+                        On_Expression.All (Expression_Unit.Root);
+                     else
+                        Evaluate_Expression (Expression_Unit.Root);
+                        Result.Texts.Append (Top_Frame.Data_Stack.Last_Element.To_Text_Expression);
+                        Top_Frame.Data_Stack.Delete_Last;
+                     end if;
                   end;
 
                   Current := Next_Index + 1;
@@ -840,9 +863,17 @@ package body Wrapping.Runtime.Analysis is
                   Next_Index := Next_Index - 1;
                end if;
 
-               Append_Text
-                 (Top_Frame.Matched_Groups.Element
-                    (Natural'Wide_Wide_Value (Str (Current .. Next_Index))).To_Text);
+               declare
+                  Group : Natural :=
+                    Natural'Wide_Wide_Value (Str (Current .. Next_Index));
+                  Value : Runtime_Object := Top_Frame.Matched_Groups.Element (Group);
+               begin
+                  if On_Group /= null then
+                     On_Group.all (Group, Value);
+                  else
+                     Append_Text (Value.To_Text);
+                  end if;
+               end;
 
                Current := Next_Index + 1;
                Next_Index := Current;
@@ -867,76 +898,76 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Data_Stack.Append (Runtime_Object (Result));
    end Analyze_Replace_String;
 
-   procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class) is
-      Prefix_Entity : Language_Entity;
+   procedure Handle_Global_Identifier (Name : Text_Type) is
+      A_Module : Semantic.Structure.Module;
       Tentative_Symbol : Runtime_Object;
       A_Semantic_Entity : Semantic.Structure.Entity;
+   begin
+      -- Check in the dynamic symols in the frame
 
-      procedure Handle_Global_Identifier is
-         A_Module : Semantic.Structure.Module;
-         Name : Text_Type := Node.Text;
-      begin
-         -- Check in the dynamic symols in the frame
+      Tentative_Symbol := Get_Visible_Symbol (Top_Frame.all, Name);
 
-         Tentative_Symbol := Get_Visible_Symbol (Top_Frame.all, Name);
+      A_Module := Get_Module (Top_Frame.all);
 
-         A_Module := Get_Module (Top_Frame.all);
+      -- Check in the static symbols in the module
 
-         -- Check in the static symbols in the module
+      if A_Module.Children_Indexed.Contains (Name) then
+         if Tentative_Symbol = null then
+            A_Semantic_Entity := A_Module.Children_Indexed (Name);
 
-         if A_Module.Children_Indexed.Contains (Name) then
+            if A_Semantic_Entity.all in Template_Type'Class then
+               Tentative_Symbol := new Runtime_Static_Entity_Type'
+                 (An_Entity => A_Semantic_Entity);
+            end if;
+         else
+            Error ("can't reference " & Name & ", multiple definitions hiding");
+         end if;
+      end if;
+
+      -- Check in the imported symbols in the module
+
+      for Imported of A_Module.Imported_Modules loop
+         if Imported.Children_Indexed.Contains (Name) then
             if Tentative_Symbol = null then
-               A_Semantic_Entity := A_Module.Children_Indexed (Name);
+               A_Semantic_Entity := Imported.Children_Indexed (Name);
 
                if A_Semantic_Entity.all in Template_Type'Class then
                   Tentative_Symbol := new Runtime_Static_Entity_Type'
                     (An_Entity => A_Semantic_Entity);
                end if;
             else
-               Error ("can't reference " & Node.Text & ", multiple definitions hiding");
+               Error ("can't reference " & Name & ", multiple definitions hiding");
             end if;
          end if;
+      end loop;
 
-          -- Check in the imported symbols in the module
+      -- Check in the namesaces symbols
 
-         for Imported of A_Module.Imported_Modules loop
-            if Imported.Children_Indexed.Contains (Name) then
-               if Tentative_Symbol = null then
-                  A_Semantic_Entity := Imported.Children_Indexed (Name);
-
-                  if A_Semantic_Entity.all in Template_Type'Class then
-                     Tentative_Symbol := new Runtime_Static_Entity_Type'
-                       (An_Entity => A_Semantic_Entity);
-                  end if;
-               else
-                  Error ("can't reference " & Node.Text & ", multiple definitions hiding");
-               end if;
-            end if;
-         end loop;
-
-         -- Check in the namesaces symbols
-
-         if Root.Children_Indexed.Contains (Name) then
-            if Tentative_Symbol = null then
-               A_Semantic_Entity := Root.Children_Indexed.Element (Name);
-
-               if A_Semantic_Entity.all in Namespace_Type'Class
-                 or else A_Semantic_Entity.all in Module_Type'Class
-               then
-                  Tentative_Symbol := new Runtime_Static_Entity_Type'
-                    (An_Entity => A_Semantic_Entity);
-               end if;
-            else
-               Error ("can't reference " & Node.Text & ", multiple definitions hiding");
-            end if;
-         end if;
-
+      if Root.Children_Indexed.Contains (Name) then
          if Tentative_Symbol = null then
-            Error ("can't find global reference to '" & Name & "'");
+            A_Semantic_Entity := Root.Children_Indexed.Element (Name);
+
+            if A_Semantic_Entity.all in Namespace_Type'Class
+              or else A_Semantic_Entity.all in Module_Type'Class
+            then
+               Tentative_Symbol := new Runtime_Static_Entity_Type'
+                 (An_Entity => A_Semantic_Entity);
+            end if;
          else
-            Top_Frame.Data_Stack.Append (Tentative_Symbol);
+            Error ("can't reference " & Name & ", multiple definitions hiding");
          end if;
-      end Handle_Global_Identifier;
+      end if;
+
+      if Tentative_Symbol = null then
+         Error ("can't find global reference to '" & Name & "'");
+      else
+         Top_Frame.Data_Stack.Append (Tentative_Symbol);
+      end if;
+   end Handle_Global_Identifier;
+
+   procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class) is
+      Prefix_Entity : Language_Entity;
+      A_Semantic_Entity : Semantic.Structure.Entity;
 
       procedure Handle_Static_Entity_Selection is
          An_Entity : Semantic.Structure.Entity;
@@ -975,11 +1006,11 @@ package body Wrapping.Runtime.Analysis is
             Implicit_New := Get_Implicit_New;
 
             if Name = "self" then
-               Push_Entity (Get_Implicit_Self);
+               Push_Entity (Implicit_Self);
 
                return;
             elsif Name = "new" and then Implicit_New /= null then
-               Push_Entity (Get_Implicit_New);
+               Push_Entity (Implicit_New);
 
                return;
             else
@@ -1012,7 +1043,7 @@ package body Wrapping.Runtime.Analysis is
                end if;
             end if;
 
-            Handle_Global_Identifier;
+            Handle_Global_Identifier (Node.Text);
          else
             if Prefix_Entity.Push_Value (Name) then
                --  We found a component of the entity and it has been pushed
@@ -1030,10 +1061,10 @@ package body Wrapping.Runtime.Analysis is
          elsif Top_Frame.Data_Stack.Last_Element.all in Runtime_Language_Entity_Type then
             Handle_Language_Entity_Selection;
          else
-            Handle_Global_Identifier;
+            Handle_Global_Identifier (Node.Text);
          end if;
       else
-         Handle_Global_Identifier;
+         Handle_Global_Identifier (Node.Text);
       end if;
    end Handle_Identifier;
 
@@ -1266,5 +1297,133 @@ package body Wrapping.Runtime.Analysis is
          end if;
       end if;
    end Handle_Call;
+
+   procedure Build_Lambda (A_Lambda : Runtime_Lambda; Lambda_Expression : Libtemplatelang.Analysis.Template_Node) is
+      function Not_Capture_Identifiers
+        (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
+
+      function Capture_Identifiers
+        (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
+
+      procedure Capture (Name : Text_Type) is
+      begin
+         Handle_Global_Identifier (Name);
+
+         A_Lambda.Captured_Symbols.Insert (Name, Pop_Entity);
+      end Capture;
+
+      procedure Capture_Group (Index : Integer; Value : Runtime_Object) is
+      begin
+         Error ("not yet implemented");
+      end Capture_Group;
+
+      procedure Capture_Expression (Expression : Libtemplatelang.Analysis.Template_Node) is
+      begin
+         null;
+      end Capture_Expression;
+
+      function Capture_Identifiers
+        (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status
+      is
+         use Libtemplatelang.Analysis;
+         use Libtemplatelang.Common;
+      begin
+         Push_Error_Location (Node);
+
+         case Node.Kind is
+            when Template_Selector =>
+               Node.As_Selector.F_Left.Traverse (Capture_Identifiers'Access);
+               Node.As_Selector.F_Right.Traverse (Not_Capture_Identifiers'Access);
+
+               Pop_Error_Location;
+               return Over;
+
+            when Template_Token_Template | Template_Identifier =>
+               Capture (Node.Text);
+
+               Pop_Error_Location;
+               return Over;
+
+            when others =>
+               Pop_Error_Location;
+
+               return Not_Capture_Identifiers (Node);
+         end case;
+      end Capture_Identifiers;
+
+      function Not_Capture_Identifiers
+        (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
+         use Libtemplatelang.Analysis;
+         use Libtemplatelang.Common;
+      begin
+         Push_Error_Location (Node);
+
+         case Node.Kind is
+            when Template_Dotted_Name =>
+
+               Pop_Error_Location;
+               return Over;
+
+         when Template_Str =>
+            declare
+               Content : Text_Type := Remove_Quotes (Node.Text);
+            begin
+               Analyze_Replace_String
+                 (Content,
+                  Node.Unit.Context,
+                  Capture_Group'Access,
+                  Capture_Expression'Access);
+            end;
+
+            Pop_Entity;
+
+            Pop_Error_Location;
+            return Over;
+         when Template_Call_Expr =>
+            --  Resolved the called identifier
+
+            for Arg of Node.As_Template_Call.F_Args loop
+               Arg.Traverse (Capture_Identifiers'Access);
+            end loop;
+
+            Pop_Error_Location;
+            return Over;
+
+         when others =>
+            Error ("unexpected expression node kind: '" & Node.Kind'Wide_Wide_Image & "'");
+            Pop_Error_Location;
+            return Into;
+         end case;
+      end Not_Capture_Identifiers;
+   begin
+      Capture_Expression (Lambda_Expression);
+      A_Lambda.Expression := Lambda_Expression;
+      A_Lambda.Implicit_Self := Get_Implicit_Self;
+      A_Lambda.Implicit_New := Get_Implicit_New;
+      A_Lambda.Lexical_Scope := Top_Frame.Lexical_Scope;
+   end Build_Lambda;
+
+   procedure Run_Lambda (A_Lambda : Runtime_Lambda_Type) is
+      Copy_Symbols : Runtime_Object_Maps.Map;
+      Result : Runtime_Object;
+   begin
+      Push_Frame (A_Lambda.Lexical_Scope);
+
+      Copy_Symbols := A_Lambda.Captured_Symbols.Copy;
+      Top_Frame.Symbols.Move (Copy_Symbols);
+
+      if A_Lambda.Implicit_Self /= null then
+         Push_Implicit_Self (A_Lambda.Implicit_Self);
+      end if;
+
+      if A_Lambda.Implicit_New /= null then
+         Push_Implicit_New (A_Lambda.Implicit_New);
+      end if;
+
+      Evaluate_Expression (A_Lambda.Expression);
+      Result := Pop_Entity;
+      Pop_Frame;
+      Top_Frame.Data_Stack.Append (Result);
+   end Run_Lambda;
 
 end Wrapping.Runtime.Analysis;

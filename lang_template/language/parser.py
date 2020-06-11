@@ -108,6 +108,9 @@ class CallExpr (TemplateNode):
     called = Field()
     args = Field()
 
+class LambdaExpr (TemplateNode):
+    expression = Field()
+
 class Argument(TemplateNode):
     name = Field()
     value = Field()
@@ -202,13 +205,14 @@ template_grammar.add_rules(
      G.str,
      G.name,
      ),
-    name=Or (G.call_expr, G.selected_component, G.identifier),
-    selected_component=Selector (G.selector_name, '.', G.suffix),
+    name=Or (G.selected_component, G.call_expr, G.identifier),
+    selected_component=Selector (G.prefix, '.', G.name),
     selector_name=Or (G.call_expr, G.identifier),
-    suffix=G.name,
+    prefix=G.name,
 
     call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
-    arg_list=List(Argument(Opt (G.identifier, "=>"), G.expression), sep=',', empty_valid=True),
+    lambda_expr=LambdaExpr ('lambda', '(', G.expression, ')'),
+    arg_list=List(Argument(Opt (G.identifier, "=>"), Or (G.lambda_expr, G.expression)), sep=',', empty_valid=True),
     identifier=Or (TokenTemplate ('template'), Identifier(Token.Identifier)),
     dotted_name=DottedName(Opt (G.dotted_name, '.'), G.identifier),
     integer=Number(Token.Integer),

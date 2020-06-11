@@ -1,0 +1,20 @@
+template w_Entity {
+   var child_name : text;
+   var txt : text;
+}
+
+match Entity () {
+   wrap with w_Entity (
+     child_name => lambda ("NO CHILDREN FOR \e<f_name>"),
+     txt => f_name
+   );
+
+   match child (Entity ())
+   wrap with w_Entity (
+     child_name => lambda (new.child (w_Entity ()).txt),
+     txt => f_name
+   );
+}
+
+match w_Entity () 
+weave with standard.out ("CHILDREN FOR \e<self.origin.f_name>: \e<child_name>\n");

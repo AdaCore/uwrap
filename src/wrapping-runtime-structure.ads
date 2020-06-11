@@ -62,9 +62,6 @@ package Wrapping.Runtime.Structure is
    type Runtime_Text_Type;
    type Runtime_Text is access all Runtime_Text_Type'Class;
 
-   type Runtime_Template_Variable_Reference_Type; -- TODO: Probably get rid of this
-   type Runtime_Template_Variable_Reference is access all Runtime_Template_Variable_Reference_Type'Class;
-
    type Runtime_Language_Entity_Type;
    type Runtime_Language_Entity is access all Runtime_Language_Entity_Type'Class;
 
@@ -83,15 +80,8 @@ package Wrapping.Runtime.Structure is
    type Runtime_Traverse_Decision_Type;
    type Runtime_Traverse_Decision is access all Runtime_Traverse_Decision_Type'Class;
 
-   type Parameter_Type;
-   type Parameter is access all Parameter_Type;
-   package Parameter_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Parameter);
-   use Parameter_Maps;
-   package Parameter_Vectors is new Ada.Containers.Vectors (Positive, Parameter);
-   use Parameter_Vectors;
-
-   type Profile_Type;
-   type Profile is access all Profile_Type;
+   type Runtime_Lambda_Type;
+   type Runtime_Lambda is access all Runtime_Lambda_Type'Class;
 
    type Frame_Context is
      (Generic_Context,
@@ -181,7 +171,7 @@ package Wrapping.Runtime.Structure is
      (An_Entity                 : access Language_Entity_Type;
       A_Mode                    : Browse_Mode;
       Match_Expression          : Template_Node'Class;
-      Evaluate_Match_Expression : access procedure := null
+      Match_Visitor    : access function (E : access Language_Entity_Type'Class) return Visit_Action := null
       -- This override the standard expression matching. If not null, the
       -- expected ABI is:
       --   (1) the entity under test is stacked as input
@@ -236,7 +226,7 @@ package Wrapping.Runtime.Structure is
      (An_Entity                 : access Template_Instance_Type;
       A_Mode                    : Browse_Mode;
       Match_Expression          : Template_Node'Class;
-      Evaluate_Match_Expression : access procedure := null);
+      Match_Visitor    : access function (E : access Language_Entity_Type'Class) return Visit_Action := null);
 
    --  This type can be used for example when there's a string comparison to
    --  prepare in a match context. See the behavior of strings in the
@@ -300,21 +290,6 @@ package Wrapping.Runtime.Structure is
    overriding
    function To_Text_Expression (Object : access Runtime_Text_Type) return Runtime_Text_Expression;
 
-   --  Template variable references can't be computed on the spot - they need to
-   --  be computed later in the process. Text an contain a mix of template
-   --  variable references and raw text. This is different from template constants,
-   --  in particular intrinsic, which can be computed in place.
-   --  TODO: We probably don't need this anymore
-   type Runtime_Template_Variable_Reference_Type is new Runtime_Text_Expression_Type with record
-      null;
-   end record;
-
-   overriding
-   function To_Text (Object : Runtime_Template_Variable_Reference_Type) return Text_Type;
-
-   overriding
-   function To_Text_Expression (Object : access Runtime_Template_Variable_Reference_Type) return Runtime_Text_Expression;
-
    type Runtime_Language_Entity_Type is new Runtime_Object_Type with record
       Value : Language_Entity;
 
@@ -359,21 +334,20 @@ package Wrapping.Runtime.Structure is
       Into_Expression : Template_Node;
    end record;
 
-   type Data_Type is (Text, Expression);
-
-   type Parameter_Type is record
-      Name        : Unbounded_Text_Type;
-      A_Data_Type : Data_Type;
-      Index       : Integer;
+   type Runtime_Lambda_Type is new Runtime_Text_Expression_Type with record
+      Captured_Symbols : Runtime_Object_Maps.Map;
+      Expression : Libtemplatelang.Analysis.Template_Node;
+      Implicit_Self : Language_Entity;
+      Implicit_New : Language_Entity;
+      Lexical_Scope : Semantic.Structure.Entity;
+      -- TODO: also add the temporary register
    end record;
 
-   type Profile_Type is record
-      Parameters_By_Position : Parameter_Vectors.Vector;
-      Parameters_By_Name : Parameter_Maps.Map;
-   end record;
+   overriding
+   function To_Text (Object : Runtime_Lambda_Type) return Text_Type;
 
-   procedure Stack_Parameters
-     (A_Profile         : Profile_Type;
-      Actual_Parameters : Libtemplatelang.Analysis.Argument_List);
+   overriding
+   function To_Text_Expression (Object : access Runtime_Lambda_Type) return Runtime_Text_Expression
+   is (Runtime_Text_Expression (Object));
 
 end Wrapping.Runtime.Structure;

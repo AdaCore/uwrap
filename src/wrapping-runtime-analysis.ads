@@ -38,4 +38,6 @@ package Wrapping.Runtime.Analysis is
 
    function Pop_Entity return Runtime_Object;
 
+   procedure Run_Lambda (A_Lambda : Runtime_Lambda_Type);
+
 end Wrapping.Runtime.Analysis;
