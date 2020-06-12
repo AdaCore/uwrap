@@ -959,7 +959,11 @@ package body Wrapping.Runtime.Analysis is
       end if;
 
       if Tentative_Symbol = null then
-         Error ("can't find global reference to '" & Name & "'");
+         if Top_Frame.Context = Match_Context then
+            Push_Match_False;
+         else
+            Error ("can't find global reference to '" & Name & "'");
+         end if;
       else
          Top_Frame.Data_Stack.Append (Tentative_Symbol);
       end if;
@@ -1150,7 +1154,7 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Store_Param_Value (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : Runtime_Object) is
       begin
-         Symbols.Insert (Name_Node.Text, Runtime_Object (Value.To_Text_Expression));
+         Symbols.Insert (Name_Node.Text, Value);
       end Store_Param_Value;
 
       function Sub_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
@@ -1224,8 +1228,41 @@ package body Wrapping.Runtime.Analysis is
          Scope : Semantic.Structure.Entity;
          Selected : Semantic.Structure.Entity;
          A_Module : Semantic.Structure.Module;
+         Called : Runtime_Object;
+         Result : Runtime_Object;
       begin
          Match_Object := Top_Frame.Data_Stack.Last_Element;
+
+         --  First, check if the prefix is a language entity reference. If it
+         --  is, then match it and return.
+         Node.As_Call_Expr.F_Called.Traverse (Visit_Expression'Access);
+         Called := Pop_Entity;
+
+         if Called.all in Runtime_Language_Entity_Type'Class then
+            if Node.As_Call_Expr.F_Args.Children_Count = 0 then
+               Push_Match_True (Called);
+            elsif Node.As_Call_Expr.F_Args.Children_Count = 1 then
+               Push_Implicit_Self (Runtime_Language_Entity_Type'Class (Called.all).Value);
+               Node.As_Call_Expr.F_Args.Child (1).As_Argument.F_Value.Traverse
+                 (Visit_Expression'Access);
+               Result := Pop_Entity;
+               Pop_Entity;
+
+               if Result /= Match_False then
+                  Push_Match_True (Called);
+               else
+                  Push_Match_False;
+               end if;
+            else
+               Error ("matching on an entity reference takes only 1 parameter");
+            end if;
+
+            return;
+         end if;
+
+         --  If we're not matching a reference but we have a reference on the
+         --  stack, see if that call is to a field and if it's the case,
+         --  match it.
 
          --  At this point, we stacked references to various namespaces. They
          --  will get unstacked when exiting the selectors. We do need to
@@ -1241,6 +1278,10 @@ package body Wrapping.Runtime.Analysis is
                return;
             end if;
          end if;
+
+         --  Otherwise, we may be referencing to a template type. Look for it
+         --  in the various accessible modules and check if the current entity
+         --  is an instance.
 
          A_Module := Get_Module (Top_Frame.all);
 
@@ -1278,6 +1319,8 @@ package body Wrapping.Runtime.Analysis is
                end if;
             end if;
          end loop;
+
+         -- If none of the above worked, we don't match the call.
 
          Push_Match_False;
       end Handle_Match;
