@@ -20,7 +20,7 @@ package body Wrapping.Semantic.Analysis is
 
    function Build_Template_Structure (Node : Template_Node) return Structure.Template;
    function Build_Module_Structure (Node : Template_Node; Module_Name : Text_Type) return Structure.Module;
-   function Build_Command_Structure (Node : Template_Node) return Structure.Command;
+   function Build_Command_Structure (Node : Template_Node'Class) return Structure.Command;
    function Build_Visitor_Structure (Node : Template_Node) return Structure.Visitor;
    function Build_Variable_Structure (Node : Template_Node) return Structure.Var;
    function Build_Command_Scope_Structure (Node : Template_Node'Class) return Entity;
@@ -184,7 +184,7 @@ package body Wrapping.Semantic.Analysis is
       return A_Template;
    end Build_Template_Structure;
 
-   function Build_Command_Structure (Node : Template_Node) return Structure.Command is
+   function Build_Command_Structure (Node : Template_Node'Class) return Structure.Command is
       A_Command : Structure.Command := new Command_Type;
 
       function Visit (Node : Template_Node'Class) return Visit_Status is

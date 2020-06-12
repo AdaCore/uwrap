@@ -30,13 +30,6 @@ class Var(TemplateNode):
 class Command(TemplateNode):
     match_clause = Field()
     actions = Field()
-
-class SingleCommand(TemplateNode):
-    command = Field()
-    alternate_actions = Field()
-
-class BlockCommand(TemplateNode):
-    commands = Field()
     alternate_actions = Field()
 
 class MatchClause(TemplateNode):
@@ -158,26 +151,20 @@ template_grammar.add_rules(
 
     command=Command(
         Opt(G.match_clause),
-        Or(G.single_command, G.block_command)),
-    single_command=SingleCommand(
         Or(
             Pick (G.wrap_clause),
             Pick (G.weave_clause),
+            G.nested_commands
         ),
-        Or (
-            Pick (';', NoNode()),
-            Pick ('else', ElseClause(Or (Pick (G.nested_commands), G.command)))
+        Opt (
+            Pick ('else', ElseClause(G.command))
         ),
-    ),
-    block_command=BlockCommand(
-        G.nested_commands,
-        Opt ('else', ElseClause(Or (G.nested_commands, G.command)))
     ),
     visitor=Visitor('visitor', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.nested_commands),
     nested_commands=NestedScope ('{', G.command_scope, '}'),
     match_clause=MatchClause('match', G.expression),
-    wrap_clause=WrapClause('wrap', G.template_operation_generic),
-    weave_clause=WeaveClause('weave', G.template_operation_generic),
+    wrap_clause=WrapClause('wrap', G.template_operation_generic, ';'),
+    weave_clause=WeaveClause('weave', G.template_operation_generic, ';'),
     template_operation_generic=Or (
         G.template_operation,
         G.traverse_decision),

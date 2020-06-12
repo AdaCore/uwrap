@@ -199,7 +199,7 @@ visitor wrappers_post_process () {
       match not return_stmt ("null;")
       weave with
          (function_or_procedure => "function", 
-          return_spec => "return \e<result_type_expr>")
+          return_spec => "return \e<result_type_expr>");
       else weave with (function_or_procedure => "procedure");
 
       weave with (
@@ -215,12 +215,12 @@ visitor wrappers_post_process () {
     match w_ParamSpec () and parent (s : w_SubpDecl()) {
        match prev (w_ParamSpec ())
        weave with (
-          formal_text => "; \e<name> : \e<mode> \e<type_expr>")
+          formal_text => "; \e<name> : \e<mode> \e<type_expr>");
        else weave with (
           formal_text => "\e<name> : \e<mode> \e<type_expr>");
 
        match prev (w_ParamSpec ())
-       weave with (actual_text => ", \e<actual_value>")
+       weave with (actual_text => ", \e<actual_value>");
        else weave with (actual_text => "\e<actual_value>");
 
        weave s with (
@@ -241,24 +241,24 @@ visitor wrappers_post_process () {
 
     match w_TypeDecl () {
        match origin (t: child (TypeAccessDef ())) 
-          weave with (definition => "access \e<child (w_TypeExpr ()).txt>")
+          weave with (definition => "access \e<child (w_TypeExpr ()).txt>");
        else match origin (child (RecordTypeDef ()))
           weave with (definition => """
             record
                \e<component_declarations>
-             end record""")
+             end record""");
        else match origin (child (t: TypeDef ())) 
           weave with (definition => "\e<t>");
 
        match not origin (AnonymousTypeDecl ()) and parent (p : w_PackageDecl())
-       weave p with (spec_content => "type \e<name> is \e<definition>;") 
+       weave p with (spec_content => "type \e<name> is \e<definition>;");
        else match parent (p: w_TypeExpr ())
        weave p with (txt => definition);
     }
 
     match w_TypeExpr (o: origin (child (i: Identifier ()))) {
       match o.p_designated_type_decl.template (w: w_TypeDecl ())
-      weave with (txt => w.name)
+      weave with (txt => w.name);
       else weave with (txt => o);
     }
     
