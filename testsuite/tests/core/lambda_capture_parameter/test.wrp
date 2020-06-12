@@ -1,0 +1,27 @@
+template w_Entity {
+   var a : text;
+   var b : text;
+   var c : text;
+   var d : text;
+   var txt : text;
+}
+
+visitor x (c) {
+   wrap with w_Entity (
+     a => lambda (c.template (w_Entity ()).txt),
+     b => lambda ("\e<c.f_name>"),
+     c => lambda (to_lower (c)),
+     d => lambda (c)
+   );
+
+   # also check wrap c: w_Entity
+}
+
+match Entity () and child (c: Entity ())
+wrap with x (c);
+
+match Entity ()
+weave with w_Entity (txt => f_name);
+
+match w_Entity ()
+weave with standard.out ("\e<self.origin> {a, b, c, d} = \e<a>, \e<b>, \e<c>, \e<d>\n");

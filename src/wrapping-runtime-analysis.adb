@@ -898,11 +898,27 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Data_Stack.Append (Runtime_Object (Result));
    end Analyze_Replace_String;
 
-   procedure Handle_Global_Identifier (Name : Text_Type) is
+   function Push_Global_Identifier (Name : Text_Type) return Boolean is
       A_Module : Semantic.Structure.Module;
       Tentative_Symbol : Runtime_Object;
       A_Semantic_Entity : Semantic.Structure.Entity;
+
+      Implicit_Self : Language_Entity;
+      Implicit_New  : Language_Entity;
    begin
+      Implicit_Self := Get_Implicit_Self;
+      Implicit_New := Get_Implicit_New;
+
+      if Name = "self" then
+         Push_Entity (Implicit_Self);
+
+         return True;
+      elsif Name = "new" and then Implicit_New /= null then
+         Push_Entity (Implicit_New);
+
+         return True;
+      end if;
+
       -- Check in the dynamic symols in the frame
 
       Tentative_Symbol := Get_Visible_Symbol (Top_Frame.all, Name);
@@ -962,10 +978,19 @@ package body Wrapping.Runtime.Analysis is
          if Top_Frame.Context = Match_Context then
             Push_Match_False;
          else
-            Error ("can't find global reference to '" & Name & "'");
+            return False;
          end if;
       else
          Top_Frame.Data_Stack.Append (Tentative_Symbol);
+      end if;
+
+      return True;
+   end Push_Global_Identifier;
+
+   procedure Handle_Global_Identifier (Name : Text_Type) is
+   begin
+      if not Push_Global_Identifier (Name) then
+         Error ("can't find global reference to '" & Name & "'");
       end if;
    end Handle_Global_Identifier;
 
@@ -1006,48 +1031,46 @@ package body Wrapping.Runtime.Analysis is
          if Runtime_Language_Entity
            (Top_Frame.Data_Stack.Last_Element).Is_Implicit
          then
+            --  If we're on the implicit entity, then first check if there's
+            --  some more global identifier overriding it.
+
+            if Push_Global_Identifier (Node.Text) then
+
+               return;
+            end if;
+
+            --  Retreive the entity from implicit self. If Implicit new
+            --  exist, we need to also attempt at retreiving its value.
+            --  We'll return either the entity coming from one of the two,
+            --  or raise an error if both contain such name.
+
             Implicit_Self := Get_Implicit_Self;
             Implicit_New := Get_Implicit_New;
 
-            if Name = "self" then
-               Push_Entity (Implicit_Self);
+            Found_Self_Entity := Implicit_Self.Push_Value (Name);
 
-               return;
-            elsif Name = "new" and then Implicit_New /= null then
-               Push_Entity (Implicit_New);
-
-               return;
-            else
-               --  Retreive the entity from implicit self. If Implicit new
-               --  exist, we need to also attempt at retreiving its value.
-               --  We'll return either the entity coming from one of the two,
-               --  or raise an error if both contain such name.
-
-               Found_Self_Entity := Implicit_Self.Push_Value (Name);
-
-               if Implicit_New /= null then
-                  if not Found_Self_Entity then
-                     if Implicit_New.Push_Value (Name) then
-                        return;
-                     end if;
-                  else
-                     Self_Object := Pop_Entity;
-
-                     Found_New_Entity := Implicit_New.Push_Value (Name);
-
-                     if not Found_New_Entity then
-                        Top_Frame.Data_Stack.Append (Self_Object);
-                        return;
-                     else
-                        Error ("ambiguous reference to '" & Name & "' between self and new objects");
-                     end if;
+            if Implicit_New /= null then
+               if not Found_Self_Entity then
+                  if Implicit_New.Push_Value (Name) then
+                     return;
                   end if;
-               elsif Found_Self_Entity then
-                  return;
+               else
+                  Self_Object := Pop_Entity;
+
+                  Found_New_Entity := Implicit_New.Push_Value (Name);
+
+                  if not Found_New_Entity then
+                     Top_Frame.Data_Stack.Append (Self_Object);
+                     return;
+                  else
+                     Error ("ambiguous reference to '" & Name & "' between self and new objects");
+                  end if;
                end if;
+            elsif Found_Self_Entity then
+               return;
             end if;
 
-            Handle_Global_Identifier (Node.Text);
+            Error ("'" & Node.Text & "' not found");
          else
             if Prefix_Entity.Push_Value (Name) then
                --  We found a component of the entity and it has been pushed
@@ -1349,10 +1372,26 @@ package body Wrapping.Runtime.Analysis is
         (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
 
       procedure Capture (Name : Text_Type) is
+         Object : Runtime_Object;
       begin
-         Handle_Global_Identifier (Name);
+         if Push_Global_Identifier (Name) then
+            --  We found a global identifier to record. If not, we expect it
+            --  to be resolved later when running the lambda.
 
-         A_Lambda.Captured_Symbols.Insert (Name, Pop_Entity);
+            Object := Pop_Entity;
+
+            --  If the object is a runtime_language_entity, it may be marked self
+            --  or new. We don't want to carry this property over to the lambda
+            --  call, so remove it.
+
+            if Object.all in Runtime_Language_Entity_Type then
+               A_Lambda.Captured_Symbols.Insert
+                 (Name,
+                  new Runtime_Language_Entity_Type'(Value => Runtime_Language_Entity_Type (Object.all).Value, others => <>));
+            else
+               A_Lambda.Captured_Symbols.Insert (Name, Object);
+            end if;
+         end if;
       end Capture;
 
       procedure Capture_Group (Index : Integer; Value : Runtime_Object) is
@@ -1362,7 +1401,7 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Capture_Expression (Expression : Libtemplatelang.Analysis.Template_Node) is
       begin
-         null;
+         Expression.Traverse (Capture_Identifiers'Access);
       end Capture_Expression;
 
       function Capture_Identifiers
@@ -1425,7 +1464,7 @@ package body Wrapping.Runtime.Analysis is
          when Template_Call_Expr =>
             --  Resolved the called identifier
 
-            for Arg of Node.As_Template_Call.F_Args loop
+            for Arg of Node.As_Call_Expr.F_Args loop
                Arg.Traverse (Capture_Identifiers'Access);
             end loop;
 
@@ -1433,7 +1472,7 @@ package body Wrapping.Runtime.Analysis is
             return Over;
 
          when others =>
-            Error ("unexpected expression node kind: '" & Node.Kind'Wide_Wide_Image & "'");
+
             Pop_Error_Location;
             return Into;
          end case;
