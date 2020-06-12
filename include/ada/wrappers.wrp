@@ -35,6 +35,10 @@ template w_WithClause extends w_Ada {
   var ref : text;
 }
 
+template w_UseClause extends w_Ada {
+  var ref : text;
+}
+
 template w_PackageDecl extends w_NamedEntity {
    var spec_content : text;
    var body_content : text;
@@ -59,8 +63,7 @@ template w_SubpDecl extends w_NamedEntity {
    var rparen : text;
  
    var param_spec_list : text;
-   var result_subtype_indication : text;
-   var original_result_subtype_indication : text;
+   var result_type_expr : text;
 
    var pre_call_decl : text;
    var pre_call_stmt : text;
@@ -102,33 +105,32 @@ template w_SubpDecl extends w_NamedEntity {
    """); 
 }
 
-template w_ReturnedSubtype extends w_Ada {
-  
-}
-
 template w_ParamSpec extends w_NamedEntity {
    var formal_text : text;
    var actual_text : text;
 
-   var subtype_indication : text;
+   var type_expr : text;
 
    var pre_call_decl  : text;
    var pre_call_stmt  : text;
    var actual_value   : text;
    var post_call_decl : text;
    var post_call_stmt : text;
+
+   var mode           : text;
 }
 
 template w_DefiningName extends w_Ada {
   var name : text;
 }
 
-template w_SubtypeIndication extends w_Ada {
+template w_TypeExpr extends w_Ada {
    var txt : text;
 }
 
 template w_TypeDecl extends w_NamedEntity {
-  var component_declarations : text;
+   var definition : text;
+   var component_declarations : text;
 }
 
 template w_ComponentDecl extends w_NamedEntity {
@@ -152,18 +154,18 @@ visitor ada_to_wrappers () {
          (call_stmt => call, 
           return_stmt => "null;");
 
-      match child (f_subp_kind ("function")) and child (si: SubtypeIndication()) 
+      match child (f_subp_kind ("function")) and child (te: TypeExpr()) 
       wrap with w_SubpDecl
-         (result_subtype_indication => lambda (new.child (w_SubtypeIndication()).txt),
-          call_decl => "\e<self.tmp ('result_orig')> : aliased \e<si> := \e<call>\n",
-          post_call_decl => "\e<self.tmp ('result_wrapped')> : aliased \e<result_subtype_indication> with Address => \e<self.tmp ('result_orig')>'Address, Import;\n",
+         (result_type_expr => lambda (new.child (w_TypeExpr()).txt),
+          call_decl => "\e<self.tmp ('result_orig')> : aliased \e<te> := \e<call>\n",
+          post_call_decl => "\e<self.tmp ('result_wrapped')> : aliased \e<result_type_expr> with Address => \e<self.tmp ('result_orig')>'Address, Import;\n",
           call_stmt => "null;", 
           return_stmt => "return \e<self.tmp ('result_wrapped')>;");
    }
 
-   match ParamSpec() and child (s: SubtypeIndication ()) and parent (sb: SubpDecl ())
+   match ParamSpec() and parent (sb: SubpDecl ())
    wrap with w_ParamSpec(
-      subtype_indication => lambda (new.child (w_SubtypeIndication()).txt),
+      type_expr => lambda (new.child (w_TypeExpr()).txt),
       pre_call_decl => "\e<sb.tmp ('local')> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n",
       actual_value => sb.tmp ('local')
    );
@@ -177,8 +179,11 @@ visitor ada_to_wrappers () {
    match WithClause() and child(d: DottedName ())
    wrap with w_WithClause(ref => d);
 
-   match SubtypeIndication ()
-   wrap with w_SubtypeIndication ();
+   match UseClause() and child(d: DottedName ())
+   wrap with w_UseClause(ref => d);
+
+   match TypeExpr ()
+   wrap with w_TypeExpr ();
 
    match DefiningName () {
       match parent (PackageDecl ())
@@ -194,7 +199,7 @@ visitor wrappers_post_process () {
       match not return_stmt ("null;")
       weave with
          (function_or_procedure => "function", 
-          return_spec => "return \e<result_subtype_indication>")
+          return_spec => "return \e<result_type_expr>")
       else weave with (function_or_procedure => "procedure");
 
       weave with (
@@ -210,9 +215,9 @@ visitor wrappers_post_process () {
     match w_ParamSpec () and parent (s : w_SubpDecl()) {
        match prev (w_ParamSpec ())
        weave with (
-          formal_text => "; \e<name> : \e<subtype_indication>")
+          formal_text => "; \e<name> : \e<mode> \e<type_expr>")
        else weave with (
-          formal_text => "\e<name> : \e<subtype_indication>");
+          formal_text => "\e<name> : \e<mode> \e<type_expr>");
 
        match prev (w_ParamSpec ())
        weave with (actual_text => ", \e<actual_value>")
@@ -228,26 +233,30 @@ visitor wrappers_post_process () {
        );
     }
 
-    match w_ComponentDecl () and parent (t : w_TypeDecl ()) and child (si : w_SubtypeIndication ()) {
+    match w_ComponentDecl () and parent (t : w_TypeDecl ()) and child (te : w_TypeExpr ()) {
       weave t with (
-         component_declarations => "\e<name> : \e<si.txt>;\n"
+         component_declarations => "\e<name> : \e<te.txt>;\n"
       );
     }
 
-    match w_TypeDecl () and parent (p : w_PackageDecl()) {
-       match origin (child (RecordTypeDef ()))
-       weave p with (spec_content => """
-       type \e<name> is record
-          \e<component_declarations>
-       end record;
-       """)
+    match w_TypeDecl () {
+       match origin (t: child (TypeAccessDef ())) 
+          weave with (definition => "access \e<child (w_TypeExpr ()).txt>")
+       else match origin (child (RecordTypeDef ()))
+          weave with (definition => """
+            record
+               \e<component_declarations>
+             end record""")
        else match origin (child (t: TypeDef ())) 
-       weave p with (spec_content => """
-       type \e<name> is \e<t>;
-       """);
+          weave with (definition => "\e<t>");
+
+       match not origin (AnonymousTypeDecl ()) and parent (p : w_PackageDecl())
+       weave p with (spec_content => "type \e<name> is \e<definition>;") 
+       else match parent (p: w_TypeExpr ())
+       weave p with (txt => definition);
     }
 
-    match w_SubtypeIndication (o: origin (child (i: Identifier ()))) {
+    match w_TypeExpr (o: origin (child (i: Identifier ()))) {
       match o.p_designated_type_decl.template (w: w_TypeDecl ())
       weave with (txt => w.name)
       else weave with (txt => o);
@@ -264,6 +273,12 @@ visitor wrappers_post_process () {
     weave u with (
        spec_with_clauses => "with \e<ref>;\n",
        body_with_clauses => "with \e<ref>;\n"
+    );
+
+    match w_UseClause () and parent (u: w_Unit ())
+    weave u with (
+       spec_with_clauses => "use \e<ref>;\n",
+       body_with_clauses => "use \e<ref>;\n"
     );
 
     match w_DefiningName () and parent (n: w_NamedEntity ())

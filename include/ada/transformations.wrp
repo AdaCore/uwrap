@@ -1,17 +1,27 @@
 import ada.wrappers;
 
-visitor chars_into_string () {
-   match ParamSpec() and parent (sb: SubpDecl())
+visitor access_into_out () {
+   match ParamSpec("access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
    wrap with w_ParamSpec (
-      subtype_indication => "String",
+      pre_call_decl => "\e<sb.tmp ('call')> : aliased \e<te.child (TypeExpr ())> with Address => \e<name>'Address, Import;",
+      actual_value => "\e<sb.tmp ('call')>'Unchecked_Access",
+      mode => "out",
+      type_expr => lambda (new.child (w_TypeExpr()).child (w_TypeExpr ()).txt)
+   );
+}
+
+visitor chars_into_string () {
+   match ParamSpec("Interfaces.C.Strings.chars_ptr") and parent (sb: SubpDecl())
+   wrap with w_ParamSpec (
+      type_expr => "String",
       pre_call_decl => "\e<sb.tmp ('c_string')> : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (\e<name>);\n",
       actual_value => "\e<sb.tmp ('c_string')>",
       post_call_stmt => "Interfaces.C.Strings.Free (\e<sb.tmp ('c_string')>);\n"
    );
 
-   match SubpDecl()
+   match SubpDecl() and child (TypeExpr ("Interfaces.C.Strings.chars_ptr"))
    wrap with w_SubpDecl (
-      result_subtype_indication => "String",
+      result_type_expr => "String",
       call_decl => "\e<self.tmp ('c_string')> : aliased Interfaces.C.Strings.chars_ptr := \e<call>\n",
       call_stmt => "null;", 
       return_stmt => "return Interfaces.C.Strings.Value (\e<self.tmp ('c_string')>);"

@@ -1,0 +1,13 @@
+import ada.wrappers;
+import ada.transformations;
+
+wrap with wrap_ada_specs ();
+
+match DefiningName ("(.*)_h")
+wrap with w_DefiningName ("\1_Wrapped");
+
+match ParamSpec() and parent (SubpDecl (".*Get.*"))
+wrap with access_into_out (); 
+
+match DefiningName ("myStruct")
+wrap with w_DefiningName ("My_Struct");

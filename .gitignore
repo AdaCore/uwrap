@@ -8,6 +8,7 @@
 **/.#*
 **/*.bexch
 **/*-loc.xml
+**/obj/**
 
 obj/**
 lang_template/build/**
