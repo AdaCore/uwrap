@@ -648,8 +648,8 @@ package body Wrapping.Runtime.Structure is
             String_Entity := new String_Langage_Entity_Type'
               (Value => To_Unbounded_Text (An_Entity.Symbols.Element (Name).To_Text), others => <>);
          else
-            String_Entity := new String_Langage_Entity_Type'
-                 (Value => To_Unbounded_Text (An_Entity.Symbols.Element (Name).To_Text), others => <>);
+            Push_Match_False;
+            return;
          end if;
 
          Push_Implicit_Self (String_Entity);

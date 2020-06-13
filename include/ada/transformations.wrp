@@ -10,6 +10,25 @@ visitor access_into_out () {
    );
 }
 
+visitor access_into_return (parameter) {
+   match parameter.child (TypeExpr (child (te: TypeExpr ()))) {
+      wrap with w_SubpDecl
+         (call_stmt => "\e<call>;", 
+          return_stmt => "null;",
+          function_or_procedure => "function");
+
+      wrap parameter with w_ParamSpec (
+         generate_formal => "NO",  # TODO: introduce boolean here instead
+         actual_value => "\e<self.tmp('call')>'Unchecked_Access",
+         call_decl => """
+            \e<self.tmp('call')> : aliased \e<te>;
+            \e<self.tmp('ret')>  : aliased \e<result_type_expr> with Address => \e<self.tmp('call')>'Address, Import;
+            """,
+         return_stmt => "return \e<self.tmp('ret')>;",
+         result_type_expr => lambda (te.template (w_TypeExpr()).txt));
+   }
+}
+
 visitor chars_into_string () {
    match ParamSpec("Interfaces.C.Strings.chars_ptr") and parent (sb: SubpDecl())
    wrap with w_ParamSpec (
@@ -21,8 +40,9 @@ visitor chars_into_string () {
 
    match SubpDecl() and child (TypeExpr ("Interfaces.C.Strings.chars_ptr"))
    wrap with w_SubpDecl (
+      function_or_procedure => "function",
       result_type_expr => "String",
-      call_decl => "\e<self.tmp ('c_string')> : aliased Interfaces.C.Strings.chars_ptr := \e<call>\n",
+      call_decl => "\e<self.tmp ('c_string')> : aliased Interfaces.C.Strings.chars_ptr := \e<call>;\n",
       call_stmt => "null;", 
       return_stmt => "return Interfaces.C.Strings.Value (\e<self.tmp ('c_string')>);"
    );
