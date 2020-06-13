@@ -438,15 +438,22 @@ package body Wrapping.Semantic.Analysis is
       An_Entity : Entity;
    begin
       if not A_Template.Node.As_Template.F_Extending.Is_Null then
+         Push_Error_Location (A_Template.Node.As_Template.F_Extending);
+
          An_Entity :=
            Get_Static_Entity_By_Name
              (A_Template.Parent, A_Template.Node.As_Template.F_Extending);
+
+         if An_Entity = null then
+            Error ("template '" & A_Template.Node.As_Template.F_Extending.Text & "' not found");
+         end if;
 
          if An_Entity.all not in Template_Type'Class then
             Error ("expected template name");
          end if;
 
          A_Template.Extends := Structure.Template (An_Entity);
+         Pop_Error_Location;
       end if;
    end Resolve_Template_Names;
 
@@ -469,6 +476,8 @@ package body Wrapping.Semantic.Analysis is
                   end if;
 
                   if not An_Operation.F_Call.Is_Null then
+                     Push_Error_Location (A_Command.Template_Clause.Node);
+
                      if An_Operation.F_Call.F_Name.Is_Null then
                         if A_Command.Template_Clause.Node.Kind = Template_Wrap_Clause then
                            Error ("template instances can only be weaved, not wrapped");
@@ -490,6 +499,7 @@ package body Wrapping.Semantic.Analysis is
                      end if;
 
                      A_Command.Template_Clause.Arguments := An_Operation.F_Call.F_Args;
+                     Pop_Error_Location;
                   end if;
                end;
 
