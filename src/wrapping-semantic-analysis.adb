@@ -31,6 +31,7 @@ package body Wrapping.Semantic.Analysis is
    procedure Resolve_Visitor_Names (A_Visitor : Structure.Visitor);
    procedure Resolve_Namespace_Names (A_Namespace : Structure.Namespace);
    function Get_Static_Entity_By_Name (Current_Scope : Entity; Name : Selector) return Structure.Entity;
+   function Get_Template_Or_Visitor_By_Name (Current_Scope : Entity; Name : Selector) return Structure.Entity;
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String);
 
@@ -434,6 +435,26 @@ package body Wrapping.Semantic.Analysis is
       return Result;
    end Get_Static_Entity_By_Name;
 
+   function Get_Template_Or_Visitor_By_Name (Current_Scope : Entity; Name : Selector) return Structure.Entity is
+      An_Entity : Entity;
+   begin
+      An_Entity := Get_Static_Entity_By_Name
+        (Current_Scope,
+         Name);
+
+      if An_Entity = null then
+         Error ("can't find reference to '" & Name.Text & "'");
+      end if;
+
+      if An_Entity.all not in Template_Type'Class
+        and then An_Entity.all not in Visitor_Type'Class
+      then
+         Error ("expected visitor or template name");
+      end if;
+
+      return An_Entity;
+   end Get_Template_Or_Visitor_By_Name;
+
    procedure Resolve_Template_Names (A_Template : Structure.Template) is
       An_Entity : Entity;
    begin
@@ -483,18 +504,19 @@ package body Wrapping.Semantic.Analysis is
                            Error ("template instances can only be weaved, not wrapped");
                         end if;
                      else
-                        A_Command.Template_Clause.Call_Reference := Get_Static_Entity_By_Name
-                          (A_Command.Parent,
-                           An_Operation.F_Call.F_Name);
+                        if  An_Operation.F_Call.F_Name.Text = "null" then
+                           --  In this case, we're creating a template cancellation
+                           --  clause.
 
-                        if A_Command.Template_Clause.Call_Reference = null then
-                           Error ("can't find reference to '" & An_Operation.F_Call.F_Name.Text & "'");
-                        end if;
+                           if A_Command.Template_Clause.Node.Kind = Template_Weave_Clause then
+                              Error ("null template only allowed on wrap clauses");
+                           end if;
 
-                        if A_Command.Template_Clause.Call_Reference.all not in Template_Type'Class
-                          and then A_Command.Template_Clause.Call_Reference.all not in Visitor_Type'Class
-                        then
-                           Error ("expected visitor or template name");
+                           A_Command.Template_Clause.Is_Null := True;
+                        else
+                           A_Command.Template_Clause.Call_Reference := Get_Template_Or_Visitor_By_Name
+                             (A_Command.Parent,
+                              An_Operation.F_Call.F_Name);
                         end if;
                      end if;
 

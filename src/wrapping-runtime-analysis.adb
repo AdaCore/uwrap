@@ -242,51 +242,84 @@ package body Wrapping.Runtime.Analysis is
       is
          A_Template_Instance : Template_Instance;
          Self_Weave : Boolean := False;
+         Result : Runtime_Object;
       begin
-         if Template_Clause.Call_Reference = null then
-            --  No name to the call, that means that we're expecting to self-weave
-            --  the current template.
-            if Template_Clause.all not in Weave_Type'Class then
-               Error ("self wrap not allowed, either weave or provide a template or visitor name");
-            elsif A_Language_Entity.all in Template_Instance_Type'Class then
-               A_Template_Instance := Template_Instance (A_Language_Entity);
-            else
-               Error ("only template instances can be self weaved");
+         Push_Error_Location (Template_Clause.Node);
+
+         if Template_Clause.Is_Null then
+            --  We've set a null template - the objective is to prevent this
+            --  entity to be wrapped by this template.
+
+            if Template_Clause.Arguments.Children_Count /= 1 then
+               Error ("expected one argument to null");
             end if;
 
-            Self_Weave := True;
-         elsif Template_Clause.Call_Reference.all in Template_Type'Class then
-            A_Template_Instance := A_Language_Entity.Get_Template_Instance
-              (Semantic.Structure.Template (Template_Clause.Call_Reference));
+            Evaluate_Expression (Template_Clause.Arguments.Child (1).As_Argument.F_Value);
+            Result := Pop_Object;
 
-            if Template_Clause.all in Weave_Type'Class
-              or else A_Template_Instance = null
-              or else A_Template_Instance.Is_Wrapping = False
+            if Result.all not in Runtime_Static_Entity_Type
+              or else Runtime_Static_Entity (Result).An_Entity.all
+                not in Semantic.Structure.Template_Type'Class
             then
-               if A_Template_Instance = null then
-                  A_Template_Instance := A_Language_Entity.Create_Template_Instance
-                    (Semantic.Structure.Template (Template_Clause.Call_Reference));
+               Error ("expected template reference");
+            end if;
+
+            A_Language_Entity.Forbidden_Template_Names.Include
+              (Semantic.Structure.Template
+                 (Runtime_Static_Entity (Result).An_Entity).Full_Name);
+
+            --  TODO: remove the template if it's already been created in the
+            --  context of a weave clause
+         else
+            if Template_Clause.Call_Reference = null then
+               --  No name to the call, that means that we're expecting to self-weave
+               --  the current template.
+               if Template_Clause.all not in Weave_Type'Class then
+                  Error ("self wrap not allowed, either weave or provide a template or visitor name");
+               elsif A_Language_Entity.all in Template_Instance_Type'Class then
+                  A_Template_Instance := Template_Instance (A_Language_Entity);
+               else
+                  Error ("only template instances can be self weaved");
                end if;
 
-               if Template_Clause.all in Wrap_Type'Class then
-                  A_Template_Instance.Is_Wrapping := True;
+               Self_Weave := True;
+            elsif Template_Clause.Call_Reference.all in Template_Type'Class then
+               A_Template_Instance := A_Language_Entity.Get_Template_Instance
+                 (Semantic.Structure.Template (Template_Clause.Call_Reference));
+
+               if (Template_Clause.all in Weave_Type'Class
+                   or else A_Template_Instance = null
+                   or else A_Template_Instance.Is_Wrapping = False)
+                 and then not A_Language_Entity.Forbidden_Template_Names.Contains
+                      (Template_Clause.Call_Reference.Full_Name)
+               then
+                  if A_Template_Instance = null then
+                     A_Template_Instance := A_Language_Entity.Create_Template_Instance
+                       (Semantic.Structure.Template (Template_Clause.Call_Reference));
+                  end if;
+
+                  if Template_Clause.all in Wrap_Type'Class then
+                     A_Template_Instance.Is_Wrapping := True;
+                  end if;
+               else
+                  A_Template_Instance := null;
                end if;
-            else
-               A_Template_Instance := null;
+            end if;
+
+            if A_Template_Instance /= null then
+               if not Self_Weave then
+                  Push_Implicit_New (A_Template_Instance);
+               end if;
+
+               Handle_Template_Call (A_Template_Instance, Template_Clause.Arguments);
+
+               if not Self_Weave then
+                  Pop_Entity;
+               end if;
             end if;
          end if;
 
-         if A_Template_Instance /= null then
-            if not Self_Weave then
-               Push_Implicit_New (A_Template_Instance);
-            end if;
-
-            Handle_Template_Call (A_Template_Instance, Template_Clause.Arguments);
-
-            if not Self_Weave then
-               Pop_Entity;
-            end if;
-         end if;
+         Pop_Error_Location;
       end Apply_Template_Action;
 
       procedure Apply_Command (A_Command : Command) is

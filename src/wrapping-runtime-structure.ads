@@ -92,8 +92,6 @@ package Wrapping.Runtime.Structure is
      (Generic_Context,
       Match_Context);
 
-   package Text_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Text_Type);
-
    type Allocate_Callback is access procedure (E : access Language_Entity_Type'Class);
 
    type Data_Frame_Type is record
@@ -126,6 +124,8 @@ package Wrapping.Runtime.Structure is
       Templates_By_Name : Template_Instance_Maps.Map;
       Templates_By_Full_Id : Template_Instance_Maps.Map;
       Templates_Ordered : Template_Instance_Vectors.Vector;
+
+      Forbidden_Template_Names : Text_Sets.Set;
 
       A_Class : Language_Entity_Class; -- TODO: Probably get rid of this
 

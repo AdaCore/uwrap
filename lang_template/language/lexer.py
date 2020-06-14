@@ -46,8 +46,6 @@ class Token(LexerToken):
     LitTrue   = WithText()
     LitFalse   = WithText()
 
-    Null        = WithText()
-
 template_lexer = Lexer(Token)
 
 template_lexer.add_patterns(
@@ -82,7 +80,6 @@ template_lexer.add_rules(
     (Literal("over"), Token.Over),
     (Literal("all"), Token.All),
 
-    (Literal("null"), Token.Null),
     (Literal("with"), Token.With),
     (Literal("("), Token.LPar),
     (Literal(")"), Token.RPar),

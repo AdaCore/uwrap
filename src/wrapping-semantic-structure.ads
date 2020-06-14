@@ -142,6 +142,7 @@ package Wrapping.Semantic.Structure is
    type Weave_Or_Wrap_Type is tagged record
       Node                         : Template_Clause;
       Is_All                       : Boolean := False;
+      Is_Null                      : Boolean := False;
       Target_Object                : Template_Node;
       Call_Reference               : Entity;
       Arguments                    : Argument_List;

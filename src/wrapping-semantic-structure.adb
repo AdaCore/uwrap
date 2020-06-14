@@ -180,7 +180,7 @@ package body Wrapping.Semantic.Structure is
                   Tentative := Current.Children_Indexed.Element (Section);
 
                   if Tentative.all not in Namespace_Type then
-                     Error ("Expected namsepace");
+                     Error ("Expected namespace");
                   else
                      Current := Namespace (Tentative);
                   end if;
