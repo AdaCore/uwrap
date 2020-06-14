@@ -56,7 +56,7 @@ class MatchCapture(TemplateNode):
     captured = Field()
     expression = Field()
 
-class TokenTemplate(TemplateNode):
+class TokenIdentifier(TemplateNode):
     token_node = True
 
 @abstract
@@ -65,10 +65,6 @@ class Expr(TemplateNode):
 
 class Number(Expr):
     token_node = True
-
-class DottedName(Expr):
-    prefix = Field()
-    suffix = Field()
 
 class Identifier(Expr):
     token_node = True
@@ -134,6 +130,10 @@ class TemplateOperation(TemplateNode):
     entity=Field()
     call=Field()
 
+class NewExpr(TemplateNode):
+    name=Field()
+    args=Field()
+
 template_grammar = Grammar('main_rule')
 G = template_grammar
 
@@ -192,16 +192,17 @@ template_grammar.add_rules(
      G.str,
      G.name,
      ),
-    name=Or (G.selected_component, G.call_expr, G.identifier),
-    selected_component=Selector (G.prefix, '.', G.name),
+    name=Or (G.selected_component, G.new_expr, G.call_expr, G.identifier),
+    selected_component=Selector (G.prefix, '.', G.name), # TODO should name be selector name instead?
     selector_name=Or (G.call_expr, G.identifier),
     prefix=G.name,
 
+    new_expr=NewExpr ('new', '(', G.dotted_name, '(', G.arg_list, ')', ')'),
     call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
     lambda_expr=LambdaExpr ('lambda', '(', G.expression, ')'),
     arg_list=List(Argument(Opt (G.identifier, "=>"), Or (G.lambda_expr, G.expression)), sep=',', empty_valid=True),
-    identifier=Or (TokenTemplate ('template'), Identifier(Token.Identifier)),
-    dotted_name=DottedName(Opt (G.dotted_name, '.'), G.identifier),
+    identifier=Or (TokenIdentifier ('template'), TokenIdentifier ('new'), Identifier(Token.Identifier)),
+    dotted_name=Selector(Opt (G.dotted_name, '.'), G.identifier),
     integer=Number(Token.Integer),
     literal=Literal(Or ("true", "false")),
     str=Str(Token.String)

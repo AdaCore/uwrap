@@ -12,7 +12,6 @@ with Langkit_Support.Text; use Langkit_Support.Text;
 
 with Libtemplatelang.Common;
 
-
 with Wrapping.Regex; use Wrapping.Regex;
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
@@ -23,7 +22,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class);
    procedure Handle_Call (Node : Libtemplatelang.Analysis.Template_Node'Class);
-   procedure Handle_Template_Call (An_Entity : Language_Entity; A_Template_Instance : Template_Instance; Args : Libtemplatelang.Analysis.Argument_List);
+   procedure Handle_Template_Call (A_Template_Instance : Template_Instance; Args : Libtemplatelang.Analysis.Argument_List);
    procedure Handle_Visitor_Call
      (An_Entity : Language_Entity;
       A_Visitor : Semantic.Structure.Visitor;
@@ -59,6 +58,11 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Data_Stack.Append (new Runtime_Language_Entity_Type'(Value => Language_Entity (An_Entity), others => <>));
    end Push_Entity;
 
+   procedure Push_Object (An_Object : access Runtime_Object_Type'Class) is
+   begin
+      Top_Frame.Data_Stack.Append (Runtime_Object (An_Object));
+   end Push_Object;
+
    procedure Push_Implicit_Self (An_Entity : access Language_Entity_Type'Class) is
    begin
       Top_Frame.Data_Stack.Append
@@ -76,6 +80,15 @@ package body Wrapping.Runtime.Analysis is
             Is_Implicit_New => True,
             others => <>));
    end Push_Implicit_New;
+
+   procedure Push_Allocated_Entity (An_Entity : access Language_Entity_Type'Class) is
+   begin
+      Top_Frame.Data_Stack.Append
+        (new Runtime_Language_Entity_Type'
+           (Value => Language_Entity (An_Entity),
+            Is_Allocated => True,
+            others => <>));
+   end Push_Allocated_Entity;
 
    procedure Push_Temporary_Name (Name : Text_Type; Counter : in out Integer) is
    begin
@@ -104,19 +117,23 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
    end Pop_Entity;
 
-   function Pop_Entity return Runtime_Object is
+   function Pop_Object return Runtime_Object is
       Result : Runtime_Object;
    begin
       Result := Top_Frame.Data_Stack.Last_Element;
       Pop_Entity;
       return Result;
-   end Pop_Entity;
+   end Pop_Object;
 
    procedure Push_Frame (Lexical_Scope : access Semantic.Structure.Entity_Type'Class) is
       New_Frame : Data_Frame := new Data_Frame_Type;
    begin
       New_Frame.Parent_Frame := Top_Frame;
       New_Frame.Lexical_Scope := Semantic.Structure.Entity (Lexical_Scope);
+
+      if Top_Frame /= null then
+         New_Frame.An_Allocate_Callback := Top_Frame.An_Allocate_Callback;
+      end if;
 
       Top_Frame := New_Frame;
    end Push_Frame;
@@ -198,6 +215,13 @@ package body Wrapping.Runtime.Analysis is
    is
       Self_Element : Runtime_Language_Entity := new Runtime_Language_Entity_Type; -- TODO: We may not need to instantiate here
 
+      procedure Allocate (E : access Language_Entity_Type'Class) is
+      begin
+         --  when allocating an object outside of a browsing function, nothign
+         --  special to do
+         null;
+      end Allocate;
+
       procedure Create_And_Set_Template_Instance
         (A_Command  : Command;
          Expression : Libtemplatelang.Analysis.Template_Node'Class);
@@ -257,10 +281,7 @@ package body Wrapping.Runtime.Analysis is
                Push_Implicit_New (A_Template_Instance);
             end if;
 
-            Handle_Template_Call
-              (A_Language_Entity,
-               A_Template_Instance,
-               Template_Clause.Arguments);
+            Handle_Template_Call (A_Template_Instance, Template_Clause.Arguments);
 
             if not Self_Weave then
                Pop_Entity;
@@ -277,6 +298,8 @@ package body Wrapping.Runtime.Analysis is
          --  values that can be used consistently in the various clauses
          Push_Frame (A_Command);
          Push_Implicit_Self (A_Language_Entity);
+
+         Top_Frame.An_Allocate_Callback := Allocate'Unrestricted_Access;
 
          if not A_Command.Match_Expression.Is_Null then
             Top_Frame.Context := Match_Context;
@@ -456,11 +479,6 @@ package body Wrapping.Runtime.Analysis is
       Language_Class_Registry.Insert ("template", Template_Class);
    end Register_Standard_Globals;
 
-   procedure Analyse (Language : Text_Type) is
-   begin
-      Analyse (Get_Root_Language_Entity (Language));
-   end Analyse;
-
    function Analyze_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
       A_Visit_Action : Visit_Action := Into;
    begin
@@ -483,15 +501,6 @@ package body Wrapping.Runtime.Analysis is
       Dummy_Action := Root_Entity.Traverse
         (Child_Depth, True, Analyze_Visitor'Access);
 
-      Get_Root_Language_Entity ("template").Children_Ordered.Append
-        (Get_Root_Language_Entity ("template_tmp").Children_Ordered);
-
-      Get_Root_Language_Entity ("template_tmp").Children_Ordered.Clear;
-      Get_Root_Language_Entity ("template_tmp").Children_Indexed.Clear;
-
-      Dummy_Action := Get_Root_Language_Entity ("template").Traverse
-        (Child_Depth, True, Analyze_Visitor'Access);
-
       File_Template := Wrapping.Semantic.Structure.Template
         (Resolve_Module_By_Name ("standard").
              Children_Indexed.Element ("file"));
@@ -500,66 +509,80 @@ package body Wrapping.Runtime.Analysis is
         (Resolve_Module_By_Name ("standard").
              Children_Indexed.Element ("out"));
 
-      Get_Root_Language_Entity ("template").Children_Ordered.Append
-        (Get_Root_Language_Entity ("template_tmp").Children_Ordered);
+      while Templates_To_Traverse.Length > 0 loop
+         declare
+            Next_Iteration : Template_Instance_Vectors.Vector;
+         begin
+            Next_Iteration.Move (Templates_To_Traverse);
+            Templates_To_Traverse.Clear;
 
-      Get_Root_Language_Entity ("template_tmp").Children_Ordered.Clear;
-      Get_Root_Language_Entity ("template_tmp").Children_Indexed.Clear;
+            for A of Actions_To_Perform loop
+               Perform (A.all);
+            end loop;
 
-      for Created_Template of Get_Root_Language_Entity ("template").Children_Ordered loop
-         A_Template_Instance := Template_Instance (Created_Template);
+            Actions_To_Perform.Clear;
 
-         if Instance_Of (A_Template_Instance.Template, File_Template) then
-            declare
-               Path_Object : Runtime_Object;
-               Content_Object : Runtime_Object;
-               Output_File : File_Type;
-            begin
-               Push_Frame (Root);
+            for T of Next_Iteration loop
+               Dummy_Action := T.Traverse
+                 (Child_Depth, True, Analyze_Visitor'Access);
+            end loop;
 
-               if not A_Template_Instance.Push_Value ("path") then
-                  Error ("'path' component not found in file template");
+            for Created_Template of Next_Iteration loop
+               A_Template_Instance := Template_Instance (Created_Template);
+
+               if Instance_Of (A_Template_Instance.Template, File_Template) then
+                  declare
+                     Path_Object : Runtime_Object;
+                     Content_Object : Runtime_Object;
+                     Output_File : File_Type;
+                  begin
+                     Push_Frame (Root);
+
+                     if not A_Template_Instance.Push_Value ("path") then
+                        Error ("'path' component not found in file template");
+                     end if;
+
+                     Path_Object := Top_Frame.Data_Stack.Last_Element;
+                     Top_Frame.Data_Stack.Delete_Last;
+
+                     if not A_Template_Instance.Push_Value ("content") then
+                        Error ("'content' component not found in file template");
+                     end if;
+
+                     Content_Object := Top_Frame.Data_Stack.Last_Element;
+                     Top_Frame.Data_Stack.Delete_Last;
+
+                     Create
+                       (Output_File,
+                        Out_File,
+                        To_String (Path_Object.To_Text));
+
+                     Put (Output_File, Content_Object.To_Text);
+
+                     Close (Output_File);
+
+                     Pop_Frame;
+                  end;
+               elsif Instance_Of (A_Template_Instance.Template, Out_Template) then
+                  declare
+                     Content_Object : Runtime_Object;
+                  begin
+                     Push_Frame (Root);
+
+                     if not A_Template_Instance.Push_Value ("content") then
+                        Error ("'content' component not found in file template");
+                     end if;
+
+                     Content_Object := Top_Frame.Data_Stack.Last_Element;
+                     Top_Frame.Data_Stack.Delete_Last;
+
+                     Put (Content_Object.To_Text);
+
+                     Pop_Frame;
+                  end;
                end if;
-
-               Path_Object := Top_Frame.Data_Stack.Last_Element;
-               Top_Frame.Data_Stack.Delete_Last;
-
-               if not A_Template_Instance.Push_Value ("content") then
-                  Error ("'content' component not found in file template");
-               end if;
-
-               Content_Object := Top_Frame.Data_Stack.Last_Element;
-               Top_Frame.Data_Stack.Delete_Last;
-
-               Create
-                 (Output_File,
-                  Out_File,
-                  To_String (Path_Object.To_Text));
-
-               Put (Output_File, Content_Object.To_Text);
-
-               Close (Output_File);
-
-               Pop_Frame;
-            end;
-         elsif Instance_Of (A_Template_Instance.Template, Out_Template) then
-            declare
-               Content_Object : Runtime_Object;
-            begin
-               Push_Frame (Root);
-
-               if not A_Template_Instance.Push_Value ("content") then
-                  Error ("'content' component not found in file template");
-               end if;
-
-               Content_Object := Top_Frame.Data_Stack.Last_Element;
-               Top_Frame.Data_Stack.Delete_Last;
-
-               Put (Content_Object.To_Text);
-
-               Pop_Frame;
-            end;
-         end if;
+            end loop;
+         end;
       end loop;
    end Analyse;
 
@@ -593,23 +616,7 @@ package body Wrapping.Runtime.Analysis is
 
             Pop_Error_Location;
             return Over;
-         when Template_Dotted_Name =>
-            declare
-               Result : Runtime_Object;
-            begin
-               if not Node.As_Dotted_Name.F_Prefix.Is_Null then
-                  Node.As_Dotted_Name.F_Prefix.Traverse (Visit_Expression'Access);
-                  Node.As_Dotted_Name.F_Suffix.Traverse (Visit_Expression'Access);
-                  Result := Top_Frame.Data_Stack.Last_Element;
-                  Top_Frame.Data_Stack.Delete_Last (2);
-                  Top_Frame.Data_Stack.Append (Result);
-               else
-                  Node.As_Dotted_Name.F_Suffix.Traverse (Visit_Expression'Access);
-               end if;
-            end;
 
-            Pop_Error_Location;
-            return Over;
          when Template_Selector =>
             declare
                Result : Runtime_Object;
@@ -628,6 +635,11 @@ package body Wrapping.Runtime.Analysis is
             Pop_Error_Location;
             return Over;
          when Template_Binary_Expr =>
+            --  The convention for "and" and "or" binary operators is to push to
+            --  the stack the last object that matched, otherwise false. This
+            --  allows to capture that object later on, which can be useful for
+            --  example if that object is a newly allocated one.
+
             declare
                Left, Right : Runtime_Object;
             begin
@@ -642,10 +654,7 @@ package body Wrapping.Runtime.Analysis is
                      Top_Frame.Data_Stack.Delete_Last;
 
                      if Right /= Match_False then
-                        --  If this is a match, stack the current value for
-                        --  check or capture later
-
-                        Push_Match_True (Top_Frame.Data_Stack.Last_Element);
+                        Push_Object (Right);
                      else
                         Push_Match_False;
                      end if;
@@ -654,14 +663,14 @@ package body Wrapping.Runtime.Analysis is
                   end if;
                elsif Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Or then
                   if Left /= Match_False then
-                     Push_Match_True (Top_Frame.Data_Stack.Last_Element);
+                     Push_Object (Left);
                   else
                      Node.As_Binary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
                      Right := Top_Frame.Data_Stack.Last_Element;
                      Top_Frame.Data_Stack.Delete_Last;
 
                      if Right /= Match_False then
-                        Push_Match_True (Top_Frame.Data_Stack.Last_Element);
+                        Push_Object (Right);
                      else
                         Push_Match_False;
                      end if;
@@ -703,7 +712,7 @@ package body Wrapping.Runtime.Analysis is
             Pop_Error_Location;
             return Over;
 
-         when Template_Token_Template | Template_Identifier =>
+         when Template_Token_Identifier | Template_Identifier =>
             Handle_Identifier (Node);
 
             Pop_Error_Location;
@@ -754,8 +763,50 @@ package body Wrapping.Runtime.Analysis is
             begin
                Build_Lambda (A_Lambda, Node.As_Lambda_Expr.F_Expression);
                Top_Frame.Data_Stack.Append (Runtime_Object (A_Lambda));
+
+               Pop_Error_Location;
                return Over;
             end;
+
+         when Template_New_Expr =>
+            if Top_Frame.An_Allocate_Callback /= null then
+               declare
+                  An_Object : Runtime_Object;
+                  A_Template : Semantic.Structure.Entity;
+                  A_Template_Instance : Template_Instance;
+                  Last_Context : Frame_Context := Top_Frame.Context;
+               begin
+                  Top_Frame.Context := Generic_Context;
+                  Evaluate_Expression (Node.As_New_Expr.F_Name);
+                  An_Object := Pop_Object;
+
+                  if An_Object.all not in Runtime_Static_Entity_Type'Class then
+                     Error ("expected template reference");
+                  end if;
+
+                  A_Template := Runtime_Static_Entity (An_Object).An_Entity;
+
+                  if A_Template.all not in Semantic.Structure.Template_Type'Class then
+                     Error ("expected template reference");
+                  end if;
+
+                  A_Template_Instance := Create_Template_Instance (null, Semantic.Structure.Template (A_Template));
+
+                  Push_Implicit_New (A_Template_Instance);
+                  Handle_Template_Call (A_Template_Instance, Node.As_New_Expr.F_Args);
+                  Pop_Entity;
+
+                  Push_Allocated_Entity (A_Template_Instance);
+                  Top_Frame.An_Allocate_Callback.all (A_Template_Instance);
+
+                  Top_Frame.Context := Last_Context;
+               end;
+            else
+               Push_Match_False;
+            end if;
+
+            Pop_Error_Location;
+            return Over;
 
          when others =>
             Error ("unexpected expression node kind: '" & Node.Kind'Wide_Wide_Image & "'");
@@ -1055,7 +1106,7 @@ package body Wrapping.Runtime.Analysis is
                      return;
                   end if;
                else
-                  Self_Object := Pop_Entity;
+                  Self_Object := Pop_Object;
 
                   Found_New_Entity := Implicit_New.Push_Value (Name);
 
@@ -1131,8 +1182,7 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Call_Parameters;
 
    procedure Handle_Template_Call
-     (An_Entity : Language_Entity;
-      A_Template_Instance : Template_Instance;
+     (A_Template_Instance : Template_Instance;
       Args : Libtemplatelang.Analysis.Argument_List)
    is
       function Name_For_Position (Position : Integer) return Libtemplatelang.Analysis.Template_Node is
@@ -1259,7 +1309,7 @@ package body Wrapping.Runtime.Analysis is
          --  First, check if the prefix is a language entity reference. If it
          --  is, then match it and return.
          Node.As_Call_Expr.F_Called.Traverse (Visit_Expression'Access);
-         Called := Pop_Entity;
+         Called := Pop_Object;
 
          if Called.all in Runtime_Language_Entity_Type'Class then
             if Node.As_Call_Expr.F_Args.Children_Count = 0 then
@@ -1268,7 +1318,7 @@ package body Wrapping.Runtime.Analysis is
                Push_Implicit_Self (Runtime_Language_Entity_Type'Class (Called.all).Value);
                Node.As_Call_Expr.F_Args.Child (1).As_Argument.F_Value.Traverse
                  (Visit_Expression'Access);
-               Result := Pop_Entity;
+               Result := Pop_Object;
                Pop_Entity;
 
                if Result /= Match_False then
@@ -1378,7 +1428,7 @@ package body Wrapping.Runtime.Analysis is
             --  We found a global identifier to record. If not, we expect it
             --  to be resolved later when running the lambda.
 
-            Object := Pop_Entity;
+            Object := Pop_Object;
 
             --  If the object is a runtime_language_entity, it may be marked self
             --  or new. We don't want to carry this property over to the lambda
@@ -1420,7 +1470,7 @@ package body Wrapping.Runtime.Analysis is
                Pop_Error_Location;
                return Over;
 
-            when Template_Token_Template | Template_Identifier =>
+            when Template_Token_Identifier | Template_Identifier =>
                Capture (Node.Text);
 
                Pop_Error_Location;
@@ -1441,35 +1491,30 @@ package body Wrapping.Runtime.Analysis is
          Push_Error_Location (Node);
 
          case Node.Kind is
-            when Template_Dotted_Name =>
+            when Template_Str =>
+               declare
+                  Content : Text_Type := Remove_Quotes (Node.Text);
+               begin
+                  Analyze_Replace_String
+                    (Content,
+                     Node.Unit.Context,
+                     Capture_Group'Access,
+                     Capture_Expression'Access);
+               end;
+
+               Pop_Entity;
 
                Pop_Error_Location;
                return Over;
+            when Template_Call_Expr | Template_New_Expr =>
+               --  Resolved the called identifier
 
-         when Template_Str =>
-            declare
-               Content : Text_Type := Remove_Quotes (Node.Text);
-            begin
-               Analyze_Replace_String
-                 (Content,
-                  Node.Unit.Context,
-                  Capture_Group'Access,
-                  Capture_Expression'Access);
-            end;
+               for Arg of Node.As_Call_Expr.F_Args loop
+                  Arg.Traverse (Capture_Identifiers'Access);
+               end loop;
 
-            Pop_Entity;
-
-            Pop_Error_Location;
-            return Over;
-         when Template_Call_Expr =>
-            --  Resolved the called identifier
-
-            for Arg of Node.As_Call_Expr.F_Args loop
-               Arg.Traverse (Capture_Identifiers'Access);
-            end loop;
-
-            Pop_Error_Location;
-            return Over;
+               Pop_Error_Location;
+               return Over;
 
          when others =>
 
@@ -1503,7 +1548,7 @@ package body Wrapping.Runtime.Analysis is
       end if;
 
       Evaluate_Expression (A_Lambda.Expression);
-      Result := Pop_Entity;
+      Result := Pop_Object;
       Pop_Frame;
       Top_Frame.Data_Stack.Append (Result);
    end Run_Lambda;

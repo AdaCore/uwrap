@@ -40,6 +40,11 @@ package Wrapping.Runtime.Structure is
    type String_Langage_Entity_Type;
    type String_Langage_Entity is access all String_Langage_Entity_Type;
 
+   type Post_Analyze_Action_Type;
+   type Post_Analyze_Action is access all Post_Analyze_Action_Type;
+   package Post_Analyze_Action_Vectors is new Ada.Containers.Vectors (Positive, Post_Analyze_Action);
+   use Post_Analyze_Action_Vectors;
+
    type Runtime_Object_Type;
    type Runtime_Object is access all Runtime_Object_Type'Class;
    package Runtime_Object_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Runtime_Object);
@@ -89,6 +94,8 @@ package Wrapping.Runtime.Structure is
 
    package Text_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Text_Type);
 
+   type Allocate_Callback is access procedure (E : access Language_Entity_Type'Class);
+
    type Data_Frame_Type is record
       Parent_Frame : Data_Frame;
 
@@ -96,6 +103,7 @@ package Wrapping.Runtime.Structure is
       Matched_Groups  : Runtime_Object_Vectors.Vector;
       Data_Stack      : Runtime_Object_Vectors.Vector;
       Context         : Frame_Context := Generic_Context;
+      An_Allocate_Callback : Allocate_Callback := null;
       Lexical_Scope   : Semantic.Structure.Entity;
 
       Temp_Names      : Text_Maps.Map;
@@ -188,8 +196,6 @@ package Wrapping.Runtime.Structure is
 
    procedure Print (An_Entity : Language_Entity; Indent : Text_Type := "");
 
-   function Get_Root_Language_Entity (Language : Text_Type) return Language_Entity;
-
    type Template_Language_Entity_Class_Type is new Language_Entity_Class_Type with record
       null;
    end record;
@@ -240,6 +246,21 @@ package Wrapping.Runtime.Structure is
      (An_Entity : access String_Langage_Entity_Type;
       Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
+
+   type Post_Analyze_Action_Kind is (Add_Child, Add_Sibling, Add_Prev, Add_Next);
+
+   type Post_Analyze_Action_Type (Kind : Post_Analyze_Action_Kind := Add_Child) is record
+      From : Template_Node;
+
+      case Kind is
+         when Add_Child | Add_Sibling | Add_Prev | Add_Next =>
+            Base_Entity : Language_Entity;
+            New_Entity : Language_Entity;
+
+      end case;
+   end record;
+
+   procedure Perform (Action : Post_Analyze_Action_Type);
 
    type Runtime_Object_Type is tagged record
       null;
@@ -295,6 +316,11 @@ package Wrapping.Runtime.Structure is
 
       Is_Implicit_Self : Boolean := False;
       Is_Implicit_New: Boolean := False;
+
+      --  When entities are created in the expressions through the new function,
+      --  this flag is set to true, so that the entity can be capture by
+      --  enclosing functions such as child or sibling.
+      Is_Allocated : Boolean := False;
    end record;
 
    function Is_Implicit (Object : Runtime_Language_Entity_Type) return Boolean is

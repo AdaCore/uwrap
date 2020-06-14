@@ -9,7 +9,8 @@ package Wrapping.Runtime.Analysis is
 
    Language_Class_Registry : Language_Entity_Class_Maps.Map;
 
-   procedure Analyse (Language : Text_Type);
+   Templates_To_Traverse : Template_Instance_Vectors.Vector;
+   Actions_To_Perform : Post_Analyze_Action_Vectors.Vector;
 
    procedure Analyse (Root_Entity : Language_Entity);
 
@@ -24,9 +25,13 @@ package Wrapping.Runtime.Analysis is
 
    procedure Push_Entity (An_Entity : access Language_Entity_Type'Class);
 
+   procedure Push_Object (An_Object : access Runtime_Object_Type'Class);
+
    procedure Push_Implicit_Self (An_Entity : access Language_Entity_Type'Class);
 
    procedure Push_Implicit_New (An_Entity : access Language_Entity_Type'Class);
+
+   procedure Push_Allocated_Entity (An_Entity : access Language_Entity_Type'Class);
 
    --  Push the temporary of the given name on the stack. If one needs to be
    --  created, counter will be used to append to the name and be incremented.
@@ -36,7 +41,7 @@ package Wrapping.Runtime.Analysis is
    --  stack
    procedure Pop_Entity (Number : Positive := 1);
 
-   function Pop_Entity return Runtime_Object;
+   function Pop_Object return Runtime_Object;
 
    procedure Run_Lambda (A_Lambda : Runtime_Lambda_Type);
 

@@ -30,7 +30,7 @@ package body Wrapping.Semantic.Analysis is
    procedure Resolve_Command_Names (A_Command : Structure.Command);
    procedure Resolve_Visitor_Names (A_Visitor : Structure.Visitor);
    procedure Resolve_Namespace_Names (A_Namespace : Structure.Namespace);
-   function Get_Static_Entity_By_Name (Current_Scope : Entity; Name : Dotted_Name) return Structure.Entity;
+   function Get_Static_Entity_By_Name (Current_Scope : Entity; Name : Selector) return Structure.Entity;
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String);
 
@@ -379,7 +379,7 @@ package body Wrapping.Semantic.Analysis is
       end loop;
    end Resolve_Module_Names;
 
-   function Get_Static_Entity_By_Name (Current_Scope : Entity; Name : Dotted_Name) return Structure.Entity is
+   function Get_Static_Entity_By_Name (Current_Scope : Entity; Name : Selector) return Structure.Entity is
 
       function Get_Visible_Entity (An_Entity : Entity; Name : Text_Type) return Structure.Entity is
       begin
@@ -415,15 +415,15 @@ package body Wrapping.Semantic.Analysis is
    begin
       Push_Error_Location (Name);
 
-      if not Name.F_Prefix.Is_Null then
+      if not Name.F_Left.Is_Null then
          Extending_Module := Resolve_Module_By_Name
-           (Name.F_Prefix.Text);
+           (Name.F_Left.Text);
 
          if Extending_Module.Children_Indexed.Contains
-           (Name.F_Suffix.Text)
+           (Name.F_Right.Text)
          then
             Result := Extending_Module.Children_Indexed.Element
-              (Name.F_Suffix.Text);
+              (Name.F_Right.Text);
          end if;
       else
          Result := Get_Visible_Entity (Current_Scope, Name.Text);

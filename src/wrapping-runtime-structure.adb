@@ -3,6 +3,7 @@ with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
+with Libtemplatelang.Common; use Libtemplatelang.Common;
 with Wrapping.Semantic.Structure;
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
@@ -60,19 +61,6 @@ package body Wrapping.Runtime.Structure is
       Add_Child (Parent, Child);
       Parent.Children_Indexed.Insert (Name, Language_Entity (Child));
    end Add_Child;
-
-   function Get_Root_Language_Entity (Language : Text_Type) return Language_Entity is
-      Root_Entity : Language_Entity;
-   begin
-      if not Root_Language_Entities.Contains (Language) then
-         Root_Entity := new Language_Entity_Type;
-         Root_Language_Entities.Insert (Language, Root_Entity);
-      else
-         Root_Entity := Root_Language_Entities.Element (Language);
-      end if;
-
-      return Root_Entity;
-   end Get_Root_Language_Entity;
 
    function Push_Value
      (An_Entity : access Language_Entity_Type;
@@ -180,7 +168,7 @@ package body Wrapping.Runtime.Structure is
             begin
                Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 
-               Result := Pop_Entity;
+               Result := Pop_Object;
 
                if Result /= Match_False then
                   Push_Match_True (An_Entity);
@@ -224,7 +212,7 @@ package body Wrapping.Runtime.Structure is
             Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 
             Push_Temporary_Name
-              (Pop_Entity.To_Text,
+              (Pop_Object.To_Text,
                An_Entity.Tmp_Counter);
          else
             Error ("tmp only accepts one argument");
@@ -424,6 +412,25 @@ package body Wrapping.Runtime.Structure is
       return Into;
    end Traverse;
 
+
+   function Has_Allocator (Node : Template_Node'Class) return Boolean is
+      Found : Boolean := False;
+
+      function Visit (Node : Template_Node'Class) return Visit_Status is
+      begin
+         if Node.Kind = Template_New_Expr then
+            Found := True;
+            return Stop;
+         else
+            return Into;
+         end if;
+      end Visit;
+   begin
+      Node.Traverse (Visit'Access);
+
+      return Found;
+   end Has_Allocator;
+
    procedure Evaluate_Bowse_Functions
      (An_Entity        : access Language_Entity_Type;
       A_Mode           : Browse_Mode;
@@ -448,34 +455,80 @@ package body Wrapping.Runtime.Structure is
          Top_Frame.Data_Stack.Delete_Last (2);
 
          if Result /= Match_False then
-            Push_Match_True (E);
+            if Result.all in Runtime_Language_Entity_Type'Class
+              and then Runtime_Language_Entity (Result).Is_Allocated
+            then
+               --  If we have a result only in allocated mode, and if this result
+               --  is a new entity, this means that this new entity is actually
+               --  the result of the browse, not the one searched.
+
+               Push_Match_True (Runtime_Language_Entity (Result).Value);
+            else
+               Push_Match_True (E);
+            end if;
+
             return Stop;
          else
             return Into;
          end if;
       end Visitor;
 
-      Previous_Context : Frame_Context := Top_Frame.Context;
+      procedure Allocate (E : access Language_Entity_Type'Class) is
+      begin
+         --  TODO: We need to be able to cancel allocation if the entire
+         --  research happens to be false
 
+         case A_Mode is
+            when Child_Depth | Child_Breadth =>
+               Actions_To_Perform.Append
+                 (new Post_Analyze_Action_Type'
+                    (Add_Child,
+                     Template_Node (Match_Expression),
+                     Language_Entity (An_Entity),
+                     Language_Entity (E)));
+
+            when others =>
+               Error ("allocation not implemented on the enclosing function");
+         end case;
+      end Allocate;
+
+      Previous_Context : Frame_Context := Top_Frame.Context;
+      Prev_Allocate_Callback : Allocate_Callback;
+      Found : Boolean;
    begin
+      Prev_Allocate_Callback := Top_Frame.An_Allocate_Callback;
+      Top_Frame.An_Allocate_Callback := null;
       Top_Frame.Context := Match_Context;
 
-      if Language_Entity_Type'Class(An_Entity.all).Traverse
+      Found := Language_Entity_Type'Class(An_Entity.all).Traverse
         (A_Mode,
          False,
-         (if Match_Visitor /= null then Match_Visitor else Visitor'Access)) /= Stop
-      then
-         if Previous_Context /= Match_Context then
-            Error ("query failed in wrap or weave clause, consider move to match instead");
-         end if;
+         (if Match_Visitor /= null then Match_Visitor else Visitor'Access)) = Stop;
 
-         --  If we browsed the tree without finding a match, then push false.
-         Push_Match_False;
-      else
-         -- Otherwise, keep the current result
-         null;
+      if not Found and Has_Allocator (Match_Expression) then
+         --  Semantic for search is to look first for matches that do not require
+         --  an allocator. If none is found and if there are allocators, then
+         --  re-try, this time with allocators enabled.
+         Top_Frame.An_Allocate_Callback := Allocate'Unrestricted_Access;
+
+         Found := Language_Entity_Type'Class(An_Entity.all).Traverse
+           (A_Mode,
+            False,
+            (if Match_Visitor /= null then Match_Visitor else Visitor'Access)) = Stop;
       end if;
 
+      if not Found and then Top_Frame.Context /= Match_Context then
+         Error ("query failed in wrap or weave clause, consider move to match instead");
+      end if;
+
+      if not Found then
+         --  If we browsed the tree without finding a match, then push false.
+         --  Otherwise the previous result is good.
+         Push_Match_False;
+      end if;
+
+
+      Top_Frame.An_Allocate_Callback := Prev_Allocate_Callback;
       Top_Frame.Context := Previous_Context;
    end Evaluate_Bowse_Functions;
 
@@ -512,14 +565,17 @@ package body Wrapping.Runtime.Structure is
    begin
       New_Template := new Template_Instance_Type;
       New_Template.Template := A_Template;
-      New_Template.Origin := Language_Entity (An_Entity);
 
-      An_Entity.A_Class := Language_Class_Registry.Element ("template");
-      An_Entity.Templates_By_Name.Insert (A_Template.Name_Node.Text, New_Template);
-      An_Entity.Templates_By_Full_Id.Insert (A_Template.Full_Name, New_Template);
-      An_Entity.Templates_Ordered.Append (New_Template);
+      if An_Entity /= null then
+         New_Template.Origin := Language_Entity (An_Entity);
 
-      Add_Child (Get_Root_Language_Entity ("template_tmp"), New_Template);
+         An_Entity.A_Class := Language_Class_Registry.Element ("template");
+         An_Entity.Templates_By_Name.Insert (A_Template.Name_Node.Text, New_Template);
+         An_Entity.Templates_By_Full_Id.Insert (A_Template.Full_Name, New_Template);
+         An_Entity.Templates_Ordered.Append (New_Template);
+      end if;
+
+      Templates_To_Traverse.Append (New_Template);
 
       return New_Template;
    end Create_Template_Instance;
@@ -656,7 +712,7 @@ package body Wrapping.Runtime.Structure is
 
          Evaluate_Expression (Expression);
 
-         Result := Pop_Entity;
+         Result := Pop_Object;
          Pop_Entity;
 
          if Result /= Match_False then
@@ -796,9 +852,26 @@ package body Wrapping.Runtime.Structure is
 
          return Into;
       end Visitor;
+
+      Result : Runtime_Object := Match_False;
    begin
-      An_Entity.Origin.Evaluate_Bowse_Functions
-        (A_Mode, Match_Expression, Visitor'Access);
+      --  First, browse based on the origin
+      if An_Entity.Origin /= null then
+         An_Entity.Origin.Evaluate_Bowse_Functions
+           (A_Mode, Match_Expression, Visitor'Access);
+
+         Result := Pop_Object;
+      end if;
+
+      -- A template may also be in a hierarchy of its own.
+      if Result = Match_False then
+         Language_Entity_Type (An_Entity.all).Evaluate_Bowse_Functions
+           (A_Mode, Match_Expression, null);
+
+         Result := Pop_Object;
+      end if;
+
+      Push_Object (Result);
    end Evaluate_Bowse_Functions;
 
    overriding
@@ -819,6 +892,22 @@ package body Wrapping.Runtime.Structure is
 
       return True;
    end Push_Match_Result;
+
+   procedure Perform (Action : Post_Analyze_Action_Type) is
+   begin
+      Push_Error_Location (Action.From);
+
+      case Action.Kind is
+         when Add_Child =>
+            Action.Base_Entity.Add_Child (Action.New_Entity);
+
+         when others =>
+            Error ("not implemented");
+
+      end case;
+
+      Pop_Error_Location;
+   end Perform;
 
    overriding
    function To_Text (Object : Runtime_Integer_Type) return Text_Type
@@ -865,7 +954,7 @@ package body Wrapping.Runtime.Structure is
    is
    begin
       Run_Lambda (Object);
-      return Pop_Entity.To_Text;
+      return Pop_Object.To_Text;
    end To_Text;
 
 end Wrapping.Runtime.Structure;
