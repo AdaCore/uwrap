@@ -16,6 +16,7 @@ with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
 with Wrapping.Input.Kit;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Wide_Wide_Text_IO;
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 
 package body Wrapping.Run is
@@ -46,7 +47,9 @@ package body Wrapping.Run is
          Value_Array                => Libtestlang.Introspection.Value_Array,
          Root                       => Libtestlang.Analysis.Root,
          Text_Type_Value            => Libtestlang.Common.Text_Type_Value,
-         Node_Value                 => Libtestlang.Common.Node_Value);
+         Node_Value                 => Libtestlang.Common.Node_Value,
+         Value_Constraint           => Libtestlang.Common.Value_Constraint,
+         Value_Constraint_Array     => Libtestlang.Common.Value_Constraint_Array);
    end Testlang;
 
    package Adalang is
@@ -75,7 +78,9 @@ package body Wrapping.Run is
          Value_Array                => Libadalang.Introspection.Value_Array,
          Root                       => Libadalang.Analysis.Root,
          Text_Type_Value            => Libadalang.Common.Text_Type_Value,
-         Node_Value                 => Libadalang.Common.Node_Value);
+         Node_Value                 => Libadalang.Common.Node_Value,
+         Value_Constraint           => Libadalang.Common.Value_Constraint,
+         Value_Constraint_Array     => Libadalang.Common.Value_Constraint_Array);
    end Adalang;
 
    procedure App_Post_Process

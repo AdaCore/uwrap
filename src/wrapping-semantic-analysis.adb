@@ -420,6 +420,10 @@ package body Wrapping.Semantic.Analysis is
          Extending_Module := Resolve_Module_By_Name
            (Name.F_Left.Text);
 
+         if Extending_Module = null then
+            Error ("module '" & Name.F_Left.Text & "' not found");
+         end if;
+
          if Extending_Module.Children_Indexed.Contains
            (Name.F_Right.Text)
          then

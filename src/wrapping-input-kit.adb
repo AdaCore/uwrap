@@ -81,15 +81,27 @@ package body Wrapping.Input.Kit is
             Property_Node := Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (P_Name));
 
             if Property_Node /= None then
-               Value := Eval_Property (Node, Property_Node, (1 .. 0 => <>));
+               declare
+                  Values : Value_Array (1 .. Property_Argument_Types (Property_Node)'Last);
+               begin
+                  for I in Values'Range loop
+                     Values (I) := Property_Argument_Default_Value (Property_Node, I);
+                  end loop;
+
+                  Value := Eval_Property (Node, Property_Node, Values);
+               end;
 
                if Kind (Value) = Text_Type_Value then
                   return new Runtime_Text_Type'
                     (Value => To_Unbounded_Text (As_Text_Type (Value)));
                elsif Kind (Value) = Node_Value then
-                  return new Runtime_Language_Entity_Type'
-                    (Value => Language_Entity
-                       (Get_Entity_For_Node (As_Node (Value))), others => <>);
+                  if As_Node (Value).Is_Null then
+                     return Match_False;
+                  else
+                     return new Runtime_Language_Entity_Type'
+                       (Value => Language_Entity
+                          (Get_Entity_For_Node (As_Node (Value))), others => <>);
+                  end if;
                else
                   Error ("unsupported property kind: " & Any_Value_Kind'Wide_Wide_Image (Kind (Value)));
                end if;
@@ -189,7 +201,12 @@ package body Wrapping.Input.Kit is
                   Result := Eval_Property (An_Entity.Node, Name);
                end if;
 
-               if Result /= null then
+               if Result = null then
+                  return False;
+               elsif Result = Match_False then
+                  Push_Match_False;
+                  return True;
+               elsif Result.all in Runtime_Node_Type'Class then
                   Node := Runtime_Node_Type (Result.all).A_Node;
                   Field_Entity := An_Entity.Children_By_Node.Element (Node);
 
@@ -197,12 +214,10 @@ package body Wrapping.Input.Kit is
                      Push_Match_True (Field_Entity);
                   elsif Params.Children_Count /= 1 then
                      Error ("no more than one parameter allowed for field matching");
-                  elsif Result.all in Runtime_Node_Type then
-                     Node := Runtime_Node_Type (Result.all).A_Node;
-
+                  else
                      -- fields are browsing functions similar to prev, next, etc...
                      -- they push the node so that it can be captured.
-                     Push_Implicit_Self (An_Entity.Children_By_Node.Element (Node));
+                     Push_Implicit_Self (Field_Entity);
 
                      Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 
@@ -216,12 +231,15 @@ package body Wrapping.Input.Kit is
                      else
                         Push_Match_False;
                      end if;
-                  elsif Result.all in Runtime_Text_Type then
-                     Error ("matching text property not yet implemented");
                   end if;
-
-                  return True;
+               elsif Result.all in Runtime_Language_Entity_Type'Class then
+                  --  TODO implement matching, merge with before
+                  Push_Object (Result);
+               elsif Result.all in Runtime_Text_Type then
+                  Error ("matching text property not yet implemented");
                end if;
+
+               return True;
             end;
          end if;
       elsif Selector.all in Runtime_Text_Expression_Type'Class then

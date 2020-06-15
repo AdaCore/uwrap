@@ -19,6 +19,10 @@ generic
    type Any_Value_Kind is (<>);
    type Value_Type is private;
    type Value_Array is array (Positive range <>) of Value_Type;
+   type Value_Constraint is private;
+   type Value_Constraint_Array is
+     array (Positive range <>) of Value_Constraint;
+
 
    None : Any_Node_Data_Reference;
    No_Kit_Node : Kit_Node;
@@ -62,6 +66,12 @@ generic
    with function Kind (Self : Value_Type) return Any_Value_Kind is <>;
    with function As_Text_Type (Self : Value_Type) return Text_Type is <>;
    with function As_Node (Self : Value_Type) return Kit_Node is <>;
+   with function Property_Argument_Types
+     (Property : Any_Node_Data_Reference) return Value_Constraint_Array is <>;
+   with function Property_Argument_Default_Value
+     (Property : Any_Node_Data_Reference; Argument_Number : Positive)
+      return Value_Type is <>;
+
 package Wrapping.Input.Kit is
 
    type Kit_Language_Entity_Type;
