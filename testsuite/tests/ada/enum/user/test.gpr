@@ -1,0 +1,10 @@
+project Test is
+
+   for Source_Dirs use (".", "../out", "../src");
+   for Object_Dir use "obj";
+   for Main use ("main.adb") & project'Main;
+
+   for Languages use ("Ada");
+
+end Test;
+

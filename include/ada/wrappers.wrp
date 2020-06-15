@@ -139,16 +139,39 @@ template w_TypeExpr extends w_Ada {
 
 template w_TypeDecl extends w_NamedEntity {
    var definition : text;
-   var component_declarations : text;
+   var content_definition : text;
+   var rep_definition : text;
+   var rep_declaration : text;
+   var kind : text;
+}
+
+template w_EnumLiteralDecl extends w_NamedEntity {
+  
+}
+
+template w_EnumRep extends w_Ada {
+   var name : text;
+   var value : text;
 }
 
 template w_ComponentDecl extends w_NamedEntity {
   
 }
 
+template w_NumberDecl extends w_NamedEntity {
+  
+}
+
 template spec_file extends standard.file {}
 
 template body_file extends standard.file {}
+
+visitor visit_EnumRepClause (enum_decl) {
+  match AggregateAssoc () and child (i: Identifier ()) and child (v: IntLiteral ()) {
+     match n: enum_decl.child (EnumLiteralDecl ("\e<i>")) # TODO, we should be able to write text (i) instead.
+     wrap n with w_EnumRep (name => lambda (n.template (w_EnumLiteralDecl ()).name), value => v);
+  }
+}
 
 visitor ada_to_wrappers () {
    match CompilationUnit () {
@@ -184,6 +207,19 @@ visitor ada_to_wrappers () {
    match TypeDecl ()
    wrap with w_TypeDecl ();
 
+   match TypeDecl () and child (EnumTypeDef ()) {
+      wrap with w_TypeDecl (
+         kind => "enumeration"
+      );
+
+      match r: p_get_enum_representation_clause ()
+      wrap all r with visit_EnumRepClause (self);
+   }
+
+   match EnumLiteralDecl () {
+      wrap with w_EnumLiteralDecl();
+   }
+
    match ComponentDecl ()
    wrap with w_ComponentDecl ();
 
@@ -195,6 +231,9 @@ visitor ada_to_wrappers () {
 
    match TypeExpr ()
    wrap with w_TypeExpr ();
+
+   match NumberDecl ()
+   wrap with w_NumberDecl();
 
    match DefiningName () {
       match parent (PackageDecl ())
@@ -252,8 +291,15 @@ visitor wrappers_post_process () {
 
     match w_ComponentDecl () and parent (t : w_TypeDecl ()) and child (te : w_TypeExpr ()) {
       weave t with (
-         component_declarations => "\e<name> : \e<te.txt>;\n"
+         content_definition => "\e<name> : \e<te.txt>;\n"
       );
+    }
+
+    match w_EnumLiteralDecl() and parent (t: w_TypeDecl ()) {
+       match prev (w_EnumLiteralDecl ())
+          weave t with (content_definition => ", \e<name>");
+       else
+          weave t with (content_definition => "\e<name>");
     }
 
     match w_TypeDecl () {
@@ -262,15 +308,28 @@ visitor wrappers_post_process () {
        else match origin (child (RecordTypeDef ()))
           weave with (definition => """
             record
-               \e<component_declarations>
+               \e<content_definition>
              end record""");
+       else match kind ("enumeration") # TODO: this whole test should be using enumeration instead
+          weave with (definition => "(\e<content_definition>)");
        else match origin (child (t: TypeDef ())) 
           weave with (definition => "\e<t>");
 
+       match child (w_EnumRep ()) {
+          weave with (rep_declaration => "for \e<name> use (\n\e<rep_definition>\n);\n");
+       }
+
        match not origin (AnonymousTypeDecl ()) and parent (p : w_PackageDecl())
-       weave p with (spec_content => "type \e<name> is \e<definition>;");
+       weave p with (spec_content => "type \e<name> is \e<definition>;\n\e<rep_declaration>");
        else match parent (p: w_TypeExpr ())
        weave p with (txt => definition);
+    }
+
+    match w_EnumRep() and parent (p: w_TypeDecl ()) {
+      match prev (w_EnumRep())
+         weave p with (rep_definition => ", \e<name> => \e<value>\n");
+      else 
+         weave p with (rep_definition => "\e<name> => \e<value>\n");
     }
 
     match w_TypeExpr (o: origin (child (i: Identifier ()))) {
@@ -302,7 +361,8 @@ visitor wrappers_post_process () {
     weave n with (name => self.name, original_name => n.origin.p_fully_qualified_name);
 
     match w_Unit () and child (p: w_PackageDecl ()) {
-      wrap with spec_file (path => "\e<to_lower (p.name)>.ads", content => self.spec_text);
+      #TODO: we should be using labels instead of extending standard.file
+      wrap with spec_file (path => "\e<to_lower (p.name)>.ads", content => self.spec_text); 
       wrap with body_file (path => "\e<to_lower (p.name)>.adb", content => self.body_text);
     }
 }
