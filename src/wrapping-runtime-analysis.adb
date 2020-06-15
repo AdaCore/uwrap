@@ -112,16 +112,16 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Push_Temporary_Name;
 
-   procedure Pop_Entity (Number : Positive := 1) is
+   procedure Pop_Object (Number : Positive := 1) is
    begin
       Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
-   end Pop_Entity;
+   end Pop_Object;
 
    function Pop_Object return Runtime_Object is
       Result : Runtime_Object;
    begin
       Result := Top_Frame.Data_Stack.Last_Element;
-      Pop_Entity;
+      Pop_Object;
       return Result;
    end Pop_Object;
 
@@ -314,7 +314,7 @@ package body Wrapping.Runtime.Analysis is
                Handle_Template_Call (A_Template_Instance, Template_Clause.Arguments);
 
                if not Self_Weave then
-                  Pop_Entity;
+                  Pop_Object;
                end if;
             end if;
          end if;
@@ -339,8 +339,7 @@ package body Wrapping.Runtime.Analysis is
             Evaluate_Expression (A_Command.Match_Expression);
             Top_Frame.Context := Generic_Context;
 
-            Match_Result := Top_Frame.Data_Stack.Last_Element;
-            Top_Frame.Data_Stack.Delete_Last;
+            Match_Result := Pop_Object;
 
             Matched := Match_Result /= Match_False;
          else
@@ -363,8 +362,7 @@ package body Wrapping.Runtime.Analysis is
                   begin
                      if not A_Command.Template_Clause.Target_Object.Is_Null then
                         Evaluate_Expression (A_Command.Template_Clause.Target_Object);
-                        Entity_Target := Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
-                        Top_Frame.Data_Stack.Delete_Last;
+                        Entity_Target := Runtime_Language_Entity (Pop_Object).Value;
 
                         --  A number of the function below assume that
                         -- children for the entity are set - make sure that
@@ -455,7 +453,7 @@ package body Wrapping.Runtime.Analysis is
                         A_Decision : Runtime_Traverse_Decision := Runtime_Traverse_Decision
                           (Top_Frame.Data_Stack.Last_Element);
                      begin
-                        Top_Frame.Data_Stack.Delete_Last;
+                        Pop_Object;
 
                         if A_Decision.A_Visit_Action = Over then
                            A_Visit_Action := Over;
@@ -485,7 +483,7 @@ package body Wrapping.Runtime.Analysis is
             end if;
          end if;
 
-         Top_Frame.Data_Stack.Delete_Last;
+         Pop_Object;
 
          Pop_Frame;
       end Apply_Command;
@@ -575,15 +573,13 @@ package body Wrapping.Runtime.Analysis is
                         Error ("'path' component not found in file template");
                      end if;
 
-                     Path_Object := Top_Frame.Data_Stack.Last_Element;
-                     Top_Frame.Data_Stack.Delete_Last;
+                     Path_Object := Pop_Object;
 
                      if not A_Template_Instance.Push_Value ("content") then
                         Error ("'content' component not found in file template");
                      end if;
 
-                     Content_Object := Top_Frame.Data_Stack.Last_Element;
-                     Top_Frame.Data_Stack.Delete_Last;
+                     Content_Object := Pop_Object;
 
                      Create
                        (Output_File,
@@ -606,8 +602,7 @@ package body Wrapping.Runtime.Analysis is
                         Error ("'content' component not found in file template");
                      end if;
 
-                     Content_Object := Top_Frame.Data_Stack.Last_Element;
-                     Top_Frame.Data_Stack.Delete_Last;
+                     Content_Object := Pop_Object;
 
                      Put (Content_Object.To_Text);
 
@@ -660,9 +655,9 @@ package body Wrapping.Runtime.Analysis is
 
                Node.As_Selector.F_Left.Traverse (Visit_Expression'Access);
                Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
-               Result := Top_Frame.Data_Stack.Last_Element;
-               Top_Frame.Data_Stack.Delete_Last (2);
-               Top_Frame.Data_Stack.Append (Result);
+               Result := Pop_Object;
+               Pop_Object;
+               Push_Object (Result);
             end;
 
             Pop_Error_Location;
@@ -677,14 +672,12 @@ package body Wrapping.Runtime.Analysis is
                Left, Right : Runtime_Object;
             begin
                Node.As_Binary_Expr.F_Lhs.Traverse (Visit_Expression'Access);
-               Left := Top_Frame.Data_Stack.Last_Element;
-               Top_Frame.Data_Stack.Delete_Last;
+               Left := Pop_Object;
 
                if Node.As_Binary_Expr.F_Op.Kind = Template_Operator_And then
                   if Left /= Match_False then
                      Node.As_Binary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
-                     Right := Top_Frame.Data_Stack.Last_Element;
-                     Top_Frame.Data_Stack.Delete_Last;
+                     Right := Pop_Object;
 
                      if Right /= Match_False then
                         Push_Object (Right);
@@ -699,8 +692,7 @@ package body Wrapping.Runtime.Analysis is
                      Push_Object (Left);
                   else
                      Node.As_Binary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
-                     Right := Top_Frame.Data_Stack.Last_Element;
-                     Top_Frame.Data_Stack.Delete_Last;
+                     Right := Pop_Object;
 
                      if Right /= Match_False then
                         Push_Object (Right);
@@ -718,8 +710,7 @@ package body Wrapping.Runtime.Analysis is
                Right : Runtime_Object;
             begin
                Node.As_Unary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
-               Right := Top_Frame.Data_Stack.Last_Element;
-               Top_Frame.Data_Stack.Delete_Last;
+               Right := Pop_Object;
 
                if Node.As_Unary_Expr.F_Op.Kind = Template_Operator_Not then
                   if Right = Match_False then
@@ -756,7 +747,7 @@ package body Wrapping.Runtime.Analysis is
             begin
                Val.Value := Integer'Wide_Wide_Value (Node.Text);
 
-               Top_Frame.Data_Stack.Append (Runtime_Object (Val));
+               Push_Object (Val);
             end;
 
             Pop_Error_Location;
@@ -770,10 +761,8 @@ package body Wrapping.Runtime.Analysis is
 
             if Top_Frame.Context = Match_Context then
                declare
-                  To_Match : Runtime_Object := Top_Frame.Data_Stack.Last_Element;
+                  To_Match : Runtime_Object := Pop_Object;
                begin
-                  Top_Frame.Data_Stack.Delete_Last;
-
                   if not Get_Implicit_Self.Push_Match_Result (To_Match, No_Argument_List) then
                      Push_Match_False;
                   end if;
@@ -795,7 +784,7 @@ package body Wrapping.Runtime.Analysis is
                A_Lambda : Runtime_Lambda := new Runtime_Lambda_Type;
             begin
                Build_Lambda (A_Lambda, Node.As_Lambda_Expr.F_Expression);
-               Top_Frame.Data_Stack.Append (Runtime_Object (A_Lambda));
+               Push_Object (A_Lambda);
 
                Pop_Error_Location;
                return Over;
@@ -827,7 +816,7 @@ package body Wrapping.Runtime.Analysis is
 
                   Push_Implicit_New (A_Template_Instance);
                   Handle_Template_Call (A_Template_Instance, Node.As_New_Expr.F_Args);
-                  Pop_Entity;
+                  Pop_Object;
 
                   Push_Allocated_Entity (A_Template_Instance);
                   Top_Frame.An_Allocate_Callback.all (A_Template_Instance);
@@ -920,8 +909,7 @@ package body Wrapping.Runtime.Analysis is
                         On_Expression.All (Expression_Unit.Root);
                      else
                         Evaluate_Expression (Expression_Unit.Root);
-                        Result.Texts.Append (Top_Frame.Data_Stack.Last_Element.To_Text_Expression);
-                        Top_Frame.Data_Stack.Delete_Last;
+                        Result.Texts.Append (Pop_Object.To_Text_Expression);
                      end if;
                   end;
 
@@ -979,7 +967,7 @@ package body Wrapping.Runtime.Analysis is
          Append_Text (Str (Next_Index .. Str'Last));
       end if;
 
-      Top_Frame.Data_Stack.Append (Runtime_Object (Result));
+      Push_Object (Result);
    end Analyze_Replace_String;
 
    function Push_Global_Identifier (Name : Text_Type) return Boolean is
@@ -1065,7 +1053,7 @@ package body Wrapping.Runtime.Analysis is
             return False;
          end if;
       else
-         Top_Frame.Data_Stack.Append (Tentative_Symbol);
+         Push_Object (Tentative_Symbol);
       end if;
 
       return True;
@@ -1093,8 +1081,8 @@ package body Wrapping.Runtime.Analysis is
 
          A_Semantic_Entity := An_Entity.Children_Indexed.Element (Node.Text);
 
-         Top_Frame.Data_Stack.Append
-           (new Runtime_Static_Entity_Type'(An_Entity => A_Semantic_Entity));
+         Push_Object
+           (Runtime_Object'(new Runtime_Static_Entity_Type'(An_Entity => A_Semantic_Entity)));
       end Handle_Static_Entity_Selection;
 
       procedure Handle_Language_Entity_Selection is
@@ -1144,7 +1132,7 @@ package body Wrapping.Runtime.Analysis is
                   Found_New_Entity := Implicit_New.Push_Value (Name);
 
                   if not Found_New_Entity then
-                     Top_Frame.Data_Stack.Append (Self_Object);
+                     Push_Object (Self_Object);
                      return;
                   else
                      Error ("ambiguous reference to '" & Name & "' between self and new objects");
@@ -1194,8 +1182,7 @@ package body Wrapping.Runtime.Analysis is
       for Param of Args loop
          Evaluate_Expression (Param.F_Value);
 
-         Parameter_Value := Top_Frame.Data_Stack.Last_Element;
-         Top_Frame.Data_Stack.Delete_Last;
+         Parameter_Value := Pop_Object;
 
          if not Param.As_Argument.F_Name.Is_Null then
             In_Named_Section := True;
@@ -1317,10 +1304,8 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Handle_Function_Call is
          A_Function : Runtime_Function_Reference :=
-           Runtime_Function_Reference (Top_Frame.Data_Stack.Last_Element);
+           Runtime_Function_Reference (Pop_Object);
       begin
-         Top_Frame.Data_Stack.Delete_Last;
-
          if not A_Function.Prefix.Push_Call_Result
            (To_Text (A_Function.Name), Node.As_Call_Expr.F_Args)
          then
@@ -1352,7 +1337,7 @@ package body Wrapping.Runtime.Analysis is
                Node.As_Call_Expr.F_Args.Child (1).As_Argument.F_Value.Traverse
                  (Visit_Expression'Access);
                Result := Pop_Object;
-               Pop_Entity;
+               Pop_Object;
 
                if Result /= Match_False then
                   Push_Match_True (Called);
@@ -1535,7 +1520,7 @@ package body Wrapping.Runtime.Analysis is
                      Capture_Expression'Access);
                end;
 
-               Pop_Entity;
+               Pop_Object;
 
                Pop_Error_Location;
                return Over;
@@ -1583,7 +1568,7 @@ package body Wrapping.Runtime.Analysis is
       Evaluate_Expression (A_Lambda.Expression);
       Result := Pop_Object;
       Pop_Frame;
-      Top_Frame.Data_Stack.Append (Result);
+      Push_Object (Result);
    end Run_Lambda;
 
 end Wrapping.Runtime.Analysis;

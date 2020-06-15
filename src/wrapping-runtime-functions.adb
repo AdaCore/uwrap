@@ -13,8 +13,7 @@ package body Wrapping.Runtime.Functions is
 
       Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 
-      Call.Param := Top_Frame.Data_Stack.Last_Element;
-      Top_Frame.Data_Stack.Delete_Last;
+      Call.Param := Pop_Object;
    end Analyze_Parameters;
 
    -------------
@@ -50,8 +49,7 @@ package body Wrapping.Runtime.Functions is
 
       Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 
-      Call.Param := Top_Frame.Data_Stack.Last_Element;
-      Top_Frame.Data_Stack.Delete_Last;
+      Call.Param := Pop_Object;
    end Analyze_Parameters;
 
 

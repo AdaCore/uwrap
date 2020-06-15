@@ -39,7 +39,7 @@ package Wrapping.Runtime.Analysis is
 
    --  TODO: generalize the usage of this instead of manual deleting from the
    --  stack
-   procedure Pop_Entity (Number : Positive := 1);
+   procedure Pop_Object (Number : Positive := 1);
 
    function Pop_Object return Runtime_Object;
 

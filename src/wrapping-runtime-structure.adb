@@ -79,10 +79,10 @@ package body Wrapping.Runtime.Structure is
         or else Name = "template"
         or else Name = "tmp"
       then
-         Top_Frame.Data_Stack.Append
-           (new Runtime_Function_Reference_Type'
-              (Name   => To_Unbounded_Text (Name),
-               Prefix => Language_Entity (An_Entity)));
+         Push_Object
+           (Runtime_Object'(new Runtime_Function_Reference_Type'
+                (Name   => To_Unbounded_Text (Name),
+                 Prefix => Language_Entity (An_Entity))));
 
          return True;
       end if;
@@ -451,8 +451,9 @@ package body Wrapping.Runtime.Structure is
 
          Evaluate_Expression (Match_Expression);
 
-         Result := Top_Frame.Data_Stack.Last_Element;
-         Top_Frame.Data_Stack.Delete_Last (2);
+         Result := Pop_Object;
+
+         Pop_Object;
 
          if Result /= Match_False then
             if Result.all in Runtime_Language_Entity_Type'Class
@@ -540,12 +541,12 @@ package body Wrapping.Runtime.Structure is
 
    procedure Push_Match_True (An_Entity : access Runtime_Object_Type'Class) is
    begin
-      Top_Frame.Data_Stack.Append (Runtime_Object (An_Entity));
+      Push_Object (An_Entity);
    end Push_Match_True;
 
    procedure Push_Match_False is
    begin
-      Top_Frame.Data_Stack.Append (Match_False);
+      Push_Object (Match_False);
    end Push_Match_False;
 
    procedure Print (An_Entity : Language_Entity; Indent : Text_Type := "") is
@@ -638,14 +639,14 @@ package body Wrapping.Runtime.Structure is
                            An_Entity.Symbols.Insert (Name, new Runtime_Text_Container_Type);
                         end if;
 
-                        Top_Frame.Data_Stack.Append (An_Entity.Symbols.Element (Name));
+                        Push_Object (An_Entity.Symbols.Element (Name));
 
                         return True;
                      else
-                        Top_Frame.Data_Stack.Append
-                          (new Runtime_Function_Reference_Type'
-                             (Name   => To_Unbounded_Text (Name),
-                              Prefix => Language_Entity (An_Entity)));
+                        Push_Object
+                          (Runtime_Object'(new Runtime_Function_Reference_Type'
+                               (Name   => To_Unbounded_Text (Name),
+                                Prefix => Language_Entity (An_Entity))));
 
                         return True;
                      end if;
@@ -658,10 +659,10 @@ package body Wrapping.Runtime.Structure is
 
                      Evaluate_Expression (A_Var.Args.Child (1).As_Argument.F_Value);
 
-                     Result := Top_Frame.Data_Stack.Last_Element;
-                     Top_Frame.Data_Stack.Delete_Last (2);
+                     Result := Pop_Object;
+                     Pop_Object;
 
-                     Top_Frame.Data_Stack.Append (Result);
+                     Push_Object (Result);
 
                      return True;
                   end if;
@@ -713,7 +714,7 @@ package body Wrapping.Runtime.Structure is
          Evaluate_Expression (Expression);
 
          Result := Pop_Object;
-         Pop_Entity;
+         Pop_Object;
 
          if Result /= Match_False then
             Dummy_Boolean := An_Entity.Push_Value (Name);
@@ -755,8 +756,9 @@ package body Wrapping.Runtime.Structure is
 
             Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 
-            Result := Top_Frame.Data_Stack.Last_Element;
-            Top_Frame.Data_Stack.Delete_Last (2); -- unstack origin and result
+            -- unstack origin and result
+            Result := Pop_Object;
+            Pop_Object;
 
             if Result = Match_False then
                Push_Match_False;
@@ -806,8 +808,8 @@ package body Wrapping.Runtime.Structure is
                      Push_Implicit_Self (An_Entity);
 
                      Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-                     Result := Top_Frame.Data_Stack.Last_Element;
-                     Pop_Entity (2);
+                     Result := Pop_Object;
+                     Pop_Object;
 
                      if Result = Match_False then
                         Push_Match_False;
@@ -841,8 +843,8 @@ package body Wrapping.Runtime.Structure is
             Push_Implicit_Self (T);
             Evaluate_Expression (Match_Expression);
 
-            Result := Top_Frame.Data_Stack.Last_Element;
-            Top_Frame.Data_Stack.Delete_Last (2);
+            Result := Pop_Object;
+            Pop_Object;
 
             if Result /= Match_False then
                Push_Match_True (T);

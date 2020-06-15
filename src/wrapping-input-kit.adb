@@ -136,7 +136,7 @@ package body Wrapping.Input.Kit is
                Push_Entity
                  (An_Entity.Children_By_Node.Element (Runtime_Node_Type (Result.all).A_Node));
             else
-               Top_Frame.Data_Stack.Append (Result);
+               Push_Object (Result);
             end if;
 
             return True;
@@ -174,8 +174,9 @@ package body Wrapping.Input.Kit is
 
                Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 
-               Result := Top_Frame.Data_Stack.Last_Element;
-               Top_Frame.Data_Stack.Delete_Last (2); -- Delete result and self
+               -- Delete result and self
+               Result := Pop_Object;
+               Pop_Object;
 
                Matched := Result /= Match_False;
 
@@ -221,8 +222,9 @@ package body Wrapping.Input.Kit is
 
                      Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
 
-                     Result := Top_Frame.Data_Stack.Last_Element;
-                     Top_Frame.Data_Stack.Delete_Last (2); -- Delete result and self
+                     -- Delete result and self
+                     Result := Pop_Object;
+                     Pop_Object;
 
                      Matched := Result /= Match_False;
 
