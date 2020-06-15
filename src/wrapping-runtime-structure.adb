@@ -479,6 +479,10 @@ package body Wrapping.Runtime.Structure is
          --  TODO: We need to be able to cancel allocation if the entire
          --  research happens to be false
 
+         --  TODO: this will not work when using a template, need
+         --  a callback in the signature to call it if needed! Alternatively,
+         --- can use a dispatching call.
+
          case A_Mode is
             when Child_Depth | Child_Breadth =>
                Actions_To_Perform.Append
@@ -516,6 +520,23 @@ package body Wrapping.Runtime.Structure is
            (A_Mode,
             False,
             (if Match_Visitor /= null then Match_Visitor else Visitor'Access)) = Stop;
+
+         if not Found then
+            --  If still not found, there is still a possibilty that this can
+            --  match without any object valid, and then create the first element.
+
+            declare
+               Dummy_Entity : Language_Entity;
+            begin
+               Dummy_Entity := new Language_Entity_Type;
+
+               if Match_Visitor /= null then
+                  Found := Match_Visitor.all (Dummy_Entity) = Stop;
+               else
+                  Found := Visitor (Dummy_Entity) = Stop;
+               end if;
+            end;
+         end if;
       end if;
 
       if not Found and then Top_Frame.Context /= Match_Context then
@@ -744,6 +765,11 @@ package body Wrapping.Runtime.Structure is
       end if;
 
       if Name = "origin" then
+         if An_Entity.Origin = null then
+            Push_Match_False;
+            return True;
+         end if;
+
          if Params.Children_Count = 0 then
             --  We just checked for the existence of this var and
             --  disregard the actual value
