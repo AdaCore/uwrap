@@ -31,17 +31,28 @@ package body Wrapping is
       end if;
    end Get_Sloc_Str;
 
+   Error_Message : Unbounded_Text_Type;
+
    procedure Error (Message : Text_Type) is
    begin
-      if Error_Stack.Length > 0 then
-         Put_Line
-           (To_Text (Get_Sloc_Str)
-            & ": " & Message);
-      else
-         Put_Line (Message);
-      end if;
+      Error_Message := To_Unbounded_Text (Message);
 
-      raise Wrapping_Error;
+      if Error_Callback /= null then
+         Error_Callback.all
+           (Message,
+            To_String (Error_Stack.Last_Element.Filename),
+            Error_Stack.Last_Element.Loc);
+      else
+         if Error_Stack.Length > 0 then
+            Put_Line
+              (To_Text (Get_Sloc_Str)
+               & ": " & Message);
+         else
+            Put_Line (Message);
+         end if;
+
+         raise Wrapping_Error;
+      end if;
    end Error;
 
    procedure Push_Error_Location (Filename : String; Loc : Source_Location) is

@@ -31,8 +31,7 @@ package body Wrapping.Runtime.Analysis is
    function Analyze_Visitor (E : access Language_Entity_Type'Class) return Visit_Action;
 
    procedure Analyze_Replace_String
-     (Str : Text_Type;
-      Context : Libtemplatelang.Analysis.Analysis_Context;
+     (Node : Libtemplatelang.Analysis.Template_Node'Class;
       On_Group : access procedure (Index : Integer; Value : Runtime_Object) := null;
       On_Expression : access procedure (Expression : Libtemplatelang.Analysis.Template_Node) := null);
 
@@ -791,11 +790,7 @@ package body Wrapping.Runtime.Analysis is
             Pop_Error_Location;
             return Over;
          when Template_Str =>
-            declare
-               Content : Text_Type := Remove_Quotes (Node.Text);
-            begin
-               Analyze_Replace_String (Content, Node.Unit.Context);
-            end;
+            Analyze_Replace_String (Node);
 
             if Top_Frame.Context = Match_Context then
                declare
@@ -882,14 +877,16 @@ package body Wrapping.Runtime.Analysis is
    Expression_Unit_Number : Integer := 1;
 
    procedure Analyze_Replace_String
-     (Str : Text_Type;
-      Context : Libtemplatelang.Analysis.Analysis_Context;
+     (Node : Libtemplatelang.Analysis.Template_Node'Class;
       On_Group : access procedure (Index : Integer; Value : Runtime_Object) := null;
       On_Expression : access procedure (Expression : Libtemplatelang.Analysis.Template_Node) := null)
    is
       use Libtemplatelang.Analysis;
       use Libtemplatelang.Common;
       use Langkit_Support.Diagnostics;
+
+      Str : constant Text_Type := Remove_Quotes (Node.Text);
+      Context : constant Libtemplatelang.Analysis.Analysis_Context := Node.Unit.Context;
 
       Result : Runtime_Text_Container := new Runtime_Text_Container_Type;
       New_Text : Runtime_Text;
@@ -905,9 +902,28 @@ package body Wrapping.Runtime.Analysis is
 
          Result.Texts.Append (Runtime_Text_Expression (New_Text));
       end Append_Text;
+
+      procedure On_Error
+        (Message : Text_Type;
+         Filename : String;
+         Loc : Source_Location)
+      is
+      begin
+         Push_Error_Location
+           (Node.Unit.Get_Filename,
+            (Node.Sloc_Range.Start_Line, Node.Sloc_Range.Start_Column));
+
+         Error (Message);
+      end On_Error;
+
+      Prev_Error : Error_Callback_Type;
    begin
+      Prev_Error := Error_Callback;
+      Error_Callback := On_Error'Unrestricted_Access;
+
       if Str = "" then
          Append_Text ("");
+         Error_Callback := Prev_Error;
          return;
       end if;
 
@@ -1006,6 +1022,7 @@ package body Wrapping.Runtime.Analysis is
       end if;
 
       Push_Object (Result);
+      Error_Callback := Prev_Error;
    end Analyze_Replace_String;
 
    function Push_Global_Identifier (Name : Text_Type) return Boolean is
@@ -1368,16 +1385,41 @@ package body Wrapping.Runtime.Analysis is
          Self : Language_Entity;
          Scope : Semantic.Structure.Entity;
          Selected : Semantic.Structure.Entity;
-         A_Module : Semantic.Structure.Module;
          Called : Runtime_Object;
          Result : Runtime_Object;
+         Match_Is_Implicit : Boolean;
       begin
          Match_Object := Top_Frame.Data_Stack.Last_Element;
 
-         --  First, check if the prefix is a language entity reference. If it
-         --  is, then match it and return.
+         Match_Is_Implicit := Match_Object.all in Runtime_Language_Entity_Type'Class
+           and then Runtime_Language_Entity (Match_Object).Is_Implicit;
+
          Node.As_Call_Expr.F_Called.Traverse (Visit_Expression'Access);
          Called := Pop_Object;
+
+         --  At this point, the matching is of the form:
+         --     <implicit self> (Called (F_Args))
+         --     <implicit self>.Called (F_Args)
+         --     Match_Object (Called (F_Args))
+         --     Match_Object.Called (F_Args)
+         --  Depending on wether the matched object is implicit or not.
+
+         --  First check if call is a language entity. we are of the form:
+         --     field_or_property_name (F_Args)
+         -- or
+         --     Match_Object (field_or_property_name (F_Args))
+
+         --  First step, if the called object resolved to a language entity,
+         --  check that the parameter match this language entity. Here, we can
+         --  resolve to various forms:
+         --     (implicit self> (an_entity (F_Args))
+         --     (implicit self>.an_entity (F_Args)
+         --     Match_Object (an_entity (F_Args))
+         --     Match_Object.an_entity (F_Args)
+         --  We already resolved an_entity in the context of the top entity,
+         --  may that be the implicit self or the matched object.
+         --  If there's nothing else to check (F_Args), we're done. Otherwise
+         --  check that the arg expression matches the entity.
 
          if Called.all in Runtime_Language_Entity_Type'Class then
             if Node.As_Call_Expr.F_Args.Children_Count = 0 then
@@ -1389,66 +1431,45 @@ package body Wrapping.Runtime.Analysis is
                Result := Pop_Object;
                Pop_Object;
 
-               if Result /= Match_False then
-                  Push_Match_True (Called);
-               else
+               if Result = Match_False then
+                  --  The language entity doesn't correspond to the parameters,
+                  --  stack False and return.
+
                   Push_Match_False;
+               else
+                  Push_Match_True (Called);
                end if;
+
+               return;
             else
                Error ("matching on an entity reference takes only 1 parameter");
             end if;
-
-            return;
          end if;
 
-         --  If we're not matching a reference but we have a reference on the
-         --  stack, see if that call is to a field and if it's the case,
-         --  match it.
+         --  If Called didn't resolved to a language entity, then it's a
+         --  predicate to either the implicit self, or the matched object.
 
-         --  At this point, we stacked references to various namespaces. They
-         --  will get unstacked when exiting the selectors. We do need to
-         --  retreive the value of self earlier in the stack.
-         Self := Get_Implicit_Self;
-
-         if Match_Object.all in Runtime_Language_Entity_Type'Class then
-            if Runtime_Language_Entity (Match_Object).Value.Push_Match_Result
-              (new Runtime_Field_Reference_Type'
-                 (Name => To_Unbounded_Text (Node.As_Call_Expr.F_Called.Text)),
-               Node.As_Call_Expr.F_Args)
-            then
-               return;
-            end if;
-         end if;
-
-         --  Otherwise, we may be referencing to a template type. Look for it
-         --  in the various accessible modules and check if the current entity
-         --  is an instance.
-
-         A_Module := Get_Module (Top_Frame.all);
+         --  If the matched object is a static entity, for example a template
+         --  name, we're in the matcher form:
+         --     template_name (field_or_property_name (F_Args))
+         --  this translates into: "check that self is of type template_name
+         --     and has a field field_or_property_name that corresponds to
+         --     the arguments F_Args.
 
          if Match_Object.all in Runtime_Static_Entity_Type'Class then
             Scope := Runtime_Static_Entity (Match_Object).An_Entity;
-         else
-            Scope := Entity (A_Module);
-         end if;
 
-         if Scope.Children_Indexed.Contains (Node.As_Call_Expr.F_Called.Text) then
-            Selected := Scope.Children_Indexed.Element (Node.As_Call_Expr.F_Called.Text);
+            if Scope.Children_Indexed.Contains (Node.As_Call_Expr.F_Called.Text) then
+               --  At this point, we stacked references to various namespaces.
+               --  For example if we have
+               --     a.b.template_name (field_or_property_name (F_Args))
+               --  a, b and template_name are on the stack.
+               --  They will get unstacked when exiting the selectors. We do need to
+               --  retreive the value of self earlier in the stack.
 
-            --  TODO: We might be able to go without a pointer in the signature
-            --  of match result, avoiding dynamic memory allocation here.
-            if Self.Push_Match_Result
-              (new Runtime_Static_Entity_Type'(An_Entity => Selected),
-               Node.As_Call_Expr.F_Args)
-            then
-               return;
-            end if;
-         end if;
+               Self := Get_Implicit_Self;
 
-         for Imported of A_Module.Imported_Modules loop
-            if Imported.Children_Indexed.Contains (Node.As_Call_Expr.F_Called.Text) then
-
-               Selected := Imported.Children_Indexed.Element (Node.As_Call_Expr.F_Called.Text);
+               Selected := Scope.Children_Indexed.Element (Node.As_Call_Expr.F_Called.Text);
 
                --  TODO: We might be able to go without a pointer in the signature
                --  of match result, avoiding dynamic memory allocation here.
@@ -1458,8 +1479,40 @@ package body Wrapping.Runtime.Analysis is
                then
                   return;
                end if;
+            else
+               Error ("'" & Node.As_Call_Expr.F_Called.Text & "' not found in '"
+                      & Named_Entity (Runtime_Static_Entity (Match_Object).An_Entity).Name_Node.Text & "'");
             end if;
-         end loop;
+         end if;
+
+         --  If the matched object is a runtime entity, then we have a matcher
+         --  of the form:
+         --     entity (template_name (arguments))
+         --  or
+         --     entity (field_or_property_name (arguments)
+         --  We can differenciate the two from the type of Call which can be
+         --  already a static entity. If it's not, we'll just get its text.
+         --  TODO: that second alternative is a bit weak, it would be better
+         --  to be able to retreive the field object when retreiving called.
+
+         if Match_Object.all in Runtime_Language_Entity_Type'Class then
+            if Called.all in Runtime_Static_Entity_Type'Class then
+                if Runtime_Language_Entity (Match_Object).Value.Push_Match_Result
+                 (Called,
+                  Node.As_Call_Expr.F_Args)
+               then
+                  return;
+               end if;
+            else
+               if Runtime_Language_Entity (Match_Object).Value.Push_Match_Result
+                 (new Runtime_Field_Reference_Type'
+                    (Name => To_Unbounded_Text (Node.As_Call_Expr.F_Called.Text)),
+                  Node.As_Call_Expr.F_Args)
+               then
+                  return;
+               end if;
+            end if;
+         end if;
 
          -- If none of the above worked, we don't match the call.
 
@@ -1560,15 +1613,10 @@ package body Wrapping.Runtime.Analysis is
 
          case Node.Kind is
             when Template_Str =>
-               declare
-                  Content : Text_Type := Remove_Quotes (Node.Text);
-               begin
-                  Analyze_Replace_String
-                    (Content,
-                     Node.Unit.Context,
-                     Capture_Group'Access,
-                     Capture_Expression'Access);
-               end;
+               Analyze_Replace_String
+                 (Node,
+                  Capture_Group'Access,
+                  Capture_Expression'Access);
 
                Pop_Object;
 

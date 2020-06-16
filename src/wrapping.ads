@@ -13,4 +13,11 @@ package Wrapping is
 
    function Get_Sloc_Str return String;
 
+   type Error_Callback_Type is access procedure
+     (Message : Text_Type;
+      Filename : String;
+      Loc : Source_Location);
+
+   Error_Callback : Error_Callback_Type;
+
 end Wrapping;
