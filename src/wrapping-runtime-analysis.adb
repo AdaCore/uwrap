@@ -515,12 +515,6 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame;
    end Apply_Wrapping_Program;
 
-   procedure Register_Standard_Globals is
-      Template_Class : Language_Entity_Class := new Template_Language_Entity_Class_Type;
-   begin
-      Language_Class_Registry.Insert ("template", Template_Class);
-   end Register_Standard_Globals;
-
    function Analyze_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
       A_Visit_Action : Visit_Action := Into;
    begin
@@ -567,8 +561,6 @@ package body Wrapping.Runtime.Analysis is
       A_Template_Instance : Template_Instance;
       Dummy_Action : Visit_Action;
    begin
-      Register_Standard_Globals;
-
       -- Set the visitor id - we're on the main iteration, id is 0.
 
       Current_Visitor_Id := 0;

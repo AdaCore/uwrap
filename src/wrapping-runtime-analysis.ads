@@ -7,8 +7,6 @@ package Wrapping.Runtime.Analysis is
 
    Top_Frame : Data_Frame;
 
-   Language_Class_Registry : Language_Entity_Class_Maps.Map;
-
    Templates_To_Traverse : Template_Instance_Vectors.Vector;
 
    procedure Analyse (Root_Entity : Language_Entity);

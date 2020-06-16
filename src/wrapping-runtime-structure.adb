@@ -540,7 +540,6 @@ package body Wrapping.Runtime.Structure is
       if An_Entity /= null then
          New_Template.Origin := Language_Entity (An_Entity);
 
-         An_Entity.A_Class := Language_Class_Registry.Element ("template");
          An_Entity.Templates_By_Name.Insert (A_Template.Name_Node.Text, New_Template);
          An_Entity.Templates_By_Full_Id.Insert (A_Template.Full_Name, New_Template);
          An_Entity.Templates_Ordered.Append (New_Template);

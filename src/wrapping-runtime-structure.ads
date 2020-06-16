@@ -16,13 +16,6 @@ package Wrapping.Runtime.Structure is
    package Data_Frame_Vectors is new Ada.Containers.Vectors (Positive, Data_Frame);
    use Data_Frame_Vectors;
 
-   type Language_Entity_Class_Type;
-   type Language_Entity_Class is access all Language_Entity_Class_Type'Class;
-   package Language_Entity_Class_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Language_Entity_Class);
-   use Language_Entity_Class_Maps;
-   package Language_Entity_Class_Vectors is new Ada.Containers.Vectors (Positive, Language_Entity_Class);
-   use Language_Entity_Class_Vectors;
-
    type Language_Entity_Type;
    type Language_Entity is access all Language_Entity_Type'Class;
    package Language_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Language_Entity);
@@ -106,10 +99,6 @@ package Wrapping.Runtime.Structure is
 
    function Get_Module (A_Frame : Data_Frame_Type) return Semantic.Structure.Module;
 
-   type Language_Entity_Class_Type is tagged record
-      null;
-   end record;
-
    type Language_Entity_Type is tagged record
       Parent, Next, Prev : Language_Entity;
 
@@ -121,8 +110,6 @@ package Wrapping.Runtime.Structure is
       Templates_Ordered : Template_Instance_Vectors.Vector;
 
       Forbidden_Template_Names : Text_Sets.Set;
-
-      A_Class : Language_Entity_Class; -- TODO: Probably get rid of this
 
       --  This flag trackes wether or not a traverse decision (e.g. wrap over)
       --  has already been taken. Once one decision is taken, no other can
@@ -195,10 +182,6 @@ package Wrapping.Runtime.Structure is
    function To_Text (An_Entity : Language_Entity_Type) return Text_Type is ("");
 
    procedure Print (An_Entity : Language_Entity; Indent : Text_Type := "");
-
-   type Template_Language_Entity_Class_Type is new Language_Entity_Class_Type with record
-      null;
-   end record;
 
    type Template_Instance_Type is new Language_Entity_Type with record
       Template : Semantic.Structure.Template;
