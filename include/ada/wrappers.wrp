@@ -143,6 +143,11 @@ template w_TypeDecl extends w_NamedEntity {
    var rep_definition : text;
    var rep_declaration : text;
    var kind : text;
+   var aspects_declaration : text;
+}
+
+template w_Aspect extends w_Ada {
+   var txt : text;
 }
 
 template w_EnumLiteralDecl extends w_NamedEntity {
@@ -289,17 +294,31 @@ visitor wrappers_post_process () {
        );
     }
 
-    match w_ComponentDecl () and parent (t : w_TypeDecl ()) and child (te : w_TypeExpr ()) {
+    match w_ComponentDecl () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ()) {
       weave t with (
          content_definition => "\e<name> : \e<te.txt>;\n"
       );
     }
 
-    match w_EnumLiteralDecl() and parent (t: w_TypeDecl ()) {
+    match w_EnumLiteralDecl() and parent (p: w_TypeDecl ()) {
        match prev (w_EnumLiteralDecl ())
-          weave t with (content_definition => ", \e<name>");
+          weave p with (content_definition => ", \e<name>");
        else
-          weave t with (content_definition => "\e<name>");
+          weave p with (content_definition => "\e<name>");
+    }
+
+    match w_EnumRep() and parent (p: w_TypeDecl ()) {
+      match prev (w_EnumRep())
+         weave p with (rep_definition => ", \e<name> => \e<value>\n"); 
+      else 
+         weave p with (rep_definition => "\e<name> => \e<value>\n");
+    }
+
+    match w_Aspect() and parent (p: w_TypeDecl ()) {
+      match prev (w_Aspect ())
+         weave p with (aspects_declaration => ", \e<txt>\n"); 
+      else 
+         weave p with (aspects_declaration => "with \e<txt>\n");
     }
 
     match w_TypeDecl () {
@@ -319,17 +338,10 @@ visitor wrappers_post_process () {
           weave with (rep_declaration => "for \e<name> use (\n\e<rep_definition>\n);\n");
        }
 
-       match not origin (AnonymousTypeDecl ()) and parent (p : w_PackageDecl())
-       weave p with (spec_content => "type \e<name> is \e<definition>;\n\e<rep_declaration>");
+       match not parent (w_TypeExpr ()) and parent (p: w_PackageDecl())
+       weave p with (spec_content => "type \e<name> is \e<definition>\e<aspects_declaration>;\n\e<rep_declaration>");
        else match parent (p: w_TypeExpr ())
        weave p with (txt => definition);
-    }
-
-    match w_EnumRep() and parent (p: w_TypeDecl ()) {
-      match prev (w_EnumRep())
-         weave p with (rep_definition => ", \e<name> => \e<value>\n");
-      else 
-         weave p with (rep_definition => "\e<name> => \e<value>\n");
     }
 
     match w_TypeExpr (o: origin (child (i: Identifier ()))) {

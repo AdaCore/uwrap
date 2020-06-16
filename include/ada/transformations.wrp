@@ -29,6 +29,18 @@ visitor access_into_return (parameter) {
    }
 }
 
+visitor constant_into_enumeration (type_name, lit_name) {
+   match d: NumberDecl(child (n: DefiningName ())) and parent (template (p: w_PackageDecl())) {
+      wrap with null (w_NumberDecl);
+      wrap n with null (w_DefiningName);
+
+      match t: p.child (w_TypeDecl (name (type_name)) or new (w_TypeDecl (name => type_name, kind => "enumeration"))) {
+         weave t.child (new (w_EnumLiteralDecl (name => lit_name)));
+         weave t.child (new (w_EnumRep (name => lit_name, value => d.f_expr)));
+      }
+   }
+}
+
 visitor chars_into_string () {
    match ParamSpec("Interfaces.C.Strings.chars_ptr") and parent (sb: SubpDecl())
    wrap with w_ParamSpec (

@@ -2,4 +2,5 @@
 *.adb text eol=lf
 *.gpr text eol=lf
 *.txt text eol=lf
+*.c text eol=lf
 testsuite/**/*.out text eol=lf

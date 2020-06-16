@@ -40,11 +40,6 @@ package Wrapping.Runtime.Structure is
    type String_Langage_Entity_Type;
    type String_Langage_Entity is access all String_Langage_Entity_Type;
 
-   type Post_Analyze_Action_Type;
-   type Post_Analyze_Action is access all Post_Analyze_Action_Type;
-   package Post_Analyze_Action_Vectors is new Ada.Containers.Vectors (Positive, Post_Analyze_Action);
-   use Post_Analyze_Action_Vectors;
-
    type Runtime_Object_Type;
    type Runtime_Object is access all Runtime_Object_Type'Class;
    package Runtime_Object_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Runtime_Object);
@@ -129,9 +124,18 @@ package Wrapping.Runtime.Structure is
 
       A_Class : Language_Entity_Class; -- TODO: Probably get rid of this
 
-      Traverse_Applied : Boolean := False;
+      --  This flag trackes wether or not a traverse decision (e.g. wrap over)
+      --  has already been taken. Once one decision is taken, no other can
+      --  overlap.
+      Traverse_Decision_Taken : Boolean := False;
 
       Tmp_Counter : Integer := 0;
+
+      --  When the entity enters a vistor, the id of that visitor get
+      --  stacked. This allows to track wether a given entity has been visited
+      --  by a visitor invocation only once. Since the invocations are ordered,
+      --  ids not in used anymore can be popped, keeping this list small.
+      Visited_Stack : Integer_Vector.Vector;
    end record;
 
    procedure Add_Child (Parent, Child : access Language_Entity_Type'Class);
@@ -178,13 +182,9 @@ package Wrapping.Runtime.Structure is
    procedure Evaluate_Bowse_Functions
      (An_Entity                 : access Language_Entity_Type;
       A_Mode                    : Browse_Mode;
-      Match_Expression          : Template_Node'Class;
-      Match_Visitor    : access function (E : access Language_Entity_Type'Class) return Visit_Action := null
-      -- This override the standard expression matching. If not null, the
-      -- expected ABI is:
-      --   (1) the entity under test is stacked as input
-      --   (2) the result of the matching is added to the stack as output
-     );
+      Match_Expression          : Template_Node'Class);
+
+   function Browse_Entity (An_Entity : access Language_Entity_Type'Class; Browsed : access Language_Entity_Type'Class; Match_Expression : Template_Node'Class) return Visit_Action;
 
    procedure Push_Match_True (An_Entity : access Language_Entity_Type);
 
@@ -231,8 +231,7 @@ package Wrapping.Runtime.Structure is
    procedure Evaluate_Bowse_Functions
      (An_Entity                 : access Template_Instance_Type;
       A_Mode                    : Browse_Mode;
-      Match_Expression          : Template_Node'Class;
-      Match_Visitor    : access function (E : access Language_Entity_Type'Class) return Visit_Action := null);
+      Match_Expression          : Template_Node'Class);
 
    --  This type can be used for example when there's a string comparison to
    --  prepare in a match context. See the behavior of strings in the
@@ -246,21 +245,6 @@ package Wrapping.Runtime.Structure is
      (An_Entity : access String_Langage_Entity_Type;
       Selector  : Runtime_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
-
-   type Post_Analyze_Action_Kind is (Add_Child, Add_Sibling, Add_Prev, Add_Next);
-
-   type Post_Analyze_Action_Type (Kind : Post_Analyze_Action_Kind := Add_Child) is record
-      From : Template_Node;
-
-      case Kind is
-         when Add_Child | Add_Sibling | Add_Prev | Add_Next =>
-            Base_Entity : Language_Entity;
-            New_Entity : Language_Entity;
-
-      end case;
-   end record;
-
-   procedure Perform (Action : Post_Analyze_Action_Type);
 
    type Runtime_Object_Type is tagged record
       null;

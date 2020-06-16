@@ -99,66 +99,16 @@ package body Wrapping.Runtime.Structure is
    begin
       if Name = "parent" then
          A_Mode := Parent;
-
-         if Params.Children_Count = 0 then
-            if An_Entity.Parent /= null then
-               Push_Match_True (An_Entity.Parent);
-            else
-               Push_Match_False;
-            end if;
-         end if;
       elsif Name = "child" then
          A_Mode := Child_Breadth;
-
-         if Params.Children_Count = 0 then -- TODO: this and other don't work for templates! (we need to check the children from child origin entities
-            if An_Entity.Children_Ordered.Length > 0 then
-               Push_Match_True (An_Entity.Children_Ordered.First_Element);
-            else
-               Push_Match_False;
-            end if;
-         end if;
       elsif Name = "prev" then
          A_Mode := Prev;
-
-         if Params.Children_Count = 0 then
-            if An_Entity.Prev /= null then
-               Push_Match_True (An_Entity.Prev);
-            else
-               Push_Match_False;
-            end if;
-         end if;
       elsif Name = "next" then
          A_Mode := Next;
-
-         if Params.Children_Count = 0 then
-            if An_Entity.Next /= null then
-               Push_Match_True (An_Entity.Next);
-            else
-               Push_Match_False;
-            end if;
-         end if;
       elsif Name = "sibling" then
          A_Mode := Sibling;
-
-         if Params.Children_Count = 0 then
-            if An_Entity.Prev /= null then
-               Push_Match_True (An_Entity.Prev);
-            elsif An_Entity.Next /= null then
-               Push_Match_True (An_Entity.Next);
-            else
-               Push_Match_False;
-            end if;
-         end if;
       elsif Name = "template" then
           A_Mode := Template;
-
-         if Params.Children_Count = 0 then
-            if An_Entity.Templates_Ordered.Length > 0 then
-               Push_Match_True (An_Entity.Templates_Ordered.First_Element);
-            else
-               Push_Match_False;
-            end if;
-         end if;
       elsif Name = "self" then
          if Params.Children_Count = 0 then
             Push_Match_True (An_Entity);
@@ -185,7 +135,10 @@ package body Wrapping.Runtime.Structure is
          return False;
       end if;
 
-      if Params.Children_Count = 1 then
+      if Params.Children_Count = 0 then
+         Language_Entity_Type'Class (An_Entity.all).Evaluate_Bowse_Functions
+           (A_Mode, Libtemplatelang.Analysis.No_Template_Node);
+      elsif Params.Children_Count = 1 then
          Language_Entity_Type'Class (An_Entity.all).Evaluate_Bowse_Functions
            (A_Mode, Params.Child (1).As_Argument.F_Value);
       elsif Params.Children_Count > 1 then
@@ -432,46 +385,13 @@ package body Wrapping.Runtime.Structure is
    end Has_Allocator;
 
    procedure Evaluate_Bowse_Functions
-     (An_Entity        : access Language_Entity_Type;
-      A_Mode           : Browse_Mode;
-      Match_Expression : Template_Node'Class;
-      Match_Visitor    : access function (E : access Language_Entity_Type'Class) return Visit_Action := null)
+     (An_Entity         : access Language_Entity_Type;
+      A_Mode            : Browse_Mode;
+      Match_Expression  : Template_Node'Class)
    is
       function Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
-         Result : Runtime_Object;
       begin
-         --  There is a subtetly in the browsing functions. The self reference
-         --  within these calls isn't the entity currently analyzed anymore but
-         --  directly the entity that is being evaluated under these calls.
-         --  However, we cannot create a sub frame as whatever we match needs
-         --  to find its way to the command frame (otherwise any extracted
-         --  group would be deleted upon frame popped).
-         --  TODO: these specificities needs to be duly documented in the UG.
-         Push_Implicit_Self (E);
-
-         Evaluate_Expression (Match_Expression);
-
-         Result := Pop_Object;
-
-         Pop_Object;
-
-         if Result /= Match_False then
-            if Result.all in Runtime_Language_Entity_Type'Class
-              and then Runtime_Language_Entity (Result).Is_Allocated
-            then
-               --  If we have a result only in allocated mode, and if this result
-               --  is a new entity, this means that this new entity is actually
-               --  the result of the browse, not the one searched.
-
-               Push_Match_True (Runtime_Language_Entity (Result).Value);
-            else
-               Push_Match_True (E);
-            end if;
-
-            return Stop;
-         else
-            return Into;
-         end if;
+         return Browse_Entity (An_Entity, E, Match_Expression);
       end Visitor;
 
       procedure Allocate (E : access Language_Entity_Type'Class) is
@@ -479,18 +399,9 @@ package body Wrapping.Runtime.Structure is
          --  TODO: We need to be able to cancel allocation if the entire
          --  research happens to be false
 
-         --  TODO: this will not work when using a template, need
-         --  a callback in the signature to call it if needed! Alternatively,
-         --- can use a dispatching call.
-
          case A_Mode is
             when Child_Depth | Child_Breadth =>
-               Actions_To_Perform.Append
-                 (new Post_Analyze_Action_Type'
-                    (Add_Child,
-                     Template_Node (Match_Expression),
-                     Language_Entity (An_Entity),
-                     Language_Entity (E)));
+               Add_Child (Language_Entity (An_Entity), Language_Entity (E));
 
             when others =>
                Error ("allocation not implemented on the enclosing function");
@@ -506,20 +417,17 @@ package body Wrapping.Runtime.Structure is
       Top_Frame.Context := Match_Context;
 
       Found := Language_Entity_Type'Class(An_Entity.all).Traverse
-        (A_Mode,
-         False,
-         (if Match_Visitor /= null then Match_Visitor else Visitor'Access)) = Stop;
+        (A_Mode, False, Visitor'Access) = Stop;
 
       if not Found and Has_Allocator (Match_Expression) then
          --  Semantic for search is to look first for matches that do not require
          --  an allocator. If none is found and if there are allocators, then
          --  re-try, this time with allocators enabled.
+
          Top_Frame.An_Allocate_Callback := Allocate'Unrestricted_Access;
 
          Found := Language_Entity_Type'Class(An_Entity.all).Traverse
-           (A_Mode,
-            False,
-            (if Match_Visitor /= null then Match_Visitor else Visitor'Access)) = Stop;
+           (A_Mode, False, Visitor'Access) = Stop;
 
          if not Found then
             --  If still not found, there is still a possibilty that this can
@@ -530,11 +438,7 @@ package body Wrapping.Runtime.Structure is
             begin
                Dummy_Entity := new Language_Entity_Type;
 
-               if Match_Visitor /= null then
-                  Found := Match_Visitor.all (Dummy_Entity) = Stop;
-               else
-                  Found := Visitor (Dummy_Entity) = Stop;
-               end if;
+               Found := Visitor (Dummy_Entity) = Stop;
             end;
          end if;
       end if;
@@ -554,6 +458,51 @@ package body Wrapping.Runtime.Structure is
       Top_Frame.Context := Previous_Context;
    end Evaluate_Bowse_Functions;
 
+   function Browse_Entity (An_Entity : access Language_Entity_Type'Class; Browsed : access Language_Entity_Type'Class; Match_Expression : Template_Node'Class) return Visit_Action is
+      Result : Runtime_Object;
+   begin
+      --  If the match expression is null, we're only looking for the
+      --  presence of a node, not its form. Always return true and end the
+      --  iteration on the first element in this case.
+      if Match_Expression.Is_Null then
+         Push_Match_True (Browsed);
+
+         return Stop;
+      end if;
+
+      --  There is a subtetly in the browsing functions. The self reference
+      --  within these calls isn't the entity currently analyzed anymore but
+      --  directly the entity that is being evaluated under these calls.
+      --  However, we cannot create a sub frame as whatever we match needs
+      --  to find its way to the command frame (otherwise any extracted
+      --  group would be deleted upon frame popped).
+      --  TODO: these specificities needs to be duly documented in the UG.
+      Push_Implicit_Self (Browsed);
+
+      Evaluate_Expression (Match_Expression);
+
+      Result := Pop_Object;
+
+      Pop_Object;
+
+      if Result /= Match_False then
+         if Result.all in Runtime_Language_Entity_Type'Class
+           and then Runtime_Language_Entity (Result).Is_Allocated
+         then
+            --  If we have a result only in allocated mode, and if this result
+            --  is a new entity, this means that this new entity is actually
+            --  the result of the browse, not the one searched.
+
+            Push_Match_True (Runtime_Language_Entity (Result).Value);
+         else
+            Push_Match_True (Browsed);
+         end if;
+
+         return Stop;
+      else
+         return Into;
+      end if;
+   end Browse_Entity;
 
    procedure Push_Match_True (An_Entity : access Language_Entity_Type) is
    begin
@@ -796,10 +745,10 @@ package body Wrapping.Runtime.Structure is
          else
             Error ("only one parameter expected");
          end if;
-      elsif An_Entity.Template.Children_Indexed.Contains (Name) then
+      elsif An_Entity.Template.Get_Component (Name) /= null then
          -- If the name is a template variable, match the argument
          A_Named_Entity := Named_Entity
-           (An_Entity.Template.Children_Indexed.Element (Name));
+           (An_Entity.Template.Get_Component (Name));
 
          if A_Named_Entity.all in Var_Type then
             --  We are calling to match a given parameter value. The convention
@@ -828,7 +777,8 @@ package body Wrapping.Runtime.Structure is
                  (An_Entity.Template,
                   Semantic.Structure.Template (Selected))
                then
-                  if Params.Children_Count = 0 then
+                  --  Put_Line ("******************* TRUE");
+                  if Params.Children_Count = 0 Then
                      Push_Match_True (An_Entity);
                   elsif Params.Children_Count = 1 then
                      Push_Implicit_Self (An_Entity);
@@ -859,47 +809,108 @@ package body Wrapping.Runtime.Structure is
    procedure Evaluate_Bowse_Functions
      (An_Entity                 : access Template_Instance_Type;
       A_Mode                    : Browse_Mode;
-      Match_Expression          : Template_Node'Class;
-      Match_Visitor    : access function (E : access Language_Entity_Type'Class) return Visit_Action := null)
+      Match_Expression          : Template_Node'Class)
    is
-      function Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
-         Result : Runtime_Object;
+      function Template_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
       begin
          for T of E.Templates_Ordered loop
-            Push_Implicit_Self (T);
-            Evaluate_Expression (Match_Expression);
-
-            Result := Pop_Object;
-            Pop_Object;
-
-            if Result /= Match_False then
-               Push_Match_True (T);
+            if Browse_Entity (An_Entity, T, Match_Expression) = Stop then
                return Stop;
             end if;
          end loop;
 
          return Into;
-      end Visitor;
+      end Template_Visitor;
+
+      function Self_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
+      begin
+         return Browse_Entity (An_Entity, E, Match_Expression);
+      end Self_Visitor;
+
+      procedure Allocate (E : access Language_Entity_Type'Class) is
+      begin
+         --  TODO: We need to be able to cancel allocation if the entire
+         --  research happens to be false
+
+         case A_Mode is
+            when Child_Depth | Child_Breadth =>
+               Add_Child (Language_Entity (An_Entity), Language_Entity (E));
+
+            when others =>
+               Error ("allocation not implemented on the enclosing function");
+         end case;
+      end Allocate;
 
       Result : Runtime_Object := Match_False;
+
+      Previous_Context : Frame_Context := Top_Frame.Context;
+      Prev_Allocate_Callback : Allocate_Callback;
+      Found : Boolean;
    begin
-      --  First, browse based on the origin
+      Prev_Allocate_Callback := Top_Frame.An_Allocate_Callback;
+      Top_Frame.An_Allocate_Callback := null;
+      Top_Frame.Context := Match_Context;
+
+      -- The sequence of traversal for template goes as follows:
+      -- (1) traverse on the origin, see if there's any matching template there,
+      --     as the origin structure is implicitely the structure of the template.
+      -- (2) traverse the template, as it can has allocated structure on its own
+      -- (3) if there's possibity of an allocation, redo (1) and (2) with
+      --     allocation enabled.
+      -- (4) finally, try to traverse with a dummy entity with allocation
+      --     enabled to check if an empty
+
       if An_Entity.Origin /= null then
-         An_Entity.Origin.Evaluate_Bowse_Functions
-           (A_Mode, Match_Expression, Visitor'Access);
-
-         Result := Pop_Object;
+         Found := Language_Entity_Type'Class(An_Entity.Origin.all).Traverse
+           (A_Mode, False, Template_Visitor'Access) = Stop;
       end if;
 
-      -- A template may also be in a hierarchy of its own.
-      if Result = Match_False then
-         Language_Entity_Type (An_Entity.all).Evaluate_Bowse_Functions
-           (A_Mode, Match_Expression, null);
-
-         Result := Pop_Object;
+      if not Found then
+         Found := Language_Entity_Type'Class(An_Entity.all).Traverse
+           (A_Mode, False, Self_Visitor'Access) = Stop;
       end if;
 
-      Push_Object (Result);
+      if not Found and Has_Allocator (Match_Expression) then
+         --  Semantic for search is to look first for matches that do not require
+         --  an allocator. If none is found and if there are allocators, then
+         --  re-try, this time with allocators enabled.
+
+         Top_Frame.An_Allocate_Callback := Allocate'Unrestricted_Access;
+
+         if An_Entity.Origin /= null then
+            Found := Language_Entity_Type'Class(An_Entity.Origin.all).Traverse
+              (A_Mode, False, Template_Visitor'Access) = Stop;
+         end if;
+
+         if not Found then
+            Found := Language_Entity_Type'Class(An_Entity.all).Traverse
+              (A_Mode, False, Self_Visitor'Access) = Stop;
+         end if;
+
+         if not Found then
+            --  If still not found, there is still a possibilty that this can
+            --  match without any object valid, and then create the first element.
+
+            declare
+               Dummy_Entity : Language_Entity;
+            begin
+               Dummy_Entity := new Language_Entity_Type;
+
+               Found := Self_Visitor (Dummy_Entity) = Stop;
+            end;
+         end if;
+      end if;
+
+      if not Found and then Top_Frame.Context /= Match_Context then
+         Error ("query failed in wrap or weave clause, consider move to match instead");
+      end if;
+
+      if not Found then
+         Push_Match_False;
+      end if;
+
+      Top_Frame.An_Allocate_Callback := Prev_Allocate_Callback;
+      Top_Frame.Context := Previous_Context;
    end Evaluate_Bowse_Functions;
 
    overriding
@@ -920,22 +931,6 @@ package body Wrapping.Runtime.Structure is
 
       return True;
    end Push_Match_Result;
-
-   procedure Perform (Action : Post_Analyze_Action_Type) is
-   begin
-      Push_Error_Location (Action.From);
-
-      case Action.Kind is
-         when Add_Child =>
-            Action.Base_Entity.Add_Child (Action.New_Entity);
-
-         when others =>
-            Error ("not implemented");
-
-      end case;
-
-      Pop_Error_Location;
-   end Perform;
 
    overriding
    function To_Text (Object : Runtime_Integer_Type) return Text_Type

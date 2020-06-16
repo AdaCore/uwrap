@@ -1,0 +1,20 @@
+import ada.wrappers;
+import ada.transformations;
+
+wrap with wrap_ada_specs ();
+
+match DefiningName ("(.*)_h")
+wrap with w_DefiningName ("\1_Wrapped");
+
+match d: NumberDecl(child (n: DefiningName ("FLAG_(?<flag_name>.*)")))
+wrap with constant_into_enumeration ("Flag_Type", flag_name);
+
+match w_TypeDecl (name ("Flag_Type"))
+weave child (new (w_Aspect ("Convention => C")));
+
+match ParamSpec ("x : int") and parent (sb: SubpDecl())
+wrap with w_ParamSpec (
+   type_expr => "Flag_Type",
+   pre_call_decl => "\e<sb.tmp ('local')> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n",
+   actual_value => sb.tmp ('local')
+);

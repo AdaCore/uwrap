@@ -11,4 +11,6 @@ package Wrapping is
 
    procedure Pop_Error_Location;
 
+   function Get_Sloc_Str return String;
+
 end Wrapping;

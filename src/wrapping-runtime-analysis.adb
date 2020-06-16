@@ -352,8 +352,10 @@ package body Wrapping.Runtime.Analysis is
 
                if A_Command.Template_Clause.A_Visit_Action /= Unknown then
                   -- TODO: consider differences between weave and wrap here
-                  if not A_Language_Entity.Traverse_Applied then
-                     A_Language_Entity.Traverse_Applied := True;
+                  --  TODO: This doesn't consider different visits, each
+                  --  should have its own decision
+                  if not A_Language_Entity.Traverse_Decision_Taken then
+                     A_Language_Entity.Traverse_Decision_Taken := True;
                      A_Visit_Action := A_Command.Template_Clause.A_Visit_Action;
                   end if;
                else
@@ -417,7 +419,14 @@ package body Wrapping.Runtime.Analysis is
                            for E of Entity_Target.Children_Ordered loop
                               declare
                                  Dummy_Action : Visit_Action;
+                                 Prev_Visit_Id : Integer;
                               begin
+                                 --  Increment the visitor counter and set the current visitor id, as to
+                                 --  track entities that are being visited by this iteration.
+                                 Prev_Visit_Id := Current_Visitor_Id;
+                                 Visitor_Counter := Visitor_Counter + 1;
+                                 Current_Visitor_Id := Visitor_Counter;
+
                                  -- TODO: This only works for the main program.
                                  -- implement support in case this is called
                                  -- from a visitor (the visitor should be
@@ -425,6 +434,8 @@ package body Wrapping.Runtime.Analysis is
 
                                  Dummy_Action := E.Traverse
                                    (Child_Depth, True, Analyze_Visitor'Access);
+
+                                 Current_Visitor_Id := Prev_Visit_Id;
                               end;
                            end loop;
                         else
@@ -440,8 +451,8 @@ package body Wrapping.Runtime.Analysis is
                   A_Command.Nested_Actions,
                   A_Visit_Action);
             elsif not A_Command.Traverse_Expression.Is_Null then
-               if not A_Language_Entity.Traverse_Applied then
-                  A_Language_Entity.Traverse_Applied := True;
+               if not A_Language_Entity.Traverse_Decision_Taken then
+                  A_Language_Entity.Traverse_Decision_Taken := True;
 
                   A_Command.Traverse_Expression.Traverse (Visit_Expression'Access);
 
@@ -513,12 +524,41 @@ package body Wrapping.Runtime.Analysis is
    function Analyze_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
       A_Visit_Action : Visit_Action := Into;
    begin
-      Apply_Wrapping_Program
-        (Language_Entity (E),
-         Wrapping.Semantic.Analysis.Root,
-         A_Visit_Action);
+      --  Check if this entity has already been analyzed through this visitor
+      --  invocation.
 
-      return A_Visit_Action;
+      --  First, pop any id in the entity that may be greater than the current
+      --  one. If they are greater and we're on a lower one, it means that they
+      --  are over.
+
+      while E.Visited_Stack.Length > 0
+        and then E.Visited_Stack.Last_Element > Current_Visitor_Id
+      loop
+         E.Visited_Stack.Delete_Last;
+      end loop;
+
+      if E.Visited_Stack.Length > 0
+        and then E.Visited_Stack.Last_Element = Current_Visitor_Id
+      then
+         --  If the last id in the stack is the current one, they we've already
+         --  visited this entity. We already also made the decisions on sub
+         --  entities. Stop the iteration.
+
+         return Over;
+      else
+         --  Otherwise, stack this visitor Id and visit. We need not to remove
+         --  this id at the end, as to make sure that potential iterations
+         --  on this visit don't cover this node again
+
+         E.Visited_Stack.Append (Current_Visitor_Id);
+
+         Apply_Wrapping_Program
+           (Language_Entity (E),
+            Wrapping.Semantic.Analysis.Root,
+            A_Visit_Action);
+
+         return A_Visit_Action;
+      end if;
    end Analyze_Visitor;
 
    procedure Analyse (Root_Entity : Language_Entity) is
@@ -528,6 +568,10 @@ package body Wrapping.Runtime.Analysis is
       Dummy_Action : Visit_Action;
    begin
       Register_Standard_Globals;
+
+      -- Set the visitor id - we're on the main iteration, id is 0.
+
+      Current_Visitor_Id := 0;
 
       Dummy_Action := Root_Entity.Traverse
         (Child_Depth, True, Analyze_Visitor'Access);
@@ -547,11 +591,9 @@ package body Wrapping.Runtime.Analysis is
             Next_Iteration.Move (Templates_To_Traverse);
             Templates_To_Traverse.Clear;
 
-            for A of Actions_To_Perform loop
-               Perform (A.all);
-            end loop;
+            -- Reset the visitor id - we're on the main iteration, id is 0.
 
-            Actions_To_Perform.Clear;
+            Current_Visitor_Id := 0;
 
             for T of Next_Iteration loop
                Dummy_Action := T.Traverse
@@ -653,11 +695,15 @@ package body Wrapping.Runtime.Analysis is
                --  expression based on the left object, and then put the result
                --  on the left object on the stack.
 
-               Node.As_Selector.F_Left.Traverse (Visit_Expression'Access);
-               Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
-               Result := Pop_Object;
-               Pop_Object;
-               Push_Object (Result);
+               if not Node.As_Selector.F_Left.Is_Null then
+                  Node.As_Selector.F_Left.Traverse (Visit_Expression'Access);
+                  Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
+                  Result := Pop_Object;
+                  Pop_Object;
+                  Push_Object (Result);
+               else
+                  Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
+               end if;
             end;
 
             Pop_Error_Location;
@@ -1261,8 +1307,16 @@ package body Wrapping.Runtime.Analysis is
          return A_Visit_Action;
       end Sub_Visitor;
 
+
+      Prev_Visit_Id : Integer;
       A_Visit_Action : Visit_Action := Unknown;
    begin
+      --  Increment the visitor counter and set the current visitor id, as to
+      --  track entities that are being visited by this iteration.
+      Prev_Visit_Id := Current_Visitor_Id;
+      Visitor_Counter := Visitor_Counter + 1;
+      Current_Visitor_Id := Visitor_Counter;
+
       -- The analysis needs to be done within the previous frame (in particular
       -- to get capture groups) then all valuated symbols needs to be allocated
       -- to the next frame (in particular to be destroyed when popping).
@@ -1295,6 +1349,10 @@ package body Wrapping.Runtime.Analysis is
       if A_Visit_Action in Over | Stop then
          Error ("visit action from visitor to caller not implemented");
       end if;
+
+      --  Reset the visitor id to the previous value, we're back to the
+      --  enclosing visitor invocation.
+      Current_Visitor_Id := Prev_Visit_Id;
 
       Pop_Frame;
    end Handle_Visitor_Call;

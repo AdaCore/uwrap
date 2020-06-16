@@ -9,4 +9,7 @@ begin
 exception
    when Wrapping_Error =>
       Put_Line ("wrapping errors");
+   when others =>
+      Put_Line ("wrapping error at " & Get_Sloc_Str);
+      raise;
 end UWrap;

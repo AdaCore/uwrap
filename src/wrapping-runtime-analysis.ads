@@ -10,7 +10,6 @@ package Wrapping.Runtime.Analysis is
    Language_Class_Registry : Language_Entity_Class_Maps.Map;
 
    Templates_To_Traverse : Template_Instance_Vectors.Vector;
-   Actions_To_Perform : Post_Analyze_Action_Vectors.Vector;
 
    procedure Analyse (Root_Entity : Language_Entity);
 
@@ -44,5 +43,16 @@ package Wrapping.Runtime.Analysis is
    function Pop_Object return Runtime_Object;
 
    procedure Run_Lambda (A_Lambda : Runtime_Lambda_Type);
+
+   --  This is the counter of visitor. Every time a visitor is started
+   --  (including the main one), it is to be incremented. This provdes a
+   --  unique id to each visit execution, which later allows to check that
+   --  a language entity isn't visited twice by the same visitor invokation.
+   Visitor_Counter : Integer := 0;
+
+   --  The Id for the current visitor, updated when entering a vistor invokation.
+   --  Note that the main iteration is always id 0.
+   --  TODO: maybe this should be frame information?
+   Current_Visitor_Id : Integer := 0;
 
 end Wrapping.Runtime.Analysis;
