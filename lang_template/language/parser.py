@@ -134,6 +134,10 @@ class NewExpr(TemplateNode):
     name=Field()
     args=Field()
 
+class FoldExpr(TemplateNode):
+    default=Field()
+    combine=Field()
+
 template_grammar = Grammar('main_rule')
 G = template_grammar
 
@@ -192,12 +196,14 @@ template_grammar.add_rules(
      G.str,
      G.name,
      ),
-    name=Or (G.selected_component, G.new_expr, G.call_expr, G.identifier),
+    name=Or (G.selected_component, G.new_expr, G.fold_expr, G.call_expr, G.identifier),
     selected_component=Selector (G.prefix, '.', G.name), # TODO should name be selector name instead?
-    selector_name=Or (G.call_expr, G.identifier),
+    #selector_name=Or (G.call_expr, G.identifier),
     prefix=G.name,
 
     new_expr=NewExpr ('new', '(', G.dotted_name, '(', G.arg_list, ')', ')'),
+    fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, ')'),
+
     call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
     lambda_expr=LambdaExpr ('lambda', '(', G.expression, ')'),
     arg_list=List(Argument(Opt (G.identifier, "=>"), Or (G.lambda_expr, G.expression)), sep=',', empty_valid=True),

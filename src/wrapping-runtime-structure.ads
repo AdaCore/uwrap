@@ -76,11 +76,34 @@ package Wrapping.Runtime.Structure is
    type Runtime_Lambda_Type;
    type Runtime_Lambda is access all Runtime_Lambda_Type'Class;
 
-   type Frame_Context is
-     (Generic_Context,
-      Match_Context);
+   type Frame_Context_Type;
+   type Frame_Context is access all Frame_Context_Type;
 
    type Allocate_Callback is access procedure (E : access Language_Entity_Type'Class);
+
+   --  A Frame_Context is a type that is recording stack-based properties that
+   --  vary within a given frame, typically through an expression, or various
+   --  parts of a command. Each Frame is supposed to start with a fresh frame
+   --  context (ie information does not travel through frame contexts).
+   type Frame_Context_Type is record
+      Parent_Context : Frame_Context;
+
+      Is_Matching_Context : Boolean := False;
+      Is_Folding_Context : Boolean := False;
+
+      --  When hitting a capture expression, the name is being stored here so
+      --  that the capturing expression can update its value.
+      Name_Captured : Unbounded_Text_Type;
+
+      --  In when folding, browsing functions need to evaluate this expression
+      --  upon all successful matches
+      Folding_Expression : Template_Node;
+
+      --  Callback used to record objects allocated through the new () function.
+      --  This needs to be set in particular in browsing functions, in order to
+      --  be able to capture things such as child (new ()).
+      An_Allocate_Callback : Allocate_Callback := null;
+   end record;
 
    type Data_Frame_Type is record
       Parent_Frame : Data_Frame;
@@ -88,15 +111,10 @@ package Wrapping.Runtime.Structure is
       Symbols         : Runtime_Object_Maps.Map;
       Matched_Groups  : Runtime_Object_Vectors.Vector;
       Data_Stack      : Runtime_Object_Vectors.Vector;
-      Context         : Frame_Context := Generic_Context;
-      An_Allocate_Callback : Allocate_Callback := null;
+      Top_Context     : Frame_Context;
       Lexical_Scope   : Semantic.Structure.Entity;
 
       Temp_Names      : Text_Maps.Map;
-
-      --  When hitting a capture expression, the name is being stored here so
-      --  that the capturing expression can update its value.
-      Name_Captured : Unbounded_Text_Type;
    end record;
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return Runtime_Object;
@@ -167,7 +185,10 @@ package Wrapping.Runtime.Structure is
      (An_Entity    : access Language_Entity_Type;
       A_Mode       : Browse_Mode;
       Include_Self : Boolean;
-      Visitor      : access function (E : access Language_Entity_Type'Class) return Visit_Action)
+      Final_Result : out Runtime_Object;
+      Visitor      : access function
+        (E      : access Language_Entity_Type'Class;
+         Result : out Runtime_Object) return Visit_Action)
       return Visit_Action;
 
    procedure Evaluate_Bowse_Functions
@@ -175,7 +196,12 @@ package Wrapping.Runtime.Structure is
       A_Mode                    : Browse_Mode;
       Match_Expression          : Template_Node'Class);
 
-   function Browse_Entity (An_Entity : access Language_Entity_Type'Class; Browsed : access Language_Entity_Type'Class; Match_Expression : Template_Node'Class) return Visit_Action;
+   function Browse_Entity
+     (An_Entity : access Language_Entity_Type'Class;
+      Browsed : access Language_Entity_Type'Class;
+      Match_Expression : Template_Node'Class;
+      Result : out Runtime_Object
+     ) return Visit_Action;
 
    procedure Push_Match_True (An_Entity : access Language_Entity_Type);
 

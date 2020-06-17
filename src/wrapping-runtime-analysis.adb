@@ -4,6 +4,7 @@ with Ada.Containers; use Ada.Containers;
 with Ada.Characters.Conversions; use Ada.Characters.Conversions;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
+with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Strings; use Ada.Strings;
 with GNAT.Regpat; use GNAT.Regpat;
 
@@ -28,7 +29,10 @@ package body Wrapping.Runtime.Analysis is
       A_Visitor : Semantic.Structure.Visitor;
       Args : Libtemplatelang.Analysis.Argument_List;
       Apply_To_All : Boolean);
-   function Analyze_Visitor (E : access Language_Entity_Type'Class) return Visit_Action;
+   procedure Handle_Fold (Folded_Expression : Libtemplatelang.Analysis.Template_Node'Class; Node : Libtemplatelang.Analysis.Fold_Expr'Class);
+   function Analyze_Visitor
+     (E : access Language_Entity_Type'Class;
+      Result : out Runtime_Object) return Visit_Action;
 
    procedure Analyze_Replace_String
      (Node : Libtemplatelang.Analysis.Template_Node'Class;
@@ -124,14 +128,33 @@ package body Wrapping.Runtime.Analysis is
       return Result;
    end Pop_Object;
 
+   procedure Push_Frame_Context is
+   begin
+      Top_Frame.Top_Context := new Frame_Context_Type'
+        (Parent_Context => Top_Frame.Top_Context,
+         Is_Matching_Context => Top_Frame.Top_Context.Is_Matching_Context,
+         Is_Folding_Context => Top_Frame.Top_Context.Is_Folding_Context,
+         Name_Captured => Top_Frame.Top_Context.Name_Captured,
+         Folding_Expression => Top_Frame.Top_Context.Folding_Expression,
+         An_Allocate_Callback => Top_Frame.Top_Context.An_Allocate_Callback);
+   end Push_Frame_Context;
+
+   procedure Pop_Frame_Context is
+   begin
+      Top_Frame.Top_Context := Top_Frame.Top_Context.Parent_Context;
+   end Pop_Frame_Context;
+
    procedure Push_Frame (Lexical_Scope : access Semantic.Structure.Entity_Type'Class) is
       New_Frame : Data_Frame := new Data_Frame_Type;
    begin
       New_Frame.Parent_Frame := Top_Frame;
       New_Frame.Lexical_Scope := Semantic.Structure.Entity (Lexical_Scope);
+      New_Frame.Top_Context := new Frame_Context_Type;
 
       if Top_Frame /= null then
-         New_Frame.An_Allocate_Callback := Top_Frame.An_Allocate_Callback;
+         --  TODO: Do we really need to carry allocate callback from frame to
+         --  frame?
+         New_Frame.Top_Context.An_Allocate_Callback := Top_Frame.Top_Context.An_Allocate_Callback;
       end if;
 
       Top_Frame := New_Frame;
@@ -331,12 +354,12 @@ package body Wrapping.Runtime.Analysis is
          Push_Frame (A_Command);
          Push_Implicit_Self (A_Language_Entity);
 
-         Top_Frame.An_Allocate_Callback := Allocate'Unrestricted_Access;
+         Top_Frame.Top_Context.An_Allocate_Callback := Allocate'Unrestricted_Access;
 
          if not A_Command.Match_Expression.Is_Null then
-            Top_Frame.Context := Match_Context;
+            Top_Frame.Top_Context.Is_Matching_Context := True;
             Evaluate_Expression (A_Command.Match_Expression);
-            Top_Frame.Context := Generic_Context;
+            Top_Frame.Top_Context.Is_Matching_Context := False;
 
             Match_Result := Pop_Object;
 
@@ -392,17 +415,24 @@ package body Wrapping.Runtime.Analysis is
                            -- would be consistent with the fact that everything above is
                            -- in Handle_Visitor_Call
                            declare
-                              function Apply_Template (E : access Language_Entity_Type'Class) return Visit_Action
+                              function Apply_Template
+                                (E      : access Language_Entity_Type'Class;
+                                 Result : out Runtime_Object) return Visit_Action
                               is
                               begin
+                                 Result := null;
+
                                  Apply_Template_Action (Language_Entity (E), A_Command.Template_Clause);
 
                                  return Into;
                               end Apply_Template;
+
+                              Traverse_Result : Runtime_Object;
                            begin
                               A_Visit_Action := Entity_Target.Traverse
                                 (A_Mode       => Child_Depth,
                                  Include_Self => True,
+                                 Final_Result => Traverse_Result,
                                  Visitor      => Apply_Template'Access);
                            end;
                         else
@@ -419,6 +449,7 @@ package body Wrapping.Runtime.Analysis is
                               declare
                                  Dummy_Action : Visit_Action;
                                  Prev_Visit_Id : Integer;
+                                 Traverse_Result : Runtime_Object;
                               begin
                                  --  Increment the visitor counter and set the current visitor id, as to
                                  --  track entities that are being visited by this iteration.
@@ -432,7 +463,7 @@ package body Wrapping.Runtime.Analysis is
                                  -- traversed, not the main program.
 
                                  Dummy_Action := E.Traverse
-                                   (Child_Depth, True, Analyze_Visitor'Access);
+                                   (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
 
                                  Current_Visitor_Id := Prev_Visit_Id;
                               end;
@@ -514,9 +545,14 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame;
    end Apply_Wrapping_Program;
 
-   function Analyze_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
+   function Analyze_Visitor
+     (E : access Language_Entity_Type'Class;
+      Result : out Runtime_Object) return Visit_Action
+   is
       A_Visit_Action : Visit_Action := Into;
    begin
+      Result := null;
+
       --  Check if this entity has already been analyzed through this visitor
       --  invocation.
 
@@ -559,13 +595,14 @@ package body Wrapping.Runtime.Analysis is
       Out_Template : Wrapping.Semantic.Structure.Template;
       A_Template_Instance : Template_Instance;
       Dummy_Action : Visit_Action;
+      Traverse_Result : Runtime_Object;
    begin
       -- Set the visitor id - we're on the main iteration, id is 0.
 
       Current_Visitor_Id := 0;
 
       Dummy_Action := Root_Entity.Traverse
-        (Child_Depth, True, Analyze_Visitor'Access);
+        (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
 
       File_Template := Wrapping.Semantic.Structure.Template
         (Resolve_Module_By_Name ("standard").
@@ -588,7 +625,7 @@ package body Wrapping.Runtime.Analysis is
 
             for T of Next_Iteration loop
                Dummy_Action := T.Traverse
-                 (Child_Depth, True, Analyze_Visitor'Access);
+                 (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
             end loop;
 
             for Created_Template of Next_Iteration loop
@@ -659,82 +696,88 @@ package body Wrapping.Runtime.Analysis is
    function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
       use Libtemplatelang.Analysis;
       use Libtemplatelang.Common;
+
+      Result : Runtime_Object;
    begin
       Push_Error_Location (Node);
 
       case Node.Kind is
          when Template_Match_Capture =>
-            declare
-               Previous_Name_Capture : Unbounded_Text_Type;
-            begin
 
-               --  This expression captures the result of the underlying
-               --  expression and lets its value pass through.
+            --  This expression captures the result of the underlying
+            --  expression and lets its value pass through.
 
-               --  First, save any previous name capture for restoration,
-               --  and store the new one.
+            --  First, save any previous name capture for restoration,
+            --  and store the new one.
 
-               Previous_Name_Capture := Top_Frame.Name_Captured;
-               Top_Frame.Name_Captured :=
-                 To_Unbounded_Text (Node.As_Match_Capture.F_Captured.Text);
+            Push_Frame_Context;
+            Top_Frame.Top_Context.Name_Captured :=
+              To_Unbounded_Text (Node.As_Match_Capture.F_Captured.Text);
 
-               Node.As_Match_Capture.F_Expression.Traverse (Visit_Expression'Access);
+            Node.As_Match_Capture.F_Expression.Traverse (Visit_Expression'Access);
 
-               if Top_Frame.Data_Stack.Last_Element /= Match_False then
-                  Top_Frame.Symbols.Include
-                    (Node.As_Match_Capture.F_Captured.Text,
-                     Top_Frame.Data_Stack.Last_Element);
-               else
-                  --  For early reference, that name may have already been
-                  --  captured. If we eneded up not having a match, it needs
-                  --  to be removed.
+            if Top_Frame.Data_Stack.Last_Element /= Match_False then
+               Top_Frame.Symbols.Include
+                 (Node.As_Match_Capture.F_Captured.Text,
+                  Top_Frame.Data_Stack.Last_Element);
+            else
+               --  For early reference, that name may have already been
+               --  captured. If we eneded up not having a match, it needs
+               --  to be removed.
 
-                  if Top_Frame.Symbols.Contains
-                    (Node.As_Match_Capture.F_Captured.Text)
-                  then
-                     Top_Frame.Symbols.Delete
-                       (Node.As_Match_Capture.F_Captured.Text);
-                  end if;
+               if Top_Frame.Symbols.Contains
+                 (Node.As_Match_Capture.F_Captured.Text)
+               then
+                  Top_Frame.Symbols.Delete
+                    (Node.As_Match_Capture.F_Captured.Text);
                end if;
+            end if;
 
-               Top_Frame.Name_Captured := Previous_Name_Capture;
+            Pop_Frame_Context;
 
-               Pop_Error_Location;
-               return Over;
-
-            end;
+            Pop_Error_Location;
+            return Over;
          when Template_Selector =>
-            declare
-               Result : Runtime_Object;
-               Previous_Name_Capture : Unbounded_Text_Type;
-            begin
-               --  In a selector, we compute the left object, build the right
-               --  expression based on the left object, and then put the result
-               --  on the left object on the stack.
+            --  In a selector, we compute the left object, build the right
+            --  expression based on the left object, and then put the result
+            --  on the left object on the stack.
 
-               if not Node.As_Selector.F_Left.Is_Null then
+            if not Node.As_Selector.F_Left.Is_Null then
+               if Node.As_Selector.F_Right.Kind = Template_Fold_Expr then
+                  --  Folding needs to be handled speparately, as the prefix
+                  --  needs to be handled in folding context, with all
+                  --  processing expressions properly set.
+
+                  Handle_Fold (Node.As_Selector.F_Left, Node.As_Selector.F_Right.As_Fold_Expr);
+               else
                   --  The left part of a selector may have calls. In this
                   --  case, these calls are unrelated to the value that is
                   --  possibly being captured. E.g. in:
                   --     a: b ().c
                   --  b () value is not being captured in a.
                   --  In order to respect that, the current captured name is
-                  --  removed when processing the left part of the selector
-                  Previous_Name_Capture := Top_Frame.Name_Captured;
-                  Top_Frame.Name_Captured := To_Unbounded_Text ("");
+                  --  removed when processing the left part of the selector.
+                  --  Similarily, we only fold on the target of the fold. For
+                  --  example, in:
+                  --     child ().child ().fold ()
+                  --  the first child is a selecing the first match, the second
+                  --  is folded.
+                  Push_Frame_Context;
+                  Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
+                  Top_Frame.Top_Context.Is_Folding_Context := False;
 
                   Node.As_Selector.F_Left.Traverse (Visit_Expression'Access);
-
-                  Top_Frame.Name_Captured := Previous_Name_Capture;
+                  Pop_Frame_Context;
 
                   Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
+
                   Result := Pop_Object;
                   Pop_Object;
                   Push_Object (Result);
-               else
-                  Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
                end if;
-            end;
+            else
+               Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
+            end if;
 
             Pop_Error_Location;
             return Over;
@@ -831,7 +874,7 @@ package body Wrapping.Runtime.Analysis is
          when Template_Str =>
             Analyze_Replace_String (Node);
 
-            if Top_Frame.Context = Match_Context then
+            if Top_Frame.Top_Context.Is_Matching_Context then
                declare
                   To_Match : Runtime_Object := Pop_Object;
                begin
@@ -863,14 +906,14 @@ package body Wrapping.Runtime.Analysis is
             end;
 
          when Template_New_Expr =>
-            if Top_Frame.An_Allocate_Callback /= null then
+            if Top_Frame.Top_Context.An_Allocate_Callback /= null then
                declare
                   An_Object : Runtime_Object;
                   A_Template : Semantic.Structure.Entity;
                   A_Template_Instance : Template_Instance;
-                  Last_Context : Frame_Context := Top_Frame.Context;
                begin
-                  Top_Frame.Context := Generic_Context;
+                  Push_Frame_Context;
+                  Top_Frame.Top_Context.Is_Matching_Context := False;
                   Evaluate_Expression (Node.As_New_Expr.F_Name);
                   An_Object := Pop_Object;
 
@@ -891,9 +934,9 @@ package body Wrapping.Runtime.Analysis is
                   Pop_Object;
 
                   Push_Allocated_Entity (A_Template_Instance);
-                  Top_Frame.An_Allocate_Callback.all (A_Template_Instance);
+                  Top_Frame.Top_Context.An_Allocate_Callback.all (A_Template_Instance);
 
-                  Top_Frame.Context := Last_Context;
+                  Pop_Frame_Context;
                end;
             else
                Push_Match_False;
@@ -952,7 +995,11 @@ package body Wrapping.Runtime.Analysis is
            (Node.Unit.Get_Filename,
             (Node.Sloc_Range.Start_Line, Node.Sloc_Range.Start_Column));
 
-         Error (Message);
+         Put_Line
+           (To_Text (Get_Sloc_Str)
+            & ": " & Message);
+
+         raise Wrapping_Error;
       end On_Error;
 
       Prev_Error : Error_Callback_Type;
@@ -1141,7 +1188,7 @@ package body Wrapping.Runtime.Analysis is
       end if;
 
       if Tentative_Symbol = null then
-         if Top_Frame.Context = Match_Context then
+         if Top_Frame.Top_Context.Is_Matching_Context then
             Push_Match_False;
          else
             return False;
@@ -1344,9 +1391,13 @@ package body Wrapping.Runtime.Analysis is
          Symbols.Insert (Name_Node.Text, Value);
       end Store_Param_Value;
 
-      function Sub_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
+      function Sub_Visitor
+        (E : access Language_Entity_Type'Class;
+         Result : out Runtime_Object) return Visit_Action is
          A_Visit_Action : Visit_Action := Into;
       begin
+         Result := null;
+
          Apply_Wrapping_Program
            (Language_Entity (E),
             A_Visitor,
@@ -1358,6 +1409,7 @@ package body Wrapping.Runtime.Analysis is
 
       Prev_Visit_Id : Integer;
       A_Visit_Action : Visit_Action := Unknown;
+      Traverse_Result : Runtime_Object;
    begin
       --  Increment the visitor counter and set the current visitor id, as to
       --  track entities that are being visited by this iteration.
@@ -1391,6 +1443,7 @@ package body Wrapping.Runtime.Analysis is
          A_Visit_Action := An_Entity.Traverse
            (Child_Depth,
             True,
+            Traverse_Result,
             Sub_Visitor'Access);
       end if;
 
@@ -1559,7 +1612,7 @@ package body Wrapping.Runtime.Analysis is
       end Handle_Match;
 
    begin
-      if Top_Frame.Context = Match_Context then
+      if Top_Frame.Top_Context.Is_Matching_Context then
          Handle_Match;
       else
          Node.As_Call_Expr.F_Called.Traverse (Visit_Expression'Access);
@@ -1573,6 +1626,59 @@ package body Wrapping.Runtime.Analysis is
          end if;
       end if;
    end Handle_Call;
+
+   procedure Handle_Fold
+     (Folded_Expression : Libtemplatelang.Analysis.Template_Node'Class; Node : Libtemplatelang.Analysis.Fold_Expr'Class)
+   is
+      use Libtemplatelang.Analysis;
+
+      Init_Value : Runtime_Object;
+   begin
+      --  While it is not strictly mandatory (e.g. you can use fold to create
+      --  a bunch of elements without caring of the aggregated result), fold
+      --  commands usually have an accumulator. They usually look of the form:
+      --     f: fold (expression, init, combine).
+      --  in this case, the accumulator needs to receive the value of init
+      --  and combine.
+
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Is_Folding_Context := True;
+      Top_Frame.Top_Context.Folding_Expression := Template_Node (Node.F_Combine);
+
+      --  Inside the folded expression, we need to go back to a situation where
+      --  self is top of the stack, as name can refer to the implicit self. Re
+      --  push this value
+
+      Push_Implicit_Self (Get_Implicit_Self);
+
+      Evaluate_Expression (Node.F_Default);
+      Init_Value := Pop_Object;
+
+      if Top_Frame.Top_Context.Name_Captured /= "" then
+         Top_Frame.Symbols.Include
+           (To_Text (Top_Frame.Top_Context.Name_Captured), Init_Value);
+      end if;
+
+       --  Then pop both the self implicit value
+
+      Pop_Object;
+
+      Evaluate_Expression (Folded_Expression);
+
+      --  Keep the result of the evaluate expression. If the result is false,
+      --  this means that nothing was actually found. In that case, the init
+      --  value needs to be pused.
+      --  TODO: This will not work for folding evaluating booleans, where
+      --  the init value may be true, but the result is false.
+
+      if Top_Frame.Data_Stack.Last_Element = Match_False then
+         Pop_Object;
+         Push_Object (Init_Value);
+      end if;
+
+      Pop_Frame_Context;
+   end Handle_Fold;
+
 
    procedure Build_Lambda (A_Lambda : Runtime_Lambda; Lambda_Expression : Libtemplatelang.Analysis.Template_Node) is
       function Not_Capture_Identifiers

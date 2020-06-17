@@ -188,10 +188,13 @@ package body Wrapping.Runtime.Structure is
    end Push_Match_Result;
 
    function Traverse
-     (An_Entity : access Language_Entity_Type;
-      A_Mode    : Browse_Mode;
+     (An_Entity    : access Language_Entity_Type;
+      A_Mode       : Browse_Mode;
       Include_Self : Boolean;
-      Visitor   : access function (E : access Language_Entity_Type'Class) return Visit_Action)
+      Final_Result : out Runtime_Object;
+      Visitor      : access function
+        (E      : access Language_Entity_Type'Class;
+         Result : out Runtime_Object) return Visit_Action)
       return Visit_Action
    is
       Current : Language_Entity;
@@ -203,7 +206,7 @@ package body Wrapping.Runtime.Structure is
       if Include_Self then
          Language_Entity_Type'Class (An_Entity.all).Pre_Visit;
 
-         case Visitor (An_Entity) is
+         case Visitor (An_Entity, Final_Result) is
             when Stop =>
                return Stop;
 
@@ -222,6 +225,7 @@ package body Wrapping.Runtime.Structure is
          case Language_Entity_Type'Class (An_Entity.all).Traverse
            (Prev,
             False,
+            Final_Result,
             Visitor)
          is
             when Stop =>
@@ -240,12 +244,13 @@ package body Wrapping.Runtime.Structure is
          return Language_Entity_Type'Class (An_Entity.all).Traverse
            (Next,
             False,
+            Final_Result,
             Visitor);
       elsif A_Mode = Template then
          for T of An_Entity.Templates_Ordered loop
             Language_Entity_Type'Class (T.all).Pre_Visit;
 
-            case Visitor (T) is
+            case Visitor (T, Final_Result) is
                when Over =>
                   null;
 
@@ -293,7 +298,7 @@ package body Wrapping.Runtime.Structure is
             for C of Current_Children_List loop
                Language_Entity_Type'Class (C.all).Pre_Visit;
 
-               case Visitor (C) is
+               case Visitor (C, Final_Result) is
                   when Stop =>
                      return Stop;
 
@@ -320,7 +325,7 @@ package body Wrapping.Runtime.Structure is
          while Current /= null loop
             Language_Entity_Type'Class (Current.all).Pre_Visit;
 
-            case Visitor (Current) is
+            case Visitor (Current, Final_Result) is
                when Stop =>
                   return Stop;
 
@@ -329,7 +334,9 @@ package body Wrapping.Runtime.Structure is
 
                when Into =>
                   if A_Mode = Child_Depth then
-                     case Language_Entity_Type'Class (Current.all).Traverse (A_Mode, False, Visitor) is
+                     case Language_Entity_Type'Class
+                       (Current.all).Traverse (A_Mode, False, Final_Result, Visitor)
+                     is
                         when Stop =>
                            return Stop;
 
@@ -389,9 +396,11 @@ package body Wrapping.Runtime.Structure is
       A_Mode            : Browse_Mode;
       Match_Expression  : Template_Node'Class)
    is
-      function Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
+      function Visitor
+        (E      : access Language_Entity_Type'Class;
+         Result : out Runtime_Object) return Visit_Action is
       begin
-         return Browse_Entity (An_Entity, E, Match_Expression);
+         return Browse_Entity (An_Entity, E, Match_Expression, Result);
       end Visitor;
 
       procedure Allocate (E : access Language_Entity_Type'Class) is
@@ -408,26 +417,31 @@ package body Wrapping.Runtime.Structure is
          end case;
       end Allocate;
 
-      Previous_Context : Frame_Context := Top_Frame.Context;
-      Prev_Allocate_Callback : Allocate_Callback;
       Found : Boolean;
+      Result : Runtime_Object;
    begin
-      Prev_Allocate_Callback := Top_Frame.An_Allocate_Callback;
-      Top_Frame.An_Allocate_Callback := null;
-      Top_Frame.Context := Match_Context;
+      Push_Frame_Context;
+      Top_Frame.Top_Context.An_Allocate_Callback := null;
+      Top_Frame.Top_Context.Is_Matching_Context := True;
 
       Found := Language_Entity_Type'Class(An_Entity.all).Traverse
-        (A_Mode, False, Visitor'Access) = Stop;
+        (A_Mode, False, Result, Visitor'Access) = Stop;
 
       if not Found and Has_Allocator (Match_Expression) then
          --  Semantic for search is to look first for matches that do not require
          --  an allocator. If none is found and if there are allocators, then
          --  re-try, this time with allocators enabled.
 
-         Top_Frame.An_Allocate_Callback := Allocate'Unrestricted_Access;
+         if Top_Frame.Top_Context.Is_Folding_Context then
+            --  TODO: it would be best to check that earlier in the system,
+            --  as opposed to only when trying to call a folding function.
+            Error ("allocators are not allowed in folding browsing functions");
+         end if;
+
+         Top_Frame.Top_Context.An_Allocate_Callback := Allocate'Unrestricted_Access;
 
          Found := Language_Entity_Type'Class(An_Entity.all).Traverse
-           (A_Mode, False, Visitor'Access) = Stop;
+           (A_Mode, False, Result, Visitor'Access) = Stop;
 
          if not Found then
             --  If still not found, there is still a possibilty that this can
@@ -438,36 +452,88 @@ package body Wrapping.Runtime.Structure is
             begin
                Dummy_Entity := new Language_Entity_Type;
 
-               Found := Visitor (Dummy_Entity) = Stop;
+               Found := Visitor (Dummy_Entity, Result) = Stop;
             end;
          end if;
       end if;
 
-      if not Found and then Top_Frame.Context /= Match_Context then
-         Error ("query failed in wrap or weave clause, consider move to match instead");
+      Pop_Frame_Context;
+
+      if not Found and then
+        not
+          (Top_Frame.Top_Context.Is_Matching_Context
+           or else Top_Frame.Top_Context.Is_Folding_Context)
+      then
+         Error ("no result found for browsing function");
       end if;
 
-      if not Found then
-         --  If we browsed the tree without finding a match, then push false.
-         --  Otherwise the previous result is good.
+      if Result /= null then
+         Push_Object (Result);
+      else
          Push_Match_False;
       end if;
-
-
-      Top_Frame.An_Allocate_Callback := Prev_Allocate_Callback;
-      Top_Frame.Context := Previous_Context;
    end Evaluate_Bowse_Functions;
 
-   function Browse_Entity (An_Entity : access Language_Entity_Type'Class; Browsed : access Language_Entity_Type'Class; Match_Expression : Template_Node'Class) return Visit_Action is
-      Result : Runtime_Object;
-   begin
-      --  If the match expression is null, we're only looking for the
-      --  presence of a node, not its form. Always return true and end the
-      --  iteration on the first element in this case.
-      if Match_Expression.Is_Null then
-         Push_Match_True (Browsed);
+   function Browse_Entity
+     (An_Entity : access Language_Entity_Type'Class;
+      Browsed : access Language_Entity_Type'Class;
+      Match_Expression : Template_Node'Class;
+      Result : out Runtime_Object) return Visit_Action
+   is
+      procedure Evaluate_Fold_Function is
+      begin
+         --  When evaluating a folding function in a browsing call, we need to
+         --  first deactivate folding in the expression itself. We also we need
+         --  to remove potential name capture, as it would override the one we
+         --  are capturing in this browsing iteration.
 
-         return Stop;
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Is_Folding_Context := False;
+         Top_Frame.Top_Context.Is_Matching_Context := False;
+         Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
+
+         --  Then evaluate that folding expression
+
+         Push_Implicit_Self (Browsed);
+         Evaluate_Expression (Top_Frame.Top_Context.Folding_Expression);
+
+         --  The result of the evaluate expression is the result of the
+         --  folding function, as opposed to the matching entity in normal
+         --  browsing.
+         Result := Pop_Object;
+         Pop_Object;
+
+         --  Pop frame context. This will in particular restore the name
+         --  catpure, which we're using as the accumulator.
+         Pop_Frame_Context;
+
+         --  If there's an name to store the result, store it there.
+
+         if Top_Frame.Top_Context.Name_Captured /= "" then
+            Top_Frame.Symbols.Include
+              (To_Text (Top_Frame.Top_Context.Name_Captured),
+               Result);
+         end if;
+      end Evaluate_Fold_Function;
+
+      Expression_Result : Runtime_Object;
+
+   begin
+      Result := null;
+
+      --  If the match expression is null, we're only looking for the
+      --  presence of a node, not its form. The result is always true.
+      if Match_Expression.Is_Null then
+         if Top_Frame.Top_Context.Is_Folding_Context then
+            Evaluate_Fold_Function;
+
+            return Into;
+         else
+            Result := new Runtime_Language_Entity_Type'
+              (Value => Language_Entity (Browsed), others => <>);
+
+            return Stop;
+         end if;
       end if;
 
       --  There is a subtetly in the browsing functions. The self reference
@@ -480,35 +546,66 @@ package body Wrapping.Runtime.Structure is
       Push_Implicit_Self (Browsed);
 
       --  If there's a name capture above this expression, its value needs
-      --  to be available in the underlying match expression.
+      --  to be available in the underlying match expression. We only capture
+      --  the entity outside of folding context. When folding, the result of
+      --  the folding expression will actually be what needs to be captured.
 
-      if Top_Frame.Name_Captured /= "" then
+      if Top_Frame.Top_Context.Name_Captured /= ""
+        and then not Top_Frame.Top_Context.Is_Folding_Context
+      then
          Top_Frame.Symbols.Include
-           (To_Text (Top_Frame.Name_Captured),
+           (To_Text (Top_Frame.Top_Context.Name_Captured),
             new Runtime_Language_Entity_Type'
               (Value => Language_Entity (Browsed), others => <>));
       end if;
 
+      --  Prior to evaluating the expression, we need to remove potential name
+      --  capture, as it would override the one we are capturing in this browsing
+      --  iteration.
+
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
+
       Evaluate_Expression (Match_Expression);
 
-      Result := Pop_Object;
+      Pop_Frame_Context;
+
+      Expression_Result := Pop_Object;
 
       Pop_Object;
 
-      if Result /= Match_False then
-         if Result.all in Runtime_Language_Entity_Type'Class
-           and then Runtime_Language_Entity (Result).Is_Allocated
+      if Expression_Result /= Match_False then
+         if Expression_Result.all in Runtime_Language_Entity_Type'Class
+           and then Runtime_Language_Entity (Expression_Result).Is_Allocated
          then
             --  If we have a result only in allocated mode, and if this result
             --  is a new entity, this means that this new entity is actually
             --  the result of the browse, not the one searched.
 
-            Push_Match_True (Runtime_Language_Entity (Result).Value);
-         else
-            Push_Match_True (Browsed);
-         end if;
+            Result := Expression_Result;
 
-         return Stop;
+            --  Note that it is illegal to call a fold function with an
+            --  allocator in the fold expression (we would never know when to
+            --  stop allocating). This case is supposed to have being taken
+            --  care of earlier but raise an error here just in case.
+
+            if Top_Frame.Top_Context.Is_Folding_Context then
+               Error ("allocation in folding browsing functions is illegal");
+            end if;
+
+            return Stop;
+         else
+            if Top_Frame.Top_Context.Is_Folding_Context then
+               Evaluate_Fold_Function;
+
+               return Into;
+            else
+               Result := new Runtime_Language_Entity_Type'
+                 (Value => Language_Entity (Browsed), others => <>);
+
+               return Stop;
+            end if;
+         end if;
       else
          return Into;
       end if;
@@ -613,7 +710,7 @@ package body Wrapping.Runtime.Structure is
                   A_Var : Semantic.Structure.Var :=  Semantic.Structure.Var (Named_Entity);
                begin
                   if A_Var.Kind = Text_Kind then
-                     if Top_Frame.Context /= Match_Context then
+                     if not Top_Frame.Top_Context.Is_Matching_Context then
                         if not An_Entity.Symbols.Contains (Name) then
                            An_Entity.Symbols.Insert (Name, new Runtime_Text_Container_Type);
                         end if;
@@ -820,10 +917,14 @@ package body Wrapping.Runtime.Structure is
       A_Mode                    : Browse_Mode;
       Match_Expression          : Template_Node'Class)
    is
-      function Template_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
+      function Template_Visitor
+        (E      : access Language_Entity_Type'Class;
+         Result : out Runtime_Object)
+         return Visit_Action
+      is
       begin
          for T of E.Templates_Ordered loop
-            if Browse_Entity (An_Entity, T, Match_Expression) = Stop then
+            if Browse_Entity (An_Entity, T, Match_Expression, Result) = Stop then
                return Stop;
             end if;
          end loop;
@@ -831,9 +932,12 @@ package body Wrapping.Runtime.Structure is
          return Into;
       end Template_Visitor;
 
-      function Self_Visitor (E : access Language_Entity_Type'Class) return Visit_Action is
+      function Self_Visitor
+        (E : access Language_Entity_Type'Class;
+         Result : out Runtime_Object)
+         return Visit_Action is
       begin
-         return Browse_Entity (An_Entity, E, Match_Expression);
+         return Browse_Entity (An_Entity, E, Match_Expression, Result);
       end Self_Visitor;
 
       procedure Allocate (E : access Language_Entity_Type'Class) is
@@ -852,13 +956,11 @@ package body Wrapping.Runtime.Structure is
 
       Result : Runtime_Object := Match_False;
 
-      Previous_Context : Frame_Context := Top_Frame.Context;
-      Prev_Allocate_Callback : Allocate_Callback;
       Found : Boolean;
    begin
-      Prev_Allocate_Callback := Top_Frame.An_Allocate_Callback;
-      Top_Frame.An_Allocate_Callback := null;
-      Top_Frame.Context := Match_Context;
+      Push_Frame_Context;
+      Top_Frame.Top_Context.An_Allocate_Callback := null;
+      Top_Frame.Top_Context.Is_Matching_Context := True;
 
       -- The sequence of traversal for template goes as follows:
       -- (1) traverse on the origin, see if there's any matching template there,
@@ -871,12 +973,12 @@ package body Wrapping.Runtime.Structure is
 
       if An_Entity.Origin /= null then
          Found := Language_Entity_Type'Class(An_Entity.Origin.all).Traverse
-           (A_Mode, False, Template_Visitor'Access) = Stop;
+           (A_Mode, False, Result, Template_Visitor'Access) = Stop;
       end if;
 
       if not Found then
          Found := Language_Entity_Type'Class(An_Entity.all).Traverse
-           (A_Mode, False, Self_Visitor'Access) = Stop;
+           (A_Mode, False, Result, Self_Visitor'Access) = Stop;
       end if;
 
       if not Found and Has_Allocator (Match_Expression) then
@@ -884,16 +986,22 @@ package body Wrapping.Runtime.Structure is
          --  an allocator. If none is found and if there are allocators, then
          --  re-try, this time with allocators enabled.
 
-         Top_Frame.An_Allocate_Callback := Allocate'Unrestricted_Access;
+         if Top_Frame.Top_Context.Is_Folding_Context then
+            --  TODO: it would be best to check that earlier in the system,
+            --  as opposed to only when trying to call a folding function.
+            Error ("allocators are not allowed in folding browsing functions");
+         end if;
+
+         Top_Frame.Top_Context.An_Allocate_Callback := Allocate'Unrestricted_Access;
 
          if An_Entity.Origin /= null then
             Found := Language_Entity_Type'Class(An_Entity.Origin.all).Traverse
-              (A_Mode, False, Template_Visitor'Access) = Stop;
+              (A_Mode, False, Result, Template_Visitor'Access) = Stop;
          end if;
 
          if not Found then
             Found := Language_Entity_Type'Class(An_Entity.all).Traverse
-              (A_Mode, False, Self_Visitor'Access) = Stop;
+              (A_Mode, False, Result, Self_Visitor'Access) = Stop;
          end if;
 
          if not Found then
@@ -905,21 +1013,26 @@ package body Wrapping.Runtime.Structure is
             begin
                Dummy_Entity := new Language_Entity_Type;
 
-               Found := Self_Visitor (Dummy_Entity) = Stop;
+               Found := Self_Visitor (Dummy_Entity, Result) = Stop;
             end;
          end if;
       end if;
 
-      if not Found and then Top_Frame.Context /= Match_Context then
-         Error ("query failed in wrap or weave clause, consider move to match instead");
+      Pop_Frame_Context;
+
+      if not Found and then
+        not
+          (Top_Frame.Top_Context.Is_Matching_Context
+           or else Top_Frame.Top_Context.Is_Folding_Context)
+      then
+         Error ("no result found for browsing function");
       end if;
 
-      if not Found then
+      if Result /= null then
+         Push_Object (Result);
+      else
          Push_Match_False;
       end if;
-
-      Top_Frame.An_Allocate_Callback := Prev_Allocate_Callback;
-      Top_Frame.Context := Previous_Context;
    end Evaluate_Bowse_Functions;
 
    overriding

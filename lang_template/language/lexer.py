@@ -21,7 +21,9 @@ class Token(LexerToken):
     And        = WithText()
     Or         = WithText()
     Not        = WithText()
+    
     New        = WithText()
+    Fold       = WithText()
 
     Into       = WithText()
     Over       = WithText()
@@ -74,7 +76,9 @@ template_lexer.add_rules(
     (Literal("and"), Token.And),
     (Literal("or"), Token.Or),
     (Literal("not"), Token.Not),
+
     (Literal ("new"), Token.New),
+    (Literal ("fold"), Token.Fold),
     
     (Literal("into"), Token.Into),
     (Literal("over"), Token.Over),

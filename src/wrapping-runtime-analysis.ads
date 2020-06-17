@@ -20,6 +20,10 @@ package Wrapping.Runtime.Analysis is
    --  Match a pattern with a text, adding group and captured variables on the
    --  top frame
 
+   procedure Push_Frame_Context;
+
+   procedure Pop_Frame_Context;
+
    procedure Push_Entity (An_Entity : access Language_Entity_Type'Class);
 
    procedure Push_Object (An_Object : access Runtime_Object_Type'Class);
