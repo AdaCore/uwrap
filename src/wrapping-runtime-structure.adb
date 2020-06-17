@@ -479,6 +479,16 @@ package body Wrapping.Runtime.Structure is
       --  TODO: these specificities needs to be duly documented in the UG.
       Push_Implicit_Self (Browsed);
 
+      --  If there's a name capture above this expression, its value needs
+      --  to be available in the underlying match expression.
+
+      if Top_Frame.Name_Captured /= "" then
+         Top_Frame.Symbols.Include
+           (To_Text (Top_Frame.Name_Captured),
+            new Runtime_Language_Entity_Type'
+              (Value => Language_Entity (Browsed), others => <>));
+      end if;
+
       Evaluate_Expression (Match_Expression);
 
       Result := Pop_Object;

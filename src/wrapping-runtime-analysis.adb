@@ -664,30 +664,69 @@ package body Wrapping.Runtime.Analysis is
 
       case Node.Kind is
          when Template_Match_Capture =>
-            --  This expression captures the result of the underlying
-            --  expression and lets its value pass through.
+            declare
+               Previous_Name_Capture : Unbounded_Text_Type;
+            begin
 
-            Node.As_Match_Capture.F_Expression.Traverse (Visit_Expression'Access);
+               --  This expression captures the result of the underlying
+               --  expression and lets its value pass through.
 
-            if Top_Frame.Data_Stack.Last_Element /= Match_False then
-               Top_Frame.Symbols.Include
-                 (Node.As_Match_Capture.F_Captured.Text,
-                  Top_Frame.Data_Stack.Last_Element);
-            end if;
+               --  First, save any previous name capture for restoration,
+               --  and store the new one.
 
-            Pop_Error_Location;
-            return Over;
+               Previous_Name_Capture := Top_Frame.Name_Captured;
+               Top_Frame.Name_Captured :=
+                 To_Unbounded_Text (Node.As_Match_Capture.F_Captured.Text);
 
+               Node.As_Match_Capture.F_Expression.Traverse (Visit_Expression'Access);
+
+               if Top_Frame.Data_Stack.Last_Element /= Match_False then
+                  Top_Frame.Symbols.Include
+                    (Node.As_Match_Capture.F_Captured.Text,
+                     Top_Frame.Data_Stack.Last_Element);
+               else
+                  --  For early reference, that name may have already been
+                  --  captured. If we eneded up not having a match, it needs
+                  --  to be removed.
+
+                  if Top_Frame.Symbols.Contains
+                    (Node.As_Match_Capture.F_Captured.Text)
+                  then
+                     Top_Frame.Symbols.Delete
+                       (Node.As_Match_Capture.F_Captured.Text);
+                  end if;
+               end if;
+
+               Top_Frame.Name_Captured := Previous_Name_Capture;
+
+               Pop_Error_Location;
+               return Over;
+
+            end;
          when Template_Selector =>
             declare
                Result : Runtime_Object;
+               Previous_Name_Capture : Unbounded_Text_Type;
             begin
                --  In a selector, we compute the left object, build the right
                --  expression based on the left object, and then put the result
                --  on the left object on the stack.
 
                if not Node.As_Selector.F_Left.Is_Null then
+                  --  The left part of a selector may have calls. In this
+                  --  case, these calls are unrelated to the value that is
+                  --  possibly being captured. E.g. in:
+                  --     a: b ().c
+                  --  b () value is not being captured in a.
+                  --  In order to respect that, the current captured name is
+                  --  removed when processing the left part of the selector
+                  Previous_Name_Capture := Top_Frame.Name_Captured;
+                  Top_Frame.Name_Captured := To_Unbounded_Text ("");
+
                   Node.As_Selector.F_Left.Traverse (Visit_Expression'Access);
+
+                  Top_Frame.Name_Captured := Previous_Name_Capture;
+
                   Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
                   Result := Pop_Object;
                   Pop_Object;

@@ -93,6 +93,10 @@ package Wrapping.Runtime.Structure is
       Lexical_Scope   : Semantic.Structure.Entity;
 
       Temp_Names      : Text_Maps.Map;
+
+      --  When hitting a capture expression, the name is being stored here so
+      --  that the capturing expression can update its value.
+      Name_Captured : Unbounded_Text_Type;
    end record;
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return Runtime_Object;
