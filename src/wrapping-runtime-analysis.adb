@@ -819,6 +819,19 @@ package body Wrapping.Runtime.Analysis is
                         Push_Match_False;
                      end if;
                   end if;
+               elsif Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Amp then
+                  Node.As_Binary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
+                  Right := Pop_Object;
+
+                  declare
+                     Container : Runtime_Text_Container :=
+                       new Runtime_Text_Container_Type;
+                  begin
+                     Container.Texts.Append (Left.To_Text_Expression);
+                     Container.Texts.Append (Right.To_Text_Expression);
+
+                     Push_Object (Container);
+                  end;
                end if;
             end;
 

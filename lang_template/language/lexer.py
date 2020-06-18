@@ -39,6 +39,7 @@ class Token(LexerToken):
     Arrow      = WithText()
     Dot        = WithText()
     Assign     = WithText()
+    Amp        = WithText()
 
     String     = WithText()
     Comment    = WithTrivia()
@@ -95,6 +96,7 @@ template_lexer.add_rules(
     (Literal("=>"), Token.Arrow),
     (Literal("."), Token.Dot),
     (Literal(":="), Token.Assign),
+    (Literal("&"), Token.Amp),
 
     (Literal("true"), Token.LitTrue),
     (Literal("false"), Token.LitFalse),

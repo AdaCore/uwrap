@@ -77,7 +77,7 @@ class Str(Expr):
 
 class Operator(TemplateNode):
     enum_node = True
-    alternatives = ['and', 'or', 'not']
+    alternatives = ['and', 'or', 'not', 'amp']
 
 class BinaryExpr(Expr):
     lhs = Field()
@@ -186,7 +186,7 @@ template_grammar.add_rules(
         BinaryExpr (G.relation, Or (Operator.alt_and('and'), Operator.alt_or('or')), G.expression),
         G.relation),
     relation=G.simple_expression,
-    simple_expression=G.term,
+    simple_expression=Or (BinaryExpr (G.term, Operator.alt_amp('&'), G.simple_expression), G.term),
     term=G.factor,
     factor=Or(UnaryExpr (Operator.alt_not('not'), G.primary), MatchCapture(G.identifier, ':', G.primary), G.primary),
     primary=Or(
