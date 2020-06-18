@@ -136,7 +136,8 @@ package body Wrapping.Runtime.Analysis is
          Is_Folding_Context => Top_Frame.Top_Context.Is_Folding_Context,
          Name_Captured => Top_Frame.Top_Context.Name_Captured,
          Folding_Expression => Top_Frame.Top_Context.Folding_Expression,
-         An_Allocate_Callback => Top_Frame.Top_Context.An_Allocate_Callback);
+         An_Allocate_Callback => Top_Frame.Top_Context.An_Allocate_Callback,
+         Left_Value => Top_Frame.Top_Context.Left_Value);
    end Push_Frame_Context;
 
    procedure Pop_Frame_Context is
@@ -824,11 +825,10 @@ package body Wrapping.Runtime.Analysis is
                   Right := Pop_Object;
 
                   declare
-                     Container : Runtime_Text_Container :=
-                       new Runtime_Text_Container_Type;
+                     Container : Runtime_Container := new Runtime_Container_Type;
                   begin
-                     Container.Texts.Append (Left.To_Text_Expression);
-                     Container.Texts.Append (Right.To_Text_Expression);
+                     Container.A_Vector.Append (Left);
+                     Container.A_Vector.Append (Right);
 
                      Push_Object (Container);
                   end;
@@ -958,6 +958,16 @@ package body Wrapping.Runtime.Analysis is
             Pop_Error_Location;
             return Over;
 
+         when Template_At_Ref =>
+            if Top_Frame.Top_Context.Left_Value = null then
+               Error ("no left value available in this context");
+            else
+               Push_Object (Top_Frame.Top_Context.Left_Value);
+            end if;
+
+            Pop_Error_Location;
+            return Over;
+
          when others =>
             Error ("unexpected expression node kind: '" & Node.Kind'Wide_Wide_Image & "'");
             Pop_Error_Location;
@@ -983,7 +993,7 @@ package body Wrapping.Runtime.Analysis is
       Str : constant Text_Type := Remove_Quotes (Node.Text);
       Context : constant Libtemplatelang.Analysis.Analysis_Context := Node.Unit.Context;
 
-      Result : Runtime_Text_Container := new Runtime_Text_Container_Type;
+      Result : Runtime_Container := new Runtime_Container_Type;
       New_Text : Runtime_Text;
 
       Next_Index : Integer := Str'First;
@@ -995,7 +1005,7 @@ package body Wrapping.Runtime.Analysis is
          New_Text := new Runtime_Text_Type;
          New_Text.Value := To_Unbounded_Text (Text);
 
-         Result.Texts.Append (Runtime_Text_Expression (New_Text));
+         Result.A_Vector.Append (Runtime_Object (New_Text));
       end Append_Text;
 
       procedure On_Error
@@ -1062,7 +1072,7 @@ package body Wrapping.Runtime.Analysis is
                         On_Expression.All (Expression_Unit.Root);
                      else
                         Evaluate_Expression (Expression_Unit.Root);
-                        Result.Texts.Append (Pop_Object.To_Text_Expression);
+                        Result.A_Vector.Append (Runtime_Object (Pop_Object));
                      end if;
                   end;
 
@@ -1324,7 +1334,8 @@ package body Wrapping.Runtime.Analysis is
    procedure Handle_Call_Parameters
      (Args : Libtemplatelang.Analysis.Argument_List;
       Name_For_Position : access function (Position : Integer) return Libtemplatelang.Analysis.Template_Node;
-      Store_Param_Value : access procedure (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : Runtime_Object))
+      Store_Param_Value : access procedure (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : Runtime_Object);
+      Perpare_Param_Evaluation : access procedure (Name_Node : Libtemplatelang.Analysis.Template_Node; Position : Integer) := null)
    is
       Parameter_Index : Integer;
       Parameter_Value : Runtime_Object;
@@ -1334,10 +1345,6 @@ package body Wrapping.Runtime.Analysis is
       Parameter_Index := 1;
 
       for Param of Args loop
-         Evaluate_Expression (Param.F_Value);
-
-         Parameter_Value := Pop_Object;
-
          if not Param.As_Argument.F_Name.Is_Null then
             In_Named_Section := True;
             Name_Node := Param.As_Argument.F_Name;
@@ -1349,6 +1356,14 @@ package body Wrapping.Runtime.Analysis is
             Name_Node := Name_For_Position.all (Parameter_Index);
          end if;
 
+         if Perpare_Param_Evaluation /= null then
+            Perpare_Param_Evaluation (Name_Node, Parameter_Index);
+         end if;
+
+         Evaluate_Expression (Param.F_Value);
+
+         Parameter_Value := Pop_Object;
+
          Store_Param_Value (Name_Node, Parameter_Value);
 
          Parameter_Index := Parameter_Index + 1;
@@ -1359,6 +1374,26 @@ package body Wrapping.Runtime.Analysis is
      (A_Template_Instance : Template_Instance;
       Args : Libtemplatelang.Analysis.Argument_List)
    is
+      procedure Perpare_Param_Evaluation (Name_Node : Libtemplatelang.Analysis.Template_Node; Position : Integer) is
+         New_Value : Runtime_Object;
+      begin
+         Push_Frame_Context;
+
+         if A_Template_Instance.Symbols.Contains (Name_Node.Text) then
+            --  A variable is an indirection to a value. Return that value.
+
+            Top_Frame.Top_Context.Left_Value :=
+              A_Template_Instance.Symbols.Element (Name_Node.Text).A_Vector.First_Element;
+         else
+            --  Text are modeled as a container of texts. So by default, this is
+            --  an empty container.
+            --  TODO: we're only handling text types for now, but will need to
+            --  handle new ones at some point.
+            New_Value := new Runtime_Container_Type;
+            Top_Frame.Top_Context.Left_Value := New_Value;
+         end if;
+      end;
+
       function Name_For_Position (Position : Integer) return Libtemplatelang.Analysis.Template_Node is
       begin
          return A_Template_Instance.Template.Get_Variable_For_Index
@@ -1366,24 +1401,31 @@ package body Wrapping.Runtime.Analysis is
       end Name_For_Position;
 
       procedure Store_Param_Value (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : Runtime_Object) is
-         Container : Runtime_Text_Container;
+         Container : Runtime_Container;
       begin
          if A_Template_Instance.Symbols.Contains (Name_Node.Text) then
-            Container := Runtime_Text_Container
+            Container := Runtime_Container
               (A_Template_Instance.Symbols.Element (Name_Node.Text));
          else
-            Container := new Runtime_Text_Container_Type;
+            Container := new Runtime_Container_Type;
             A_Template_Instance.Symbols.Insert
-              (Name_Node.Text, Runtime_Object (Container));
+              (Name_Node.Text, Container);
          end if;
 
-         Container.Texts.Append (Value.To_Text_Expression);
+         --  The container is an indirection to a value. Remove the previous one
+         --  and add the new one instead.
+
+         Container.A_Vector.Clear;
+         Container.A_Vector.Append (Value);
+
+         Pop_Frame_Context;
       end Store_Param_Value;
    begin
       Handle_Call_Parameters
         (Args,
          Name_For_Position'Access,
-         Store_Param_Value'Access);
+         Store_Param_Value'Access,
+         Perpare_Param_Evaluation'Access);
    end Handle_Template_Call;
 
    procedure Handle_Visitor_Call

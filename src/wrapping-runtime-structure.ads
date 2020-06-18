@@ -40,6 +40,11 @@ package Wrapping.Runtime.Structure is
    package Runtime_Object_Vectors is new Ada.Containers.Vectors (Positive, Runtime_Object);
    use Runtime_Object_Vectors;
 
+   type Runtime_Container_Type;
+   type Runtime_Container is access all Runtime_Container_Type'Class;
+   package Runtime_Container_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Runtime_Container);
+   use Runtime_Container_Maps;
+
    type Runtime_Integer_Type;
    type Runtime_Integer is access all Runtime_Integer_Type'Class;
 
@@ -48,9 +53,6 @@ package Wrapping.Runtime.Structure is
 
    package Runtime_Text_Expression_Vectors is new Ada.Containers.Vectors (Positive, Runtime_Text_Expression);
    use Runtime_Text_Expression_Vectors;
-
-   type Runtime_Text_Container_Type;
-   type Runtime_Text_Container is access all Runtime_Text_Container_Type'Class;
 
    type Runtime_Text_Type;
    type Runtime_Text is access all Runtime_Text_Type'Class;
@@ -103,6 +105,11 @@ package Wrapping.Runtime.Structure is
       --  This needs to be set in particular in browsing functions, in order to
       --  be able to capture things such as child (new ()).
       An_Allocate_Callback : Allocate_Callback := null;
+
+      --  When set, this identifies the value at the left of the expression.
+      --  For example, in A (V => @ & "something"), @ is the left value refering
+      --  to V.
+      Left_Value : Runtime_Object;
    end record;
 
    type Data_Frame_Type is record
@@ -216,7 +223,18 @@ package Wrapping.Runtime.Structure is
    type Template_Instance_Type is new Language_Entity_Type with record
       Template : Semantic.Structure.Template;
 
-      Symbols : Runtime_Object_Maps.Map;
+      --  This is used to record the actual values for the template variables.
+      --  There is always one level of indirection between the variable and
+      --  its actual data, so that when the variable is modified, references to
+      --  it are updated accordingly. For example, if you have something like:
+      --     weave with (X => "somethign", Y => X);
+      --  the reference to X is indirect, and if X changes through another
+      --  weaver, it will also change Y. The only time where the symbol is
+      --  automatically dereferenced is when using it as a left value reference,
+      --  such as:
+      --      weave with (X => @ & "somethign");
+      --  which would otherwise create cycles and defeat the intended semantic.
+      Symbols : Runtime_Container_Maps.Map;
 
       Origin : Language_Entity;
 
@@ -265,14 +283,23 @@ package Wrapping.Runtime.Structure is
 
    function To_Text (Object : Runtime_Object_Type) return Text_Type is ("");
 
-   --  TODO: check that we still need this text expression, we may just be
-   --  carrying text bits all over. The only place where this might be
-   --  useful is when computing temporary identifiers
-   function To_Text_Expression (Object : access Runtime_Object_Type) return Runtime_Text_Expression is (null);
-
    Null_Runtime_Object : constant Runtime_Object := new Runtime_Object_Type;
 
    Match_False : constant Runtime_Object := Null_Runtime_Object;
+
+   --  This type is record vector of runtime objects. In the context of
+   --  templates, it is also used to provide one level of indirection between
+   --  the variables and the actual objects (which may themselves be containers,
+   --  such as the "text" type.
+   type Runtime_Container_Type is new Runtime_Object_Type with record
+      A_Vector : Runtime_Object_Vectors.Vector;
+   end record;
+
+   --  Checks that this container only contains derivatives of Runtime_Text_Expression_Type.
+   function Is_Text_Container (Container : Runtime_Container_Type) return Boolean;
+
+   overriding
+   function To_Text (Object : Runtime_Container_Type) return Text_Type;
 
    type Runtime_Integer_Type is new Runtime_Object_Type with record
       Value : Integer;
@@ -281,22 +308,9 @@ package Wrapping.Runtime.Structure is
    overriding
    function To_Text (Object : Runtime_Integer_Type) return Text_Type;
 
-   overriding
-   function To_Text_Expression (Object : access Runtime_Integer_Type) return Runtime_Text_Expression;
-
    type Runtime_Text_Expression_Type is abstract new Runtime_Object_Type with record
       null;
    end record;
-
-   type Runtime_Text_Container_Type is new Runtime_Text_Expression_Type with record
-      Texts : Runtime_Text_Expression_Vectors.Vector;
-   end record;
-
-   overriding
-   function To_Text (Object : Runtime_Text_Container_Type) return Text_Type;
-
-   overriding
-   function To_Text_Expression (Object : access Runtime_Text_Container_Type) return Runtime_Text_Expression;
 
    type Runtime_Text_Type is new Runtime_Text_Expression_Type with record
       Value : Unbounded_Text_Type;
@@ -304,9 +318,6 @@ package Wrapping.Runtime.Structure is
 
    overriding
    function To_Text (Object : Runtime_Text_Type) return Text_Type;
-
-   overriding
-   function To_Text_Expression (Object : access Runtime_Text_Type) return Runtime_Text_Expression;
 
    type Runtime_Language_Entity_Type is new Runtime_Object_Type with record
       Value : Language_Entity;
@@ -326,10 +337,6 @@ package Wrapping.Runtime.Structure is
    overriding
    function To_Text (Object : Runtime_Language_Entity_Type) return Text_Type is
      (if Object.Value /= null then Object.Value.To_Text else "");
-
-   overriding
-   function To_Text_Expression (Object : access Runtime_Language_Entity_Type) return Runtime_Text_Expression
-   is (new Runtime_Text_Type'(Value => To_Unbounded_Text (Object.To_Text)));
 
    type Runtime_Function_Reference_Type is new Runtime_Object_Type with record
       Name : Unbounded_Text_Type;
@@ -368,9 +375,5 @@ package Wrapping.Runtime.Structure is
 
    overriding
    function To_Text (Object : Runtime_Lambda_Type) return Text_Type;
-
-   overriding
-   function To_Text_Expression (Object : access Runtime_Lambda_Type) return Runtime_Text_Expression
-   is (Runtime_Text_Expression (Object));
 
 end Wrapping.Runtime.Structure;

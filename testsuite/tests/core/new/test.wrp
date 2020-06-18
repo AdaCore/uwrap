@@ -28,13 +28,13 @@ match Entity ()
 wrap child (Entity ("E7") or new (MyEntity ("E7"))) with SubEntity ("SubE7");
 
 match MyEntity ()
-weave with standard.out ("MyEntity: \e<name>\n");
+weave with standard.out (@ & "MyEntity: \e<name>\n");
 
 match SubEntity ()
-weave with standard.out ("SubEntity: \e<name>\n");
+weave with standard.out (@ & "SubEntity: \e<name>\n");
 
 match s: SubEntity (parent (e: Entity ()))
-weave with standard.out ("SubEntity: \e<s.name>, parent Entity: \e<e.f_name>\n");
+weave with standard.out (@ & "SubEntity: \e<s.name>, parent Entity: \e<e.f_name>\n");
 
 match e: MyEntity (template (s: SubEntity ()))
-weave with standard.out ("MyEntity: \e<e.name>, template SubEntity: \e<s.name>\n");
+weave with standard.out (@ & "MyEntity: \e<e.name>, template SubEntity: \e<s.name>\n");

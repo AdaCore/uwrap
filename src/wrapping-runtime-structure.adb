@@ -708,17 +708,32 @@ package body Wrapping.Runtime.Structure is
             if Named_Entity.all in Var_Type then
                declare
                   A_Var : Semantic.Structure.Var :=  Semantic.Structure.Var (Named_Entity);
+                  New_Container : Runtime_Container;
                begin
                   if A_Var.Kind = Text_Kind then
                      if not Top_Frame.Top_Context.Is_Matching_Context then
                         if not An_Entity.Symbols.Contains (Name) then
-                           An_Entity.Symbols.Insert (Name, new Runtime_Text_Container_Type);
+                           --  Symbols contained in templates are references to
+                           --  values. Create the reference and the referenced
+                           --  empty value here.
+
+                           New_Container := new Runtime_Container_Type;
+                           New_Container.A_Vector.Append (new Runtime_Container_Type);
+
+                           An_Entity.Symbols.Insert (Name, New_Container);
                         end if;
 
                         Push_Object (An_Entity.Symbols.Element (Name));
 
                         return True;
                      else
+                        --  TODO: this is actually confusing. It means that
+                        --  we can't write:
+                        --      match e (x.f_name)
+                        --  with f_name just referencing the f_name value of
+                        --  e. Perhaps this should not depends on wether or not
+                        --  the context is matching, but rather on wether or not
+                        --  a (new) context is call prefix.
                         Push_Object
                           (Runtime_Object'(new Runtime_Function_Reference_Type'
                                (Name   => To_Unbounded_Text (Name),
@@ -1061,38 +1076,36 @@ package body Wrapping.Runtime.Structure is
       return Object.Value'Wide_Wide_Image;
    end To_Text;
 
-   overriding
-   function To_Text_Expression (Object : access Runtime_Integer_Type) return Runtime_Text_Expression is
+   function Is_Text_Container (Container : Runtime_Container_Type) return Boolean is
    begin
-      return new Runtime_Text_Type'(Value => To_Unbounded_Text (Object.Value'Wide_Wide_Image));
-   end To_Text_Expression;
+      for I of Container.A_Vector loop
+         if I.all in Runtime_Container_Type'Class then
+            if not Runtime_Container (I).Is_Text_Container then
+                 return False;
+            end if;
+         elsif I.all not in Runtime_Text_Expression_Type'Class then
+            return False;
+         end if;
+      end loop;
 
-   function To_Text (Object : Runtime_Text_Container_Type) return Text_Type is
+      return True;
+   end Is_Text_Container;
+
+   function To_Text (Object : Runtime_Container_Type) return Text_Type is
       Result : Unbounded_Text_Type;
    begin
-      for T of Object.Texts loop
+      for T of Object.A_Vector loop
          Result := Result & (if T /= null then T.To_Text else "");
       end loop;
 
       return To_Text (Result);
    end To_Text;
 
-   function To_Text_Expression (Object : access Runtime_Text_Container_Type) return Runtime_Text_Expression is
-   begin
-      return Runtime_Text_Expression (Object);
-   end To_Text_Expression;
-
    overriding
    function To_Text (Object : Runtime_Text_Type) return Text_Type is
    begin
       return To_Text (Object.Value);
    end To_Text;
-
-   overriding
-   function To_Text_Expression (Object : access Runtime_Text_Type) return Runtime_Text_Expression is
-   begin
-      return Runtime_Text_Expression (Object);
-   end To_Text_Expression;
 
    overriding
    function To_Text (Object : Runtime_Lambda_Type) return Text_Type

@@ -30,4 +30,4 @@ match Call () {
 }
 
 match Entity ()
-weave with standard.out ("ENTITY TRAVERSED: \e<f_name>\n");
+weave with standard.out (@ & "ENTITY TRAVERSED: \e<f_name>\n");

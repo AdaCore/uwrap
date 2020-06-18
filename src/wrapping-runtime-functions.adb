@@ -27,18 +27,6 @@ package body Wrapping.Runtime.Functions is
       return To_Lower (Object.Param.To_Text);
    end To_Text;
 
-   ------------------------
-   -- To_Text_Expression --
-   ------------------------
-
-   overriding function To_Text_Expression
-     (Object : access Runtime_Call_To_Lower_Type)
-      return Runtime_Text_Expression
-   is
-   begin
-      return Runtime_Text_Expression (Object);
-   end To_Text_Expression;
-
 
    overriding
    procedure Analyze_Parameters (Call : in out Runtime_Call_Unindent_Type; Params : Argument_List) is
@@ -63,17 +51,5 @@ package body Wrapping.Runtime.Functions is
    begin
       return Unident (Object.Param.To_Text);
    end To_Text;
-
-   ------------------------
-   -- To_Text_Expression --
-   ------------------------
-
-   overriding function To_Text_Expression
-     (Object : access Runtime_Call_Unindent_Type)
-      return Runtime_Text_Expression
-   is
-   begin
-      return Runtime_Text_Expression (Object);
-   end To_Text_Expression;
 
 end Wrapping.Runtime.Functions;

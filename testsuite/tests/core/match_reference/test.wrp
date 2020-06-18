@@ -1,17 +1,17 @@
 visitor v (x) {
     match x.f_name ("A")
-    weave x with standard.out ("(3) FOUND ENTITY \e<x.f_name>\n");
+    weave x with standard.out (@ & "(3) FOUND ENTITY \e<x.f_name>\n");
 
     match x (f_name ("A"))
-    weave x with standard.out ("(4) FOUND ENTITY \e<x.f_name>\n");   
+    weave x with standard.out (@ & "(4) FOUND ENTITY \e<x.f_name>\n");   
 }
 
 match Entity (child (e: Entity ())) {
     match e.f_name ("A")
-    weave e with standard.out ("(1) FOUND ENTITY \e<e.f_name>\n");
+    weave e with standard.out (@ & "(1) FOUND ENTITY \e<e.f_name>\n");
 
     match e (f_name ("A"))
-    weave e with standard.out ("(2) FOUND ENTITY \e<e.f_name>\n");
+    weave e with standard.out (@ & "(2) FOUND ENTITY \e<e.f_name>\n");
 
     weave with v (e);
 }

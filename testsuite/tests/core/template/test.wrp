@@ -38,19 +38,19 @@ match Entity () {
 }
 
 match w_root ()
-weave self with (contents => "PROCESSING ROOT \e<origin.f_name>\n");
+weave self with (contents => @ & "PROCESSING ROOT \e<origin.f_name>\n");
 
 match w_entity () and parent (w: w_root ())
-weave w with (contents => self.output);
+weave w with (contents => @ & self.output);
 
 match w_entity () and origin (template (o: w_option ())) and parent (w: w_root ())
-weave w with (contents => "OPTION FROM ORIGIN: \e<o.option>\n");
+weave w with (contents => @ & "OPTION FROM ORIGIN: \e<o.option>\n");
 
 match w_entity () and sibling (o: w_option ()) and parent (w: w_root ())
-weave w with (contents => "\e<origin.f_name> SIBLING OPTION: \e<o.option>\n");
+weave w with (contents => @ & "\e<origin.f_name> SIBLING OPTION: \e<o.option>\n");
 
 match w_entity () and (prev (o: w_option ()) or next (o: w_option ())) and parent (w: w_root ())
-weave w with (contents => "\e<origin.f_name> PREV OR NEXT OPTION: \e<o.option>\n");
+weave w with (contents => @ & "\e<origin.f_name> PREV OR NEXT OPTION: \e<o.option>\n");
 
 match w_root ()
 wrap with standard.out ("DISPLAYING ROOT\n\e<contents>");

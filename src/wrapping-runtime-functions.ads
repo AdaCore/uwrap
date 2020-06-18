@@ -29,9 +29,6 @@ package Wrapping.Runtime.Functions is
    overriding
    function To_Text (Object : Runtime_Call_To_Lower_Type) return Text_Type;
 
-   overriding
-   function To_Text_Expression (Object : access Runtime_Call_To_Lower_Type) return Runtime_Text_Expression;
-
    type Runtime_Call_Unindent_Type is new Runtime_Call_To_Global_Type with record
       Param : Runtime_Object;
    end record;
@@ -41,8 +38,5 @@ package Wrapping.Runtime.Functions is
 
    overriding
    function To_Text (Object : Runtime_Call_Unindent_Type) return Text_Type;
-
-   overriding
-   function To_Text_Expression (Object : access Runtime_Call_Unindent_Type) return Runtime_Text_Expression;
 
 end Wrapping.Runtime.Functions;

@@ -6,7 +6,7 @@ match Entity ()
 wrap with w_Entity (name => f_name);
 
 match w_Entity ()
-weave with standard.out ("\n");
+weave with standard.out (@ & "\n");
 
 match w_Entity ()
-weave with standard.out (f: self.child (w: w_Entity ()).fold ("children of \e<name>:", "\e<f> \e<w.name>"));
+weave with standard.out (@ & f: self.child (w: w_Entity ()).fold ("children of \e<name>:", "\e<f> \e<w.name>"));

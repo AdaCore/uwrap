@@ -244,7 +244,25 @@ package body Wrapping.Input.Kit is
                return True;
             end;
          end if;
-      elsif Selector.all in Runtime_Text_Expression_Type'Class then
+      elsif Selector.all in Runtime_Text_Expression_Type'Class
+        or else
+          (Selector.all in Runtime_Container_Type'Class
+           --  TODO: There's some confusion to solve here, and to decide
+           --  when an object is converted to text and when not. For now,
+           --  something like
+           --     match f_name (x.f_name))
+           --  will not match, while:
+           --     match f_name (set (x.f_name)) (assuming set creates a container)
+           --  or
+           --     match f_name ("\e<x.f_name>")) (because string creates a container)
+           --  will match. Handling of string conversion / interpretation needs
+           --  further design to ensure consistency
+           --  The test below happens to currently be too restrictive, as
+           --     match f_name ("\e<x.f_name>"))
+           --  doesn't create a text-only container.
+           -- and then Runtime_Container (Selector).Is_Text_Container
+          )
+      then
          if Match (Name, An_Entity.Node.Text) then
             Push_Match_True (Selector);
          else

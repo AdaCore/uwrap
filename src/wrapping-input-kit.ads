@@ -120,7 +120,4 @@ private
 
    function To_Text (Object : Runtime_Node_Type) return Text_Type is (Object.A_Node.Text);
 
-   function To_Text_Expression (Object : access Runtime_Node_Type) return Runtime_Text_Expression is
-     (new Runtime_Text_Type'(Value => To_Unbounded_Text (Object.To_Text)));
-
 end Wrapping.Input.Kit;

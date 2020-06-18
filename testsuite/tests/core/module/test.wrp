@@ -19,19 +19,19 @@ match Entity () {
 }
 
 match base_template ()
-weave with standard.out ("base_template = \e<self.content>");
+weave with standard.out (@ & "base_template = \e<self.content>");
 
 match x.t_in_x ()
-weave with standard.out ("x.t_in_x = \e<self.content>");
+weave with standard.out (@ & "x.t_in_x = \e<self.content>");
 
 match a.x.t_in_x ()
-weave with standard.out ("a.x.t_in_x = \e<self.content>");
+weave with standard.out (@ & "a.x.t_in_x = \e<self.content>");
 
 match a.b.y.t_in_y ()
-weave with standard.out ("a.b.y.t_in_y = \e<self.content>");
+weave with standard.out (@ & "a.b.y.t_in_y = \e<self.content>");
 
 match a.c.z.t_in_z ()
-weave with standard.out ("a.c.z.t_in_z = \e<self.content>");
+weave with standard.out (@ & "a.c.z.t_in_z = \e<self.content>");
 
 match t_in_x ()
-weave with standard.out ("a.x.t_in_x = \e<self.content>");
+weave with standard.out (@ & "a.x.t_in_x = \e<self.content>");

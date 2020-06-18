@@ -262,115 +262,115 @@ visitor wrappers_post_process () {
       weave with (lparenSpec => "(", rparenSpec => ")");
 
       match child (c: w_ParamSpec())
-      weave with (lparenCall => "( ", rparenCall => ")");
+      weave with (lparenCall => "(", rparenCall => ")");
 
-      weave p with (spec_content => self.spec, body_content => self.body);
+      weave p with (spec_content => @ & self.spec, body_content => @ & self.body);
     }
 
     match w_ParamSpec() and parent (s : w_SubpDecl()) {
        match not generate_formal ("NO") {
           match prev (w_ParamSpec (not generate_formal ("NO")))
           weave with (
-             formal_text => "; \e<name> : \e<mode> \e<type_expr>");
+             formal_text => @ & "; \e<name> : \e<mode> \e<type_expr>");
           else weave with (
-             formal_text => "\e<name> : \e<mode> \e<type_expr>");
+             formal_text => @ & "\e<name> : \e<mode> \e<type_expr>");
        }
 
        match prev (w_ParamSpec ())
-       weave with (actual_text => ", \e<actual_value>");
-       else weave with (actual_text => "\e<actual_value>");
+       weave with (actual_text => @ & ", \e<actual_value>");
+       else weave with (actual_text => @ & "\e<actual_value>");
 
        weave s with (
-          param_spec_list => formal_text,
-          pre_call_decl => pre_call_decl,
-          pre_call_stmt => pre_call_stmt,
-          call_decl => call_decl,
-          call_stmt => call_stmt,
-          call_assoc_list => actual_text,
-          post_call_decl => post_call_decl,
-          post_call_stmt => post_call_stmt,
-          return_stmt => return_stmt,
-          result_type_expr => result_type_expr
+          param_spec_list => @ & formal_text,
+          pre_call_decl => @ & pre_call_decl,
+          pre_call_stmt => @ & pre_call_stmt,
+          call_decl => @ & call_decl,
+          call_stmt => @ & call_stmt,
+          call_assoc_list => @ & actual_text,
+          post_call_decl => @ & post_call_decl,
+          post_call_stmt => @ & post_call_stmt,
+          return_stmt => @ & return_stmt,
+          result_type_expr => @ & result_type_expr
        );
     }
 
     match w_ComponentDecl () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ()) {
       weave t with (
-         content_definition => "\e<name> : \e<te.txt>;\n"
+         content_definition => @ & "\e<name> : \e<te.txt>;\n"
       );
     }
 
     match w_EnumLiteralDecl() and parent (p: w_TypeDecl ()) {
        match prev (w_EnumLiteralDecl ())
-          weave p with (content_definition => ", \e<name>");
+          weave p with (content_definition => @ & ", \e<name>");
        else
-          weave p with (content_definition => "\e<name>");
+          weave p with (content_definition => @ & "\e<name>");
     }
 
     match w_EnumRep() and parent (p: w_TypeDecl ()) {
       match prev (w_EnumRep())
-         weave p with (rep_definition => ", \e<name> => \e<value>\n"); 
+         weave p with (rep_definition => @ & ", \e<name> => \e<value>\n"); 
       else 
-         weave p with (rep_definition => "\e<name> => \e<value>\n");
+         weave p with (rep_definition => @ & "\e<name> => \e<value>\n");
     }
 
     match w_Aspect() and parent (p: w_TypeDecl ()) {
       match prev (w_Aspect ())
-         weave p with (aspects_declaration => ", \e<txt>\n"); 
+         weave p with (aspects_declaration => @ & ", \e<txt>\n"); 
       else 
-         weave p with (aspects_declaration => "with \e<txt>\n");
+         weave p with (aspects_declaration => @ & "with \e<txt>\n");
     }
 
     match w_TypeDecl () {
        match origin (t: child (TypeAccessDef ())) 
-          weave with (definition => "access \e<child (w_TypeExpr ()).txt>");
+          weave with (definition => @ & "access \e<child (w_TypeExpr ()).txt>");
        else match origin (child (RecordTypeDef ()))
-          weave with (definition => """
+          weave with (definition => @ & """
             record
                \e<content_definition>
              end record""");
        else match kind ("enumeration") # TODO: this whole test should be using enumeration instead
-          weave with (definition => "(\e<content_definition>)");
+          weave with (definition => @ & "(\e<content_definition>)");
        else match origin (child (t: TypeDef ())) 
-          weave with (definition => "\e<t>");
+          weave with (definition => @ & "\e<t>");
 
        match child (w_EnumRep ()) {
-          weave with (rep_declaration => "for \e<name> use (\n\e<rep_definition>\n);\n");
+          weave with (rep_declaration => @ & "for \e<name> use (\n\e<rep_definition>\n);\n");
        }
 
        match not parent (w_TypeExpr ()) and parent (p: w_PackageDecl())
-       weave p with (spec_content => "type \e<name> is \e<definition>\e<aspects_declaration>;\n\e<rep_declaration>");
+       weave p with (spec_content => @ & "type \e<name> is \e<definition>\e<aspects_declaration>;\n\e<rep_declaration>");
        else match parent (p: w_TypeExpr ())
-       weave p with (txt => definition);
+       weave p with (txt => @ & definition);
     }
 
     match w_TypeExpr (o: origin (child (i: Identifier ()))) {
       match o.p_designated_type_decl.template (w: w_TypeDecl ())
-      weave with (txt => w.name);
-      else weave with (txt => o);
+      weave with (txt => @ & w.name);
+      else weave with (txt => @ & o);
     }
     
     match p: w_PackageDecl (parent (u: w_Unit ()))
     weave u with 
-        (spec => p.spec,
-         body => p.body,
-         body_with_clauses => "with \e<p.original_name>;\n",
-         body_use_clauses => "use \e<p.original_name>;\n");
+        (spec => @ & p.spec,
+         body => @ & p.body,
+         body_with_clauses => @ & "with \e<p.original_name>;\n",
+         body_use_clauses => @ & "use \e<p.original_name>;\n");
 
     match w_WithClause () and parent (u: w_Unit ())
     weave u with (
-       spec_with_clauses => "with \e<ref>;\n",
-       body_with_clauses => "with \e<ref>;\n"
+       spec_with_clauses => @ & "with \e<ref>;\n",
+       body_with_clauses => @ & "with \e<ref>;\n"
     );
 
     match w_UseClause () and parent (u: w_Unit ())
     weave u with (
-       spec_with_clauses => "use \e<ref>;\n",
-       body_with_clauses => "use \e<ref>;\n"
+       spec_with_clauses => @ & "use \e<ref>;\n",
+       body_with_clauses => @ & "use \e<ref>;\n"
     );
 
     match w_DefiningName () and parent (n: w_NamedEntity ())
-    weave n with (name => self.name, original_name => n.origin.p_fully_qualified_name);
+    weave n with (name => @ & self.name, original_name => @ & n.origin.p_fully_qualified_name);
 
     match w_Unit () and child (p: w_PackageDecl ()) {
       #TODO: we should be using labels instead of extending standard.file

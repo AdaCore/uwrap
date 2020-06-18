@@ -1,5 +1,5 @@
 match Entity () and child (c: Entity ())
-weave c with standard.out ("weave first child \e<c.f_name>\n");
+weave c with standard.out (@ & "weave first child \e<c.f_name>\n");
 
 match Entity ()
-wrap with standard.out ("wrap \e<f_name>\n");
+wrap with standard.out (@ & "wrap \e<f_name>\n");
