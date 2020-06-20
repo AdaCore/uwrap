@@ -25,6 +25,90 @@ package body Wrapping.Runtime.Objects is
       return Found;
    end Has_Allocator;
 
+   generic
+      A_Mode : in Browse_Mode;
+   procedure Call_Gen_Browse
+     (Object : access W_Object_Type'Class;
+      Params : Libtemplatelang.Analysis.Argument_List);
+
+   procedure Call_Gen_Browse
+     (Object : access W_Object_Type'Class;
+      Params : Libtemplatelang.Analysis.Argument_List)
+   is
+   begin
+      if Params.Children_Count = 0 then
+         W_Node_Type'Class (Object.all).Evaluate_Bowse_Functions
+           (A_Mode, Libtemplatelang.Analysis.No_Template_Node);
+      elsif Params.Children_Count = 1 then
+         W_Node_Type'Class (Object.all).Evaluate_Bowse_Functions
+           (A_Mode, Params.Child (1).As_Argument.F_Value);
+      elsif Params.Children_Count > 1 then
+         Error ("matcher takes only 1 argument");
+      end if;
+   end Call_Gen_Browse;
+
+   procedure Call_Browse_Parent is new Call_Gen_Browse (Parent);
+   procedure Call_Browse_Child is new Call_Gen_Browse (Child_Breadth);
+   procedure Call_Browse_Next is new Call_Gen_Browse (Next);
+   procedure Call_Browse_Prev is new Call_Gen_Browse (Prev);
+   procedure Call_Browse_Sibling is new Call_Gen_Browse (Sibling);
+   procedure Call_Browse_Template is new Call_Gen_Browse (Wrapping.Runtime.Structure.Template);
+
+   procedure Call_Browse_Self
+     (Object : access W_Object_Type'Class;
+      Params : Libtemplatelang.Analysis.Argument_List)
+   is
+   begin
+      if Params.Children_Count = 0 then
+         Push_Match_True (Object);
+      elsif Params.Children_Count = 1 then
+         declare
+            Result : W_Object;
+         begin
+            Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+
+            Result := Pop_Object;
+
+            if Result /= Match_False then
+               Push_Match_True (Object);
+            else
+               Push_Match_False;
+            end if;
+         end;
+      else
+         Error ("self only takes 1 argument");
+      end if;
+   end Call_Browse_Self;
+
+   procedure Call_Tmp
+     (Object : access W_Object_Type'Class;
+      Params : Libtemplatelang.Analysis.Argument_List)
+   is
+   begin
+      if Params.Children_Count = 0 then
+         Push_Temporary_Name
+           ("",
+            W_Node (Object).Tmp_Counter);
+      elsif Params.Children_Count = 1 then
+         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+
+         Push_Temporary_Name
+           (Pop_Object.To_String,
+            W_Node (Object).Tmp_Counter);
+      else
+         Error ("tmp only accepts one argument");
+      end if;
+   end Call_Tmp;
+
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Reference_Type;
+      Params    : Libtemplatelang.Analysis.Argument_List)
+   is
+   begin
+      An_Entity.Value.Push_Call_Result (Params);
+   end Push_Call_Result;
+
    overriding
    function Traverse
      (An_Entity    : access W_Reference_Type;
@@ -84,6 +168,34 @@ package body Wrapping.Runtime.Objects is
       return True;
    end Is_Text_Container;
 
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Vector_Type;
+      Params    : Libtemplatelang.Analysis.Argument_List)
+   is
+      Result : W_Object;
+   begin
+      --  TODO: This will essentially enable checks against strings, which is
+      --  useful when vector indeed represent strings. Verify if
+      --  this is OK. We may need a specific vector string type for this, and
+      --  have a more comprehensive test here.
+
+      if Params.Children_Count = 0 then
+         Push_Match_True (An_Entity);
+      elsif Params.Children_Count = 1 then
+         Push_Implicit_Self (An_Entity);
+         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+         Result := Pop_Object;
+         Pop_Object;
+
+         if Result /= Match_False then
+            Push_Match_True (An_Entity);
+         else
+            Push_Match_False;
+         end if;
+      end if;
+   end Push_Call_Result;
+
    function To_String (Object : W_Vector_Type) return Text_Type is
       Result : Unbounded_Text_Type;
    begin
@@ -108,29 +220,109 @@ package body Wrapping.Runtime.Objects is
    end To_String;
 
    overriding
-   function Push_Match_Result
+   procedure Push_Call_Result
      (An_Entity : access W_String_Type;
-      Selector  : W_Object;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
+      Params    : Libtemplatelang.Analysis.Argument_List)
    is
       Matched : Boolean;
    begin
-      Matched := Runtime.Analysis.Match (Selector.To_String, To_Text (An_Entity.Value));
+      if Params.Children_Count /= 1 then
+         Error ("string comparison takes one argument");
+      end if;
+
+      Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+
+      Matched := Runtime.Analysis.Match
+        (Pop_Object.To_String, To_Text (An_Entity.Value));
 
       if Matched then
          Push_Match_True (An_Entity);
       else
          Push_Match_False;
       end if;
-
-      return True;
-   end Push_Match_Result;
+   end Push_Call_Result;
 
    overriding
    function To_String (Object : W_Text_Conversion_Type) return Text_Type is
    begin
       return Object.An_Object.To_String;
    end To_String;
+
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Function_Reference_Type;
+      Params    : Libtemplatelang.Analysis.Argument_List) is
+   begin
+      An_Entity.Call (An_Entity.Prefix, Params);
+   end Push_Call_Result;
+
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Static_Entity_Reference_Type;
+      Params    : Libtemplatelang.Analysis.Argument_List)
+   is
+      Implicit_Self : W_Object;
+      Prefix        : W_Template_Instance;
+      Result        : W_Object;
+   begin
+      --  Matching an static entity reference means two things:
+      --    *  First, check that this entity reference exist in the context,
+      --       that is it's of a subtype of the enclosing self.
+      --    *  Second, check that the expression, if any, corresponds to the
+      --       components of the enclosing self
+
+      Implicit_Self := Get_Implicit_Self;
+
+      --  This function currently only operates on template instances and
+      --  template types. Check that self is a template of the right type.
+
+      if Implicit_Self.all not in W_Template_Instance_Type then
+         Push_Match_False;
+         return;
+      end if;
+
+      if Implicit_Self.all not in W_Template_Instance_Type then
+         Push_Match_False;
+         return;
+      end if;
+
+      Prefix := W_Template_Instance (Implicit_Self);
+
+      if not Instance_Of
+        (Prefix.Template,
+         Wrapping.Semantic.Structure.Template (An_Entity.An_Entity))
+      then
+         Push_Match_False;
+         return;
+      end if;
+
+      --  If we're of the right type, then push the implicit self so that
+      --  the stack starts with an implicit entity at the top, and check
+      --  the result.
+
+      if Params.Children_Count = 0 then
+         Push_Match_True (Implicit_Self);
+         return;
+      elsif Params.Children_Count = 1 then
+         Push_Implicit_Self (Implicit_Self);
+         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+         Result := Pop_Object;
+         Pop_Object;
+
+         if Result /= Match_False then
+            --  If the result is good, then the result of this match is the
+            --  matched object.
+
+            Push_Match_True (Implicit_Self);
+            return;
+         else
+            Push_Match_False;
+            return;
+         end if;
+      else
+         Error ("matching a static entity requires one parameter at most");
+      end if;
+   end Push_Call_Result;
 
    overriding
    function To_String (Object : W_Lambda_Type) return Text_Type
@@ -206,86 +398,40 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Get_Template_Instance;
 
-   function Push_Browse_Result
-     (An_Entity : access W_Node_Type'Class;
-      Name      : Text_Type;
-      Params    : Argument_List) return Boolean
-   is
-      A_Mode : Browse_Mode;
-   begin
-      if Name = "parent" then
-         A_Mode := Parent;
-      elsif Name = "child" then
-         A_Mode := Child_Breadth;
-      elsif Name = "prev" then
-         A_Mode := Prev;
-      elsif Name = "next" then
-         A_Mode := Next;
-      elsif Name = "sibling" then
-         A_Mode := Sibling;
-      elsif Name = "template" then
-          A_Mode := Wrapping.Runtime.Structure.Template;
-      elsif Name = "self" then
-         if Params.Children_Count = 0 then
-            Push_Match_True (An_Entity);
-         elsif Params.Children_Count = 1 then
-            declare
-               Result : W_Object;
-            begin
-               Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-
-               Result := Pop_Object;
-
-               if Result /= Match_False then
-                  Push_Match_True (An_Entity);
-               else
-                  Push_Match_False;
-               end if;
-            end;
-         else
-            Error ("self only takes 1 argument");
-         end if;
-
-         return True;
-      else
-         return False;
-      end if;
-
-      if Params.Children_Count = 0 then
-         W_Node_Type'Class (An_Entity.all).Evaluate_Bowse_Functions
-           (A_Mode, Libtemplatelang.Analysis.No_Template_Node);
-      elsif Params.Children_Count = 1 then
-         W_Node_Type'Class (An_Entity.all).Evaluate_Bowse_Functions
-           (A_Mode, Params.Child (1).As_Argument.F_Value);
-      elsif Params.Children_Count > 1 then
-         Error ("matcher takes only 1 argument");
-      end if;
-
-      return True;
-   end Push_Browse_Result;
-
    overriding
    function Push_Value
      (An_Entity : access W_Node_Type;
       Name      : Text_Type) return Boolean
    is
+      A_Call : Call_Access := null;
    begin
       if An_Entity.Templates_By_Name.Contains (Name) then
          Push_Object (An_Entity.Templates_By_Name.Element (Name));
 
          return True;
-      elsif Name = "parent"
-        or else Name = "child"
-        or else Name = "next"
-        or else Name = "prev"
-        or else Name = "sibling"
-        or else Name = "template"
-        or else Name = "tmp"
-      then
+      elsif Name = "parent" then
+         A_Call := Call_Browse_Parent'Access;
+      elsif Name = "child" then
+         A_Call := Call_Browse_Child'Access;
+      elsif Name = "next" then
+         A_Call := Call_Browse_Next'Access;
+      elsif Name = "prev" then
+         A_Call := Call_Browse_Prev'Access;
+      elsif Name = "sibling" then
+         A_Call := Call_Browse_Sibling'Access;
+      elsif Name = "template" then
+         A_Call := Call_Browse_Template'Access;
+      elsif Name = "tmp" then
+         A_Call := Call_Tmp'Access;
+      elsif Name = "self" then
+         A_Call := Call_Browse_Self'Access;
+      end if;
+
+      if A_Call /= null then
          Push_Object
            (W_Object'(new W_Function_Reference_Type'
-                (Name   => To_Unbounded_Text (Name),
-                 Prefix => W_Node (An_Entity))));
+                (Prefix => W_Object (An_Entity),
+                 Call => A_Call)));
 
          return True;
       end if;
@@ -294,44 +440,29 @@ package body Wrapping.Runtime.Objects is
    end Push_Value;
 
    overriding
-   function Push_Call_Result
+   procedure Push_Call_Result
      (An_Entity : access W_Node_Type;
-      Name      : Text_Type;
-      Params    : Argument_List) return Boolean
+      Params    : Argument_List)
    is
+      Result : W_Object;
    begin
-      if Push_Browse_Result (An_Entity, Name, Params) then
-         return True;
-      elsif Name = "tmp" then
-         if Params.Children_Count = 0 then
-            Push_Temporary_Name
-              ("",
-               An_Entity.Tmp_Counter);
-         elsif Params.Children_Count = 1 then
-            Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+      if Params.Children_Count = 0 then
+         Push_Match_True (An_Entity);
+      elsif Params.Children_Count = 1 then
+         Push_Implicit_Self (W_Object (An_Entity));
+         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+         Result := Pop_Object;
+         Pop_Object;
 
-            Push_Temporary_Name
-              (Pop_Object.To_String,
-               An_Entity.Tmp_Counter);
+         if Result = Match_False then
+            Push_Match_False;
          else
-            Error ("tmp only accepts one argument");
+            Push_Match_True (An_Entity);
          end if;
-
-         return True;
       else
-         return False;
+         Error ("comparing with a node requires one parameter");
       end if;
    end Push_Call_Result;
-
-   overriding
-   function Push_Match_Result
-     (An_Entity : access W_Node_Type;
-      Selector  : W_Object;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
-   is
-   begin
-      return W_Node_Type'Class (An_Entity.all).Push_Browse_Result (Selector.To_String, Params);
-   end Push_Match_Result;
 
    function Traverse
      (An_Entity    : access W_Node_Type;
@@ -763,9 +894,11 @@ package body Wrapping.Runtime.Objects is
       -- First cover the case of a variable or a pattern
 
       if Name = "origin" then
-         Push_Object (An_Entity.Origin);
+         if An_Entity.Origin /= null then
+            Push_Object (An_Entity.Origin);
 
-         return True;
+            return True;
+         end if;
       else
          Named_Entity := An_Entity.Template.Get_Component (Name);
 
@@ -776,36 +909,20 @@ package body Wrapping.Runtime.Objects is
                   New_Ref : W_Reference;
                begin
                   if A_Var.Kind = Text_Kind then
-                     if not Top_Frame.Top_Context.Is_Matching_Context then
-                        if not An_Entity.Symbols.Contains (Name) then
-                           --  Symbols contained in templates are references to
-                           --  values. Create the reference and the referenced
-                           --  empty value here.
+                     if not An_Entity.Symbols.Contains (Name) then
+                        --  Symbols contained in templates are references to
+                        --  values. Create the reference and the referenced
+                        --  empty value here.
 
-                           New_Ref := new W_Reference_Type;
-                           New_Ref.Value := new W_Vector_Type;
+                        New_Ref := new W_Reference_Type;
+                        New_Ref.Value := new W_Vector_Type;
 
-                           An_Entity.Symbols.Insert (Name, New_Ref);
-                        end if;
-
-                        Push_Object (An_Entity.Symbols.Element (Name));
-
-                        return True;
-                     else
-                        --  TODO: this is actually confusing. It means that
-                        --  we can't write:
-                        --      match e (x.f_name)
-                        --  with f_name just referencing the f_name value of
-                        --  e. Perhaps this should not depends on wether or not
-                        --  the context is matching, but rather on wether or not
-                        --  a (new) context is call prefix.
-                        Push_Object
-                          (W_Object'(new W_Function_Reference_Type'
-                               (Name   => To_Unbounded_Text (Name),
-                                Prefix => W_Node (An_Entity))));
-
-                        return True;
+                        An_Entity.Symbols.Insert (Name, New_Ref);
                      end if;
+
+                     Push_Object (An_Entity.Symbols.Element (Name));
+
+                     return True;
                   elsif A_Var.Kind = Pattern_Kind then
                      --  If it's a pattern, just return the current value of the result
                      --  as a text expression. This will need to be evaluated, push
@@ -829,167 +946,6 @@ package body Wrapping.Runtime.Objects is
 
       return False;
    end Push_Value;
-
-   function Push_Call_Result
-     (An_Entity : access W_Template_Instance_Type;
-      Name      : Text_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
-   is
-
-   begin
-      if W_Node_Type (An_Entity.all).Push_Call_Result (Name, Params) then
-         return True;
-      end if;
-
-      return False;
-   end Push_Call_Result;
-
-   function Push_Match_Result
-     (An_Entity : access W_Template_Instance_Type;
-      Selector  : W_Object;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
-   is
-      Dummy_Boolean : Boolean;
-
-      use Wrapping.Semantic.Structure;
-
-      procedure Match_Variable_Value (Name : Text_Type; Expression : Libtemplatelang.Analysis.Template_Node'Class) is
-         Result : W_Object;
-         String_Entity : W_String;
-      begin
-         if An_Entity.Symbols.Contains (Name) then
-            String_Entity := new W_String_Type'
-              (Value => To_Unbounded_Text (An_Entity.Symbols.Element (Name).To_String), others => <>);
-         else
-            Push_Match_False;
-            return;
-         end if;
-
-         Push_Implicit_Self (String_Entity);
-
-         Evaluate_Expression (Expression);
-
-         Result := Pop_Object;
-         Pop_Object;
-
-         if Result /= Match_False then
-            Dummy_Boolean := An_Entity.Push_Value (Name);
-         else
-            Push_Match_False;
-         end if;
-      end Match_Variable_Value;
-
-      A_Named_Entity : Named_Entity;
-      Result : W_Object;
-
-      function Is_Instance_Of (A_Template : Template_Type'Class; Name : Text_Type) return Boolean is
-      begin
-         if A_Template.Name_Node.Text = Name then
-            return True;
-         elsif A_Template.Extends /= null then
-            return Is_Instance_Of (A_Template.Extends.all, Name);
-         else
-            return False;
-         end if;
-      end Is_Instance_Of;
-
-      Name : Text_Type := Selector.To_String;
-   begin
-      if W_Node_Type (An_Entity.all).Push_Match_Result (Selector, Params) then
-         return True;
-      end if;
-
-      if Name = "origin" then
-         if An_Entity.Origin = null then
-            Push_Match_False;
-            return True;
-         end if;
-
-         if Params.Children_Count = 0 then
-            --  We just checked for the existence of this var and
-            --  disregard the actual value
-
-            Push_Match_True (An_Entity.Origin);
-
-            return True;
-         elsif Params.Children_Count = 1 then
-            Push_Implicit_Self (An_Entity.Origin);
-
-            Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-
-            -- unstack origin and result
-            Result := Pop_Object;
-            Pop_Object;
-
-            if Result = Match_False then
-               Push_Match_False;
-            else
-               Push_Match_True (An_Entity.Origin);
-            end if;
-
-            return True;
-         else
-            Error ("only one parameter expected");
-         end if;
-      elsif An_Entity.Template.Get_Component (Name) /= null then
-         -- If the name is a template variable, match the argument
-         A_Named_Entity := Named_Entity
-           (An_Entity.Template.Get_Component (Name));
-
-         if A_Named_Entity.all in Var_Type then
-            --  We are calling to match a given parameter value. The convention
-            --  is first to stack the name of the variable, then the pattern
-            --  (the arguments).
-
-            if Params.Children_Count = 0 then
-               --  We just checked for the existence of this var and
-               --  disregard the actual value
-
-               Dummy_Boolean := An_Entity.Push_Value (Name);
-            elsif Params.Children_Count = 1 then
-               Match_Variable_Value (A_Named_Entity.Name_Node.Text, Params.Child (1).As_Argument.F_Value);
-            else
-               Error ("var matcher only takes one parameter");
-            end if;
-         end if;
-
-         return True;
-      elsif Selector.all in W_Static_Entity_Reference_Type'Class then
-         declare
-            Selected : Semantic.Structure.Entity := W_Static_Entity_Reference (Selector).An_Entity;
-         begin
-            if Selected.all in Semantic.Structure.Template_Type'Class then
-               if Instance_Of
-                 (An_Entity.Template,
-                  Semantic.Structure.Template (Selected))
-               then
-                  --  Put_Line ("******************* TRUE");
-                  if Params.Children_Count = 0 Then
-                     Push_Match_True (An_Entity);
-                  elsif Params.Children_Count = 1 then
-                     Push_Implicit_Self (An_Entity);
-
-                     Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-                     Result := Pop_Object;
-                     Pop_Object;
-
-                     if Result = Match_False then
-                        Push_Match_False;
-                     else
-                        Push_Match_True (An_Entity);
-                     end if;
-                  else
-                     Error ("only one parameter allowed for template match");
-                  end if;
-
-                  return True;
-               end if;
-            end if;
-         end;
-      end if;
-
-      return False;
-   end Push_Match_Result;
 
    overriding
    function Traverse

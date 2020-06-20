@@ -919,9 +919,12 @@ package body Wrapping.Runtime.Analysis is
 
             if Top_Frame.Top_Context.Is_Matching_Context then
                declare
-                  To_Match : W_Object := Pop_Object;
+                  Pattern : Text_Type := Pop_Object.To_String;
+                  Value : Text_Type := Top_Object.To_String;
                begin
-                  if not Get_Implicit_Self.Push_Match_Result (To_Match, No_Argument_List) then
+                  if Match (Pattern, Value) then
+                     Push_Match_True (Top_Object);
+                  else
                      Push_Match_False;
                   end if;
                end;
@@ -1255,16 +1258,11 @@ package body Wrapping.Runtime.Analysis is
       end if;
 
       if Tentative_Symbol = null then
-         if Top_Frame.Top_Context.Is_Matching_Context then
-            Push_Match_False;
-         else
-            return False;
-         end if;
+         return False;
       else
          Push_Object (Tentative_Symbol);
+         return True;
       end if;
-
-      return True;
    end Push_Global_Identifier;
 
    procedure Handle_Global_Identifier (Name : Text_Type) is
@@ -1284,7 +1282,12 @@ package body Wrapping.Runtime.Analysis is
          An_Entity := W_Static_Entity_Reference (Top_Frame.Data_Stack.Last_Element).An_Entity;
 
          if not An_Entity.Children_Indexed.Contains (Node.Text) then
-            Error ("'" & Node.Text & "' not found");
+            if Top_Frame.Top_Context.Is_Matching_Context then
+               Push_Match_False;
+               return;
+            else
+               Error ("'" & Node.Text & "' not found");
+            end if;
          end if;
 
          A_Semantic_Entity := An_Entity.Children_Indexed.Element (Node.Text);
@@ -1348,13 +1351,23 @@ package body Wrapping.Runtime.Analysis is
                return;
             end if;
 
-            Error ("'" & Node.Text & "' not found");
+            if Top_Frame.Top_Context.Is_Matching_Context then
+               Push_Match_False;
+               return;
+            else
+               Error ("'" & Node.Text & "' not found");
+            end if;
          else
             if Prefix_Entity.Push_Value (Name) then
                --  We found a component of the entity and it has been pushed
                return;
             else
-               Error ("'" & Name & "' component not found");
+               if Top_Frame.Top_Context.Is_Matching_Context then
+                  Push_Match_False;
+                  return;
+               else
+                  Error ("'" & Name & "' component not found");
+               end if;
             end if;
          end if;
       end Handle_Language_Entity_Selection;
@@ -1562,149 +1575,6 @@ package body Wrapping.Runtime.Analysis is
 
       Called : W_Object;
 
-      procedure Handle_Function_Call is
-         A_Function : W_Function_Reference :=
-           W_Function_Reference (Called);
-      begin
-         if not A_Function.Prefix.Push_Call_Result
-           (To_Text (A_Function.Name), Node.F_Args)
-         then
-            Error ("function '" & To_Text (A_Function.Name) & "' can't be called");
-         end if;
-      end Handle_Function_Call;
-
-      procedure Handle_Match is
-         Match_Object : W_Object;
-         Self : W_Node;
-         Scope : Semantic.Structure.Entity;
-         Selected : Semantic.Structure.Entity;
-         Result : W_Object;
-         Match_Is_Implicit : Boolean;
-      begin
-         Match_Object := Top_Object_Dereference;
-
-         Match_Is_Implicit := Match_Object.all in W_Reference_Type'Class
-           and then W_Reference (Match_Object).Is_Implicit;
-
-         --  At this point, the matching is of the form:
-         --     <implicit self> (Called (F_Args))
-         --     <implicit self>.Called (F_Args)
-         --     Match_Object (Called (F_Args))
-         --     Match_Object.Called (F_Args)
-         --  Depending on wether the matched object is implicit or not.
-
-         --  First check if call is a language entity. we are of the form:
-         --     field_or_property_name (F_Args)
-         -- or
-         --     Match_Object (field_or_property_name (F_Args))
-
-         --  First step, if the called object resolved to a language entity,
-         --  check that the parameter match this language entity. Here, we can
-         --  resolve to various forms:
-         --     (implicit self> (an_entity (F_Args))
-         --     (implicit self>.an_entity (F_Args)
-         --     Match_Object (an_entity (F_Args))
-         --     Match_Object.an_entity (F_Args)
-         --  We already resolved an_entity in the context of the top entity,
-         --  may that be the implicit self or the matched object.
-         --  If there's nothing else to check (F_Args), we're done. Otherwise
-         --  check that the arg expression matches the entity.
-
-         if Called.all in W_Node_Type'Class then
-            if Node.F_Args.Children_Count = 0 then
-               Push_Match_True (Called);
-            elsif Node.F_Args.Children_Count = 1 then
-               Push_Implicit_Self (Called);
-               Node.F_Args.Child (1).As_Argument.F_Value.Traverse
-                 (Visit_Expression'Access);
-               Result := Pop_Object;
-               Pop_Object;
-
-               if Result = Match_False then
-                  --  The language entity doesn't correspond to the parameters,
-                  --  stack False and return.
-
-                  Push_Match_False;
-               else
-                  Push_Match_True (Called);
-               end if;
-
-               return;
-            else
-               Error ("matching on an entity reference takes only 1 parameter");
-            end if;
-         end if;
-
-         --  If Called didn't resolved to a language entity, then it's a
-         --  predicate to either the implicit self, or the matched object.
-
-         --  If the matched object is a static entity, for example a template
-         --  name, we're in the matcher form:
-         --     template_name (field_or_property_name (F_Args))
-         --  this translates into: "check that self is of type template_name
-         --     and has a field field_or_property_name that corresponds to
-         --     the arguments F_Args.
-
-         if Match_Object.all in W_Static_Entity_Reference_Type'Class then
-            Scope := W_Static_Entity_Reference (Match_Object).An_Entity;
-
-            if Scope.Children_Indexed.Contains (Node.F_Called.Text) then
-               --  At this point, we stacked references to various namespaces.
-               --  For example if we have
-               --     a.b.template_name (field_or_property_name (F_Args))
-               --  a, b and template_name are on the stack.
-               --  They will get unstacked when exiting the selectors. We do need to
-               --  retreive the value of self earlier in the stack.
-
-               Self := W_Node (Get_Implicit_Self);
-
-               Selected := Scope.Children_Indexed.Element (Node.F_Called.Text);
-
-               --  TODO: We might be able to go without a pointer in the signature
-               --  of match result, avoiding dynamic memory allocation here.
-               if Self.Push_Match_Result
-                 (new W_Static_Entity_Reference_Type'(An_Entity => Selected),
-                  Node.F_Args)
-               then
-                  return;
-               end if;
-            else
-               Error ("'" & Node.F_Called.Text & "' not found in '"
-                      & Named_Entity (W_Static_Entity_Reference (Match_Object).An_Entity).Name_Node.Text & "'");
-            end if;
-         end if;
-
-         --  If the matched object is a runtime entity, then we have a matcher
-         --  of the form:
-         --     entity (template_name (arguments))
-         --  or
-         --     entity (field_or_property_name (arguments)
-         --  We can differenciate the two from the type of Call which can be
-         --  already a static entity. If it's not, we'll just get its text.
-         --  TODO: that second alternative is a bit weak, it would be better
-         --  to be able to retreive the field object when retreiving called.
-
-         if Match_Object.all in W_Node_Type'Class then
-            if Called.all in W_Static_Entity_Reference_Type'Class then
-                if Match_Object.Push_Match_Result (Called, Node.F_Args) then
-                  return;
-               end if;
-            else
-               if Match_Object.Push_Match_Result
-                 (new W_Field_Reference_Type'
-                    (Name => To_Unbounded_Text (Node.F_Called.Text)),
-                  Node.F_Args)
-               then
-                  return;
-               end if;
-            end if;
-         end if;
-
-         -- If none of the above worked, we don't match the call.
-
-         Push_Match_False;
-      end Handle_Match;
-
       procedure Handle_Conversion is
       begin
          --  The conversion is already stack. We just need to compute the
@@ -1730,28 +1600,34 @@ package body Wrapping.Runtime.Analysis is
       Called := Pop_Object_Dereference;
 
       if Top_Frame.Top_Context.Is_Matching_Context then
-         Handle_Match;
-      else
-         if Called.all in W_Call_To_Global_Type'Class then
-            W_Call_To_Global (Called).Analyze_Parameters (Node.F_Args);
-
-            --  When analyzing a global call, we're only analyzing the
-            --  parameters. Push the call back to the stack for later consumption.
-            Push_Object (Called);
-         elsif Called.all in W_Function_Reference_Type'Class then
-            Handle_Function_Call;
-         elsif Called.all in W_Text_Conversion_Type'Class
-           or else Called.all in W_String_Type'Class
-         then
-            --  By convention, we stacked a text conversion or a text when
-            --  asking for a conversion to text or to string. This object is
-            --  to be kept, the job of the convertor is to set the right fields
-            --  of that object.
-
-            Handle_Conversion;
-         else
-            Error ("expected function call or template reference");
+         --  If we're on a matching context, we need not to fail upon not
+         --  finding an object, but instead just match false.
+         if Called = Match_False then
+            Push_Match_False;
+            return;
          end if;
+      end if;
+
+      --  TODO: It's not clear at all that we need three different branches
+      --  here, Push_Call_Result could be properly set for all of these objects.
+
+      if Called.all in W_Call_To_Global_Type'Class then
+         W_Call_To_Global (Called).Analyze_Parameters (Node.F_Args);
+
+         --  When analyzing a global call, we're only analyzing the
+         --  parameters. Push the call back to the stack for later consumption.
+         Push_Object (Called);
+      elsif Called.all in W_Text_Conversion_Type'Class
+        or else Called.all in W_String_Type'Class
+      then
+         --  By convention, we stacked a text conversion or a text when
+         --  asking for a conversion to text or to string. This object is
+         --  to be kept, the job of the convertor is to set the right fields
+         --  of that object.
+
+         Handle_Conversion;
+      else
+         Called.Push_Call_Result (Node.F_Args);
       end if;
    end Handle_Call;
 

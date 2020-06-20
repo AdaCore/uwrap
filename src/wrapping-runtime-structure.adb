@@ -55,4 +55,11 @@ package body Wrapping.Runtime.Structure is
       Push_Object (Match_False);
    end Push_Match_False;
 
+   procedure Push_Call_Result
+     (An_Entity : access W_Object_Type;
+      Params    : Libtemplatelang.Analysis.Argument_List) is
+   begin
+      Error ("non callable entity");
+   end Push_Call_Result;
+
 end Wrapping.Runtime.Structure;

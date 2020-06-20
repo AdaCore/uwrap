@@ -99,12 +99,6 @@ package Wrapping.Input.Kit is
       Name      : Text_Type) return Boolean;
 
    overriding
-   function Push_Match_Result
-     (An_Entity : access W_Kit_Node_Type;
-      Selector  : W_Object;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
-
-   overriding
    function To_String (Object : W_Kit_Node_Type) return Text_Type;
 
    procedure Analyze_File (File : String);

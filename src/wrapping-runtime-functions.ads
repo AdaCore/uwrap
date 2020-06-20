@@ -5,6 +5,10 @@ with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
 
 package Wrapping.Runtime.Functions is
 
+   --  TODO: Reconcider these functions - should probably be function references
+   --  instead, and using lambda when their result needs to be defered (as
+   --  opposed to defering implicitely right now.
+
    type W_Call_To_Global_Type;
    type W_Call_To_Global is access all W_Call_To_Global_Type'Class;
 

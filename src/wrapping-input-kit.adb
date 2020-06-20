@@ -10,6 +10,30 @@ package body Wrapping.Input.Kit is
 
    Global_Node_Registry : W_Kit_Node_Entity_Node_Maps.Map;
 
+   procedure Call_Check_Expression
+     (Object : access W_Object_Type'Class;
+      Params : Libtemplatelang.Analysis.Argument_List)
+   is
+      Result : W_Object;
+   begin
+      if Params.Children_Count = 0 then
+         Push_Match_True (Object);
+      elsif Params.Children_Count = 1 then
+         Push_Implicit_Self (Object);
+         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+         Result := Pop_Object;
+         Pop_Object;
+
+         if Result /= Match_False then
+            Push_Object (Object);
+         else
+            Push_Match_False;
+         end if;
+      elsif Params.Children_Count > 1 then
+         Error ("matcher takes only 1 argument");
+      end if;
+   end Call_Check_Expression;
+
    procedure Pre_Visit (An_Entity : access W_Kit_Node_Type) is
       New_Entity : W_Node;
    begin
@@ -114,8 +138,27 @@ package body Wrapping.Input.Kit is
      (An_Entity : access W_Kit_Node_Type;
       Name      : Text_Type) return Boolean
    is
+      Id : Any_Node_Type_Id;
    begin
       if W_Node_Type (An_Entity.all).Push_Value (Name) then
+         return True;
+      end if;
+
+      Id := Lookup_DSL_Name (To_String (Name));
+
+      if Id /= No_Node_Type_Id and then Is_Derived_From (Id_For_Kind (An_Entity.Node.Kind), Id) then
+         --  We are in something of the form
+         --  An_Entity (Node_Type ());
+         --  the type matched. Stack a function that will verify the sub
+         --  expression.
+         --  TODO: This also accepts An_Entity.Node_Type() which might be
+         --  bizzare... Need to decide if this is OK.
+
+         Push_Object
+           (W_Object'
+              (new W_Function_Reference_Type'
+                   (Prefix => W_Object (An_Entity),
+                    Call   => Call_Check_Expression'Unrestricted_Access)));
          return True;
       end if;
 
@@ -142,135 +185,6 @@ package body Wrapping.Input.Kit is
 
       return False;
    end Push_Value;
-
-   overriding
-   function Push_Match_Result
-     (An_Entity : access W_Kit_Node_Type;
-      Selector  : W_Object;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
-   is
-      Result : W_Object;
-      Name : Text_Type := Selector.To_String;
-      Matched : Boolean;
-      Id : Any_Node_Type_Id;
-   begin
-      if W_Node_Type (An_Entity.all).Push_Match_Result (Selector, Params) then
-         return True;
-      end if;
-
-      if Selector.all in W_Field_Reference_Type'Class then
-         Id := Lookup_DSL_Name (To_String (Name));
-
-         if Id /= No_Node_Type_Id and then Is_Derived_From (Id_For_Kind (An_Entity.Node.Kind), Id) then
-            if Params.Children_Count = 0 then
-               Push_Match_True (An_Entity);
-            elsif Params.Children_Count = 1 then
-               -- fields are browsing functions similar to prev, next, etc...
-               -- they push the node so that it can be captured.
-               Push_Implicit_Self (An_Entity);
-
-               Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-
-               -- Delete result and self
-               Result := Pop_Object;
-               Pop_Object;
-
-               Matched := Result /= Match_False;
-
-               if Matched then
-                  Push_Match_True (An_Entity);
-               else
-                  Push_Match_False;
-               end if;
-            else
-               Error ("no more than one parameter allowed for entity matching");
-            end if;
-
-            return True;
-         else
-            declare
-               Result : W_Object;
-               Node : Kit_Node;
-               Field_Entity : W_Kit_Node;
-            begin
-               Result := Eval_Field (An_Entity.Node, Name);
-
-               if Result = null then
-                  Result := Eval_Property (An_Entity.Node, Name);
-               end if;
-
-               if Result = null then
-                  return False;
-               elsif Result = Match_False then
-                  Push_Match_False;
-                  return True;
-               elsif Result.all in W_Source_Node_Type'Class then
-                  Node := W_Source_Node_Type (Result.all).A_Node;
-                  Field_Entity := An_Entity.Children_By_Node.Element (Node);
-
-                  if Params.Children_Count = 0 then
-                     Push_Match_True (Field_Entity);
-                  elsif Params.Children_Count /= 1 then
-                     Error ("no more than one parameter allowed for field matching");
-                  else
-                     -- fields are browsing functions similar to prev, next, etc...
-                     -- they push the node so that it can be captured.
-                     Push_Implicit_Self (Field_Entity);
-
-                     Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-
-                     -- Delete result and self
-                     Result := Pop_Object;
-                     Pop_Object;
-
-                     Matched := Result /= Match_False;
-
-                     if Matched then
-                        Push_Match_True (Field_Entity);
-                     else
-                        Push_Match_False;
-                     end if;
-                  end if;
-               elsif Result.all in W_Node_Type'Class then
-                  --  TODO implement matching, merge with before
-                  Push_Object (Result);
-               elsif Result.all in W_String_Type then
-                  Error ("matching text property not yet implemented");
-               end if;
-
-               return True;
-            end;
-         end if;
-      elsif Selector.all in W_Text_Expression_Type'Class
-        or else
-          (Selector.all in W_Vector_Type'Class
-           --  TODO: There's some confusion to solve here, and to decide
-           --  when an object is converted to text and when not. For now,
-           --  something like
-           --     match f_name (x.f_name))
-           --  will not match, while:
-           --     match f_name (set (x.f_name)) (assuming set creates a container)
-           --  or
-           --     match f_name ("\e<x.f_name>")) (because string creates a container)
-           --  will match. Handling of string conversion / interpretation needs
-           --  further design to ensure consistency
-           --  The test below happens to currently be too restrictive, as
-           --     match f_name ("\e<x.f_name>"))
-           --  doesn't create a text-only container.
-           -- and then Runtime_Container (Selector).Is_Text_Container
-          )
-      then
-         if Match (Name, An_Entity.Node.Text) then
-            Push_Match_True (Selector);
-         else
-            Push_Match_False;
-         end if;
-
-         return True;
-      end if;
-
-      return False;
-   end Push_Match_Result;
 
    overriding
    function To_String (Object : W_Kit_Node_Type) return Text_Type is

@@ -62,6 +62,8 @@ package Wrapping.Runtime.Analysis is
    --  object
    function Top_Is_Implicit return Boolean;
 
+   function Get_Implicit_Self return W_Object;
+
    procedure Run_Lambda (A_Lambda : W_Lambda_Type);
 
    --  This is the counter of visitor. Every time a visitor is started

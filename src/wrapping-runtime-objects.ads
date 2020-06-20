@@ -55,9 +55,6 @@ package Wrapping.Runtime.Objects is
    type W_Static_Entity_Reference_Type;
    type W_Static_Entity_Reference is access all W_Static_Entity_Reference_Type'Class;
 
-   type W_Field_Reference_Type;
-   type W_Field_Reference is access all W_Field_Reference_Type'Class;
-
    type W_Expression_Type;
    type W_Expression is access all W_Expression_Type'Class;
 
@@ -93,22 +90,16 @@ package Wrapping.Runtime.Objects is
       Is_Allocated : Boolean := False;
    end record;
 
+   overriding
    function Push_Value
      (An_Entity : access W_Reference_Type;
       Name      : Text_Type) return Boolean is
      (An_Entity.Value.Push_Value (Name));
 
-   function Push_Call_Result
+   overriding
+   procedure Push_Call_Result
      (An_Entity : access W_Reference_Type;
-      Name      : Text_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean is
-     (An_Entity.Value.Push_Call_Result (Name, Params));
-
-   function Push_Match_Result
-     (An_Entity : access W_Reference_Type;
-      Selector  : W_Object;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean is
-     (An_Entity.Value.Push_Match_Result (Selector, Params));
+      Params    : Libtemplatelang.Analysis.Argument_List);
 
    overriding
    function Traverse
@@ -153,6 +144,11 @@ package Wrapping.Runtime.Objects is
    function Is_Text_Container (Container : W_Vector_Type) return Boolean;
 
    overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Vector_Type;
+      Params    : Libtemplatelang.Analysis.Argument_List);
+
+   overriding
    function To_String (Object : W_Vector_Type) return Text_Type;
 
    type W_Set_Type is new W_Object_Type with record
@@ -179,10 +175,9 @@ package Wrapping.Runtime.Objects is
    function To_String (Object : W_String_Type) return Text_Type;
 
    overriding
-   function Push_Match_Result
+   procedure Push_Call_Result
      (An_Entity : access W_String_Type;
-      Selector  : W_Object;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
+      Params    : Libtemplatelang.Analysis.Argument_List);
 
    function "<" (Left, Right : W_String) return Boolean is
      (Left.Value < Right.Value);
@@ -200,22 +195,28 @@ package Wrapping.Runtime.Objects is
    overriding
    function To_String (Object : W_Text_Conversion_Type) return Text_Type;
 
+   type Call_Access is access procedure
+     (Object : access W_Object_Type'Class;
+      Params : Libtemplatelang.Analysis.Argument_List);
+
    type W_Function_Reference_Type is new W_Object_Type with record
-      Name : Unbounded_Text_Type;
-      Prefix : W_Node;
+      Prefix : W_Object;
+      Call   : Call_Access;
    end record;
+
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Function_Reference_Type;
+      Params    : Libtemplatelang.Analysis.Argument_List);
 
    type W_Static_Entity_Reference_Type is new W_Object_Type with record
       An_Entity : Semantic.Structure.Entity;
    end record;
 
-   type W_Field_Reference_Type is new W_Object_Type with record
-      Name : Unbounded_Text_Type;
-   end record;
-
    overriding
-   function To_String (Object : W_Field_Reference_Type) return Text_Type is
-     (To_Text (Object.Name));
+   procedure Push_Call_Result
+     (An_Entity : access W_Static_Entity_Reference_Type;
+      Params    : Libtemplatelang.Analysis.Argument_List);
 
    type W_Expression_Type is new W_Object_Type with record
       Expression : Libtemplatelang.Analysis.Template_Node;
@@ -286,16 +287,9 @@ package Wrapping.Runtime.Objects is
       Name      : Text_Type) return Boolean;
 
    overriding
-   function Push_Call_Result
+   procedure Push_Call_Result
      (An_Entity : access W_Node_Type;
-      Name      : Text_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
-
-   overriding
-   function Push_Match_Result
-     (An_Entity : access W_Node_Type;
-      Selector  : W_Object;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
+      Params    : Libtemplatelang.Analysis.Argument_List);
 
    procedure Pre_Visit (An_Entity : access W_Node_Type) is null;
 
@@ -352,18 +346,6 @@ package Wrapping.Runtime.Objects is
    function Push_Value
      (An_Entity : access W_Template_Instance_Type;
       Name      : Text_Type) return Boolean;
-
-   overriding
-   function Push_Call_Result
-     (An_Entity : access W_Template_Instance_Type;
-      Name      : Text_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
-
-   overriding
-   function Push_Match_Result
-     (An_Entity : access W_Template_Instance_Type;
-      Selector  : W_Object;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
 
    overriding
    function Traverse

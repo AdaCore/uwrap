@@ -84,17 +84,15 @@ package Wrapping.Runtime.Structure is
      (An_Entity : access W_Object_Type;
       Name      : Text_Type) return Boolean is (False);
 
-   function Push_Call_Result
+   --  Calling an entity means either doing an actual call if this entity
+   --  refers to a function, or performing a comparison between the object and
+   --  the provided parameters. In the second case, by convention, the result
+   --  of the call (last object on the stack) is either Match_False, or
+   --  Match_True (An_Entity).
+   --  By default, this returns an error (the object is not made for being called).
+   procedure Push_Call_Result
      (An_Entity : access W_Object_Type;
-      Name      : Text_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean is
-     (False);
-
-   function Push_Match_Result
-     (An_Entity : access W_Object_Type;
-      Selector  : W_Object;
-      Params    : Libtemplatelang.Analysis.Argument_List) return Boolean is
-     (False);
+      Params    : Libtemplatelang.Analysis.Argument_List);
 
    type Browse_Mode is (Parent, Child_Depth, Child_Breadth, Next, Prev, Sibling, Template);
 
