@@ -624,6 +624,9 @@ package body Wrapping.Runtime.Analysis is
       A_Template_Instance : W_Template_Instance;
       Dummy_Action : Visit_Action;
       Traverse_Result : W_Object;
+
+      Files :  W_Template_Instance_Vectors.Vector;
+      Output : W_Template_Instance_Vectors.Vector;
    begin
       -- Set the visitor id - we're on the main iteration, id is 0.
 
@@ -653,52 +656,9 @@ package body Wrapping.Runtime.Analysis is
                A_Template_Instance := W_Template_Instance (Created_Template);
 
                if Instance_Of (A_Template_Instance.Template, File_Template) then
-                  declare
-                     Path_Object : W_Object;
-                     Content_Object : W_Object;
-                     Output_File : File_Type;
-                  begin
-                     Push_Frame (Root);
-
-                     if not A_Template_Instance.Push_Value ("path") then
-                        Error ("'path' component not found in file template");
-                     end if;
-
-                     Path_Object := Pop_Object;
-
-                     if not A_Template_Instance.Push_Value ("content") then
-                        Error ("'content' component not found in file template");
-                     end if;
-
-                     Content_Object := Pop_Object;
-
-                     Create
-                       (Output_File,
-                        Out_File,
-                        To_String (Path_Object.To_String));
-
-                     Put (Output_File, Content_Object.To_String);
-
-                     Close (Output_File);
-
-                     Pop_Frame;
-                  end;
+                  Files.Append (A_Template_Instance);
                elsif Instance_Of (A_Template_Instance.Template, Out_Template) then
-                  declare
-                     Content_Object : W_Object;
-                  begin
-                     Push_Frame (Root);
-
-                     if not A_Template_Instance.Push_Value ("content") then
-                        Error ("'content' component not found in file template");
-                     end if;
-
-                     Content_Object := Pop_Object;
-
-                     Put (Content_Object.To_String);
-
-                     Pop_Frame;
-                  end;
+                  Output.Append (A_Template_Instance);
                end if;
             end loop;
 
@@ -713,6 +673,58 @@ package body Wrapping.Runtime.Analysis is
             end loop;
          end;
       end loop;
+
+      for T of Output loop
+         declare
+            Content_Object : W_Object;
+         begin
+            Push_Frame (Root);
+
+            if not T.Push_Value ("content") then
+               Error ("'content' component not found in file template");
+            end if;
+
+            Content_Object := Pop_Object;
+
+            Put (Content_Object.To_String);
+
+            Pop_Frame;
+         end;
+      end loop;
+
+      for T of Files loop
+         declare
+            Path_Object : W_Object;
+            Content_Object : W_Object;
+            Output_File : File_Type;
+         begin
+            Push_Frame (Root);
+
+            if not T.Push_Value ("path") then
+               Error ("'path' component not found in file template");
+            end if;
+
+            Path_Object := Pop_Object;
+
+            if not T.Push_Value ("content") then
+               Error ("'content' component not found in file template");
+            end if;
+
+            Content_Object := Pop_Object;
+
+            Create
+              (Output_File,
+               Out_File,
+               To_String (Path_Object.To_String));
+
+            Put (Output_File, Content_Object.To_String);
+
+            Close (Output_File);
+
+            Pop_Frame;
+         end;
+      end loop;
+
    end Analyse;
 
    procedure Evaluate_Expression

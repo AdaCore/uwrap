@@ -281,11 +281,6 @@ package body Wrapping.Runtime.Objects is
          return;
       end if;
 
-      if Implicit_Self.all not in W_Template_Instance_Type then
-         Push_Match_False;
-         return;
-      end if;
-
       Prefix := W_Template_Instance (Implicit_Self);
 
       if not Instance_Of
@@ -858,8 +853,7 @@ package body Wrapping.Runtime.Objects is
 
                return Into;
             else
-               Result := new W_Reference_Type'
-                 (Value => W_Object (Browsed), others => <>);
+               Result := W_Object (Browsed);
 
                return Stop;
             end if;
@@ -991,7 +985,7 @@ package body Wrapping.Runtime.Objects is
       --  Then, try to traverse the template implicit structure held by the
       --  original node.
 
-      if An_Entity.Origin /= null then
+      if Last_Result /= Stop and then An_Entity.Origin /= null then
          Last_Result := An_Entity.Origin.Traverse
            (A_Mode, False, Final_Result, Template_Visitor'Access);
       end if;
