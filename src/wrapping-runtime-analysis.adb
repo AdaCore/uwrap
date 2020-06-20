@@ -22,25 +22,22 @@ with Wrapping.Runtime.Functions; use Wrapping.Runtime.Functions;
 package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class);
-   procedure Handle_Call (Node : Libtemplatelang.Analysis.Template_Node'Class);
-   procedure Handle_Template_Call (A_Template_Instance : Template_Instance; Args : Libtemplatelang.Analysis.Argument_List);
+   procedure Handle_Call (Node : Libtemplatelang.Analysis.Call_Expr'Class);
+   procedure Handle_Template_Call (A_Template_Instance : W_Template_Instance; Args : Libtemplatelang.Analysis.Argument_List);
    procedure Handle_Visitor_Call
-     (An_Entity : Language_Entity;
+     (An_Entity : W_Node;
       A_Visitor : Semantic.Structure.Visitor;
       Args : Libtemplatelang.Analysis.Argument_List;
       Apply_To_All : Boolean);
    procedure Handle_Fold (Folded_Expression : Libtemplatelang.Analysis.Template_Node'Class; Node : Libtemplatelang.Analysis.Fold_Expr'Class);
-   function Analyze_Visitor
-     (E : access Language_Entity_Type'Class;
-      Result : out Runtime_Object) return Visit_Action;
 
    procedure Analyze_Replace_String
      (Node : Libtemplatelang.Analysis.Template_Node'Class;
-      On_Group : access procedure (Index : Integer; Value : Runtime_Object) := null;
+      On_Group : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expression : Libtemplatelang.Analysis.Template_Node) := null);
 
    function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
-   procedure Build_Lambda (A_Lambda : Runtime_Lambda; Lambda_Expression : Libtemplatelang.Analysis.Template_Node);
+   procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Libtemplatelang.Analysis.Template_Node);
 
    procedure Push_Error_Location
      (An_Entity : access Semantic.Structure.Entity_Type'Class)
@@ -56,39 +53,34 @@ package body Wrapping.Runtime.Analysis is
       Wrapping.Pop_Error_Location;
    end Pop_Error_Location;
 
-   procedure Push_Entity (An_Entity : access Language_Entity_Type'Class) is
+   procedure Push_Object (An_Object : access W_Object_Type'Class) is
    begin
-      Top_Frame.Data_Stack.Append (new Runtime_Language_Entity_Type'(Value => Language_Entity (An_Entity), others => <>));
-   end Push_Entity;
-
-   procedure Push_Object (An_Object : access Runtime_Object_Type'Class) is
-   begin
-      Top_Frame.Data_Stack.Append (Runtime_Object (An_Object));
+      Top_Frame.Data_Stack.Append (W_Object (An_Object));
    end Push_Object;
 
-   procedure Push_Implicit_Self (An_Entity : access Language_Entity_Type'Class) is
+   procedure Push_Implicit_Self (An_Entity : access W_Object_Type'Class) is
    begin
       Top_Frame.Data_Stack.Append
-        (new Runtime_Language_Entity_Type'
-           (Value => Language_Entity (An_Entity),
+        (new W_Reference_Type'
+           (Value => W_Object (An_Entity),
             Is_Implicit_Self => True,
             others => <>));
    end Push_Implicit_Self;
 
-   procedure Push_Implicit_New (An_Entity : access Language_Entity_Type'Class) is
+   procedure Push_Implicit_New (An_Entity : access W_Object_Type'Class) is
    begin
       Top_Frame.Data_Stack.Append
-        (new Runtime_Language_Entity_Type'
-           (Value => Language_Entity (An_Entity),
+        (new W_Reference_Type'
+           (Value => W_Object (An_Entity),
             Is_Implicit_New => True,
             others => <>));
    end Push_Implicit_New;
 
-   procedure Push_Allocated_Entity (An_Entity : access Language_Entity_Type'Class) is
+   procedure Push_Allocated_Entity (An_Entity : access W_Object_Type'Class) is
    begin
       Top_Frame.Data_Stack.Append
-        (new Runtime_Language_Entity_Type'
-           (Value => Language_Entity (An_Entity),
+        (new W_Reference_Type'
+           (Value => W_Object (An_Entity),
             Is_Allocated => True,
             others => <>));
    end Push_Allocated_Entity;
@@ -97,7 +89,7 @@ package body Wrapping.Runtime.Analysis is
    begin
       if Top_Frame.Temp_Names.Contains (Name) then
          Top_Frame.Data_Stack.Append
-           (new Runtime_Text_Type'
+           (new W_String_Type'
               (Value => To_Unbounded_Text (Top_Frame.Temp_Names.Element (Name))));
       else
          Counter := Counter + 1;
@@ -110,7 +102,7 @@ package body Wrapping.Runtime.Analysis is
             Top_Frame.Temp_Names.Insert (Name, Tmp);
 
             Top_Frame.Data_Stack.Append
-              (new Runtime_Text_Type'(Value => To_Unbounded_Text (Tmp)));
+              (new W_String_Type'(Value => To_Unbounded_Text (Tmp)));
          end;
       end if;
    end Push_Temporary_Name;
@@ -120,13 +112,43 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
    end Pop_Object;
 
-   function Pop_Object return Runtime_Object is
-      Result : Runtime_Object;
+   function Pop_Object return W_Object is
+      Result : W_Object;
    begin
       Result := Top_Frame.Data_Stack.Last_Element;
       Pop_Object;
       return Result;
    end Pop_Object;
+
+   function Pop_Object_Dereference return W_Object is
+      Result : W_Object := Top_Object_Dereference;
+   begin
+      Pop_Object;
+
+      return Result;
+   end Pop_Object_Dereference;
+
+   function Top_Object return W_Object is
+   begin
+      return Top_Frame.Data_Stack.Last_Element;
+   end Top_Object;
+
+   function Top_Object_Dereference return W_Object is
+      Current : W_Object := Top_Frame.Data_Stack.Last_Element;
+   begin
+      while Current.all in W_Reference_Type'Class loop
+         Current := W_Reference (Current).Value;
+      end loop;
+
+      return Current;
+   end Top_Object_Dereference;
+
+   function Top_Is_Implicit return Boolean is
+      Top : W_Object := Top_Object;
+   begin
+      return Top.all in W_Reference_Type'Class
+        and then W_Reference (Top).Is_Implicit;
+   end Top_Is_Implicit;
 
    procedure Push_Frame_Context is
    begin
@@ -172,26 +194,26 @@ package body Wrapping.Runtime.Analysis is
       Free (Old_Frame);
    end Pop_Frame;
 
-   function Get_Implicit_Self return Language_Entity is
+   function Get_Implicit_Self return W_Object is
    begin
       for I in reverse Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index loop
-         if Top_Frame.Data_Stack.Element (I).all in Runtime_Language_Entity_Type
-           and then Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Is_Implicit_Self
+         if Top_Frame.Data_Stack.Element (I).all in W_Reference_Type'Class
+           and then W_Reference (Top_Frame.Data_Stack.Element (I)).Is_Implicit_Self
          then
-            return Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Value;
+            return W_Reference (Top_Frame.Data_Stack.Element (I)).Value;
          end if;
       end loop;
 
       return null;
    end Get_Implicit_Self;
 
-   function Get_Implicit_New return Language_Entity is
+   function Get_Implicit_New return W_Object is
    begin
       for I in reverse Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index loop
-         if Top_Frame.Data_Stack.Element (I).all in Runtime_Language_Entity_Type
-           and then Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Is_Implicit_New
+         if Top_Frame.Data_Stack.Element (I).all in W_Reference_Type'Class
+           and then W_Reference (Top_Frame.Data_Stack.Element (I)).Is_Implicit_New
          then
-            return Runtime_Language_Entity (Top_Frame.Data_Stack.Element (I)).Value;
+            return W_Reference (Top_Frame.Data_Stack.Element (I)).Value;
          end if;
       end loop;
 
@@ -216,13 +238,13 @@ package body Wrapping.Runtime.Analysis is
             Name : Text_Type := To_Text (Get_Capture_Name (Matches, I));
          begin
             Top_Frame.Matched_Groups.Append
-              (new Runtime_Text_Type'
+              (new W_String_Type'
                  (Value => To_Unbounded_Text (Matched_Text)));
 
             if Name /= "" then
                Top_Frame.Symbols.Include
                  (Name,
-                  new Runtime_Text_Type'
+                  new W_String_Type'
                     (Value => To_Unbounded_Text (Matched_Text)));
             end if;
          end;
@@ -232,13 +254,11 @@ package body Wrapping.Runtime.Analysis is
    end Match;
 
    procedure Apply_Wrapping_Program
-     (A_Language_Entity : Language_Entity;
+     (A_Language_Entity : W_Node;
       Lexical_Scope     : access Semantic.Structure.Entity_Type'Class;
       A_Visit_Action    : in out Visit_Action)
    is
-      Self_Element : Runtime_Language_Entity := new Runtime_Language_Entity_Type; -- TODO: We may not need to instantiate here
-
-      procedure Allocate (E : access Language_Entity_Type'Class) is
+      procedure Allocate (E : access W_Object_Type'Class) is
       begin
          --  when allocating an object outside of a browsing function, nothign
          --  special to do
@@ -261,11 +281,11 @@ package body Wrapping.Runtime.Analysis is
       end Create_And_Set_Template_Instance;
 
       procedure Apply_Template_Action
-        (A_Language_Entity : Language_Entity; Template_Clause : Weave_Or_Wrap)
+        (A_Language_Entity : W_Node; Template_Clause : Weave_Or_Wrap)
       is
-         A_Template_Instance : Template_Instance;
+         A_Template_Instance : W_Template_Instance;
          Self_Weave : Boolean := False;
-         Result : Runtime_Object;
+         Result : W_Object;
       begin
          Push_Error_Location (Template_Clause.Node);
 
@@ -278,10 +298,10 @@ package body Wrapping.Runtime.Analysis is
             end if;
 
             Evaluate_Expression (Template_Clause.Arguments.Child (1).As_Argument.F_Value);
-            Result := Pop_Object;
+            Result := Pop_Object_Dereference;
 
-            if Result.all not in Runtime_Static_Entity_Type
-              or else Runtime_Static_Entity (Result).An_Entity.all
+            if Result.all not in W_Static_Entity_Reference_Type'Class
+              or else W_Static_Entity_Reference (Result).An_Entity.all
                 not in Semantic.Structure.Template_Type'Class
             then
                Error ("expected template reference");
@@ -289,7 +309,7 @@ package body Wrapping.Runtime.Analysis is
 
             A_Language_Entity.Forbidden_Template_Names.Include
               (Semantic.Structure.Template
-                 (Runtime_Static_Entity (Result).An_Entity).Full_Name);
+                 (W_Static_Entity_Reference (Result).An_Entity).Full_Name);
 
             --  TODO: remove the template if it's already been created in the
             --  context of a weave clause
@@ -299,8 +319,8 @@ package body Wrapping.Runtime.Analysis is
                --  the current template.
                if Template_Clause.all not in Weave_Type'Class then
                   Error ("self wrap not allowed, either weave or provide a template or visitor name");
-               elsif A_Language_Entity.all in Template_Instance_Type'Class then
-                  A_Template_Instance := Template_Instance (A_Language_Entity);
+               elsif A_Language_Entity.all in W_Template_Instance_Type'Class then
+                  A_Template_Instance := W_Template_Instance (A_Language_Entity);
                else
                   Error ("only template instances can be self weaved");
                end if;
@@ -347,7 +367,7 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Apply_Command (A_Command : Command) is
          Matched : Boolean;
-         Match_Result : Runtime_Object;
+         Match_Result : W_Object;
       begin
          --  The command is the enclosing scope for all of its clauses. It
          --  will in particular receive the matching groups and the temporary
@@ -383,16 +403,16 @@ package body Wrapping.Runtime.Analysis is
                   end if;
                else
                   declare
-                     Entity_Target : Language_Entity;
+                     Entity_Target : W_Node;
                   begin
                      if not A_Command.Template_Clause.Target_Object.Is_Null then
                         Evaluate_Expression (A_Command.Template_Clause.Target_Object);
-                        Entity_Target := Runtime_Language_Entity (Pop_Object).Value;
+                        Entity_Target := W_Node (Pop_Object_Dereference);
 
                         --  A number of the function below assume that
                         -- children for the entity are set - make sure that
                         -- they are
-                        Language_Entity_Type'Class (Entity_Target.all).Pre_Visit;
+                        W_Node_Type'Class (Entity_Target.all).Pre_Visit;
                      else
                         Entity_Target := A_Language_Entity;
                      end if;
@@ -417,18 +437,18 @@ package body Wrapping.Runtime.Analysis is
                            -- in Handle_Visitor_Call
                            declare
                               function Apply_Template
-                                (E      : access Language_Entity_Type'Class;
-                                 Result : out Runtime_Object) return Visit_Action
+                                (E      : access W_Object_Type'Class;
+                                 Result : out W_Object) return Visit_Action
                               is
                               begin
                                  Result := null;
 
-                                 Apply_Template_Action (Language_Entity (E), A_Command.Template_Clause);
+                                 Apply_Template_Action (W_Node (E), A_Command.Template_Clause);
 
                                  return Into;
                               end Apply_Template;
 
-                              Traverse_Result : Runtime_Object;
+                              Traverse_Result : W_Object;
                            begin
                               A_Visit_Action := Entity_Target.Traverse
                                 (A_Mode       => Child_Depth,
@@ -450,7 +470,7 @@ package body Wrapping.Runtime.Analysis is
                               declare
                                  Dummy_Action : Visit_Action;
                                  Prev_Visit_Id : Integer;
-                                 Traverse_Result : Runtime_Object;
+                                 Traverse_Result : W_Object;
                               begin
                                  --  Increment the visitor counter and set the current visitor id, as to
                                  --  track entities that are being visited by this iteration.
@@ -487,13 +507,13 @@ package body Wrapping.Runtime.Analysis is
 
                   A_Command.Traverse_Expression.Traverse (Visit_Expression'Access);
 
-                  if Top_Frame.Data_Stack.Last_Element.all in Runtime_Traverse_Decision_Type'Class then
+                  if Top_Object_Dereference.all in W_Traverse_Decision_Type'Class then
                      --  In this case, a decision was taken as to the continuation of the
                      --  iteration.
 
                      declare
-                        A_Decision : Runtime_Traverse_Decision := Runtime_Traverse_Decision
-                          (Top_Frame.Data_Stack.Last_Element);
+                        A_Decision : W_Traverse_Decision := W_Traverse_Decision
+                          (Top_Object_Dereference);
                      begin
                         Pop_Object;
 
@@ -547,10 +567,11 @@ package body Wrapping.Runtime.Analysis is
    end Apply_Wrapping_Program;
 
    function Analyze_Visitor
-     (E : access Language_Entity_Type'Class;
-      Result : out Runtime_Object) return Visit_Action
+     (E : access W_Object_Type'Class;
+      Result : out W_Object) return Visit_Action
    is
       A_Visit_Action : Visit_Action := Into;
+      N : W_Node;
    begin
       Result := null;
 
@@ -561,14 +582,20 @@ package body Wrapping.Runtime.Analysis is
       --  one. If they are greater and we're on a lower one, it means that they
       --  are over.
 
-      while E.Visited_Stack.Length > 0
-        and then E.Visited_Stack.Last_Element > Current_Visitor_Id
+      if E.all not in W_Node_Type'Class then
+         Error ("expected node type");
+      end if;
+
+      N := W_Node (E);
+
+      while N.Visited_Stack.Length > 0
+        and then N.Visited_Stack.Last_Element > Current_Visitor_Id
       loop
-         E.Visited_Stack.Delete_Last;
+         N.Visited_Stack.Delete_Last;
       end loop;
 
-      if E.Visited_Stack.Length > 0
-        and then E.Visited_Stack.Last_Element = Current_Visitor_Id
+      if N.Visited_Stack.Length > 0
+        and then N.Visited_Stack.Last_Element = Current_Visitor_Id
       then
          --  If the last id in the stack is the current one, they we've already
          --  visited this entity. We already also made the decisions on sub
@@ -580,10 +607,10 @@ package body Wrapping.Runtime.Analysis is
          --  this id at the end, as to make sure that potential iterations
          --  on this visit don't cover this node again
 
-         E.Visited_Stack.Append (Current_Visitor_Id);
+         N.Visited_Stack.Append (Current_Visitor_Id);
 
          Apply_Wrapping_Program
-           (Language_Entity (E),
+           (N,
             Wrapping.Semantic.Analysis.Root,
             A_Visit_Action);
 
@@ -591,12 +618,12 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Analyze_Visitor;
 
-   procedure Analyse (Root_Entity : Language_Entity) is
+   procedure Analyse (Root_Entity : W_Node) is
       File_Template : Wrapping.Semantic.Structure.Template;
       Out_Template : Wrapping.Semantic.Structure.Template;
-      A_Template_Instance : Template_Instance;
+      A_Template_Instance : W_Template_Instance;
       Dummy_Action : Visit_Action;
-      Traverse_Result : Runtime_Object;
+      Traverse_Result : W_Object;
    begin
       -- Set the visitor id - we're on the main iteration, id is 0.
 
@@ -615,27 +642,20 @@ package body Wrapping.Runtime.Analysis is
 
       while Templates_To_Traverse.Length > 0 loop
          declare
-            Next_Iteration : Template_Instance_Vectors.Vector;
+            Next_Iteration : W_Template_Instance_Vectors.Vector;
          begin
             Next_Iteration.Move (Templates_To_Traverse);
             Templates_To_Traverse.Clear;
 
             -- Reset the visitor id - we're on the main iteration, id is 0.
 
-            Current_Visitor_Id := 0;
-
-            for T of Next_Iteration loop
-               Dummy_Action := T.Traverse
-                 (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
-            end loop;
-
             for Created_Template of Next_Iteration loop
-               A_Template_Instance := Template_Instance (Created_Template);
+               A_Template_Instance := W_Template_Instance (Created_Template);
 
                if Instance_Of (A_Template_Instance.Template, File_Template) then
                   declare
-                     Path_Object : Runtime_Object;
-                     Content_Object : Runtime_Object;
+                     Path_Object : W_Object;
+                     Content_Object : W_Object;
                      Output_File : File_Type;
                   begin
                      Push_Frame (Root);
@@ -655,9 +675,9 @@ package body Wrapping.Runtime.Analysis is
                      Create
                        (Output_File,
                         Out_File,
-                        To_String (Path_Object.To_Text));
+                        To_String (Path_Object.To_String));
 
-                     Put (Output_File, Content_Object.To_Text);
+                     Put (Output_File, Content_Object.To_String);
 
                      Close (Output_File);
 
@@ -665,7 +685,7 @@ package body Wrapping.Runtime.Analysis is
                   end;
                elsif Instance_Of (A_Template_Instance.Template, Out_Template) then
                   declare
-                     Content_Object : Runtime_Object;
+                     Content_Object : W_Object;
                   begin
                      Push_Frame (Root);
 
@@ -675,11 +695,21 @@ package body Wrapping.Runtime.Analysis is
 
                      Content_Object := Pop_Object;
 
-                     Put (Content_Object.To_Text);
+                     Put (Content_Object.To_String);
 
                      Pop_Frame;
                   end;
                end if;
+            end loop;
+
+            Current_Visitor_Id := 0;
+
+            for T of Next_Iteration loop
+               --  The newly created wrappers need to be analyzed in order of
+               --  creation. So we're not using the traverse function anymore,
+               --  but instead just go through the list.
+
+               Dummy_Action := Analyze_Visitor (T, Traverse_Result);
             end loop;
          end;
       end loop;
@@ -698,7 +728,7 @@ package body Wrapping.Runtime.Analysis is
       use Libtemplatelang.Analysis;
       use Libtemplatelang.Common;
 
-      Result : Runtime_Object;
+      Result : W_Object;
    begin
       Push_Error_Location (Node);
 
@@ -789,7 +819,7 @@ package body Wrapping.Runtime.Analysis is
             --  example if that object is a newly allocated one.
 
             declare
-               Left, Right : Runtime_Object;
+               Left, Right : W_Object;
             begin
                Node.As_Binary_Expr.F_Lhs.Traverse (Visit_Expression'Access);
                Left := Pop_Object;
@@ -825,7 +855,7 @@ package body Wrapping.Runtime.Analysis is
                   Right := Pop_Object;
 
                   declare
-                     Container : Runtime_Container := new Runtime_Container_Type;
+                     Container : W_Vector := new W_Vector_Type;
                   begin
                      Container.A_Vector.Append (Left);
                      Container.A_Vector.Append (Right);
@@ -839,7 +869,7 @@ package body Wrapping.Runtime.Analysis is
             return Over;
          when Template_Unary_Expr =>
             declare
-               Right : Runtime_Object;
+               Right : W_Object;
             begin
                Node.As_Unary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
                Right := Pop_Object;
@@ -875,7 +905,7 @@ package body Wrapping.Runtime.Analysis is
             return Over;
          when Template_Number =>
             declare
-               Val : Runtime_Integer := new Runtime_Integer_Type;
+               Val : W_Integer := new W_Integer_Type;
             begin
                Val.Value := Integer'Wide_Wide_Value (Node.Text);
 
@@ -889,7 +919,7 @@ package body Wrapping.Runtime.Analysis is
 
             if Top_Frame.Top_Context.Is_Matching_Context then
                declare
-                  To_Match : Runtime_Object := Pop_Object;
+                  To_Match : W_Object := Pop_Object;
                begin
                   if not Get_Implicit_Self.Push_Match_Result (To_Match, No_Argument_List) then
                      Push_Match_False;
@@ -902,14 +932,14 @@ package body Wrapping.Runtime.Analysis is
          when Template_Call_Expr =>
             --  Resolved the called identifier
 
-            Handle_Call (Node);
+            Handle_Call (Node.As_Call_Expr);
 
             Pop_Error_Location;
             return Over;
 
          when Template_Lambda_Expr =>
             declare
-               A_Lambda : Runtime_Lambda := new Runtime_Lambda_Type;
+               A_Lambda : W_Lambda := new W_Lambda_Type;
             begin
                Build_Lambda (A_Lambda, Node.As_Lambda_Expr.F_Expression);
                Push_Object (A_Lambda);
@@ -921,20 +951,20 @@ package body Wrapping.Runtime.Analysis is
          when Template_New_Expr =>
             if Top_Frame.Top_Context.An_Allocate_Callback /= null then
                declare
-                  An_Object : Runtime_Object;
+                  An_Object : W_Object;
                   A_Template : Semantic.Structure.Entity;
-                  A_Template_Instance : Template_Instance;
+                  A_Template_Instance : W_Template_Instance;
                begin
                   Push_Frame_Context;
                   Top_Frame.Top_Context.Is_Matching_Context := False;
                   Evaluate_Expression (Node.As_New_Expr.F_Name);
-                  An_Object := Pop_Object;
+                  An_Object := Pop_Object_Dereference;
 
-                  if An_Object.all not in Runtime_Static_Entity_Type'Class then
+                  if An_Object.all not in W_Static_Entity_Reference_Type'Class then
                      Error ("expected template reference");
                   end if;
 
-                  A_Template := Runtime_Static_Entity (An_Object).An_Entity;
+                  A_Template := W_Static_Entity_Reference (An_Object).An_Entity;
 
                   if A_Template.all not in Semantic.Structure.Template_Type'Class then
                      Error ("expected template reference");
@@ -983,7 +1013,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Analyze_Replace_String
      (Node : Libtemplatelang.Analysis.Template_Node'Class;
-      On_Group : access procedure (Index : Integer; Value : Runtime_Object) := null;
+      On_Group : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expression : Libtemplatelang.Analysis.Template_Node) := null)
    is
       use Libtemplatelang.Analysis;
@@ -993,8 +1023,8 @@ package body Wrapping.Runtime.Analysis is
       Str : constant Text_Type := Remove_Quotes (Node.Text);
       Context : constant Libtemplatelang.Analysis.Analysis_Context := Node.Unit.Context;
 
-      Result : Runtime_Container := new Runtime_Container_Type;
-      New_Text : Runtime_Text;
+      Result : W_Vector := new W_Vector_Type;
+      New_Text : W_String;
 
       Next_Index : Integer := Str'First;
 
@@ -1002,10 +1032,10 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Append_Text (Text : Text_Type) is
       begin
-         New_Text := new Runtime_Text_Type;
+         New_Text := new W_String_Type;
          New_Text.Value := To_Unbounded_Text (Text);
 
-         Result.A_Vector.Append (Runtime_Object (New_Text));
+         Result.A_Vector.Append (W_Object (New_Text));
       end Append_Text;
 
       procedure On_Error
@@ -1072,7 +1102,7 @@ package body Wrapping.Runtime.Analysis is
                         On_Expression.All (Expression_Unit.Root);
                      else
                         Evaluate_Expression (Expression_Unit.Root);
-                        Result.A_Vector.Append (Runtime_Object (Pop_Object));
+                        Result.A_Vector.Append (W_Object (Pop_Object));
                      end if;
                   end;
 
@@ -1101,12 +1131,12 @@ package body Wrapping.Runtime.Analysis is
                declare
                   Group : Natural :=
                     Natural'Wide_Wide_Value (Str (Current .. Next_Index));
-                  Value : Runtime_Object := Top_Frame.Matched_Groups.Element (Group);
+                  Value : W_Object := Top_Frame.Matched_Groups.Element (Group);
                begin
                   if On_Group /= null then
                      On_Group.all (Group, Value);
                   else
-                     Append_Text (Value.To_Text);
+                     Append_Text (Value.To_String);
                   end if;
                end;
 
@@ -1136,21 +1166,35 @@ package body Wrapping.Runtime.Analysis is
 
    function Push_Global_Identifier (Name : Text_Type) return Boolean is
       A_Module : Semantic.Structure.Module;
-      Tentative_Symbol : Runtime_Object;
+      Tentative_Symbol : W_Object;
       A_Semantic_Entity : Semantic.Structure.Entity;
 
-      Implicit_Self : Language_Entity;
-      Implicit_New  : Language_Entity;
+      Implicit_New  : W_Object;
    begin
-      Implicit_Self := Get_Implicit_Self;
-      Implicit_New := Get_Implicit_New;
-
       if Name = "self" then
-         Push_Entity (Implicit_Self);
+         Push_Object (Get_Implicit_Self);
 
          return True;
-      elsif Name = "new" and then Implicit_New /= null then
-         Push_Entity (Implicit_New);
+      elsif Name = "new" then
+         Implicit_New := Get_Implicit_New;
+
+         if Implicit_New /= null then
+            Push_Object (Get_Implicit_New);
+
+            return True;
+         end if;
+      elsif Name = "text" then
+         --  We're on an object to text conversion. Set the runtime object.
+         --  When running the call, the link with the undlerlying expression
+         --  will be made.
+         Push_Object (W_Object'(new W_Text_Conversion_Type));
+
+         return True;
+      elsif Name = "string" then
+         --  We're on an object to string conversion. Set the text object.
+         --  When running the call, the actual text value will be computed and
+         --  put in the object.
+         Push_Object (W_Object'(new W_String_Type));
 
          return True;
       end if;
@@ -1168,7 +1212,7 @@ package body Wrapping.Runtime.Analysis is
             A_Semantic_Entity := A_Module.Children_Indexed (Name);
 
             if A_Semantic_Entity.all in Template_Type'Class then
-               Tentative_Symbol := new Runtime_Static_Entity_Type'
+               Tentative_Symbol := new W_Static_Entity_Reference_Type'
                  (An_Entity => A_Semantic_Entity);
             end if;
          else
@@ -1184,7 +1228,7 @@ package body Wrapping.Runtime.Analysis is
                A_Semantic_Entity := Imported.Children_Indexed (Name);
 
                if A_Semantic_Entity.all in Template_Type'Class then
-                  Tentative_Symbol := new Runtime_Static_Entity_Type'
+                  Tentative_Symbol := new W_Static_Entity_Reference_Type'
                     (An_Entity => A_Semantic_Entity);
                end if;
             else
@@ -1202,7 +1246,7 @@ package body Wrapping.Runtime.Analysis is
             if A_Semantic_Entity.all in Namespace_Type'Class
               or else A_Semantic_Entity.all in Module_Type'Class
             then
-               Tentative_Symbol := new Runtime_Static_Entity_Type'
+               Tentative_Symbol := new W_Static_Entity_Reference_Type'
                  (An_Entity => A_Semantic_Entity);
             end if;
          else
@@ -1231,13 +1275,13 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Global_Identifier;
 
    procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class) is
-      Prefix_Entity : Language_Entity;
+      Prefix_Entity : W_Node;
       A_Semantic_Entity : Semantic.Structure.Entity;
 
       procedure Handle_Static_Entity_Selection is
          An_Entity : Semantic.Structure.Entity;
       begin
-         An_Entity := Runtime_Static_Entity (Top_Frame.Data_Stack.Last_Element).An_Entity;
+         An_Entity := W_Static_Entity_Reference (Top_Frame.Data_Stack.Last_Element).An_Entity;
 
          if not An_Entity.Children_Indexed.Contains (Node.Text) then
             Error ("'" & Node.Text & "' not found");
@@ -1246,27 +1290,25 @@ package body Wrapping.Runtime.Analysis is
          A_Semantic_Entity := An_Entity.Children_Indexed.Element (Node.Text);
 
          Push_Object
-           (Runtime_Object'(new Runtime_Static_Entity_Type'(An_Entity => A_Semantic_Entity)));
+           (W_Object'(new W_Static_Entity_Reference_Type'(An_Entity => A_Semantic_Entity)));
       end Handle_Static_Entity_Selection;
 
       procedure Handle_Language_Entity_Selection is
          Name : Text_Type := Node.Text;
 
-         Implicit_Self : Language_Entity;
-         Implicit_New  : Language_Entity;
+         Implicit_Self : W_Node;
+         Implicit_New  : W_Node;
 
          Found_Self_Entity : Boolean;
          Found_New_Entity : Boolean;
 
-         Self_Object : Runtime_Object;
+         Self_Object : W_Object;
       begin
          -- We're resolving a reference to an entity
 
-         Prefix_Entity := Runtime_Language_Entity (Top_Frame.Data_Stack.Last_Element).Value;
+         Prefix_Entity := W_Node (Top_Object_Dereference);
 
-         if Runtime_Language_Entity
-           (Top_Frame.Data_Stack.Last_Element).Is_Implicit
-         then
+         if Top_Is_Implicit then
             --  If we're on the implicit entity, then first check if there's
             --  some more global identifier overriding it.
 
@@ -1280,8 +1322,8 @@ package body Wrapping.Runtime.Analysis is
             --  We'll return either the entity coming from one of the two,
             --  or raise an error if both contain such name.
 
-            Implicit_Self := Get_Implicit_Self;
-            Implicit_New := Get_Implicit_New;
+            Implicit_Self := W_Node (Get_Implicit_Self);
+            Implicit_New := W_Node (Get_Implicit_New);
 
             Found_Self_Entity := Implicit_Self.Push_Value (Name);
 
@@ -1317,11 +1359,14 @@ package body Wrapping.Runtime.Analysis is
          end if;
       end Handle_Language_Entity_Selection;
 
+      Top : W_Object;
    begin
       if Top_Frame.Data_Stack.Length /= 0 then
-         if Top_Frame.Data_Stack.Last_Element.all in Runtime_Static_Entity_Type'Class then
+         Top := Top_Object_Dereference;
+
+         if Top.all in W_Static_Entity_Reference_Type'Class then
             Handle_Static_Entity_Selection;
-         elsif Top_Frame.Data_Stack.Last_Element.all in Runtime_Language_Entity_Type then
+         elsif Top.all in W_Node_Type'Class then
             Handle_Language_Entity_Selection;
          else
             Handle_Global_Identifier (Node.Text);
@@ -1334,11 +1379,11 @@ package body Wrapping.Runtime.Analysis is
    procedure Handle_Call_Parameters
      (Args : Libtemplatelang.Analysis.Argument_List;
       Name_For_Position : access function (Position : Integer) return Libtemplatelang.Analysis.Template_Node;
-      Store_Param_Value : access procedure (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : Runtime_Object);
+      Store_Param_Value : access procedure (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : W_Object);
       Perpare_Param_Evaluation : access procedure (Name_Node : Libtemplatelang.Analysis.Template_Node; Position : Integer) := null)
    is
       Parameter_Index : Integer;
-      Parameter_Value : Runtime_Object;
+      Parameter_Value : W_Object;
       In_Named_Section : Boolean := False;
       Name_Node : Libtemplatelang.Analysis.Template_Node;
    begin
@@ -1371,11 +1416,11 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Call_Parameters;
 
    procedure Handle_Template_Call
-     (A_Template_Instance : Template_Instance;
+     (A_Template_Instance : W_Template_Instance;
       Args : Libtemplatelang.Analysis.Argument_List)
    is
       procedure Perpare_Param_Evaluation (Name_Node : Libtemplatelang.Analysis.Template_Node; Position : Integer) is
-         New_Value : Runtime_Object;
+         New_Value : W_Object;
       begin
          Push_Frame_Context;
 
@@ -1383,13 +1428,13 @@ package body Wrapping.Runtime.Analysis is
             --  A variable is an indirection to a value. Return that value.
 
             Top_Frame.Top_Context.Left_Value :=
-              A_Template_Instance.Symbols.Element (Name_Node.Text).A_Vector.First_Element;
+              A_Template_Instance.Symbols.Element (Name_Node.Text).Value;
          else
             --  Text are modeled as a container of texts. So by default, this is
             --  an empty container.
             --  TODO: we're only handling text types for now, but will need to
             --  handle new ones at some point.
-            New_Value := new Runtime_Container_Type;
+            New_Value := new W_Vector_Type;
             Top_Frame.Top_Context.Left_Value := New_Value;
          end if;
       end;
@@ -1400,23 +1445,21 @@ package body Wrapping.Runtime.Analysis is
            (Position).Name_Node;
       end Name_For_Position;
 
-      procedure Store_Param_Value (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : Runtime_Object) is
-         Container : Runtime_Container;
+      procedure Store_Param_Value (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : W_Object) is
+         Ref : W_Reference;
       begin
          if A_Template_Instance.Symbols.Contains (Name_Node.Text) then
-            Container := Runtime_Container
-              (A_Template_Instance.Symbols.Element (Name_Node.Text));
+            Ref := A_Template_Instance.Symbols.Element (Name_Node.Text);
          else
-            Container := new Runtime_Container_Type;
+            Ref := new W_Reference_Type;
             A_Template_Instance.Symbols.Insert
-              (Name_Node.Text, Container);
+              (Name_Node.Text, Ref);
          end if;
 
          --  The container is an indirection to a value. Remove the previous one
          --  and add the new one instead.
 
-         Container.A_Vector.Clear;
-         Container.A_Vector.Append (Value);
+         Ref.Value := Value;
 
          Pop_Frame_Context;
       end Store_Param_Value;
@@ -1429,32 +1472,33 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Template_Call;
 
    procedure Handle_Visitor_Call
-     (An_Entity : Language_Entity;
+     (An_Entity : W_Node;
       A_Visitor : Semantic.Structure.Visitor;
       Args : Libtemplatelang.Analysis.Argument_List;
       Apply_To_All : Boolean)
    is
-      Symbols : Runtime_Object_Maps.Map;
+      Symbols : W_Object_Maps.Map;
 
       function Name_For_Position (Position : Integer) return Libtemplatelang.Analysis.Template_Node is
       begin
          return A_Visitor.Arguments_Ordered.Element (Position).Name_Node;
       end Name_For_Position;
 
-      procedure Store_Param_Value (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : Runtime_Object) is
+      procedure Store_Param_Value (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : W_Object) is
       begin
          Symbols.Insert (Name_Node.Text, Value);
       end Store_Param_Value;
 
       function Sub_Visitor
-        (E : access Language_Entity_Type'Class;
-         Result : out Runtime_Object) return Visit_Action is
+        (E : access W_Object_Type'Class;
+         Result : out W_Object) return Visit_Action
+      is
          A_Visit_Action : Visit_Action := Into;
       begin
          Result := null;
 
          Apply_Wrapping_Program
-           (Language_Entity (E),
+           (W_Node (E),
             A_Visitor,
             A_Visit_Action);
 
@@ -1464,7 +1508,7 @@ package body Wrapping.Runtime.Analysis is
 
       Prev_Visit_Id : Integer;
       A_Visit_Action : Visit_Action := Unknown;
-      Traverse_Result : Runtime_Object;
+      Traverse_Result : W_Object;
    begin
       --  Increment the visitor counter and set the current visitor id, as to
       --  track entities that are being visited by this iteration.
@@ -1513,36 +1557,34 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame;
    end Handle_Visitor_Call;
 
-   procedure Handle_Call (Node : Libtemplatelang.Analysis.Template_Node'Class) is
+   procedure Handle_Call (Node : Libtemplatelang.Analysis.Call_Expr'Class) is
       use Libtemplatelang.Analysis;
 
+      Called : W_Object;
+
       procedure Handle_Function_Call is
-         A_Function : Runtime_Function_Reference :=
-           Runtime_Function_Reference (Pop_Object);
+         A_Function : W_Function_Reference :=
+           W_Function_Reference (Called);
       begin
          if not A_Function.Prefix.Push_Call_Result
-           (To_Text (A_Function.Name), Node.As_Call_Expr.F_Args)
+           (To_Text (A_Function.Name), Node.F_Args)
          then
             Error ("function '" & To_Text (A_Function.Name) & "' can't be called");
          end if;
       end Handle_Function_Call;
 
       procedure Handle_Match is
-         Match_Object : Runtime_Object;
-         Self : Language_Entity;
+         Match_Object : W_Object;
+         Self : W_Node;
          Scope : Semantic.Structure.Entity;
          Selected : Semantic.Structure.Entity;
-         Called : Runtime_Object;
-         Result : Runtime_Object;
+         Result : W_Object;
          Match_Is_Implicit : Boolean;
       begin
-         Match_Object := Top_Frame.Data_Stack.Last_Element;
+         Match_Object := Top_Object_Dereference;
 
-         Match_Is_Implicit := Match_Object.all in Runtime_Language_Entity_Type'Class
-           and then Runtime_Language_Entity (Match_Object).Is_Implicit;
-
-         Node.As_Call_Expr.F_Called.Traverse (Visit_Expression'Access);
-         Called := Pop_Object;
+         Match_Is_Implicit := Match_Object.all in W_Reference_Type'Class
+           and then W_Reference (Match_Object).Is_Implicit;
 
          --  At this point, the matching is of the form:
          --     <implicit self> (Called (F_Args))
@@ -1568,12 +1610,12 @@ package body Wrapping.Runtime.Analysis is
          --  If there's nothing else to check (F_Args), we're done. Otherwise
          --  check that the arg expression matches the entity.
 
-         if Called.all in Runtime_Language_Entity_Type'Class then
-            if Node.As_Call_Expr.F_Args.Children_Count = 0 then
+         if Called.all in W_Node_Type'Class then
+            if Node.F_Args.Children_Count = 0 then
                Push_Match_True (Called);
-            elsif Node.As_Call_Expr.F_Args.Children_Count = 1 then
-               Push_Implicit_Self (Runtime_Language_Entity_Type'Class (Called.all).Value);
-               Node.As_Call_Expr.F_Args.Child (1).As_Argument.F_Value.Traverse
+            elsif Node.F_Args.Children_Count = 1 then
+               Push_Implicit_Self (Called);
+               Node.F_Args.Child (1).As_Argument.F_Value.Traverse
                  (Visit_Expression'Access);
                Result := Pop_Object;
                Pop_Object;
@@ -1603,10 +1645,10 @@ package body Wrapping.Runtime.Analysis is
          --     and has a field field_or_property_name that corresponds to
          --     the arguments F_Args.
 
-         if Match_Object.all in Runtime_Static_Entity_Type'Class then
-            Scope := Runtime_Static_Entity (Match_Object).An_Entity;
+         if Match_Object.all in W_Static_Entity_Reference_Type'Class then
+            Scope := W_Static_Entity_Reference (Match_Object).An_Entity;
 
-            if Scope.Children_Indexed.Contains (Node.As_Call_Expr.F_Called.Text) then
+            if Scope.Children_Indexed.Contains (Node.F_Called.Text) then
                --  At this point, we stacked references to various namespaces.
                --  For example if we have
                --     a.b.template_name (field_or_property_name (F_Args))
@@ -1614,21 +1656,21 @@ package body Wrapping.Runtime.Analysis is
                --  They will get unstacked when exiting the selectors. We do need to
                --  retreive the value of self earlier in the stack.
 
-               Self := Get_Implicit_Self;
+               Self := W_Node (Get_Implicit_Self);
 
-               Selected := Scope.Children_Indexed.Element (Node.As_Call_Expr.F_Called.Text);
+               Selected := Scope.Children_Indexed.Element (Node.F_Called.Text);
 
                --  TODO: We might be able to go without a pointer in the signature
                --  of match result, avoiding dynamic memory allocation here.
                if Self.Push_Match_Result
-                 (new Runtime_Static_Entity_Type'(An_Entity => Selected),
-                  Node.As_Call_Expr.F_Args)
+                 (new W_Static_Entity_Reference_Type'(An_Entity => Selected),
+                  Node.F_Args)
                then
                   return;
                end if;
             else
-               Error ("'" & Node.As_Call_Expr.F_Called.Text & "' not found in '"
-                      & Named_Entity (Runtime_Static_Entity (Match_Object).An_Entity).Name_Node.Text & "'");
+               Error ("'" & Node.F_Called.Text & "' not found in '"
+                      & Named_Entity (W_Static_Entity_Reference (Match_Object).An_Entity).Name_Node.Text & "'");
             end if;
          end if;
 
@@ -1642,19 +1684,16 @@ package body Wrapping.Runtime.Analysis is
          --  TODO: that second alternative is a bit weak, it would be better
          --  to be able to retreive the field object when retreiving called.
 
-         if Match_Object.all in Runtime_Language_Entity_Type'Class then
-            if Called.all in Runtime_Static_Entity_Type'Class then
-                if Runtime_Language_Entity (Match_Object).Value.Push_Match_Result
-                 (Called,
-                  Node.As_Call_Expr.F_Args)
-               then
+         if Match_Object.all in W_Node_Type'Class then
+            if Called.all in W_Static_Entity_Reference_Type'Class then
+                if Match_Object.Push_Match_Result (Called, Node.F_Args) then
                   return;
                end if;
             else
-               if Runtime_Language_Entity (Match_Object).Value.Push_Match_Result
-                 (new Runtime_Field_Reference_Type'
-                    (Name => To_Unbounded_Text (Node.As_Call_Expr.F_Called.Text)),
-                  Node.As_Call_Expr.F_Args)
+               if Match_Object.Push_Match_Result
+                 (new W_Field_Reference_Type'
+                    (Name => To_Unbounded_Text (Node.F_Called.Text)),
+                  Node.F_Args)
                then
                   return;
                end if;
@@ -1666,16 +1705,50 @@ package body Wrapping.Runtime.Analysis is
          Push_Match_False;
       end Handle_Match;
 
+      procedure Handle_Conversion is
+      begin
+         --  The conversion is already stack. We just need to compute the
+         --  resulting object. Make sure that there's only one parameter.
+
+         if Node.F_Args.Children_Count /= 1 then
+            Error ("conversion expects one parameter");
+         end if;
+
+         Evaluate_Expression (Node.F_Args.Child (1).As_Argument.F_Value);
+
+         if Called.all in W_Text_Conversion_Type'Class then
+            W_Text_Conversion (Called).An_Object := Pop_Object;
+         elsif Called.all in W_String_Type'Class then
+            W_String (Called).Value := To_Unbounded_Text
+              (Pop_Object.To_String);
+         end if;
+      end Handle_Conversion;
+
    begin
+      Node.F_Called.Traverse (Visit_Expression'Access);
+
+      Called := Pop_Object_Dereference;
+
       if Top_Frame.Top_Context.Is_Matching_Context then
          Handle_Match;
       else
-         Node.As_Call_Expr.F_Called.Traverse (Visit_Expression'Access);
+         if Called.all in W_Call_To_Global_Type'Class then
+            W_Call_To_Global (Called).Analyze_Parameters (Node.F_Args);
 
-         if Top_Frame.Data_Stack.Last_Element.all in Runtime_Call_To_Global_Type'Class then
-            Runtime_Call_To_Global_Type'Class (Top_Frame.Data_Stack.Last_Element.all).Analyze_Parameters (Node.As_Call_Expr.F_Args);
-         elsif Top_Frame.Data_Stack.Last_Element.all in Runtime_Function_Reference_Type then
+            --  When analyzing a global call, we're only analyzing the
+            --  parameters. Push the call back to the stack for later consumption.
+            Push_Object (Called);
+         elsif Called.all in W_Function_Reference_Type'Class then
             Handle_Function_Call;
+         elsif Called.all in W_Text_Conversion_Type'Class
+           or else Called.all in W_String_Type'Class
+         then
+            --  By convention, we stacked a text conversion or a text when
+            --  asking for a conversion to text or to string. This object is
+            --  to be kept, the job of the convertor is to set the right fields
+            --  of that object.
+
+            Handle_Conversion;
          else
             Error ("expected function call or template reference");
          end if;
@@ -1687,7 +1760,7 @@ package body Wrapping.Runtime.Analysis is
    is
       use Libtemplatelang.Analysis;
 
-      Init_Value : Runtime_Object;
+      Init_Value : W_Object;
    begin
       --  While it is not strictly mandatory (e.g. you can use fold to create
       --  a bunch of elements without caring of the aggregated result), fold
@@ -1735,7 +1808,7 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Fold;
 
 
-   procedure Build_Lambda (A_Lambda : Runtime_Lambda; Lambda_Expression : Libtemplatelang.Analysis.Template_Node) is
+   procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Libtemplatelang.Analysis.Template_Node) is
       function Not_Capture_Identifiers
         (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
 
@@ -1743,29 +1816,26 @@ package body Wrapping.Runtime.Analysis is
         (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
 
       procedure Capture (Name : Text_Type) is
-         Object : Runtime_Object;
       begin
          if Push_Global_Identifier (Name) then
             --  We found a global identifier to record. If not, we expect it
             --  to be resolved later when running the lambda.
 
-            Object := Pop_Object;
-
-            --  If the object is a runtime_language_entity, it may be marked self
+            --  If the object is an imlicit ref, it may be marked self
             --  or new. We don't want to carry this property over to the lambda
             --  call, so remove it.
 
-            if Object.all in Runtime_Language_Entity_Type then
+            if Top_Is_Implicit then
                A_Lambda.Captured_Symbols.Insert
-                 (Name,
-                  new Runtime_Language_Entity_Type'(Value => Runtime_Language_Entity_Type (Object.all).Value, others => <>));
+                 (Name, new W_Reference_Type'
+                    (Value => W_Reference (Pop_Object).Value, others => <>));
             else
-               A_Lambda.Captured_Symbols.Insert (Name, Object);
+               A_Lambda.Captured_Symbols.Insert (Name, Pop_Object);
             end if;
          end if;
       end Capture;
 
-      procedure Capture_Group (Index : Integer; Value : Runtime_Object) is
+      procedure Capture_Group (Index : Integer; Value : W_Object) is
       begin
          Error ("not yet implemented");
       end Capture_Group;
@@ -1841,14 +1911,14 @@ package body Wrapping.Runtime.Analysis is
    begin
       Capture_Expression (Lambda_Expression);
       A_Lambda.Expression := Lambda_Expression;
-      A_Lambda.Implicit_Self := Get_Implicit_Self;
-      A_Lambda.Implicit_New := Get_Implicit_New;
+      A_Lambda.Implicit_Self := W_Node (Get_Implicit_Self);
+      A_Lambda.Implicit_New := W_Node (Get_Implicit_New);
       A_Lambda.Lexical_Scope := Top_Frame.Lexical_Scope;
    end Build_Lambda;
 
-   procedure Run_Lambda (A_Lambda : Runtime_Lambda_Type) is
-      Copy_Symbols : Runtime_Object_Maps.Map;
-      Result : Runtime_Object;
+   procedure Run_Lambda (A_Lambda : W_Lambda_Type) is
+      Copy_Symbols : W_Object_Maps.Map;
+      Result : W_Object;
    begin
       Push_Frame (A_Lambda.Lexical_Scope);
 

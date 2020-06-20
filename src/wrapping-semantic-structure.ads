@@ -128,7 +128,7 @@ package Wrapping.Semantic.Structure is
 
    function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return Namespace;
 
-   type Var_Type_Kind is (Text_Kind, Pattern_Kind);
+   type Var_Type_Kind is (Text_Kind, Set_Kind, Pattern_Kind);
 
    type Var_Type is new Named_Entity_Type with record
       Kind : Var_Type_Kind;

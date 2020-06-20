@@ -8,18 +8,18 @@ with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
 
 package body Wrapping.Input.Kit is
 
-   Global_Node_Registry : Kit_Language_Entity_Node_Maps.Map;
+   Global_Node_Registry : W_Kit_Node_Entity_Node_Maps.Map;
 
-   procedure Pre_Visit (An_Entity : access Kit_Language_Entity_Type) is
-      New_Entity : Language_Entity;
+   procedure Pre_Visit (An_Entity : access W_Kit_Node_Type) is
+      New_Entity : W_Node;
    begin
       if not An_Entity.Children_Computed then
          for C of An_Entity.Node.Children loop
             if not C.Is_Null then
-               New_Entity := new Kit_Language_Entity_Type'(Node => C, others => <>);
+               New_Entity := new W_Kit_Node_Type'(Node => C, others => <>);
                Add_Child (An_Entity, New_Entity);
-               An_Entity.Children_By_Node.Insert (C, Kit_Language_Entity (New_Entity));
-               Global_Node_Registry.Insert (C, Kit_Language_Entity (New_Entity));
+               An_Entity.Children_By_Node.Insert (C, W_Kit_Node (New_Entity));
+               Global_Node_Registry.Insert (C, W_Kit_Node (New_Entity));
             end if;
          end loop;
 
@@ -27,7 +27,7 @@ package body Wrapping.Input.Kit is
       end if;
    end Pre_Visit;
 
-   function Eval_Field (Node : Kit_Node; Name : Text_Type) return Runtime_Object is
+   function Eval_Field (Node : Kit_Node; Name : Text_Type) return W_Object is
       Field_Node : Any_Node_Data_Reference;
    begin
       if Name'Length > 2
@@ -39,7 +39,7 @@ package body Wrapping.Input.Kit is
             Field_Node := Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (F_Name));
 
             if Field_Node /= None then
-               return new Runtime_Node_Type'(A_Node => Eval_Field (Node, Field_Node));
+               return new W_Source_Node_Type'(A_Node => Eval_Field (Node, Field_Node));
             end if;
          end;
       end if;
@@ -47,9 +47,9 @@ package body Wrapping.Input.Kit is
       return null;
    end Eval_Field;
 
-   function Get_Entity_For_Node (Node : Kit_Node) return Kit_Language_Entity is
-      Parent : Kit_Language_Entity;
-      New_Entity : Kit_Language_Entity;
+   function Get_Entity_For_Node (Node : Kit_Node) return W_Kit_Node is
+      Parent : W_Kit_Node;
+      New_Entity : W_Kit_Node;
    begin
       if Global_Node_Registry.Contains (Node) then
          return Global_Node_Registry.Element (Node);
@@ -58,17 +58,16 @@ package body Wrapping.Input.Kit is
          Parent.Pre_Visit;
 
          return
-           Kit_Language_Entity_Type (Parent.all).
+           W_Kit_Node_Type (Parent.all).
            Children_By_Node.Element (Node);
       else
-         New_Entity := new Kit_Language_Entity_Type'(Node => Node, others => <>);
+         New_Entity := new W_Kit_Node_Type'(Node => Node, others => <>);
          Global_Node_Registry.Insert (Node, New_Entity);
          return New_Entity;
       end if;
    end Get_Entity_For_Node;
 
-
-   function Eval_Property (Node : Kit_Node; Name : Text_Type) return Runtime_Object is
+   function Eval_Property (Node : Kit_Node; Name : Text_Type) return W_Object is
       Property_Node : Any_Node_Data_Reference;
    begin
       if Name'Length > 2
@@ -92,15 +91,13 @@ package body Wrapping.Input.Kit is
                end;
 
                if Kind (Value) = Text_Type_Value then
-                  return new Runtime_Text_Type'
+                  return new W_String_Type'
                     (Value => To_Unbounded_Text (As_Text_Type (Value)));
                elsif Kind (Value) = Node_Value then
                   if As_Node (Value).Is_Null then
                      return Match_False;
                   else
-                     return new Runtime_Language_Entity_Type'
-                       (Value => Language_Entity
-                          (Get_Entity_For_Node (As_Node (Value))), others => <>);
+                     return W_Object (Get_Entity_For_Node (As_Node (Value)));
                   end if;
                else
                   Error ("unsupported property kind: " & Any_Value_Kind'Wide_Wide_Image (Kind (Value)));
@@ -112,18 +109,18 @@ package body Wrapping.Input.Kit is
       return null;
    end Eval_Property;
 
-
+   overriding
    function Push_Value
-     (An_Entity : access Kit_Language_Entity_Type;
+     (An_Entity : access W_Kit_Node_Type;
       Name      : Text_Type) return Boolean
    is
    begin
-      if Language_Entity_Type (An_Entity.all).Push_Value (Name) then
+      if W_Node_Type (An_Entity.all).Push_Value (Name) then
          return True;
       end if;
 
       declare
-         Result : Runtime_Object;
+         Result : W_Object;
       begin
          Result := Eval_Field (An_Entity.Node, Name);
 
@@ -132,9 +129,9 @@ package body Wrapping.Input.Kit is
          end if;
 
          if Result /= null then
-            if Result.all in Runtime_Node_Type then
-               Push_Entity
-                 (An_Entity.Children_By_Node.Element (Runtime_Node_Type (Result.all).A_Node));
+            if Result.all in W_Source_Node_Type'Class then
+               Push_Object
+                 (An_Entity.Children_By_Node.Element (W_Source_Node_Type (Result.all).A_Node));
             else
                Push_Object (Result);
             end if;
@@ -148,20 +145,20 @@ package body Wrapping.Input.Kit is
 
    overriding
    function Push_Match_Result
-     (An_Entity : access Kit_Language_Entity_Type;
-      Selector  : Runtime_Object;
+     (An_Entity : access W_Kit_Node_Type;
+      Selector  : W_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean
    is
-      Result : Runtime_Object;
-      Name : Text_Type := Selector.To_Text;
+      Result : W_Object;
+      Name : Text_Type := Selector.To_String;
       Matched : Boolean;
       Id : Any_Node_Type_Id;
    begin
-      if Language_Entity_Type (An_Entity.all).Push_Match_Result (Selector, Params) then
+      if W_Node_Type (An_Entity.all).Push_Match_Result (Selector, Params) then
          return True;
       end if;
 
-      if Selector.all in Runtime_Field_Reference_Type'Class then
+      if Selector.all in W_Field_Reference_Type'Class then
          Id := Lookup_DSL_Name (To_String (Name));
 
          if Id /= No_Node_Type_Id and then Is_Derived_From (Id_For_Kind (An_Entity.Node.Kind), Id) then
@@ -192,9 +189,9 @@ package body Wrapping.Input.Kit is
             return True;
          else
             declare
-               Result : Runtime_Object;
+               Result : W_Object;
                Node : Kit_Node;
-               Field_Entity : Kit_Language_Entity;
+               Field_Entity : W_Kit_Node;
             begin
                Result := Eval_Field (An_Entity.Node, Name);
 
@@ -207,8 +204,8 @@ package body Wrapping.Input.Kit is
                elsif Result = Match_False then
                   Push_Match_False;
                   return True;
-               elsif Result.all in Runtime_Node_Type'Class then
-                  Node := Runtime_Node_Type (Result.all).A_Node;
+               elsif Result.all in W_Source_Node_Type'Class then
+                  Node := W_Source_Node_Type (Result.all).A_Node;
                   Field_Entity := An_Entity.Children_By_Node.Element (Node);
 
                   if Params.Children_Count = 0 then
@@ -234,19 +231,19 @@ package body Wrapping.Input.Kit is
                         Push_Match_False;
                      end if;
                   end if;
-               elsif Result.all in Runtime_Language_Entity_Type'Class then
+               elsif Result.all in W_Node_Type'Class then
                   --  TODO implement matching, merge with before
                   Push_Object (Result);
-               elsif Result.all in Runtime_Text_Type then
+               elsif Result.all in W_String_Type then
                   Error ("matching text property not yet implemented");
                end if;
 
                return True;
             end;
          end if;
-      elsif Selector.all in Runtime_Text_Expression_Type'Class
+      elsif Selector.all in W_Text_Expression_Type'Class
         or else
-          (Selector.all in Runtime_Container_Type'Class
+          (Selector.all in W_Vector_Type'Class
            --  TODO: There's some confusion to solve here, and to decide
            --  when an object is converted to text and when not. For now,
            --  something like
@@ -276,10 +273,10 @@ package body Wrapping.Input.Kit is
    end Push_Match_Result;
 
    overriding
-   function To_Text (Object : Kit_Language_Entity_Type) return Text_Type is
+   function To_String (Object : W_Kit_Node_Type) return Text_Type is
    begin
       return Object.Node.Text;
-   end To_Text;
+   end To_String;
 
    procedure Analyze_File (File : String) is
       Unit : Analysis_Unit;
@@ -298,9 +295,9 @@ package body Wrapping.Input.Kit is
    end Analyze_File;
 
    procedure Analyze_Unit (Unit : Analysis_Unit) is
-      Root_Entity : Language_Entity;
+      Root_Entity : W_Node;
    begin
-      Root_Entity := Language_Entity (Get_Entity_For_Node (Unit.Root));
+      Root_Entity := W_Node (Get_Entity_For_Node (Unit.Root));
 
       Wrapping.Runtime.Analysis.Analyse (Root_Entity);
    end Analyze_Unit;

@@ -1,10 +1,12 @@
-with Libtestlang.Analysis; use Libtestlang.Analysis;
-with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
+with Ada.Containers.Indefinite_Hashed_Maps;
 
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 
-with Ada.Containers.Indefinite_Hashed_Maps;
+with Libtestlang.Analysis; use Libtestlang.Analysis;
+with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
+
+with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
+with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
 
 generic
    type Kit_Node is tagged private;
@@ -74,36 +76,36 @@ generic
 
 package Wrapping.Input.Kit is
 
-   type Kit_Language_Entity_Type;
-   type Kit_Language_Entity is access all Kit_Language_Entity_Type'Class;
+   type W_Kit_Node_Type;
+   type W_Kit_Node is access all W_Kit_Node_Type'Class;
 
-   package Kit_Language_Entity_Node_Maps is new
+   package W_Kit_Node_Entity_Node_Maps is new
      Ada.Containers.Indefinite_Hashed_Maps
-       (Kit_Node, Kit_Language_Entity, Hash, "=", "=");
-   use Kit_Language_Entity_Node_Maps;
+       (Kit_Node, W_Kit_Node, Hash, "=", "=");
+   use W_Kit_Node_Entity_Node_Maps;
 
-   type Kit_Language_Entity_Type is new Language_Entity_Type with record
+   type W_Kit_Node_Type is new W_Node_Type with record
       Node : Kit_Node;
       Children_Computed : Boolean := False;
-      Children_By_Node : Kit_Language_Entity_Node_Maps.Map;
+      Children_By_Node : W_Kit_Node_Entity_Node_Maps.Map;
    end record;
 
    overriding
-   procedure Pre_Visit (An_Entity : access Kit_Language_Entity_Type);
+   procedure Pre_Visit (An_Entity : access W_Kit_Node_Type);
 
    overriding
    function Push_Value
-     (An_Entity : access Kit_Language_Entity_Type;
+     (An_Entity : access W_Kit_Node_Type;
       Name      : Text_Type) return Boolean;
 
    overriding
    function Push_Match_Result
-     (An_Entity : access Kit_Language_Entity_Type;
-      Selector  : Runtime_Object;
+     (An_Entity : access W_Kit_Node_Type;
+      Selector  : W_Object;
       Params    : Libtemplatelang.Analysis.Argument_List) return Boolean;
 
    overriding
-   function To_Text (Object : Kit_Language_Entity_Type) return Text_Type;
+   function To_String (Object : W_Kit_Node_Type) return Text_Type;
 
    procedure Analyze_File (File : String);
 
@@ -111,13 +113,14 @@ package Wrapping.Input.Kit is
 
 private
 
-   type Runtime_Node_Type;
-   type Runtime_Node is access all Runtime_Node_Type'Class;
+   type W_Source_Node_Type;
+   type W_Source_Node is access all W_Source_Node_Type'Class;
 
-   type Runtime_Node_Type is new Runtime_Object_Type with record
+   type W_Source_Node_Type is new W_Object_Type with record
       A_Node : Kit_Node;
    end record;
 
-   function To_Text (Object : Runtime_Node_Type) return Text_Type is (Object.A_Node.Text);
+   overriding
+   function To_String (Object : W_Source_Node_Type) return Text_Type is (Object.A_Node.Text);
 
 end Wrapping.Input.Kit;

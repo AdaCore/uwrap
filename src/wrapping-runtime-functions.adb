@@ -5,7 +5,7 @@ with Wrapping.Utils; use Wrapping.Utils;
 package body Wrapping.Runtime.Functions is
 
    overriding
-   procedure Analyze_Parameters (Call : in out Runtime_Call_To_Lower_Type; Params : Argument_List) is
+   procedure Analyze_Parameters (Call : in out W_Call_To_Lower_Type; Params : Argument_List) is
    begin
       if Params.Children_Count /= 1 then
          Error ("to_lower needs to be called with one parameter");
@@ -20,16 +20,16 @@ package body Wrapping.Runtime.Functions is
    -- To_Text --
    -------------
 
-   overriding function To_Text
-     (Object : Runtime_Call_To_Lower_Type) return Text_Type
+   overriding function To_String
+     (Object : W_Call_To_Lower_Type) return Text_Type
    is
    begin
-      return To_Lower (Object.Param.To_Text);
-   end To_Text;
+      return To_Lower (Object.Param.To_String);
+   end To_String;
 
 
    overriding
-   procedure Analyze_Parameters (Call : in out Runtime_Call_Unindent_Type; Params : Argument_List) is
+   procedure Analyze_Parameters (Call : in out W_Call_Unindent_Type; Params : Argument_List) is
    begin
       if Params.Children_Count /= 1 then
          Error ("unindent needs to be called with one parameter");
@@ -45,11 +45,11 @@ package body Wrapping.Runtime.Functions is
    -- To_Text --
    -------------
 
-   overriding function To_Text
-     (Object : Runtime_Call_Unindent_Type) return Text_Type
+   overriding function To_String
+     (Object : W_Call_Unindent_Type) return Text_Type
    is
    begin
-      return Unident (Object.Param.To_Text);
-   end To_Text;
+      return Unident (Object.Param.To_String);
+   end To_String;
 
 end Wrapping.Runtime.Functions;

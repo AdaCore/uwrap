@@ -22,7 +22,7 @@ package body Wrapping.Semantic.Analysis is
    function Build_Module_Structure (Node : Template_Node; Module_Name : Text_Type) return Structure.Module;
    function Build_Command_Structure (Node : Template_Node'Class) return Structure.Command;
    function Build_Visitor_Structure (Node : Template_Node) return Structure.Visitor;
-   function Build_Variable_Structure (Node : Template_Node) return Structure.Var;
+   function Build_Variable_Structure (Node : Libtemplatelang.Analysis.Var) return Structure.Var;
    function Build_Command_Scope_Structure (Node : Template_Node'Class) return Entity;
 
    procedure Resolve_Template_Names (A_Template : Structure.Template);
@@ -170,7 +170,7 @@ package body Wrapping.Semantic.Analysis is
          case C.Kind is
             when Template_Var =>
                A_Template.Variables_Ordered.Append
-                 (Build_Variable_Structure (Template_Node (C)));
+                 (Build_Variable_Structure (Template_Node (C).As_Var));
                A_Template.Variables_Indexed.Insert
                  (C.As_Var.F_Name.Text,
                   A_Template.Variables_Ordered.Last_Element);
@@ -283,26 +283,36 @@ package body Wrapping.Semantic.Analysis is
       return A_Visitor;
    end Build_Visitor_Structure;
 
-   function Build_Variable_Structure (Node : Template_Node) return Structure.Var is
+   function Build_Variable_Structure (Node : Libtemplatelang.Analysis.Var) return Structure.Var is
       A_Var : Structure.Var := new Var_Type;
    begin
       Push_Named_Entity (A_Var, Node, Node.As_Var.F_Name);
 
-      if Node.As_Var.F_Typ.Text = "text" then
+      if Node.F_Typ.Text = "text" then
          A_Var.Kind := Text_Kind;
 
-         if Node.As_Var.F_Args.Children_Count /= 0 then
+         if Node.F_Args.Children_Count /= 0 then
             Error ("no argument expected for text var");
          end if;
-      elsif Node.As_Var.F_Typ.Text = "pattern" then
+      elsif Node.F_Typ.Text = "pattern" then
          A_Var.Kind := Pattern_Kind;
 
-         if Node.As_Var.F_Args.Children_Count /= 1 then
+         if Node.F_Args.Children_Count /= 1 then
             Error ("missing parameter for pattern");
+         end if;
+      elsif Node.F_Typ.Text = "set" then
+         A_Var.Kind := Set_Kind;
+
+          if Node.F_Args.Children_Count /= 1 then
+            Error ("missing parameter for set");
+         end if;
+
+         if Node.F_Args.Child (1).Text /= "string" then
+            Error ("only sets of strings are currently supported");
          end if;
       else
          Error ("unknown var type: '"
-                & Node.As_Var.F_Typ.Text & "', use text or pattern instead");
+                & Node.F_Typ.Text & "', use text or pattern instead");
       end if;
 
       A_Var.Args := Node.As_Var.F_Args;
