@@ -327,13 +327,6 @@ package Wrapping.Runtime.Objects is
       A_Mode           : Browse_Mode;
       Match_Expression : Template_Node'Class);
 
-   overriding
-   function Browse_Entity
-     (An_Entity : access W_Node_Type;
-      Browsed : access W_Object_Type'Class;
-      Match_Expression : Template_Node'Class;
-      Result : out W_Object) return Visit_Action;
-
    function To_String (An_Entity : W_Node_Type) return Text_Type is ("");
 
    procedure Print (An_Entity : W_Node_Type; Indent : Text_Type := "");

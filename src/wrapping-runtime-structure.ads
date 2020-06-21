@@ -96,6 +96,7 @@ package Wrapping.Runtime.Structure is
 
    type Browse_Mode is (Parent, Child_Depth, Child_Breadth, Next, Prev, Sibling, Template);
 
+   --  TODO: This is probably actually needed only at the node level.
    function Traverse
      (An_Entity    : access W_Object_Type;
       A_Mode       : Browse_Mode;
@@ -117,7 +118,7 @@ package Wrapping.Runtime.Structure is
      (An_Entity : access W_Object_Type;
       Browsed : access W_Object_Type'Class;
       Match_Expression : Template_Node'Class;
-      Result : out W_Object) return Visit_Action is (Into);
+      Result : out W_Object) return Visit_Action;
 
    procedure Push_Match_True (An_Entity : access W_Object_Type'Class);
 

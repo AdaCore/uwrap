@@ -742,7 +742,6 @@ package body Wrapping.Runtime.Analysis is
    procedure Evaluate_Expression
      (Node : Libtemplatelang.Analysis.Template_Node'Class)
    is
-      -- TODO: Review the need for this confusing function that doesn't really traverse
       Dummy : Libtemplatelang.Common.Visit_Status := Visit_Expression (Node);
    begin
       null;
@@ -760,8 +759,6 @@ package body Wrapping.Runtime.Analysis is
    function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
       use Libtemplatelang.Analysis;
       use Libtemplatelang.Common;
-
-      Result : W_Object;
    begin
       Push_Error_Location (Node);
 
@@ -778,7 +775,7 @@ package body Wrapping.Runtime.Analysis is
             Top_Frame.Top_Context.Name_Captured :=
               To_Unbounded_Text (Node.As_Match_Capture.F_Captured.Text);
 
-            Node.As_Match_Capture.F_Expression.Traverse (Visit_Expression'Access);
+            Evaluate_Expression (Node.As_Match_Capture.F_Expression);
 
             if Top_Frame.Data_Stack.Last_Element /= Match_False then
                Top_Frame.Symbols.Include
@@ -830,17 +827,16 @@ package body Wrapping.Runtime.Analysis is
                   Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
                   Top_Frame.Top_Context.Is_Folding_Context := False;
 
-                  Node.As_Selector.F_Left.Traverse (Visit_Expression'Access);
+                  Evaluate_Expression (Node.As_Selector.F_Left);
                   Pop_Frame_Context;
 
-                  Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
+                  --  Leave the result of the previous expression on the stack,
+                  --  it's suppposed to be consume by the next expression
 
-                  Result := Pop_Object;
-                  Pop_Object;
-                  Push_Object (Result);
+                  Evaluate_Expression (Node.As_Selector.F_Right);
                end if;
             else
-               Node.As_Selector.F_Right.Traverse (Visit_Expression'Access);
+               Evaluate_Expression (Node.As_Selector.F_Right);
             end if;
 
             Pop_Error_Location;
@@ -1099,6 +1095,8 @@ package body Wrapping.Runtime.Analysis is
       if Str = "" then
          Append_Text ("");
          Error_Callback := Prev_Error;
+         Push_Object (Result);
+
          return;
       end if;
 
@@ -1322,7 +1320,6 @@ package body Wrapping.Runtime.Analysis is
       procedure Handle_Static_Entity_Selection is
          Name : Text_Type := Node.Text;
          An_Entity : Semantic.Structure.Entity;
-         Result : W_Object;
       begin
          An_Entity := W_Static_Entity (Top_Frame.Data_Stack.Last_Element).An_Entity;
 
@@ -1346,10 +1343,10 @@ package body Wrapping.Runtime.Analysis is
               (Get_Object_For_Module
                  (Wrapping.Semantic.Structure.Module (An_Entity)));
             Handle_Language_Entity_Selection;
-            Result := Pop_Object;
-            Pop_Object;
-            Push_Object (Result);
          else
+            --  Consume the prefix of this reference.
+            Pop_Object;
+
             Push_Object
               (W_Object'(new W_Static_Entity_Type'(An_Entity => A_Semantic_Entity)));
          end if;
@@ -1358,8 +1355,8 @@ package body Wrapping.Runtime.Analysis is
       procedure Handle_Language_Entity_Selection is
          Name : Text_Type := Node.Text;
 
-         Implicit_Self : W_Node;
-         Implicit_New  : W_Node;
+         Implicit_Self : W_Object;
+         Implicit_New  : W_Object;
 
          Found_Self_Entity : Boolean;
          Found_New_Entity : Boolean;
@@ -1385,8 +1382,8 @@ package body Wrapping.Runtime.Analysis is
             --  We'll return either the entity coming from one of the two,
             --  or raise an error if both contain such name.
 
-            Implicit_Self := W_Node (Get_Implicit_Self);
-            Implicit_New := W_Node (Get_Implicit_New);
+            Implicit_Self := Get_Implicit_Self;
+            Implicit_New := Get_Implicit_New;
 
             Found_Self_Entity := Implicit_Self.Push_Value (Name);
 
@@ -1418,6 +1415,9 @@ package body Wrapping.Runtime.Analysis is
                Error ("'" & Node.Text & "' not found");
             end if;
          else
+            --  We're on an explicit name. Pop it and push the result.
+            Pop_Object;
+
             if Prefix_Entity.Push_Value (Name) then
                --  We found a component of the entity and it has been pushed
                return;
@@ -1787,6 +1787,13 @@ package body Wrapping.Runtime.Analysis is
          Expression.Traverse (Capture_Identifiers'Access);
       end Capture_Expression;
 
+      procedure Capture_Expression_And_Push_Dummy
+        (Expression : Libtemplatelang.Analysis.Template_Node) is
+      begin
+         Expression.Traverse (Capture_Identifiers'Access);
+         Push_Object (W_Object'(new W_Object_Type));
+      end Capture_Expression_And_Push_Dummy;
+
       function Capture_Identifiers
         (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status
       is
@@ -1843,10 +1850,15 @@ package body Wrapping.Runtime.Analysis is
                   end if;
                end;
             when Template_Str =>
+               --  Analyze_Replace_String ABI is expecting that capturing an
+               --  expression pushes a value on the stack (it's going to get
+               --  popped. So use Capture_Expression_And_Push_Dummy in order
+               --  to avoid popping the top of the stack.
+
                Analyze_Replace_String
                  (Node,
                   Capture_Group'Access,
-                  Capture_Expression'Access);
+                  Capture_Expression_And_Push_Dummy'Access);
 
                Pop_Object;
 

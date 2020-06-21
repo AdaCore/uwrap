@@ -1,3 +1,5 @@
+with Ada.Containers; use Ada.Containers;
+
 with Libtemplatelang;
 with Libtemplatelang.Analysis;
 
@@ -13,8 +15,6 @@ package Wrapping.Runtime.Analysis is
 
    procedure Analyse (Root_Entity : W_Node);
 
-   -- TODO: Make a version of that function that pops and return the result.
-   -- it should be used in many places
    procedure Evaluate_Expression
      (Node : Libtemplatelang.Analysis.Template_Node'Class);
 
