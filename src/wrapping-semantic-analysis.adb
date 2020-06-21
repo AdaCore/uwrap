@@ -125,6 +125,7 @@ package body Wrapping.Semantic.Analysis is
       --  The module needs to be stacked manually, as it's not a child of
       --  the currently stacked entity (the root node) but of the namespace.
       Add_Child (A_Namespace, A_Module, Suffix (Module_Name));
+      A_Module.Name := To_Unbounded_Text (Suffix (Module_Name));
       A_Module.Node := Node;
       Entity_Stack.Append (Entity (A_Module));
 
@@ -146,6 +147,13 @@ package body Wrapping.Semantic.Analysis is
                A_Module.Visitors_Indexed.Insert
                  (C.As_Visitor.F_Name.Text,
                   Build_Visitor_Structure (C));
+
+            when Template_Var =>
+               A_Module.Variables_Ordered.Append
+                 (Build_Variable_Structure (C.As_Var));
+               A_Module.Variables_Indexed.Insert
+                 (C.As_Var.F_Name.Text,
+                  A_Module.Variables_Ordered.Last_Element);
 
             when Template_Import | Template_Import_List =>
                null;
@@ -303,12 +311,24 @@ package body Wrapping.Semantic.Analysis is
       elsif Node.F_Typ.Text = "set" then
          A_Var.Kind := Set_Kind;
 
-          if Node.F_Args.Children_Count /= 1 then
+         if Node.F_Args.Children_Count /= 1 then
             Error ("missing parameter for set");
          end if;
 
          if Node.F_Args.Child (1).Text /= "string" then
             Error ("only sets of strings are currently supported");
+         end if;
+      elsif Node.F_Typ.Text = "map" then
+         A_Var.Kind := Map_Kind;
+
+         if Node.F_Args.Children_Count /= 2 then
+            Error ("need to specify key and element");
+         end if;
+
+         if Node.F_Args.Child (1).Text /= "string"
+           or else Node.F_Args.Child (2).Text /= "object"
+         then
+            Error ("only (string, object) is currently supported for maps");
          end if;
       else
          Error ("unknown var type: '"

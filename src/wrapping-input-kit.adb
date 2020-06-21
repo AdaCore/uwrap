@@ -156,7 +156,7 @@ package body Wrapping.Input.Kit is
 
          Push_Object
            (W_Object'
-              (new W_Function_Reference_Type'
+              (new W_Function_Type'
                    (Prefix => W_Object (An_Entity),
                     Call   => Call_Check_Expression'Unrestricted_Access)));
          return True;

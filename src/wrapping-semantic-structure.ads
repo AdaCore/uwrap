@@ -102,8 +102,13 @@ package Wrapping.Semantic.Structure is
    end record;
 
    type Module_Type is new Entity_Type with record
+      Name : Unbounded_Text_Type;
+
       Templates_Ordered : Template_Vectors.Vector;
       Templates_Indexed : Template_Maps.Map;
+
+      Variables_Ordered : Var_Vectors.Vector;
+      Variables_Indexed : Var_Maps.Map;
 
       Visitors_Indexed : Visitor_Maps.Map;
       Imported_Modules : Module_Maps.Map;
@@ -128,7 +133,7 @@ package Wrapping.Semantic.Structure is
 
    function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return Namespace;
 
-   type Var_Type_Kind is (Text_Kind, Set_Kind, Pattern_Kind);
+   type Var_Type_Kind is (Text_Kind, Set_Kind, Map_Kind, Pattern_Kind);
 
    type Var_Type is new Named_Entity_Type with record
       Kind : Var_Type_Kind;

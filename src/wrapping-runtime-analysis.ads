@@ -18,6 +18,9 @@ package Wrapping.Runtime.Analysis is
    procedure Evaluate_Expression
      (Node : Libtemplatelang.Analysis.Template_Node'Class);
 
+   function Evaluate_Expression
+     (Node : Libtemplatelang.Analysis.Template_Node'Class) return W_Object;
+
    function Analyze_Visitor
      (E : access W_Object_Type'Class;
       Result : out W_Object) return Wrapping.Semantic.Structure.Visit_Action;

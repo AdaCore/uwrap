@@ -300,8 +300,8 @@ package body Wrapping.Runtime.Analysis is
             Evaluate_Expression (Template_Clause.Arguments.Child (1).As_Argument.F_Value);
             Result := Pop_Object_Dereference;
 
-            if Result.all not in W_Static_Entity_Reference_Type'Class
-              or else W_Static_Entity_Reference (Result).An_Entity.all
+            if Result.all not in W_Static_Entity_Type'Class
+              or else W_Static_Entity (Result).An_Entity.all
                 not in Semantic.Structure.Template_Type'Class
             then
                Error ("expected template reference");
@@ -309,7 +309,7 @@ package body Wrapping.Runtime.Analysis is
 
             A_Language_Entity.Forbidden_Template_Names.Include
               (Semantic.Structure.Template
-                 (W_Static_Entity_Reference (Result).An_Entity).Full_Name);
+                 (W_Static_Entity (Result).An_Entity).Full_Name);
 
             --  TODO: remove the template if it's already been created in the
             --  context of a weave clause
@@ -404,10 +404,22 @@ package body Wrapping.Runtime.Analysis is
                else
                   declare
                      Entity_Target : W_Node;
+                     Tmp_Target : W_Object;
                   begin
                      if not A_Command.Template_Clause.Target_Object.Is_Null then
                         Evaluate_Expression (A_Command.Template_Clause.Target_Object);
-                        Entity_Target := W_Node (Pop_Object_Dereference);
+                        Tmp_Target := Pop_Object_Dereference;
+
+                        if Tmp_Target.all in W_Node_Type'Class then
+                           Entity_Target := W_Node (Tmp_Target);
+                        elsif Tmp_Target.all in W_Static_Entity_Type'Class then
+                           Entity_Target := W_Node
+                             (Get_Object_For_Module
+                                (Wrapping.Semantic.Structure.Module
+                                     (W_Static_Entity (Tmp_Target).An_Entity)));
+                        else
+                           Error ("can't wrap or weave selected object");
+                        end if;
 
                         --  A number of the function below assume that
                         -- children for the entity are set - make sure that
@@ -736,6 +748,15 @@ package body Wrapping.Runtime.Analysis is
       null;
    end Evaluate_Expression;
 
+   function Evaluate_Expression
+     (Node : Libtemplatelang.Analysis.Template_Node'Class) return W_Object
+   is
+   begin
+      Evaluate_Expression (Node);
+
+      return Pop_Object;
+   end Evaluate_Expression;
+
    function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
       use Libtemplatelang.Analysis;
       use Libtemplatelang.Common;
@@ -975,11 +996,11 @@ package body Wrapping.Runtime.Analysis is
                   Evaluate_Expression (Node.As_New_Expr.F_Name);
                   An_Object := Pop_Object_Dereference;
 
-                  if An_Object.all not in W_Static_Entity_Reference_Type'Class then
+                  if An_Object.all not in W_Static_Entity_Type'Class then
                      Error ("expected template reference");
                   end if;
 
-                  A_Template := W_Static_Entity_Reference (An_Object).An_Entity;
+                  A_Template := W_Static_Entity (An_Object).An_Entity;
 
                   if A_Template.all not in Semantic.Structure.Template_Type'Class then
                      Error ("expected template reference");
@@ -1220,14 +1241,23 @@ package body Wrapping.Runtime.Analysis is
 
       A_Module := Get_Module (Top_Frame.all);
 
-      -- Check in the static symbols in the module
+      --  Check if the current module is the name we're looking for
+
+      if To_Text (A_Module.Name) = Name then
+         Push_Object
+           (W_Object'(new W_Static_Entity_Type'
+              (An_Entity =>  Semantic.Structure.Entity (A_Module))));
+         return True;
+      end if;
+
+      --  Check in the static symbols in the module
 
       if A_Module.Children_Indexed.Contains (Name) then
          if Tentative_Symbol = null then
             A_Semantic_Entity := A_Module.Children_Indexed (Name);
 
             if A_Semantic_Entity.all in Template_Type'Class then
-               Tentative_Symbol := new W_Static_Entity_Reference_Type'
+               Tentative_Symbol := new W_Static_Entity_Type'
                  (An_Entity => A_Semantic_Entity);
             end if;
          else
@@ -1243,7 +1273,7 @@ package body Wrapping.Runtime.Analysis is
                A_Semantic_Entity := Imported.Children_Indexed (Name);
 
                if A_Semantic_Entity.all in Template_Type'Class then
-                  Tentative_Symbol := new W_Static_Entity_Reference_Type'
+                  Tentative_Symbol := new W_Static_Entity_Type'
                     (An_Entity => A_Semantic_Entity);
                end if;
             else
@@ -1261,7 +1291,7 @@ package body Wrapping.Runtime.Analysis is
             if A_Semantic_Entity.all in Namespace_Type'Class
               or else A_Semantic_Entity.all in Module_Type'Class
             then
-               Tentative_Symbol := new W_Static_Entity_Reference_Type'
+               Tentative_Symbol := new W_Static_Entity_Type'
                  (An_Entity => A_Semantic_Entity);
             end if;
          else
@@ -1285,13 +1315,16 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Global_Identifier;
 
    procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class) is
-      Prefix_Entity : W_Node;
       A_Semantic_Entity : Semantic.Structure.Entity;
 
+      procedure Handle_Language_Entity_Selection;
+
       procedure Handle_Static_Entity_Selection is
+         Name : Text_Type := Node.Text;
          An_Entity : Semantic.Structure.Entity;
+         Result : W_Object;
       begin
-         An_Entity := W_Static_Entity_Reference (Top_Frame.Data_Stack.Last_Element).An_Entity;
+         An_Entity := W_Static_Entity (Top_Frame.Data_Stack.Last_Element).An_Entity;
 
          if not An_Entity.Children_Indexed.Contains (Node.Text) then
             if Top_Frame.Top_Context.Is_Matching_Context then
@@ -1302,10 +1335,24 @@ package body Wrapping.Runtime.Analysis is
             end if;
          end if;
 
-         A_Semantic_Entity := An_Entity.Children_Indexed.Element (Node.Text);
+         A_Semantic_Entity := An_Entity.Children_Indexed.Element (Name);
 
-         Push_Object
-           (W_Object'(new W_Static_Entity_Reference_Type'(An_Entity => A_Semantic_Entity)));
+         if A_Semantic_Entity.all in Wrapping.Semantic.Structure.Var_Type'Class then
+            --  We found a reference to a Var. This means that we need to process
+            --  the node corresponding to this module, and retreive the actual
+            --  variable value.
+
+            Push_Object
+              (Get_Object_For_Module
+                 (Wrapping.Semantic.Structure.Module (An_Entity)));
+            Handle_Language_Entity_Selection;
+            Result := Pop_Object;
+            Pop_Object;
+            Push_Object (Result);
+         else
+            Push_Object
+              (W_Object'(new W_Static_Entity_Type'(An_Entity => A_Semantic_Entity)));
+         end if;
       end Handle_Static_Entity_Selection;
 
       procedure Handle_Language_Entity_Selection is
@@ -1318,10 +1365,11 @@ package body Wrapping.Runtime.Analysis is
          Found_New_Entity : Boolean;
 
          Self_Object : W_Object;
+         Prefix_Entity : W_Object;
       begin
          -- We're resolving a reference to an entity
 
-         Prefix_Entity := W_Node (Top_Object_Dereference);
+         Prefix_Entity := Top_Object_Dereference;
 
          if Top_Is_Implicit then
             --  If we're on the implicit entity, then first check if there's
@@ -1389,12 +1437,10 @@ package body Wrapping.Runtime.Analysis is
       if Top_Frame.Data_Stack.Length /= 0 then
          Top := Top_Object_Dereference;
 
-         if Top.all in W_Static_Entity_Reference_Type'Class then
+         if Top.all in W_Static_Entity_Type'Class then
             Handle_Static_Entity_Selection;
-         elsif Top.all in W_Node_Type'Class then
-            Handle_Language_Entity_Selection;
          else
-            Handle_Global_Identifier (Node.Text);
+            Handle_Language_Entity_Selection;
          end if;
       else
          Handle_Global_Identifier (Node.Text);
@@ -1697,6 +1743,8 @@ package body Wrapping.Runtime.Analysis is
 
 
    procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Libtemplatelang.Analysis.Template_Node) is
+      Local_Symbols : Text_Sets.Set;
+
       function Not_Capture_Identifiers
         (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
 
@@ -1705,6 +1753,12 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Capture (Name : Text_Type) is
       begin
+         if Local_Symbols.Contains (Name) then
+            --  If the symbol is local to the lambda, then there's nothing to
+            --  capture.
+            return;
+         end if;
+
          if Push_Global_Identifier (Name) then
             --  We found a global identifier to record. If not, we expect it
             --  to be resolved later when running the lambda.
@@ -1770,6 +1824,24 @@ package body Wrapping.Runtime.Analysis is
          Push_Error_Location (Node);
 
          case Node.Kind is
+            when Template_Match_Capture =>
+               declare
+                  Name : Text_Type := Node.As_Match_Capture.F_Captured.Text;
+               begin
+                  --  If the name isn't already identified as a local name,
+                  --  identify it as such for the remainder of the analysis.
+                  --  Otherwise, just pass through.
+
+                  if not Local_Symbols.Contains (Name) then
+                     Local_Symbols.Insert (Name);
+                     Node.As_Match_Capture.F_Expression.Traverse
+                       (Capture_Identifiers'Access);
+                     Local_Symbols.Delete (Name);
+                     return Over;
+                  else
+                     return Into;
+                  end if;
+               end;
             when Template_Str =>
                Analyze_Replace_String
                  (Node,

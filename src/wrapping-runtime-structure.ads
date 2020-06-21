@@ -136,4 +136,7 @@ package Wrapping.Runtime.Structure is
 
    Match_False : constant W_Object := Null_Object;
 
+   function Get_Object_For_Module
+     (A_Module : Wrapping.Semantic.Structure.Module) return W_Object;
+
 end Wrapping.Runtime.Structure;

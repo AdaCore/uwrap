@@ -62,4 +62,42 @@ package body Wrapping.Runtime.Structure is
       Error ("non callable entity");
    end Push_Call_Result;
 
+   Module_Registry : W_Object_Maps.Map;
+
+   function Get_Object_For_Module
+     (A_Module : Wrapping.Semantic.Structure.Module) return W_Object
+   is
+      Result : W_Template_Instance;
+      Name : Text_Type := A_Module.Full_Name;
+   begin
+      if Module_Registry.Contains (Name) then
+         return Module_Registry.Element (Name);
+      else
+         Result := new W_Template_Instance_Type;
+
+         for V of A_Module.Variables_Ordered loop
+            case V.Kind is
+               when Map_Kind =>
+                  Result.Symbols.Insert
+                    (V.Name_Node.Text, new W_Reference_Type'
+                       (Value => new W_Map_Type, others => <>));
+
+               when Text_Kind =>
+                  --  Text is currently modelled as a reference to a text
+                  --  container.
+                  Result.Symbols.Insert
+                    (V.Name_Node.Text, new W_Reference_Type'
+                       (Value => new W_Vector_Type, others => <>));
+
+               when others =>
+                  Error ("global variable type not yet supported");
+
+            end case;
+         end loop;
+
+         Module_Registry.Insert (Name, W_Object (Result));
+         return W_Object (Result);
+      end if;
+   end Get_Object_For_Module;
+
 end Wrapping.Runtime.Structure;

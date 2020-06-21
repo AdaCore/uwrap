@@ -31,6 +31,9 @@ package Wrapping.Runtime.Objects is
    type W_Set_Type;
    type W_Set is access all W_Set_Type;
 
+   type W_Map_Type;
+   type W_Map is access all W_Map_Type;
+
    type W_Integer_Type;
    type W_Integer is access all W_Integer_Type'Class;
 
@@ -49,11 +52,11 @@ package Wrapping.Runtime.Objects is
    type W_Text_Conversion_Type;
    type W_Text_Conversion is access all W_Text_Conversion_Type'Class;
 
-   type W_Function_Reference_Type;
-   type W_Function_Reference is access all W_Function_Reference_Type'Class;
+   type W_Function_Type;
+   type W_Function is access all W_Function_Type'Class;
 
-   type W_Static_Entity_Reference_Type;
-   type W_Static_Entity_Reference is access all W_Static_Entity_Reference_Type'Class;
+   type W_Static_Entity_Type;
+   type W_Static_Entity is access all W_Static_Entity_Type'Class;
 
    type W_Expression_Type;
    type W_Expression is access all W_Expression_Type'Class;
@@ -156,6 +159,20 @@ package Wrapping.Runtime.Objects is
       A_Set : W_String_Sets.Set;
    end record;
 
+   type W_Map_Type is new W_Object_Type with record
+      A_Map : W_Object_Maps.Map;
+   end record;
+
+   overriding
+   function Push_Value
+     (An_Entity : access W_Map_Type;
+      Name      : Text_Type) return Boolean;
+
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Map_Type;
+      Params    : Libtemplatelang.Analysis.Argument_List);
+
    type W_Integer_Type is new W_Object_Type with record
       Value : Integer;
    end record;
@@ -199,23 +216,23 @@ package Wrapping.Runtime.Objects is
      (Object : access W_Object_Type'Class;
       Params : Libtemplatelang.Analysis.Argument_List);
 
-   type W_Function_Reference_Type is new W_Object_Type with record
+   type W_Function_Type is new W_Object_Type with record
       Prefix : W_Object;
       Call   : Call_Access;
    end record;
 
    overriding
    procedure Push_Call_Result
-     (An_Entity : access W_Function_Reference_Type;
+     (An_Entity : access W_Function_Type;
       Params    : Libtemplatelang.Analysis.Argument_List);
 
-   type W_Static_Entity_Reference_Type is new W_Object_Type with record
+   type W_Static_Entity_Type is new W_Object_Type with record
       An_Entity : Semantic.Structure.Entity;
    end record;
 
    overriding
    procedure Push_Call_Result
-     (An_Entity : access W_Static_Entity_Reference_Type;
+     (An_Entity : access W_Static_Entity_Type;
       Params    : Libtemplatelang.Analysis.Argument_List);
 
    type W_Expression_Type is new W_Object_Type with record

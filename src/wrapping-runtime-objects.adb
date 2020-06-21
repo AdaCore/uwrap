@@ -100,6 +100,61 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Call_Tmp;
 
+   procedure Call_Insert
+     (Object : access W_Object_Type'Class;
+      Params : Libtemplatelang.Analysis.Argument_List)
+   is
+      P1, P2 : W_Object;
+   begin
+      if Params.Children_Count /= 2 then
+         Error ("two parameters expected for insert");
+      end if;
+
+      P1 := Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+      P2 := Evaluate_Expression (Params.Child (2).As_Argument.F_Value);
+
+      W_Map (Object).A_Map.Insert (P1.To_String, P2);
+   end Call_Insert;
+
+   procedure Call_Include
+     (Object : access W_Object_Type'Class;
+      Params : Libtemplatelang.Analysis.Argument_List)
+   is
+      P1, P2 : W_Object;
+   begin
+      if Params.Children_Count /= 2 then
+         Error ("two parameters expected for insert");
+      end if;
+
+      P1 := Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+      P2 := Evaluate_Expression (Params.Child (2).As_Argument.F_Value);
+
+      W_Map (Object).A_Map.Include (P1.To_String, P2);
+   end Call_Include;
+
+   procedure Call_Element
+     (Object : access W_Object_Type'Class;
+      Params : Libtemplatelang.Analysis.Argument_List)
+   is
+   begin
+      if Params.Children_Count /= 1 then
+         Error ("element expects one parameter");
+      end if;
+
+      declare
+         Name : Text_Type := Evaluate_Expression
+           (Params.Child (1).As_Argument.F_Value).To_String;
+      begin
+         if W_Map (Object).A_Map.Contains (Name) then
+            Push_Object (W_Map (Object).A_Map.Element (Name));
+         elsif Top_Frame.Top_Context.Is_Matching_Context then
+            Push_Match_False;
+         else
+            Error ("map doesn't contain element of name " & Name);
+         end if;
+      end;
+   end Call_Element;
+
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Reference_Type;
@@ -207,6 +262,64 @@ package body Wrapping.Runtime.Objects is
    end To_String;
 
    overriding
+   function Push_Value
+     (An_Entity : access W_Map_Type;
+      Name      : Text_Type) return Boolean
+   is
+      Call : Call_Access;
+   begin
+      if Name = "insert" then
+         Call := Call_Insert'Access;
+      elsif Name = "include" then
+         Call := Call_Include'Access;
+      elsif Name = "element" then
+         Call := Call_Element'Access;
+      end if;
+
+      if Call /= null then
+         Push_Object
+           (W_Object'(new W_Function_Type'
+              (Prefix => W_Object (An_Entity),
+               Call => Call)));
+         return True;
+      else
+         return False;
+      end if;
+   end Push_Value;
+
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Map_Type;
+      Params    : Libtemplatelang.Analysis.Argument_List)
+   is
+      Result : W_Object;
+      Action : Visit_Action;
+   begin
+      --  Maps are browsing objects, they behave like various other tree browsing
+      --  functions.
+      --  TODO: there is no support for object allocation here at this stage,
+      --  which is not completely obvious (needs to implement some kind of a
+      --  tuple to create key and value at the same time).
+
+      if Params.Children_Count /= 1 then
+         Error ("expected one argument for browsing map");
+      end if;
+
+      for E of An_Entity.A_Map loop
+         Action :=
+           An_Entity.Browse_Entity (E, Params.Child (1).As_Argument.F_Value, Result);
+
+         exit when Action = Stop;
+      end loop;
+
+      if Result /= null then
+         Push_Object (Result);
+      else
+         Push_Match_False;
+      end if;
+   end Push_Call_Result;
+
+   overriding
    function To_String (Object : W_Integer_Type) return Text_Type
    is
    begin
@@ -250,7 +363,7 @@ package body Wrapping.Runtime.Objects is
 
    overriding
    procedure Push_Call_Result
-     (An_Entity : access W_Function_Reference_Type;
+     (An_Entity : access W_Function_Type;
       Params    : Libtemplatelang.Analysis.Argument_List) is
    begin
       An_Entity.Call (An_Entity.Prefix, Params);
@@ -258,7 +371,7 @@ package body Wrapping.Runtime.Objects is
 
    overriding
    procedure Push_Call_Result
-     (An_Entity : access W_Static_Entity_Reference_Type;
+     (An_Entity : access W_Static_Entity_Type;
       Params    : Libtemplatelang.Analysis.Argument_List)
    is
       Implicit_Self : W_Object;
@@ -424,7 +537,7 @@ package body Wrapping.Runtime.Objects is
 
       if A_Call /= null then
          Push_Object
-           (W_Object'(new W_Function_Reference_Type'
+           (W_Object'(new W_Function_Type'
                 (Prefix => W_Object (An_Entity),
                  Call => A_Call)));
 
@@ -893,7 +1006,13 @@ package body Wrapping.Runtime.Objects is
 
             return True;
          end if;
-      else
+      elsif An_Entity.Symbols.Contains (Name) then
+         Push_Object (An_Entity.Symbols.Element (Name));
+         return True;
+      elsif An_Entity.Template /= null then
+         --  If we did not find the symbol, see if it corresponds to a variable
+         --  and create it.
+
          Named_Entity := An_Entity.Template.Get_Component (Name);
 
          if Named_Entity /= null then
@@ -903,16 +1022,15 @@ package body Wrapping.Runtime.Objects is
                   New_Ref : W_Reference;
                begin
                   if A_Var.Kind = Text_Kind then
-                     if not An_Entity.Symbols.Contains (Name) then
-                        --  Symbols contained in templates are references to
-                        --  values. Create the reference and the referenced
-                        --  empty value here.
 
-                        New_Ref := new W_Reference_Type;
-                        New_Ref.Value := new W_Vector_Type;
+                     --  Symbols contained in templates are references to
+                     --  values. Create the reference and the referenced
+                     --  empty value here.
 
-                        An_Entity.Symbols.Insert (Name, New_Ref);
-                     end if;
+                     New_Ref := new W_Reference_Type;
+                     New_Ref.Value := new W_Vector_Type;
+
+                     An_Entity.Symbols.Insert (Name, New_Ref);
 
                      Push_Object (An_Entity.Symbols.Element (Name));
 

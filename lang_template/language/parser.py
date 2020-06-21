@@ -148,7 +148,7 @@ template_grammar.add_rules(
     main_rule=Module (List (G.import_clause, empty_valid=True), G.module_scope),
     import_clause=Import('import', G.dotted_name, ';'),
     
-    module_scope=List(Or (G.template, G.command, G.visitor, NestedScope ('{', G.module_scope, '}')), empty_valid=True),
+    module_scope=List(Or (G.template, G.command, G.visitor, G.var, NestedScope ('{', G.module_scope, '}')), empty_valid=True),
     command_scope=List(Or (G.command, NestedScope ('{', G.command_scope, '}')), empty_valid=True),
     template_scope=List(G.var, empty_valid=True),
 
@@ -194,6 +194,7 @@ template_grammar.add_rules(
     factor=Or(UnaryExpr (Operator.alt_not('not'), G.primary), MatchCapture(G.identifier, ':', G.primary), G.primary),
     primary=Or(
      Pick ('(', G.expression, ')'),
+     G.lambda_expr,
      G.literal,
      G.integer,
      G.str,
@@ -210,7 +211,7 @@ template_grammar.add_rules(
     at_ref=AtRef('@'),
     call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
     lambda_expr=LambdaExpr ('lambda', '(', G.expression, ')'),
-    arg_list=List(Argument(Opt (G.identifier, "=>"), Or (G.lambda_expr, G.expression)), sep=',', empty_valid=True),
+    arg_list=List(Argument(Opt (G.identifier, "=>"), G.expression), sep=',', empty_valid=True),
     identifier=Or (TokenIdentifier ('template'), TokenIdentifier ('new'), Identifier(Token.Identifier)),
     dotted_name=Selector(Opt (G.dotted_name, '.'), G.identifier),
     integer=Number(Token.Integer),
