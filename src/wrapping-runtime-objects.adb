@@ -908,7 +908,7 @@ package body Wrapping.Runtime.Objects is
                      --  as a text expression. This will need to be evaluated, push
                      --  self on the stack
 
-                     Push_Object (An_Entity);
+                     Push_Implicit_Self (An_Entity);
 
                      Evaluate_Expression (A_Var.Args.Child (1).As_Argument.F_Value);
 

@@ -1787,13 +1787,6 @@ package body Wrapping.Runtime.Analysis is
          Expression.Traverse (Capture_Identifiers'Access);
       end Capture_Expression;
 
-      procedure Capture_Expression_And_Push_Dummy
-        (Expression : Libtemplatelang.Analysis.Template_Node) is
-      begin
-         Expression.Traverse (Capture_Identifiers'Access);
-         Push_Object (W_Object'(new W_Object_Type));
-      end Capture_Expression_And_Push_Dummy;
-
       function Capture_Identifiers
         (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status
       is
@@ -1858,7 +1851,7 @@ package body Wrapping.Runtime.Analysis is
                Analyze_Replace_String
                  (Node,
                   Capture_Group'Access,
-                  Capture_Expression_And_Push_Dummy'Access);
+                  Capture_Expression'Access);
 
                Pop_Object;
 
