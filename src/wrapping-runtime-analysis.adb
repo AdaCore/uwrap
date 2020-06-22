@@ -1590,6 +1590,8 @@ package body Wrapping.Runtime.Analysis is
             W_String (Called).Value := To_Unbounded_Text
               (Pop_Object.To_String);
          end if;
+
+         Push_Object (Called);
       end Handle_Conversion;
 
    begin
@@ -1681,7 +1683,11 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_New (Node : Create_Template_Tree'Class) is
 
-      function Handle_Create_Template (A_Call : Template_Call'Class) return W_Template_Instance is
+      function Handle_Create_Template
+        (A_Call : Template_Call'Class;
+         Captured : Template_Node'Class)
+         return W_Template_Instance
+      is
          An_Object : W_Object;
          A_Template : T_Entity;
          A_Template_Instance : W_Template_Instance;
@@ -1700,6 +1706,11 @@ package body Wrapping.Runtime.Analysis is
 
          A_Template_Instance := Create_Template_Instance (null, T_Template (A_Template));
 
+         if not Captured.Is_Null then
+            Top_Frame.Symbols.Include
+              (Captured.Text, W_Object (A_Template_Instance));
+         end if;
+
          Push_Implicit_New (A_Template_Instance);
          Handle_Template_Call (A_Template_Instance, A_Call.F_Args);
          Pop_Object;
@@ -1714,7 +1725,7 @@ package body Wrapping.Runtime.Analysis is
          Dummy : W_Template_Instance;
       begin
          if not A_Tree.F_Root.Is_Null then
-            Main_Node := Handle_Create_Template (A_Tree.F_Root);
+            Main_Node := Handle_Create_Template (A_Tree.F_Root, A_Tree.F_Captured);
 
             if Parent = null then
                --  If this is the root of the creation, then we need to signal this

@@ -141,6 +141,7 @@ class AtRef (TemplateNode):
     token_node = True
 
 class CreateTemplateTree (TemplateNode):
+    captured=Field()
     root=Field()
     tree=Field()
 
@@ -211,8 +212,8 @@ template_grammar.add_rules(
     new_expr=NewExpr ('new', '(', G.create_template_tree, ')'),
     template_call=TemplateCall(G.dotted_name, '(', G.arg_list, ')'),
     create_template_tree=Or(
-       CreateTemplateTree(G.template_call, Opt ('[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
-       CreateTemplateTree(Opt (G.template_call), '[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
+       CreateTemplateTree(Opt (G.identifier, ':'), G.template_call, Opt ('[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
+       CreateTemplateTree(Opt (G.identifier, ':'), Opt (G.template_call), '[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
     fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, ')'),
     at_ref=AtRef('@'),
     call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
