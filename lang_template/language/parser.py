@@ -182,7 +182,7 @@ template_grammar.add_rules(
     template_operation=
         Or(
             TemplateOperation(G.template_target_expression, Opt (G.template_call_expression)),
-            TemplateOperation(Opt (G.template_target_expression), G.template_call_expression)),
+            TemplateOperation(Null (G.template_target_expression), G.template_call_expression)),
     template_target_expression=Or(
             TreeReference('all', Opt (G.expression)),
             EntityReference (G.expression)),
@@ -213,7 +213,7 @@ template_grammar.add_rules(
     template_call=TemplateCall(G.dotted_name, '(', G.arg_list, ')'),
     create_template_tree=Or(
        CreateTemplateTree(Opt (G.identifier, ':'), G.template_call, Opt ('[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
-       CreateTemplateTree(Opt (G.identifier, ':'), Opt (G.template_call), '[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
+       CreateTemplateTree(Opt (G.identifier, ':'), Null (G.template_call), '[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
     fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, ')'),
     at_ref=AtRef('@'),
     call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
