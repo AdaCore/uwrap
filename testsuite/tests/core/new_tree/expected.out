@@ -1,0 +1,14 @@
+A_ROOT, Entity parent: A
+A_CHILD 1, w_Entity parent: A_ROOT
+A_CHILD 1, Entity parent: A
+A_CHILD 2, w_Entity parent: A_ROOT
+A_CHILD 2, Entity parent: A
+A_GRANDCHILD 1, w_Entity parent: A_CHILD 2
+A_GRANDCHILD 1, Entity parent: A
+A_GRANDCHILD 2, w_Entity parent: A_CHILD 2
+A_GRANDCHILD 2, Entity parent: A
+A_CHILD 3, w_Entity parent: A_ROOT
+A_CHILD 3, Entity parent: A
+B_ROOT 1, Entity parent: B
+B_ROOT 2, Entity parent: B
+

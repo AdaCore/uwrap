@@ -1,0 +1,22 @@
+template w_Entity {
+    var name : text;
+}
+
+match Entity ("A")
+wrap child (new (
+   w_Entity ("A_ROOT") [
+      w_Entity ("A_CHILD 1"),
+      w_Entity ("A_CHILD 2") [
+         w_Entity ("A_GRANDCHILD 1"),
+         w_Entity ("A_GRANDCHILD 2")
+      ],
+      w_Entity ("A_CHILD 3")
+   ]));
+
+match Entity ("B") and child (new ([w_Entity ("B_ROOT 1"), w_Entity ("B_ROOT 2")])) {}
+
+match w_Entity () and parent (p: Entity ())
+weave with standard.out (@ & name & ", Entity parent: " & p.f_name & "\n");
+
+match w_Entity () and parent (p: w_Entity ())
+weave with standard.out (@ & name & ", w_Entity parent: " & p.name & "\n");

@@ -33,6 +33,8 @@ class Token(LexerToken):
     RPar       = WithText()
     LBrk       = WithText()
     RBrk       = WithText()
+    LSBrk      = WithText()
+    RSBrk      = WithText()
     Comma      = WithText()
     Colon      = WithText()
     Semicolon  = WithText()
@@ -91,6 +93,8 @@ template_lexer.add_rules(
     (Literal(")"), Token.RPar),
     (Literal("{"), Token.LBrk),
     (Literal("}"), Token.RBrk),
+    (Literal("["), Token.LSBrk),
+    (Literal("]"), Token.RSBrk),
     (Literal(","), Token.Comma),
     (Literal(":"), Token.Colon),
     (Literal(";"), Token.Semicolon),

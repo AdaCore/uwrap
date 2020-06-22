@@ -131,8 +131,7 @@ class TemplateOperation(TemplateNode):
     call=Field()
 
 class NewExpr(TemplateNode):
-    name=Field()
-    args=Field()
+    tree=Field()
 
 class FoldExpr(TemplateNode):
     default=Field()
@@ -140,6 +139,10 @@ class FoldExpr(TemplateNode):
 
 class AtRef (TemplateNode):
     token_node = True
+
+class CreateTemplateTree (TemplateNode):
+    root=Field()
+    tree=Field()
 
 template_grammar = Grammar('main_rule')
 G = template_grammar
@@ -205,9 +208,12 @@ template_grammar.add_rules(
     #selector_name=Or (G.call_expr, G.identifier),
     prefix=G.name,
 
-    new_expr=NewExpr ('new', '(', G.dotted_name, '(', G.arg_list, ')', ')'),
+    new_expr=NewExpr ('new', '(', G.create_template_tree, ')'),
+    template_call=TemplateCall(G.dotted_name, '(', G.arg_list, ')'),
+    create_template_tree=Or(
+       CreateTemplateTree(G.template_call, Opt ('[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
+       CreateTemplateTree(Opt (G.template_call), '[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
     fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, ')'),
-    
     at_ref=AtRef('@'),
     call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
     lambda_expr=LambdaExpr ('lambda', '(', G.expression, ')'),
