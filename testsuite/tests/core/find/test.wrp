@@ -1,0 +1,9 @@
+template w_Entity {
+    var name : text;
+}
+
+match Entity (".(?<a>.+)")
+wrap with w_Entity (name => a);
+
+match Entity ("^A$")
+wrap with standard.out ("FIND:" & lambda (l: w_Entity.find (v: true).fold ("", l & " [" & v.name & "]") & "\n"));

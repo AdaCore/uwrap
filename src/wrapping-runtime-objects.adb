@@ -29,16 +29,16 @@ package body Wrapping.Runtime.Objects is
       A_Mode : in Browse_Mode;
    procedure Call_Gen_Browse
      (Object : access W_Object_Type'Class;
-      Params : Libtemplatelang.Analysis.Argument_List);
+      Params : Argument_List);
 
    procedure Call_Gen_Browse
      (Object : access W_Object_Type'Class;
-      Params : Libtemplatelang.Analysis.Argument_List)
+      Params : Argument_List)
    is
    begin
       if Params.Children_Count = 0 then
          W_Node_Type'Class (Object.all).Evaluate_Bowse_Functions
-           (A_Mode, Libtemplatelang.Analysis.No_Template_Node);
+           (A_Mode, No_Template_Node);
       elsif Params.Children_Count = 1 then
          W_Node_Type'Class (Object.all).Evaluate_Bowse_Functions
            (A_Mode, Params.Child (1).As_Argument.F_Value);
@@ -56,7 +56,7 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Browse_Self
      (Object : access W_Object_Type'Class;
-      Params : Libtemplatelang.Analysis.Argument_List)
+      Params : Argument_List)
    is
    begin
       if Params.Children_Count = 0 then
@@ -82,7 +82,7 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Tmp
      (Object : access W_Object_Type'Class;
-      Params : Libtemplatelang.Analysis.Argument_List)
+      Params : Argument_List)
    is
    begin
       if Params.Children_Count = 0 then
@@ -102,7 +102,7 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Insert
      (Object : access W_Object_Type'Class;
-      Params : Libtemplatelang.Analysis.Argument_List)
+      Params : Argument_List)
    is
       P1, P2 : W_Object;
    begin
@@ -120,7 +120,7 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Include
      (Object : access W_Object_Type'Class;
-      Params : Libtemplatelang.Analysis.Argument_List)
+      Params : Argument_List)
    is
       P1, P2 : W_Object;
    begin
@@ -138,7 +138,7 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Element
      (Object : access W_Object_Type'Class;
-      Params : Libtemplatelang.Analysis.Argument_List)
+      Params : Argument_List)
    is
    begin
       if Params.Children_Count /= 1 then
@@ -159,10 +159,47 @@ package body Wrapping.Runtime.Objects is
       end;
    end Call_Element;
 
+   procedure Call_Find
+     (Object : access W_Object_Type'Class;
+      Params : Argument_List)
+   is
+      A_Template : W_Template_Instance := W_Template_Instance (Object);
+      Registry : W_Vector;
+      Last_Action : Visit_Action;
+      Last_Result : W_Object;
+   begin
+      if Params.Children_Count > 1 then
+         Error ("find expects at most one parameter");
+      end if;
+
+      Registry := W_Vector
+        (W_Reference
+           (A_Template.Symbols.Element ("_registry")).Value);
+
+      if Registry.A_Vector.Length = 0 then
+         Push_Match_False;
+      elsif Params.Children_Count = 0 then
+         Push_Match_True (Registry.A_Vector.First_Element);
+      else
+         for T of Registry.A_Vector loop
+            Last_Action := Object.Browse_Entity
+              (T, Params.Child (1).As_Argument.F_Value, Last_Result);
+
+            exit when Last_Action = Stop;
+         end loop;
+
+         if Last_Result /= null then
+            Push_Object (Last_Result);
+         else
+            Push_Match_False;
+         end if;
+      end if;
+   end Call_Find;
+
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Reference_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List)
+      Params    : Argument_List)
    is
    begin
       An_Entity.Value.Push_Call_Result (Params);
@@ -230,7 +267,7 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Vector_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List)
+      Params    : Argument_List)
    is
       Result : W_Object;
    begin
@@ -294,7 +331,7 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Map_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List)
+      Params    : Argument_List)
    is
       Result : W_Object;
       Action : Visit_Action;
@@ -339,7 +376,7 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_String_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List)
+      Params    : Argument_List)
    is
       Matched : Boolean;
    begin
@@ -368,15 +405,53 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Function_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List) is
+      Params    : Argument_List) is
    begin
       An_Entity.Call (An_Entity.Prefix, Params);
    end Push_Call_Result;
 
    overriding
+   function Push_Value
+     (An_Entity : access W_Static_Entity_Type;
+      Name      : Text_Type) return Boolean
+   is
+      A_Semantic_Entity : T_Entity;
+   begin
+      if An_Entity.An_Entity.all in T_Template_Type'Class then
+         if Name = "find" then
+            Push_Object
+              (W_Object'
+                 (new W_Function_Type'
+                      (Prefix => Get_Object_For_Entity (An_Entity.An_Entity),
+                       Call => Call_Find'Access)));
+            return True;
+         end if;
+      end if;
+
+      if An_Entity.An_Entity.Children_Indexed.Contains (Name) then
+         A_Semantic_Entity := An_Entity.An_Entity.Children_Indexed.Element (Name);
+
+         if A_Semantic_Entity.all in T_Var_Type'Class then
+            --  We found a reference to a Var. This means that we need to process
+            --  the node corresponding to this module, and retreive the actual
+            --  variable value.
+
+            return Get_Object_For_Entity (An_Entity.An_Entity).Push_Value (Name);
+         else
+            Push_Object
+              (W_Object'(new W_Static_Entity_Type'(An_Entity => A_Semantic_Entity)));
+
+            return True;
+         end if;
+      end if;
+
+      return False;
+   end Push_Value;
+
+   overriding
    procedure Push_Call_Result
      (An_Entity : access W_Static_Entity_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List)
+      Params    : Argument_List)
    is
       Implicit_Self : W_Object;
       Prefix        : W_Template_Instance;
@@ -402,7 +477,7 @@ package body Wrapping.Runtime.Objects is
 
       if not Instance_Of
         (Prefix.Template,
-         Wrapping.Semantic.Structure.Template (An_Entity.An_Entity))
+         T_Template (An_Entity.An_Entity))
       then
          Push_Match_False;
          return;
@@ -465,9 +540,12 @@ package body Wrapping.Runtime.Objects is
 
    function Create_Template_Instance
      (An_Entity : access W_Node_Type'Class;
-      A_Template : Semantic.Structure.Template) return W_Template_Instance
+      A_Template : T_Template) return W_Template_Instance
    is
       New_Template : W_Template_Instance;
+      Template_Class : W_Template_Instance;
+
+      Current_Template : T_Template;
    begin
       New_Template := new W_Template_Instance_Type;
       New_Template.Template := A_Template;
@@ -479,6 +557,19 @@ package body Wrapping.Runtime.Objects is
          An_Entity.Templates_By_Full_Id.Insert (A_Template.Full_Name, New_Template);
          An_Entity.Templates_Ordered.Append (New_Template);
       end if;
+
+      Current_Template := A_Template;
+
+      while Current_Template /= null loop
+         Template_Class := W_Template_Instance (Get_Object_For_Entity (A_Template));
+
+         W_Vector
+           (W_Reference
+              (Template_Class.Symbols.Element ("_registry")).Value).
+             A_Vector.Append (W_Object (New_Template));
+
+         Current_Template := Current_Template.Extends;
+      end loop;
 
       Templates_To_Traverse.Append (New_Template);
 
@@ -499,7 +590,7 @@ package body Wrapping.Runtime.Objects is
 
    function Get_Template_Instance
      (An_Entity  : access W_Node_Type'Class;
-      A_Template : Semantic.Structure.Template) return W_Template_Instance is
+      A_Template : T_Template) return W_Template_Instance is
    begin
       --  TODO: These calls to full name may be very costly, it'd be better
       --  to cache the full name in the object
@@ -859,7 +950,7 @@ package body Wrapping.Runtime.Objects is
    is
       use Wrapping.Semantic.Structure;
 
-      Named_Entity : Entity;
+      Named_Entity : T_Entity;
       Result : W_Object;
    begin
       if W_Node_Type (An_Entity.all).Push_Value (Name) then
@@ -884,9 +975,9 @@ package body Wrapping.Runtime.Objects is
          Named_Entity := An_Entity.Template.Get_Component (Name);
 
          if Named_Entity /= null then
-            if Named_Entity.all in Var_Type then
+            if Named_Entity.all in T_Var_Type then
                declare
-                  A_Var : Semantic.Structure.Var :=  Semantic.Structure.Var (Named_Entity);
+                  A_Var : T_Var :=  T_Var (Named_Entity);
                   New_Ref : W_Reference;
                begin
                   if A_Var.Kind = Text_Kind then

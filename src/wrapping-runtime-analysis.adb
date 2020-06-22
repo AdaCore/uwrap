@@ -11,7 +11,7 @@ with GNAT.Regpat; use GNAT.Regpat;
 with Langkit_Support.Diagnostics;
 with Langkit_Support.Text; use Langkit_Support.Text;
 
-with Libtemplatelang.Common;
+with Libtemplatelang.Common; use Libtemplatelang.Common;
 
 with Wrapping.Regex; use Wrapping.Regex;
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
@@ -21,26 +21,26 @@ with Wrapping.Runtime.Functions; use Wrapping.Runtime.Functions;
 
 package body Wrapping.Runtime.Analysis is
 
-   procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class);
-   procedure Handle_Call (Node : Libtemplatelang.Analysis.Call_Expr'Class);
-   procedure Handle_Template_Call (A_Template_Instance : W_Template_Instance; Args : Libtemplatelang.Analysis.Argument_List);
+   procedure Handle_Identifier (Node : Template_Node'Class);
+   procedure Handle_Call (Node : Call_Expr'Class);
+   procedure Handle_Template_Call (A_Template_Instance : W_Template_Instance; Args : Argument_List);
    procedure Handle_Visitor_Call
      (An_Entity : W_Node;
-      A_Visitor : Semantic.Structure.Visitor;
-      Args : Libtemplatelang.Analysis.Argument_List;
+      A_Visitor : T_Visitor;
+      Args : Argument_List;
       Apply_To_All : Boolean);
-   procedure Handle_Fold (Folded_Expression : Libtemplatelang.Analysis.Template_Node'Class; Node : Libtemplatelang.Analysis.Fold_Expr'Class);
+   procedure Handle_Fold (Folded_Expression : Template_Node'Class; Node : Fold_Expr'Class);
 
    procedure Analyze_Replace_String
-     (Node : Libtemplatelang.Analysis.Template_Node'Class;
+     (Node : Template_Node'Class;
       On_Group : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expression : Libtemplatelang.Analysis.Template_Node) := null);
+      On_Expression : access procedure (Expression : Template_Node) := null);
 
-   function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
-   procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Libtemplatelang.Analysis.Template_Node);
+   function Visit_Expression (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
+   procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Template_Node);
 
    procedure Push_Error_Location
-     (An_Entity : access Semantic.Structure.Entity_Type'Class)
+     (An_Entity : access T_Entity_Type'Class)
    is
    begin
       Wrapping.Push_Error_Location
@@ -167,11 +167,11 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context := Top_Frame.Top_Context.Parent_Context;
    end Pop_Frame_Context;
 
-   procedure Push_Frame (Lexical_Scope : access Semantic.Structure.Entity_Type'Class) is
+   procedure Push_Frame (Lexical_Scope : access T_Entity_Type'Class) is
       New_Frame : Data_Frame := new Data_Frame_Type;
    begin
       New_Frame.Parent_Frame := Top_Frame;
-      New_Frame.Lexical_Scope := Semantic.Structure.Entity (Lexical_Scope);
+      New_Frame.Lexical_Scope := T_Entity (Lexical_Scope);
       New_Frame.Top_Context := new Frame_Context_Type;
 
       if Top_Frame /= null then
@@ -255,7 +255,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Apply_Wrapping_Program
      (A_Language_Entity : W_Node;
-      Lexical_Scope     : access Semantic.Structure.Entity_Type'Class;
+      Lexical_Scope     : access T_Entity_Type'Class;
       A_Visit_Action    : in out Visit_Action)
    is
       procedure Allocate (E : access W_Object_Type'Class) is
@@ -266,22 +266,22 @@ package body Wrapping.Runtime.Analysis is
       end Allocate;
 
       procedure Create_And_Set_Template_Instance
-        (A_Command  : Command;
-         Expression : Libtemplatelang.Analysis.Template_Node'Class);
+        (A_Command  : T_Command;
+         Expression : Template_Node'Class);
       --  This will create a template instance from the clause information,
       --  setting parameter expression and adding it to the relevant language
       --  object.
 
       procedure Create_And_Set_Template_Instance
-        (A_Command : Command;
-         Expression : Libtemplatelang.Analysis.Template_Node'Class)
+        (A_Command : T_Command;
+         Expression : Template_Node'Class)
       is
       begin
          Evaluate_Expression (Expression);
       end Create_And_Set_Template_Instance;
 
       procedure Apply_Template_Action
-        (A_Language_Entity : W_Node; Template_Clause : Weave_Or_Wrap)
+        (A_Language_Entity : W_Node; Template_Clause : T_Weave_Or_Wrap)
       is
          A_Template_Instance : W_Template_Instance;
          Self_Weave : Boolean := False;
@@ -302,14 +302,13 @@ package body Wrapping.Runtime.Analysis is
 
             if Result.all not in W_Static_Entity_Type'Class
               or else W_Static_Entity (Result).An_Entity.all
-                not in Semantic.Structure.Template_Type'Class
+                not in T_Template_Type'Class
             then
                Error ("expected template reference");
             end if;
 
             A_Language_Entity.Forbidden_Template_Names.Include
-              (Semantic.Structure.Template
-                 (W_Static_Entity (Result).An_Entity).Full_Name);
+              (T_Template (W_Static_Entity (Result).An_Entity).Full_Name);
 
             --  TODO: remove the template if it's already been created in the
             --  context of a weave clause
@@ -326,9 +325,9 @@ package body Wrapping.Runtime.Analysis is
                end if;
 
                Self_Weave := True;
-            elsif Template_Clause.Call_Reference.all in Template_Type'Class then
+            elsif Template_Clause.Call_Reference.all in T_Template_Type'Class then
                A_Template_Instance := A_Language_Entity.Get_Template_Instance
-                 (Semantic.Structure.Template (Template_Clause.Call_Reference));
+                 (T_Template (Template_Clause.Call_Reference));
 
                if (Template_Clause.all in Weave_Type'Class
                    or else A_Template_Instance = null
@@ -338,7 +337,7 @@ package body Wrapping.Runtime.Analysis is
                then
                   if A_Template_Instance = null then
                      A_Template_Instance := A_Language_Entity.Create_Template_Instance
-                       (Semantic.Structure.Template (Template_Clause.Call_Reference));
+                       (T_Template (Template_Clause.Call_Reference));
                   end if;
 
                   if Template_Clause.all in Wrap_Type'Class then
@@ -354,6 +353,7 @@ package body Wrapping.Runtime.Analysis is
                   Push_Implicit_New (A_Template_Instance);
                end if;
 
+
                Handle_Template_Call (A_Template_Instance, Template_Clause.Arguments);
 
                if not Self_Weave then
@@ -365,7 +365,7 @@ package body Wrapping.Runtime.Analysis is
          Pop_Error_Location;
       end Apply_Template_Action;
 
-      procedure Apply_Command (A_Command : Command) is
+      procedure Apply_Command (A_Command : T_Command) is
          Matched : Boolean;
          Match_Result : W_Object;
       begin
@@ -414,9 +414,8 @@ package body Wrapping.Runtime.Analysis is
                            Entity_Target := W_Node (Tmp_Target);
                         elsif Tmp_Target.all in W_Static_Entity_Type'Class then
                            Entity_Target := W_Node
-                             (Get_Object_For_Module
-                                (Wrapping.Semantic.Structure.Module
-                                     (W_Static_Entity (Tmp_Target).An_Entity)));
+                             (Get_Object_For_Entity
+                                (W_Static_Entity (Tmp_Target).An_Entity));
                         else
                            Error ("can't wrap or weave selected object");
                         end if;
@@ -436,11 +435,11 @@ package body Wrapping.Runtime.Analysis is
                         -- current template or the whole tree
 
                         if A_Command.Template_Clause.Call_Reference/= null
-                          and then A_Command.Template_Clause.Call_Reference.all in Visitor_Type'Class
+                          and then A_Command.Template_Clause.Call_Reference.all in T_Visitor_Type'Class
                         then
                            Handle_Visitor_Call
                              (Entity_Target,
-                              Semantic.Structure.Visitor (A_Command.Template_Clause.Call_Reference),
+                              T_Visitor (A_Command.Template_Clause.Call_Reference),
                               A_Command.Template_Clause.Arguments,
                               A_Command.Template_Clause.Is_All);
                         elsif A_Command.Template_Clause.Is_All then
@@ -546,8 +545,8 @@ package body Wrapping.Runtime.Analysis is
             end if;
          else
             if A_Command.Else_Actions /= null then
-               if A_Command.Else_Actions.all in Command_Type'Class then
-                  Apply_Command (Command (A_Command.Else_Actions));
+               if A_Command.Else_Actions.all in T_Command_Type'Class then
+                  Apply_Command (T_Command (A_Command.Else_Actions));
                else
                   Apply_Wrapping_Program
                     (A_Language_Entity,
@@ -565,10 +564,10 @@ package body Wrapping.Runtime.Analysis is
       Push_Frame (Lexical_Scope);
 
       for Wrapping_Entity of reverse Lexical_Scope.Children_Ordered loop
-         if Wrapping_Entity.all in Command_Type then
-            Apply_Command (Command (Wrapping_Entity));
-         elsif Wrapping_Entity.all in Module_Type'Class
-           or else Wrapping_Entity.all in Namespace_Type'Class
+         if Wrapping_Entity.all in T_Command_Type then
+            Apply_Command (T_Command (Wrapping_Entity));
+         elsif Wrapping_Entity.all in T_Module_Type'Class
+           or else Wrapping_Entity.all in T_Namespace_Type'Class
          then
             Apply_Wrapping_Program
               (A_Language_Entity, Wrapping_Entity, A_Visit_Action);
@@ -631,8 +630,8 @@ package body Wrapping.Runtime.Analysis is
    end Analyze_Visitor;
 
    procedure Analyse (Root_Entity : W_Node) is
-      File_Template : Wrapping.Semantic.Structure.Template;
-      Out_Template : Wrapping.Semantic.Structure.Template;
+      File_Template : T_Template;
+      Out_Template : T_Template;
       A_Template_Instance : W_Template_Instance;
       Dummy_Action : Visit_Action;
       Traverse_Result : W_Object;
@@ -647,11 +646,11 @@ package body Wrapping.Runtime.Analysis is
       Dummy_Action := Root_Entity.Traverse
         (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
 
-      File_Template := Wrapping.Semantic.Structure.Template
+      File_Template := T_Template
         (Resolve_Module_By_Name ("standard").
              Children_Indexed.Element ("file"));
 
-      Out_Template := Wrapping.Semantic.Structure.Template
+      Out_Template := T_Template
         (Resolve_Module_By_Name ("standard").
              Children_Indexed.Element ("out"));
 
@@ -690,7 +689,7 @@ package body Wrapping.Runtime.Analysis is
          declare
             Content_Object : W_Object;
          begin
-            Push_Frame (Root);
+            Push_Frame (Wrapping.Semantic.Analysis.Root);
 
             if not T.Push_Value ("content") then
                Error ("'content' component not found in file template");
@@ -710,7 +709,7 @@ package body Wrapping.Runtime.Analysis is
             Content_Object : W_Object;
             Output_File : File_Type;
          begin
-            Push_Frame (Root);
+            Push_Frame (Wrapping.Semantic.Analysis.Root);
 
             if not T.Push_Value ("path") then
                Error ("'path' component not found in file template");
@@ -740,7 +739,7 @@ package body Wrapping.Runtime.Analysis is
    end Analyse;
 
    procedure Evaluate_Expression
-     (Node : Libtemplatelang.Analysis.Template_Node'Class)
+     (Node : Template_Node'Class)
    is
       Dummy : Libtemplatelang.Common.Visit_Status := Visit_Expression (Node);
    begin
@@ -748,7 +747,7 @@ package body Wrapping.Runtime.Analysis is
    end Evaluate_Expression;
 
    function Evaluate_Expression
-     (Node : Libtemplatelang.Analysis.Template_Node'Class) return W_Object
+     (Node : Template_Node'Class) return W_Object
    is
    begin
       Evaluate_Expression (Node);
@@ -756,9 +755,7 @@ package body Wrapping.Runtime.Analysis is
       return Pop_Object;
    end Evaluate_Expression;
 
-   function Visit_Expression (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
-      use Libtemplatelang.Analysis;
-      use Libtemplatelang.Common;
+   function Visit_Expression (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
    begin
       Push_Error_Location (Node);
 
@@ -984,7 +981,7 @@ package body Wrapping.Runtime.Analysis is
             if Top_Frame.Top_Context.An_Allocate_Callback /= null then
                declare
                   An_Object : W_Object;
-                  A_Template : Semantic.Structure.Entity;
+                  A_Template : T_Entity;
                   A_Template_Instance : W_Template_Instance;
                begin
                   Push_Frame_Context;
@@ -998,11 +995,11 @@ package body Wrapping.Runtime.Analysis is
 
                   A_Template := W_Static_Entity (An_Object).An_Entity;
 
-                  if A_Template.all not in Semantic.Structure.Template_Type'Class then
+                  if A_Template.all not in T_Template_Type'Class then
                      Error ("expected template reference");
                   end if;
 
-                  A_Template_Instance := Create_Template_Instance (null, Semantic.Structure.Template (A_Template));
+                  A_Template_Instance := Create_Template_Instance (null, T_Template (A_Template));
 
                   Push_Implicit_New (A_Template_Instance);
                   Handle_Template_Call (A_Template_Instance, Node.As_New_Expr.F_Args);
@@ -1044,16 +1041,12 @@ package body Wrapping.Runtime.Analysis is
    Expression_Unit_Number : Integer := 1;
 
    procedure Analyze_Replace_String
-     (Node : Libtemplatelang.Analysis.Template_Node'Class;
+     (Node : Template_Node'Class;
       On_Group : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expression : Libtemplatelang.Analysis.Template_Node) := null)
+      On_Expression : access procedure (Expression : Template_Node) := null)
    is
-      use Libtemplatelang.Analysis;
-      use Libtemplatelang.Common;
-      use Langkit_Support.Diagnostics;
-
       Str : constant Text_Type := Remove_Quotes (Node.Text);
-      Context : constant Libtemplatelang.Analysis.Analysis_Context := Node.Unit.Context;
+      Context : constant Analysis_Context := Node.Unit.Context;
 
       Result : W_Vector := new W_Vector_Type;
       New_Text : W_String;
@@ -1199,9 +1192,9 @@ package body Wrapping.Runtime.Analysis is
    end Analyze_Replace_String;
 
    function Push_Global_Identifier (Name : Text_Type) return Boolean is
-      A_Module : Semantic.Structure.Module;
+      A_Module : T_Module;
       Tentative_Symbol : W_Object;
-      A_Semantic_Entity : Semantic.Structure.Entity;
+      A_Semantic_Entity : T_Entity;
 
       Implicit_New  : W_Object;
    begin
@@ -1244,7 +1237,7 @@ package body Wrapping.Runtime.Analysis is
       if To_Text (A_Module.Name) = Name then
          Push_Object
            (W_Object'(new W_Static_Entity_Type'
-              (An_Entity =>  Semantic.Structure.Entity (A_Module))));
+              (An_Entity => T_Entity (A_Module))));
          return True;
       end if;
 
@@ -1254,7 +1247,7 @@ package body Wrapping.Runtime.Analysis is
          if Tentative_Symbol = null then
             A_Semantic_Entity := A_Module.Children_Indexed (Name);
 
-            if A_Semantic_Entity.all in Template_Type'Class then
+            if A_Semantic_Entity.all in T_Template_Type'Class then
                Tentative_Symbol := new W_Static_Entity_Type'
                  (An_Entity => A_Semantic_Entity);
             end if;
@@ -1270,7 +1263,7 @@ package body Wrapping.Runtime.Analysis is
             if Tentative_Symbol = null then
                A_Semantic_Entity := Imported.Children_Indexed (Name);
 
-               if A_Semantic_Entity.all in Template_Type'Class then
+               if A_Semantic_Entity.all in T_Template_Type'Class then
                   Tentative_Symbol := new W_Static_Entity_Type'
                     (An_Entity => A_Semantic_Entity);
                end if;
@@ -1282,12 +1275,13 @@ package body Wrapping.Runtime.Analysis is
 
       -- Check in the namesaces symbols
 
-      if Root.Children_Indexed.Contains (Name) then
+      if Wrapping.Semantic.Analysis.Root.Children_Indexed.Contains (Name) then
          if Tentative_Symbol = null then
-            A_Semantic_Entity := Root.Children_Indexed.Element (Name);
+            A_Semantic_Entity :=
+              Wrapping.Semantic.Analysis.Root.Children_Indexed.Element (Name);
 
-            if A_Semantic_Entity.all in Namespace_Type'Class
-              or else A_Semantic_Entity.all in Module_Type'Class
+            if A_Semantic_Entity.all in T_Namespace_Type'Class
+              or else A_Semantic_Entity.all in T_Module_Type'Class
             then
                Tentative_Symbol := new W_Static_Entity_Type'
                  (An_Entity => A_Semantic_Entity);
@@ -1312,43 +1306,20 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Global_Identifier;
 
-   procedure Handle_Identifier (Node : Libtemplatelang.Analysis.Template_Node'Class) is
-      A_Semantic_Entity : Semantic.Structure.Entity;
-
+   procedure Handle_Identifier (Node : Template_Node'Class) is
       procedure Handle_Language_Entity_Selection;
 
       procedure Handle_Static_Entity_Selection is
          Name : Text_Type := Node.Text;
-         An_Entity : Semantic.Structure.Entity;
       begin
-         An_Entity := W_Static_Entity (Top_Frame.Data_Stack.Last_Element).An_Entity;
+         -- TODO: We probably don't need a specific function here anymore.
 
-         if not An_Entity.Children_Indexed.Contains (Node.Text) then
+         if not Pop_Object.Push_Value (Name) then
             if Top_Frame.Top_Context.Is_Matching_Context then
                Push_Match_False;
-               return;
             else
                Error ("'" & Node.Text & "' not found");
             end if;
-         end if;
-
-         A_Semantic_Entity := An_Entity.Children_Indexed.Element (Name);
-
-         if A_Semantic_Entity.all in Wrapping.Semantic.Structure.Var_Type'Class then
-            --  We found a reference to a Var. This means that we need to process
-            --  the node corresponding to this module, and retreive the actual
-            --  variable value.
-
-            Push_Object
-              (Get_Object_For_Module
-                 (Wrapping.Semantic.Structure.Module (An_Entity)));
-            Handle_Language_Entity_Selection;
-         else
-            --  Consume the prefix of this reference.
-            Pop_Object;
-
-            Push_Object
-              (W_Object'(new W_Static_Entity_Type'(An_Entity => A_Semantic_Entity)));
          end if;
       end Handle_Static_Entity_Selection;
 
@@ -1448,15 +1419,15 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Identifier;
 
    procedure Handle_Call_Parameters
-     (Args : Libtemplatelang.Analysis.Argument_List;
-      Name_For_Position : access function (Position : Integer) return Libtemplatelang.Analysis.Template_Node;
-      Store_Param_Value : access procedure (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : W_Object);
-      Perpare_Param_Evaluation : access procedure (Name_Node : Libtemplatelang.Analysis.Template_Node; Position : Integer) := null)
+     (Args : Argument_List;
+      Name_For_Position : access function (Position : Integer) return Template_Node;
+      Store_Param_Value : access procedure (Name_Node : Template_Node; Value : W_Object);
+      Perpare_Param_Evaluation : access procedure (Name_Node : Template_Node; Position : Integer) := null)
    is
       Parameter_Index : Integer;
       Parameter_Value : W_Object;
       In_Named_Section : Boolean := False;
-      Name_Node : Libtemplatelang.Analysis.Template_Node;
+      Name_Node : Template_Node;
    begin
       Parameter_Index := 1;
 
@@ -1488,9 +1459,9 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Template_Call
      (A_Template_Instance : W_Template_Instance;
-      Args : Libtemplatelang.Analysis.Argument_List)
+      Args : Argument_List)
    is
-      procedure Perpare_Param_Evaluation (Name_Node : Libtemplatelang.Analysis.Template_Node; Position : Integer) is
+      procedure Perpare_Param_Evaluation (Name_Node : Template_Node; Position : Integer) is
          New_Value : W_Object;
       begin
          Push_Frame_Context;
@@ -1510,13 +1481,13 @@ package body Wrapping.Runtime.Analysis is
          end if;
       end;
 
-      function Name_For_Position (Position : Integer) return Libtemplatelang.Analysis.Template_Node is
+      function Name_For_Position (Position : Integer) return Template_Node is
       begin
          return A_Template_Instance.Template.Get_Variable_For_Index
            (Position).Name_Node;
       end Name_For_Position;
 
-      procedure Store_Param_Value (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : W_Object) is
+      procedure Store_Param_Value (Name_Node : Template_Node; Value : W_Object) is
          Ref : W_Reference;
       begin
          if A_Template_Instance.Symbols.Contains (Name_Node.Text) then
@@ -1544,18 +1515,18 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Visitor_Call
      (An_Entity : W_Node;
-      A_Visitor : Semantic.Structure.Visitor;
-      Args : Libtemplatelang.Analysis.Argument_List;
+      A_Visitor : T_Visitor;
+      Args : Argument_List;
       Apply_To_All : Boolean)
    is
       Symbols : W_Object_Maps.Map;
 
-      function Name_For_Position (Position : Integer) return Libtemplatelang.Analysis.Template_Node is
+      function Name_For_Position (Position : Integer) return Template_Node is
       begin
          return A_Visitor.Arguments_Ordered.Element (Position).Name_Node;
       end Name_For_Position;
 
-      procedure Store_Param_Value (Name_Node : Libtemplatelang.Analysis.Template_Node; Value : W_Object) is
+      procedure Store_Param_Value (Name_Node : Template_Node; Value : W_Object) is
       begin
          Symbols.Insert (Name_Node.Text, Value);
       end Store_Param_Value;
@@ -1628,9 +1599,7 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame;
    end Handle_Visitor_Call;
 
-   procedure Handle_Call (Node : Libtemplatelang.Analysis.Call_Expr'Class) is
-      use Libtemplatelang.Analysis;
-
+   procedure Handle_Call (Node : Call_Expr'Class) is
       Called : W_Object;
 
       procedure Handle_Conversion is
@@ -1690,10 +1659,8 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Call;
 
    procedure Handle_Fold
-     (Folded_Expression : Libtemplatelang.Analysis.Template_Node'Class; Node : Libtemplatelang.Analysis.Fold_Expr'Class)
+     (Folded_Expression : Template_Node'Class; Node : Fold_Expr'Class)
    is
-      use Libtemplatelang.Analysis;
-
       Init_Value : W_Object;
    begin
       --  While it is not strictly mandatory (e.g. you can use fold to create
@@ -1742,14 +1709,14 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Fold;
 
 
-   procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Libtemplatelang.Analysis.Template_Node) is
+   procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Template_Node) is
       Local_Symbols : Text_Sets.Set;
 
       function Not_Capture_Identifiers
-        (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
+        (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
 
       function Capture_Identifiers
-        (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
+        (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
 
       procedure Capture (Name : Text_Type) is
       begin
@@ -1767,7 +1734,13 @@ package body Wrapping.Runtime.Analysis is
             --  or new. We don't want to carry this property over to the lambda
             --  call, so remove it.
 
-            if Top_Is_Implicit then
+            if Top_Object_Dereference.all in W_Static_Entity_Type then
+               --  We don't capture static references, they can later be
+               --  retreived from context. Genreating symbols for them would
+               --  also confused name resolution as we would have a symbol
+               --  and a statically solvable name.
+               Pop_Object;
+            elsif Top_Is_Implicit then
                A_Lambda.Captured_Symbols.Insert
                  (Name, new W_Reference_Type'
                     (Value => W_Reference (Pop_Object).Value, others => <>));
@@ -1782,16 +1755,14 @@ package body Wrapping.Runtime.Analysis is
          Error ("not yet implemented");
       end Capture_Group;
 
-      procedure Capture_Expression (Expression : Libtemplatelang.Analysis.Template_Node) is
+      procedure Capture_Expression (Expression : Template_Node) is
       begin
          Expression.Traverse (Capture_Identifiers'Access);
       end Capture_Expression;
 
       function Capture_Identifiers
-        (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status
+        (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status
       is
-         use Libtemplatelang.Analysis;
-         use Libtemplatelang.Common;
       begin
          Push_Error_Location (Node);
 
@@ -1817,9 +1788,7 @@ package body Wrapping.Runtime.Analysis is
       end Capture_Identifiers;
 
       function Not_Capture_Identifiers
-        (Node : Libtemplatelang.Analysis.Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
-         use Libtemplatelang.Analysis;
-         use Libtemplatelang.Common;
+        (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
       begin
          Push_Error_Location (Node);
 

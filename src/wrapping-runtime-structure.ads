@@ -5,9 +5,10 @@ with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 
 with Langkit_Support.Text; use Langkit_Support.Text;
 
+with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
+
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Utils; use Wrapping.Utils;
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 
 package Wrapping.Runtime.Structure is
    -- The purpose is to provide the data structures created live during the
@@ -66,14 +67,14 @@ package Wrapping.Runtime.Structure is
       Matched_Groups  : W_Object_Vectors.Vector;
       Data_Stack      : W_Object_Vectors.Vector;
       Top_Context     : Frame_Context;
-      Lexical_Scope   : Semantic.Structure.Entity;
+      Lexical_Scope   : T_Entity;
 
       Temp_Names      : Text_Maps.Map;
    end record;
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return W_Object;
 
-   function Get_Module (A_Frame : Data_Frame_Type) return Semantic.Structure.Module;
+   function Get_Module (A_Frame : Data_Frame_Type) return Semantic.Structure.T_Module;
 
    --  This is the root type of all values that are manipulated by expressions
    type W_Object_Type is tagged record
@@ -92,7 +93,7 @@ package Wrapping.Runtime.Structure is
    --  By default, this returns an error (the object is not made for being called).
    procedure Push_Call_Result
      (An_Entity : access W_Object_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List);
+      Params    : Argument_List);
 
    type Browse_Mode is (Parent, Child_Depth, Child_Breadth, Next, Prev, Sibling, Template);
 
@@ -105,7 +106,7 @@ package Wrapping.Runtime.Structure is
       Visitor      : access function
         (E      : access W_Object_Type'Class;
          Result : out W_Object) return Visit_Action)
-      return Visit_Action is (Into);
+      return Visit_Action;
 
    -- TODO this into push browse_Result? And see with the other push browse
    -- restult what should be changed
@@ -137,7 +138,6 @@ package Wrapping.Runtime.Structure is
 
    Match_False : constant W_Object := Null_Object;
 
-   function Get_Object_For_Module
-     (A_Module : Wrapping.Semantic.Structure.Module) return W_Object;
+   function Get_Object_For_Entity (An_Entity : access T_Entity_Type'Class) return W_Object;
 
 end Wrapping.Runtime.Structure;

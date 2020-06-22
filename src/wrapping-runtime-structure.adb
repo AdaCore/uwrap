@@ -33,17 +33,32 @@ package body Wrapping.Runtime.Structure is
       end if;
    end Get_Visible_Symbol;
 
-   function Get_Module (A_Frame : Data_Frame_Type) return Semantic.Structure.Module is
+   function Get_Module (A_Frame : Data_Frame_Type) return Semantic.Structure.T_Module is
       use Semantic.Structure;
 
-      Scope : Semantic.Structure.Entity := A_Frame.Lexical_Scope;
+      Scope : Semantic.Structure.T_Entity := A_Frame.Lexical_Scope;
    begin
-      while Scope /= null and then Scope.all not in Module_Type'Class loop
+      while Scope /= null and then Scope.all not in T_Module_Type'Class loop
          Scope := Scope.Parent;
       end loop;
 
-      return Semantic.Structure.Module (Scope);
+      return Semantic.Structure.T_Module (Scope);
    end Get_Module;
+
+   function Traverse
+     (An_Entity    : access W_Object_Type;
+      A_Mode       : Browse_Mode;
+      Include_Self : Boolean;
+      Final_Result : out W_Object;
+      Visitor      : access function
+        (E      : access W_Object_Type'Class;
+         Result : out W_Object) return Visit_Action)
+      return Visit_Action
+   is
+   begin
+      Final_Result := null;
+      return Into;
+   end Traverse;
 
    function Browse_Entity
      (An_Entity : access W_Object_Type;
@@ -193,47 +208,65 @@ package body Wrapping.Runtime.Structure is
 
    procedure Push_Call_Result
      (An_Entity : access W_Object_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List) is
+      Params    : Argument_List) is
    begin
       Error ("non callable entity");
    end Push_Call_Result;
 
-   Module_Registry : W_Object_Maps.Map;
+   Object_For_Entity_Registry : W_Object_Maps.Map;
 
-   function Get_Object_For_Module
-     (A_Module : Wrapping.Semantic.Structure.Module) return W_Object
+   function Get_Object_For_Entity
+     (An_Entity : access T_Entity_Type'Class) return W_Object
    is
       Result : W_Template_Instance;
-      Name : Text_Type := A_Module.Full_Name;
+      Name : Text_Type := An_Entity.Full_Name;
+
+      procedure Allocate_Variable (Var : T_Var) is
+      begin
+         case Var.Kind is
+            when Map_Kind =>
+               Result.Symbols.Insert
+                 (Var.Name_Node.Text, new W_Reference_Type'
+                    (Value => new W_Map_Type, others => <>));
+
+            when Text_Kind =>
+               --  Text is currently modelled as a reference to a text
+               --  container.
+               Result.Symbols.Insert
+                 (Var.Name_Node.Text, new W_Reference_Type'
+                    (Value => new W_Vector_Type, others => <>));
+
+            when others =>
+               Error ("global variable type not yet supported");
+
+         end case;
+      end Allocate_Variable;
+
    begin
-      if Module_Registry.Contains (Name) then
-         return Module_Registry.Element (Name);
+      if Object_For_Entity_Registry.Contains (Name) then
+         return Object_For_Entity_Registry.Element (Name);
       else
          Result := new W_Template_Instance_Type;
 
-         for V of A_Module.Variables_Ordered loop
-            case V.Kind is
-               when Map_Kind =>
-                  Result.Symbols.Insert
-                    (V.Name_Node.Text, new W_Reference_Type'
-                       (Value => new W_Map_Type, others => <>));
+         if An_Entity.all in T_Module_Type'Class then
+            for V of T_Module (An_Entity).Variables_Ordered loop
+               Allocate_Variable (V);
+            end loop;
+         elsif An_Entity.all in T_Template_Type'Class then
+            --  Templates are associated with a special vector of object, the
+            --  registry, that contains all instances of the type.
 
-               when Text_Kind =>
-                  --  Text is currently modelled as a reference to a text
-                  --  container.
-                  Result.Symbols.Insert
-                    (V.Name_Node.Text, new W_Reference_Type'
-                       (Value => new W_Vector_Type, others => <>));
+            Result.Symbols.Insert
+              ("_registry",
+               new W_Reference_Type'(Value => new W_Vector_Type, others => <>));
+            null;
+         else
+            Error ("static entity not associated with a node");
+         end if;
 
-               when others =>
-                  Error ("global variable type not yet supported");
-
-            end case;
-         end loop;
-
-         Module_Registry.Insert (Name, W_Object (Result));
+         Object_For_Entity_Registry.Insert (Name, W_Object (Result));
          return W_Object (Result);
       end if;
-   end Get_Object_For_Module;
+   end Get_Object_For_Entity;
 
 end Wrapping.Runtime.Structure;

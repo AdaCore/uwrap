@@ -11,178 +11,181 @@ package Wrapping.Semantic.Structure is
 
    type Visit_Action is (Over, Into, Stop, Unknown);
 
-   type Entity_Type;
-   type Entity is access all Entity_Type'Class;
-   package Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Entity);
-   use Entity_Maps;
-   package Entity_Vectors is new Ada.Containers.Vectors (Positive, Entity);
-   use Entity_Vectors;
+   type T_Entity_Type;
+   type T_Entity is access all T_Entity_Type'Class;
+   package T_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Entity);
+   use T_Entity_Maps;
+   package T_Entity_Vectors is new Ada.Containers.Vectors (Positive, T_Entity);
+   use T_Entity_Vectors;
 
-   type Named_Entity_Type;
-   type Named_Entity is access all Named_Entity_Type'Class;
-   package Named_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Named_Entity);
-   use Named_Entity_Maps;
-   package Named_Entity_Vectors is new Ada.Containers.Vectors (Positive, Named_Entity);
-   use Named_Entity_Vectors;
+   type T_Named_Entity_Type;
+   type T_Named_Entity is access all T_Named_Entity_Type'Class;
+   package T_Named_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Named_Entity);
+   use T_Named_Entity_Maps;
+   package T_Named_Entity_Vectors is new Ada.Containers.Vectors (Positive, T_Named_Entity);
+   use T_Named_Entity_Vectors;
 
-   type Namespace_Type;
-   type Namespace is access all Namespace_Type'Class;
-   package Namespace_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Namespace);
-   use Namespace_Maps;
-   package Namespace_Vectors is new Ada.Containers.Vectors (Positive, Namespace);
-   use Namespace_Vectors;
+   type T_Namespace_Type;
+   type T_Namespace is access all T_Namespace_Type'Class;
+   package T_Namespace_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Namespace);
+   use T_Namespace_Maps;
+   package T_Namespace_Vectors is new Ada.Containers.Vectors (Positive, T_Namespace);
+   use T_Namespace_Vectors;
 
-   type Module_Type;
-   type Module is access all Module_Type'Class;
-   package Module_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Module);
-   use Module_Maps;
-   package Module_Vectors is new Ada.Containers.Vectors (Positive, Module);
-   use Module_Vectors;
+   type T_Module_Type;
+   type T_Module is access all T_Module_Type'Class;
+   package T_Module_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Module);
+   use T_Module_Maps;
+   package T_Module_Vectors is new Ada.Containers.Vectors (Positive, T_Module);
+   use T_Module_Vectors;
 
-   type Template_Type;
-   type Template is access all Template_Type'Class;
-   package Template_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Template);
-   use Template_Maps;
-   package Template_Vectors is new Ada.Containers.Vectors (Positive, Template);
-   use Template_Vectors;
+   type T_Template_Type;
+   type T_Template is access all T_Template_Type'Class;
+   package T_Template_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Template);
+   use T_Template_Maps;
+   package T_Template_Vectors is new Ada.Containers.Vectors (Positive, T_Template);
+   use T_Template_Vectors;
 
-   type Var_Type;
-   type Var is access all Var_Type'Class;
-   package Var_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Var);
-   use Var_Maps;
-   package Var_Vectors is new Ada.Containers.Vectors (Positive, Var);
-   use Var_Vectors;
+   type T_Var_Type;
+   type T_Var is access all T_Var_Type'Class;
+   package T_Var_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Var);
+   use T_Var_Maps;
+   package T_Var_Vectors is new Ada.Containers.Vectors (Positive, T_Var);
+   use T_Var_Vectors;
 
-   type Weave_Or_Wrap_Type;
-   type Weave_Or_Wrap is access all Weave_Or_Wrap_Type'Class;
-   package Weave_Or_Wrap_Vectors is new Ada.Containers.Vectors (Positive, Weave_Or_Wrap);
-   use Weave_Or_Wrap_Vectors;
+   type T_Weave_Or_Wrap_Type;
+   type T_Weave_Or_Wrap is access all T_Weave_Or_Wrap_Type'Class;
+   package T_Weave_Or_Wrap_Vectors is new Ada.Containers.Vectors (Positive, T_Weave_Or_Wrap);
+   use T_Weave_Or_Wrap_Vectors;
 
-   type Command_Type;
-   type Command is access all Command_Type'Class;
-   package Command_Vectors is new Ada.Containers.Vectors (Positive, Command);
-   use Command_Vectors;
+   type T_Command_Type;
+   type T_Command is access all T_Command_Type'Class;
+   package T_Command_Vectors is new Ada.Containers.Vectors (Positive, T_Command);
+   use T_Command_Vectors;
 
-   type Visitor_Type;
-   type Visitor is access all Visitor_Type'Class;
-   package Visitor_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, Visitor);
-   use Visitor_Maps;
-   package Visitor_Vectors is new Ada.Containers.Vectors (Positive, Visitor);
-   use Visitor_Vectors;
+   type T_Visitor_Type;
+   type T_Visitor is access all T_Visitor_Type'Class;
+   package T_Visitor_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Visitor);
+   use T_Visitor_Maps;
+   package T_Visitor_Vectors is new Ada.Containers.Vectors (Positive, T_Visitor);
+   use T_Visitor_Vectors;
 
-   type Entity_Type is tagged record
+   type T_Entity_Type is tagged record
       Node : Template_Node;
       Unit : Analysis_Unit;
       Sloc : Source_Location_Range;
 
-      Parent, Next, Prev : Entity;
+      Parent, Next, Prev : T_Entity;
 
-      Children_Ordered : Entity_Vectors.Vector;
-      Children_Indexed : Entity_Maps.Map;
+      Children_Ordered : T_Entity_Vectors.Vector;
+      Children_Indexed : T_Entity_Maps.Map;
    end record;
 
-   procedure Add_Child (Parent, Child : access Entity_Type'Class);
+   procedure Add_Child (Parent, Child : access T_Entity_Type'Class);
 
-   procedure Add_Child (Parent, Child : access Entity_Type'Class; Name_Node : Template_Node'Class);
+   procedure Add_Child (Parent, Child : access T_Entity_Type'Class; Name_Node : Template_Node'Class);
 
-   procedure Add_Child (Parent, Child : access Entity_Type'Class; Name : Text_Type);
+   procedure Add_Child (Parent, Child : access T_Entity_Type'Class; Name : Text_Type);
 
-   function Full_Name (An_Entity : Entity_Type) return Text_Type;
+   function Full_Name (An_Entity : T_Entity_Type) return Text_Type;
 
-   function Find_Visible_Entity (An_Entity : Entity_Type'Class; Name : Text_Type) return Entity;
+   function Find_Visible_Entity (An_Entity : T_Entity_Type'Class; Name : Text_Type) return T_Entity;
 
-   type Named_Entity_Type is new Entity_Type with record
+   type T_Named_Entity_Type is new T_Entity_Type with record
       Name_Node : Template_Node;
    end record;
 
-   function Full_Name (An_Entity : Named_Entity_Type) return Text_Type;
+   function Full_Name (An_Entity : T_Named_Entity_Type) return Text_Type;
 
-   type Namespace_Type is new Entity_Type with record
+   type T_Namespace_Type is new T_Entity_Type with record
       null;
    end record;
 
-   type Module_Type is new Entity_Type with record
+   type T_Module_Type is new T_Entity_Type with record
       Name : Unbounded_Text_Type;
 
-      Templates_Ordered : Template_Vectors.Vector;
-      Templates_Indexed : Template_Maps.Map;
+      Templates_Ordered : T_Template_Vectors.Vector;
+      Templates_Indexed : T_Template_Maps.Map;
 
-      Variables_Ordered : Var_Vectors.Vector;
-      Variables_Indexed : Var_Maps.Map;
+      Variables_Ordered : T_Var_Vectors.Vector;
+      Variables_Indexed : T_Var_Maps.Map;
 
-      Visitors_Indexed : Visitor_Maps.Map;
-      Imported_Modules : Module_Maps.Map;
+      Visitors_Indexed : T_Visitor_Maps.Map;
+      Imported_Modules : T_Module_Maps.Map;
    end record;
 
-   function Resolve_Module_By_Name (Name : Text_Type) return Module;
+   function Resolve_Module_By_Name (Name : Text_Type) return T_Module;
 
-   type Template_Type is new Named_Entity_Type with record
-      Extends : Template;
+   overriding
+   function Full_Name (An_Entity : T_Module_Type) return Text_Type;
 
-      Variables_Ordered : Var_Vectors.Vector;
-      Variables_Indexed : Var_Maps.Map;
+   type T_Template_Type is new T_Named_Entity_Type with record
+      Extends : T_Template;
+
+      Variables_Ordered : T_Var_Vectors.Vector;
+      Variables_Indexed : T_Var_Maps.Map;
    end record;
 
-   function Instance_Of (Child, Parent : Template) return Boolean;
+   function Instance_Of (Child, Parent : T_Template) return Boolean;
 
-   function Has_Variable (A_Template : Template_Type; Name : Text_Type) return Boolean;
+   function Has_Variable (A_Template : T_Template_Type; Name : Text_Type) return Boolean;
 
-   function Get_Variable_For_Index (A_Template : Template_Type; Index : Positive) return Var;
+   function Get_Variable_For_Index (A_Template : T_Template_Type; Index : Positive) return T_Var;
 
-   function Get_Component (A_Template : Template_Type; Name : Text_Type) return Entity;
+   function Get_Component (A_Template : T_Template_Type; Name : Text_Type) return T_Entity;
 
-   function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return Namespace;
+   function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return T_Namespace;
 
    type Var_Type_Kind is (Text_Kind, Set_Kind, Map_Kind, Pattern_Kind);
 
-   type Var_Type is new Named_Entity_Type with record
+   type T_Var_Type is new T_Named_Entity_Type with record
       Kind : Var_Type_Kind;
       Args : Argument_List;
    end record;
 
-   type Match_Type is new Entity_Type with record
+   type Match_Type is new T_Entity_Type with record
       Matcher_Expression : Template_Node;
    end record;
 
-   type Weave_Or_Wrap_Type is tagged record
+   type T_Weave_Or_Wrap_Type is tagged record
       Node                         : Template_Clause;
       Is_All                       : Boolean := False;
       Is_Null                      : Boolean := False;
       Target_Object                : Template_Node;
-      Call_Reference               : Entity;
+      Call_Reference               : T_Entity;
       Arguments                    : Argument_List;
       A_Visit_Action               : Visit_Action := Unknown;
    end record;
 
-   type Wrap_Type is new Weave_Or_Wrap_Type with record
+   type Wrap_Type is new T_Weave_Or_Wrap_Type with record
       null;
    end record;
 
-   type Weave_Type is new Weave_Or_Wrap_Type with record
+   type Weave_Type is new T_Weave_Or_Wrap_Type with record
       null;
    end record;
 
-   type Apply_Type is new Entity_Type with record
+   type Apply_Type is new T_Entity_Type with record
       null;
    end record;
 
-   type Import_Type is new Entity_Type with record
+   type Import_Type is new T_Entity_Type with record
      Imported_Module : Unbounded_Text_Type;
    end record;
 
-   type Command_Type is new Entity_Type with record
+   type T_Command_Type is new T_Entity_Type with record
       Match_Expression : Template_Node;
 
-      Template_Clause : Weave_Or_Wrap;
+      Template_Clause : T_Weave_Or_Wrap;
 
       Traverse_Expression : Template_Node;
-      Nested_Actions   : Entity;
-      Else_Actions     : Entity;
+      Nested_Actions   : T_Entity;
+      Else_Actions     : T_Entity;
    end Record;
 
-   type Visitor_Type is new Named_Entity_Type with record
-      Arguments_Ordered : Var_Vectors.Vector;
-      Arguments_Indexed : Var_Maps.Map;
+   type T_Visitor_Type is new T_Named_Entity_Type with record
+      Arguments_Ordered : T_Var_Vectors.Vector;
+      Arguments_Indexed : T_Var_Maps.Map;
    end record;
 
 end Wrapping.Semantic.Structure;

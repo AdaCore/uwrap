@@ -1,9 +1,9 @@
 with Ada.Containers; use Ada.Containers;
 
 with Libtemplatelang;
-with Libtemplatelang.Analysis;
+with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 
-with Wrapping.Semantic.Structure;
+with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
 
@@ -16,10 +16,10 @@ package Wrapping.Runtime.Analysis is
    procedure Analyse (Root_Entity : W_Node);
 
    procedure Evaluate_Expression
-     (Node : Libtemplatelang.Analysis.Template_Node'Class);
+     (Node : Template_Node'Class);
 
    function Evaluate_Expression
-     (Node : Libtemplatelang.Analysis.Template_Node'Class) return W_Object;
+     (Node : Template_Node'Class) return W_Object;
 
    function Analyze_Visitor
      (E : access W_Object_Type'Class;

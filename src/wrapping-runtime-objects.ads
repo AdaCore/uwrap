@@ -102,7 +102,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Reference_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List);
+      Params    : Argument_List);
 
    overriding
    function Traverse
@@ -149,7 +149,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Vector_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List);
+      Params    : Argument_List);
 
    overriding
    function To_String (Object : W_Vector_Type) return Text_Type;
@@ -171,7 +171,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Map_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List);
+      Params    : Argument_List);
 
    type W_Integer_Type is new W_Object_Type with record
       Value : Integer;
@@ -194,7 +194,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_String_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List);
+      Params    : Argument_List);
 
    function "<" (Left, Right : W_String) return Boolean is
      (Left.Value < Right.Value);
@@ -214,7 +214,7 @@ package Wrapping.Runtime.Objects is
 
    type Call_Access is access procedure
      (Object : access W_Object_Type'Class;
-      Params : Libtemplatelang.Analysis.Argument_List);
+      Params : Argument_List);
 
    type W_Function_Type is new W_Object_Type with record
       Prefix : W_Object;
@@ -224,19 +224,24 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Function_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List);
+      Params    : Argument_List);
 
    type W_Static_Entity_Type is new W_Object_Type with record
-      An_Entity : Semantic.Structure.Entity;
+      An_Entity : T_Entity;
    end record;
+
+   overriding
+   function Push_Value
+     (An_Entity : access W_Static_Entity_Type;
+      Name      : Text_Type) return Boolean;
 
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Static_Entity_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List);
+      Params    : Argument_List);
 
    type W_Expression_Type is new W_Object_Type with record
-      Expression : Libtemplatelang.Analysis.Template_Node;
+      Expression : Template_Node;
    end record;
 
    type W_Traverse_Decision_Type is new W_Object_Type with record
@@ -246,10 +251,10 @@ package Wrapping.Runtime.Objects is
 
    type W_Lambda_Type is new W_Object_Type with record
       Captured_Symbols : W_Object_Maps.Map;
-      Expression : Libtemplatelang.Analysis.Template_Node;
+      Expression : Template_Node;
       Implicit_Self : W_Node;
       Implicit_New : W_Node;
-      Lexical_Scope : Semantic.Structure.Entity;
+      Lexical_Scope : T_Entity;
       -- TODO: also add the temporary register
    end record;
 
@@ -288,7 +293,7 @@ package Wrapping.Runtime.Objects is
 
    function Create_Template_Instance
      (An_Entity : access W_Node_Type'Class;
-      A_Template : Semantic.Structure.Template) return W_Template_Instance;
+      A_Template : T_Template) return W_Template_Instance;
 
    function Get_Template_Instance
      (An_Entity : access W_Node_Type'Class;
@@ -296,7 +301,7 @@ package Wrapping.Runtime.Objects is
 
    function Get_Template_Instance
      (An_Entity  : access W_Node_Type'Class;
-      A_Template : Semantic.Structure.Template) return W_Template_Instance;
+      A_Template : T_Template) return W_Template_Instance;
 
    overriding
    function Push_Value
@@ -306,7 +311,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Node_Type;
-      Params    : Libtemplatelang.Analysis.Argument_List);
+      Params    : Argument_List);
 
    procedure Pre_Visit (An_Entity : access W_Node_Type) is null;
 
@@ -332,7 +337,7 @@ package Wrapping.Runtime.Objects is
    procedure Print (An_Entity : W_Node_Type; Indent : Text_Type := "");
 
    type W_Template_Instance_Type is new W_Node_Type with record
-      Template : Semantic.Structure.Template;
+      Template : T_Template;
 
       --  This is used to record the actual values for the template variables.
       --  There is always one level of indirection between the variable and
