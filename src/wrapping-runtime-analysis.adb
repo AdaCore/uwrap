@@ -1000,6 +1000,8 @@ package body Wrapping.Runtime.Analysis is
                Push_Match_False;
             end if;
 
+            To_Match := False;
+
          when Template_At_Ref =>
             if Top_Frame.Top_Context.Left_Value = null then
                Error ("no left value available in this context");
