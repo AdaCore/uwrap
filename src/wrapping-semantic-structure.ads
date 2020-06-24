@@ -91,6 +91,12 @@ package Wrapping.Semantic.Structure is
 
    function Find_Visible_Entity (An_Entity : T_Entity_Type'Class; Name : Text_Type) return T_Entity;
 
+   function Get_Variable_For_Index (An_Entity : T_Entity_Type; Index : Positive) return T_Var
+   is (null);
+
+   function Get_Component (An_Entity : T_Entity_Type; Name : Text_Type) return T_Entity
+   is (null);
+
    type T_Named_Entity_Type is new T_Entity_Type with record
       Name_Node : Template_Node;
    end record;
@@ -118,6 +124,10 @@ package Wrapping.Semantic.Structure is
 
    overriding
    function Full_Name (An_Entity : T_Module_Type) return Text_Type;
+
+   function Get_Variable_For_Index (An_Entity : T_Module_Type; Index : Positive) return T_Var;
+
+   function Get_Component (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity;
 
    type T_Template_Type is new T_Named_Entity_Type with record
       Extends : T_Template;

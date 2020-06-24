@@ -103,6 +103,17 @@ package body Wrapping.Semantic.Structure is
       end if;
    end Full_Name;
 
+   function Get_Variable_For_Index (An_Entity : T_Module_Type; Index : Positive) return T_Var
+   is
+   begin
+      return An_Entity.Variables_Ordered (Index);
+   end Get_Variable_For_Index;
+
+   function Get_Component (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity is
+   begin
+      return An_Entity.Children_Indexed (Name);
+   end Get_Component;
+
    function Instance_Of (Child, Parent : T_Template) return Boolean is
    begin
       if Child = Parent then

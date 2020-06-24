@@ -283,6 +283,7 @@ package body Wrapping.Runtime.Structure is
          return Object_For_Entity_Registry.Element (Name);
       else
          Result := new W_Template_Instance_Type;
+         Result.Defining_Entity := T_Entity (An_Entity);
 
          if An_Entity.all in T_Module_Type'Class then
             for V of T_Module (An_Entity).Variables_Ordered loop
@@ -295,7 +296,6 @@ package body Wrapping.Runtime.Structure is
             Result.Symbols.Insert
               ("_registry",
                new W_Reference_Type'(Value => new W_Vector_Type, others => <>));
-            null;
          else
             Error ("static entity not associated with a node");
          end if;

@@ -369,7 +369,7 @@ package Wrapping.Runtime.Objects is
    procedure Print (An_Entity : W_Node_Type; Indent : Text_Type := "");
 
    type W_Template_Instance_Type is new W_Node_Type with record
-      Template : T_Template;
+      Defining_Entity : T_Entity;
 
       --  This is used to record the actual values for the template variables.
       --  There is always one level of indirection between the variable and

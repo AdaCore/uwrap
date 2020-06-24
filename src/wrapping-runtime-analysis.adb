@@ -665,9 +665,14 @@ package body Wrapping.Runtime.Analysis is
             for Created_Template of Next_Iteration loop
                A_Template_Instance := W_Template_Instance (Created_Template);
 
-               if Instance_Of (A_Template_Instance.Template, File_Template) then
+               if Instance_Of
+                 (T_Template (A_Template_Instance.Defining_Entity),
+                  File_Template)
+               then
                   Files.Append (A_Template_Instance);
-               elsif Instance_Of (A_Template_Instance.Template, Out_Template) then
+               elsif Instance_Of
+                 (T_Template (A_Template_Instance.Defining_Entity), Out_Template)
+               then
                   Output.Append (A_Template_Instance);
                end if;
             end loop;
@@ -841,11 +846,21 @@ package body Wrapping.Runtime.Analysis is
                   --  it's suppposed to be consume by the next expression
 
                   Evaluate_Expression (Node.As_Selector.F_Right);
+
                   Pop_Frame_Context;
                end if;
             else
+               Push_Frame_Context;
+               Top_Frame.Top_Context.Is_Root_Selection := True;
                Evaluate_Expression (Node.As_Selector.F_Right);
+               Pop_Frame_Context;
             end if;
+
+            --  Never match the result of a selection. Matching happened
+            --  before, when evaluating the right operand. At this stage,
+            --  we may also not be in the right match mode anymore (e.g.
+            --  we don't know if we match a reference or a call result).
+            To_Match := False;
 
          when Template_Binary_Expr =>
             --  The convention for "and" and "or" binary operators is to push to
@@ -1095,6 +1110,14 @@ package body Wrapping.Runtime.Analysis is
          return;
       end if;
 
+      --  When evaluating a string, e.g.: "str \e<r.f_name> str", the expressions
+      --  are not matched against the outside object. Every expression is also
+      --  to be considered a root selection.
+
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Top_Frame.Top_Context.Is_Root_Selection := True;
+
       while Current <= Str'Last loop
          if Str (Current) = '\' then
             if Current /= Str'First then
@@ -1191,6 +1214,7 @@ package body Wrapping.Runtime.Analysis is
 
       Push_Object (Result);
       Error_Callback := Prev_Error;
+      Pop_Frame_Context;
    end Analyze_Replace_String;
 
    function Push_Global_Identifier (Name : Text_Type) return Boolean is
@@ -1495,13 +1519,16 @@ package body Wrapping.Runtime.Analysis is
 
       function Name_For_Position (Position : Integer) return Template_Node is
       begin
-         return A_Template_Instance.Template.Get_Variable_For_Index
+         return A_Template_Instance.Defining_Entity.Get_Variable_For_Index
            (Position).Name_Node;
       end Name_For_Position;
 
       procedure Store_Param_Value (Name_Node : Template_Node; Value : W_Object) is
          Ref : W_Reference;
+         A_Var : T_Var;
       begin
+         A_Var := T_Var (A_Template_Instance.Defining_Entity.Get_Component (Name_Node.Text));
+
          if A_Template_Instance.Symbols.Contains (Name_Node.Text) then
             Ref := A_Template_Instance.Symbols.Element (Name_Node.Text);
          else
@@ -1511,18 +1538,30 @@ package body Wrapping.Runtime.Analysis is
          end if;
 
          --  The container is an indirection to a value. Remove the previous one
-         --  and add the new one instead. If we were provided with a text,
-         --  reference it, otherwise add a conversion to text node. We can't
-         --  resolve the value just yet as it may depend on dynamically computed
-         --  data, such as lambda.
-         --  TODO: This is effectively an implicit conversion to text. Document
-         --  it, and make sure that it's only done in the case of text kind, not
-         --  object kind.
+         --  and add the new one instead.
 
-         if Value.Dereference.all in W_Text_Expression_Type'Class then
+         if A_Var = null then
+            --  In that case, there's no type to refer to. Just associate the value.
+            --  This is the case for intrinsic variables created for types.
+            --  TODO: It'd be better to have a Get_Type_For primitive on the
+            --  defining entity, or something like that.
             Ref.Value := Value;
+         elsif A_Var.Kind = Text_Kind then
+            -- If we were provided with a text,
+            --  reference it, otherwise add a conversion to text node. We can't
+            --  resolve the value just yet as it may depend on dynamically computed
+            --  data, such as lambda.
+            --  TODO: This is effectively an implicit conversion to text. Document
+            --  it, and make sure that it's only done in the case of text kind, not
+            --  object kind.
+
+            if Value.Dereference.all in W_Text_Expression_Type'Class then
+               Ref.Value := Value;
+            else
+               Ref.Value := new W_Text_Conversion_Type'(An_Object => Value);
+            end if;
          else
-            Ref.Value := new W_Text_Conversion_Type'(An_Object => Value);
+            Ref.Value := Value;
          end if;
 
          Pop_Frame_Context;

@@ -563,7 +563,7 @@ package body Wrapping.Runtime.Objects is
       Current_Template : T_Template;
    begin
       New_Template := new W_Template_Instance_Type;
-      New_Template.Template := A_Template;
+      New_Template.Defining_Entity := T_Entity (A_Template);
 
       if An_Entity /= null then
          New_Template.Origin := W_Node (An_Entity);
@@ -1020,11 +1020,11 @@ package body Wrapping.Runtime.Objects is
       elsif An_Entity.Symbols.Contains (Name) then
          Push_Object (An_Entity.Symbols.Element (Name));
          return True;
-      elsif An_Entity.Template /= null then
+      elsif An_Entity.Defining_Entity /= null then
          --  If we did not find the symbol, see if it corresponds to a variable
          --  and create it.
 
-         Named_Entity := An_Entity.Template.Get_Component (Name);
+         Named_Entity := An_Entity.Defining_Entity.Get_Component (Name);
 
          if Named_Entity /= null then
             if Named_Entity.all in T_Var_Type then
@@ -1084,7 +1084,7 @@ package body Wrapping.Runtime.Objects is
            Match_Call_Default | Match_Ref_Default | Match_Is
          then
             if not Instance_Of
-              (An_Entity.Template,
+              (T_Template (An_Entity.Defining_Entity),
                T_Template (W_Static_Entity (Other_Entity).An_Entity))
             then
                Pop_Object;
