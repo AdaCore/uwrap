@@ -1681,6 +1681,7 @@ package body Wrapping.Runtime.Analysis is
 
       if Called = Match_False then
          if Top_Frame.Top_Context.Match_Mode /= Match_None then
+            Pop_Frame_Context;
             Pop_Object; -- Pop call symbol
             Push_Match_False;
             return;
