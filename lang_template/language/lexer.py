@@ -28,6 +28,8 @@ class Token(LexerToken):
     Into       = WithText()
     Over       = WithText()
     All        = WithText()
+    Is         = WithText()
+    Has        = WithText()
 
     LPar       = WithText()
     RPar       = WithText()
@@ -43,6 +45,7 @@ class Token(LexerToken):
     Assign     = WithText()
     Amp        = WithText()
     At         = WithText()
+    Tick       = WithText()
 
     String     = WithText()
     Comment    = WithTrivia()
@@ -56,9 +59,7 @@ template_lexer = Lexer(Token)
 
 template_lexer.add_patterns(
     ("STRING_DBQ", r'\"(\\\"|[^\n\"])*\"'),
-    ("STRING_SQ",  r"'(\\'|[^\n'])*'"),
-    ("MLSTRING_DBQ", r'\"\"\"([^"]|("[^"])|(""[^"])|\n)*\"\"\"'),
-    ("MLSTRING_SQ", r"'''([^']|('[^'])|(''[^'])|\n)*'''"),
+    ("MLSTRING_DBQ", r'\"\"\"([^"]|("[^"])|(""[^"])|\n)*\"\"\"')
 )
 
 template_lexer.add_rules(
@@ -87,6 +88,8 @@ template_lexer.add_rules(
     (Literal("into"), Token.Into),
     (Literal("over"), Token.Over),
     (Literal("all"), Token.All),
+    (Literal("is"), Token.Is),
+    (Literal("has"), Token.Has),
 
     (Literal("with"), Token.With),
     (Literal("("), Token.LPar),
@@ -103,12 +106,12 @@ template_lexer.add_rules(
     (Literal(":="), Token.Assign),
     (Literal("&"), Token.Amp),
     (Literal("@"), Token.At),
+    (Literal("'"), Token.Tick),
 
     (Literal("true"), Token.LitTrue),
     (Literal("false"), Token.LitFalse),
 
-    (Pattern('({MLSTRING_SQ}|{MLSTRING_DBQ}'
-             '|{STRING_SQ}|{STRING_DBQ})'), Token.String),
+    (Pattern('({MLSTRING_DBQ}|{STRING_DBQ})'), Token.String),
     (Pattern(r"([0-9]+)"), Token.Integer),
     (Pattern(r"[a-zA-Z][a-zA-Z0-9_]*"), Token.Identifier),
 )

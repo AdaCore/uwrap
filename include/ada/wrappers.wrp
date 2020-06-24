@@ -42,6 +42,7 @@ template w_UseClause extends w_Ada {
 template w_PackageDecl extends w_NamedEntity {
    var spec_content : text;
    var body_content : text;
+   var stmt : text;
 
    var spec : pattern ("""
       package \e<name> is
@@ -52,6 +53,9 @@ template w_PackageDecl extends w_NamedEntity {
    var body : pattern ("""
       package body \e<name> is
         \e<body_content>
+      begin
+        null;
+        \e<stmt>
       end \e<name>;
    """);
 }
@@ -196,17 +200,19 @@ visitor ada_to_wrappers () {
       wrap with w_SubpDecl
          (function_or_procedure => "function",
           result_type_expr => lambda (new.child (w_TypeExpr()).txt),
-          call_decl => "\e<self.tmp ('result_orig')> : aliased \e<te> := \e<call>;\n",
-          post_call_decl => "\e<self.tmp ('result_wrapped')> : aliased \e<result_type_expr> with Address => \e<self.tmp ('result_orig')>'Address, Import;\n",
+          call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
+          post_call_decl => """
+             \e<self.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
+             with Address => \e<self.tmp ("result_orig")>'Address, Import;\n""",
           call_stmt => "null;", 
-          return_stmt => "return \e<self.tmp ('result_wrapped')>;");
+          return_stmt => """return \e<self.tmp ("result_wrapped")>;""");
    }
 
    match ParamSpec() and parent (sb: SubpDecl ())
    wrap with w_ParamSpec(
       type_expr => lambda (new.child (w_TypeExpr()).txt),
-      pre_call_decl => "\e<sb.tmp ('local')> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n",
-      actual_value => sb.tmp ('local')
+      pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n""",
+      actual_value => sb.tmp ("local")
    );
 
    match TypeDecl ()

@@ -49,8 +49,14 @@ package Wrapping.Runtime.Objects is
    package W_String_Sets is new Ada.Containers.Indefinite_Ordered_Sets (W_String);
    use W_String_Sets;
 
+   type W_Regexp_Type;
+   type W_Regexp is access all W_Regexp_Type'Class;
+
    type W_Text_Conversion_Type;
    type W_Text_Conversion is access all W_Text_Conversion_Type'Class;
+
+   type W_Text_Vector_Type;
+   type W_Text_Vector is access all W_Text_Vector_Type'Class;
 
    type W_Function_Type;
    type W_Function is access all W_Function_Type'Class;
@@ -104,6 +110,9 @@ package Wrapping.Runtime.Objects is
      (An_Entity : access W_Reference_Type;
       Params    : Argument_List);
 
+   function Match_With_Top_Object
+     (An_Entity : access W_Reference_Type) return Boolean;
+
    overriding
    function Traverse
      (An_Entity    : access W_Reference_Type;
@@ -130,6 +139,11 @@ package Wrapping.Runtime.Objects is
 
    function Is_Implicit (Object : W_Reference_Type) return Boolean is
      (Object.Is_Implicit_Self or else Object.Is_Implicit_New);
+
+   overriding
+   function Dereference
+     (Object : access W_Reference_Type)
+      return W_Object is (Object.Value.Dereference);
 
    overriding
    function To_String (Object : W_Reference_Type) return Text_Type is
@@ -184,6 +198,11 @@ package Wrapping.Runtime.Objects is
       null;
    end record;
 
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Text_Expression_Type;
+      Params    : Argument_List);
+
    type W_String_Type is new W_Text_Expression_Type with record
       Value : Unbounded_Text_Type;
    end record;
@@ -191,16 +210,18 @@ package Wrapping.Runtime.Objects is
    overriding
    function To_String (Object : W_String_Type) return Text_Type;
 
-   overriding
-   procedure Push_Call_Result
-     (An_Entity : access W_String_Type;
-      Params    : Argument_List);
-
    function "<" (Left, Right : W_String) return Boolean is
      (Left.Value < Right.Value);
 
    function "=" (Left, Right : W_String) return Boolean is
      (Left.Value = Right.Value);
+
+   type W_Regexp_Type is new W_Text_Expression_Type with record
+      Value : W_Object;
+   end record;
+
+   overriding
+   function To_String (Object : W_Regexp_Type) return Text_Type;
 
    --  This type is used to model an object that needs to converts a sub-object
    --  into string. This is useful to differenciate sitations where a piece
@@ -211,6 +232,13 @@ package Wrapping.Runtime.Objects is
 
    overriding
    function To_String (Object : W_Text_Conversion_Type) return Text_Type;
+
+   type W_Text_Vector_Type is new W_Text_Expression_Type with record
+      A_Vector : W_Object_Vectors.Vector;
+   end record;
+
+   overriding
+   function To_String (Object : W_Text_Vector_Type) return Text_Type;
 
    type Call_Access is access procedure
      (Object : access W_Object_Type'Class;
@@ -239,6 +267,10 @@ package Wrapping.Runtime.Objects is
    procedure Push_Call_Result
      (An_Entity : access W_Static_Entity_Type;
       Params    : Argument_List);
+
+   overriding
+   function Match_With_Top_Object
+     (An_Entity : access W_Static_Entity_Type) return Boolean;
 
    type W_Expression_Type is new W_Object_Type with record
       Expression : Template_Node;
@@ -313,6 +345,10 @@ package Wrapping.Runtime.Objects is
      (An_Entity : access W_Node_Type;
       Params    : Argument_List);
 
+   overriding
+   function Match_With_Top_Object
+     (An_Entity : access W_Node_Type) return Boolean;
+
    procedure Pre_Visit (An_Entity : access W_Node_Type) is null;
 
    overriding
@@ -361,6 +397,10 @@ package Wrapping.Runtime.Objects is
    function Push_Value
      (An_Entity : access W_Template_Instance_Type;
       Name      : Text_Type) return Boolean;
+
+   overriding
+   function Match_With_Top_Object
+     (An_Entity : access W_Template_Instance_Type) return Boolean;
 
    overriding
    function Traverse

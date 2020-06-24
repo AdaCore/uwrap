@@ -15,11 +15,9 @@ package Wrapping.Runtime.Analysis is
 
    procedure Analyse (Root_Entity : W_Node);
 
-   procedure Evaluate_Expression
-     (Node : Template_Node'Class);
+   procedure Evaluate_Expression (Node : Template_Node'Class);
 
-   function Evaluate_Expression
-     (Node : Template_Node'Class) return W_Object;
+   function Evaluate_Expression (Node : Template_Node'Class) return W_Object;
 
    function Analyze_Visitor
      (E : access W_Object_Type'Class;
@@ -51,15 +49,7 @@ package Wrapping.Runtime.Analysis is
 
    function Pop_Object return W_Object;
 
-   --  Same as top object, but if the top object is a rerefence, recursively
-   --  traverse all the reference links to reach the first non-reference object.
-   function Pop_Object_Dereference return W_Object;
-
    function Top_Object return W_Object;
-
-   --  Same as top object, but if the top object is a rerefence, recursively
-   --  traverse all the reference links to reach the first non-reference object.
-   function Top_Object_Dereference return W_Object;
 
    --  Return True if the top object on the frame is an implicitely stacked
    --  object

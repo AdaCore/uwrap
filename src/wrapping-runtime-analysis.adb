@@ -37,7 +37,6 @@ package body Wrapping.Runtime.Analysis is
       On_Group : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expression : Template_Node) := null);
 
-   function Visit_Expression (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
    procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Template_Node);
 
    procedure Push_Error_Location
@@ -121,28 +120,10 @@ package body Wrapping.Runtime.Analysis is
       return Result;
    end Pop_Object;
 
-   function Pop_Object_Dereference return W_Object is
-      Result : W_Object := Top_Object_Dereference;
-   begin
-      Pop_Object;
-
-      return Result;
-   end Pop_Object_Dereference;
-
    function Top_Object return W_Object is
    begin
       return Top_Frame.Data_Stack.Last_Element;
    end Top_Object;
-
-   function Top_Object_Dereference return W_Object is
-      Current : W_Object := Top_Frame.Data_Stack.Last_Element;
-   begin
-      while Current.all in W_Reference_Type'Class loop
-         Current := W_Reference (Current).Value;
-      end loop;
-
-      return Current;
-   end Top_Object_Dereference;
 
    function Top_Is_Implicit return Boolean is
       Top : W_Object := Top_Object;
@@ -154,13 +135,15 @@ package body Wrapping.Runtime.Analysis is
    procedure Push_Frame_Context is
    begin
       Top_Frame.Top_Context := new Frame_Context_Type'
-        (Parent_Context => Top_Frame.Top_Context,
-         Is_Matching_Context => Top_Frame.Top_Context.Is_Matching_Context,
-         Is_Folding_Context => Top_Frame.Top_Context.Is_Folding_Context,
-         Name_Captured => Top_Frame.Top_Context.Name_Captured,
-         Folding_Expression => Top_Frame.Top_Context.Folding_Expression,
+        (Parent_Context       => Top_Frame.Top_Context,
+         Match_Mode           => Top_Frame.Top_Context.Match_Mode,
+         Is_Folding_Context   => Top_Frame.Top_Context.Is_Folding_Context,
+         Name_Captured        => Top_Frame.Top_Context.Name_Captured,
+         Folding_Expression   => Top_Frame.Top_Context.Folding_Expression,
          An_Allocate_Callback => Top_Frame.Top_Context.An_Allocate_Callback,
-         Left_Value => Top_Frame.Top_Context.Left_Value);
+         Left_Value           => Top_Frame.Top_Context.Left_Value,
+         Is_Root_Selection    => Top_Frame.Top_Context.Is_Root_Selection,
+         Matching_Object      => Top_Frame.Top_Context.Matching_Object);
    end Push_Frame_Context;
 
    procedure Pop_Frame_Context is
@@ -299,7 +282,7 @@ package body Wrapping.Runtime.Analysis is
             end if;
 
             Evaluate_Expression (Template_Clause.Arguments.Child (1).As_Argument.F_Value);
-            Result := Pop_Object_Dereference;
+            Result := Pop_Object.Dereference;
 
             if Result.all not in W_Static_Entity_Type'Class
               or else W_Static_Entity (Result).An_Entity.all
@@ -368,7 +351,6 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Apply_Command (A_Command : T_Command) is
          Matched : Boolean;
-         Match_Result : W_Object;
       begin
          --  The command is the enclosing scope for all of its clauses. It
          --  will in particular receive the matching groups and the temporary
@@ -379,13 +361,14 @@ package body Wrapping.Runtime.Analysis is
          Top_Frame.Top_Context.An_Allocate_Callback := Allocate'Unrestricted_Access;
 
          if not A_Command.Match_Expression.Is_Null then
-            Top_Frame.Top_Context.Is_Matching_Context := True;
+            Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+
+            Top_Frame.Top_Context.Matching_Object := W_Object
+              (A_Language_Entity);
+
             Evaluate_Expression (A_Command.Match_Expression);
-            Top_Frame.Top_Context.Is_Matching_Context := False;
-
-            Match_Result := Pop_Object;
-
-            Matched := Match_Result /= Match_False;
+            Matched := Pop_Object /= Match_False;
+            Top_Frame.Top_Context.Match_Mode := Match_None;
          else
             Matched := True;
          end if;
@@ -409,7 +392,7 @@ package body Wrapping.Runtime.Analysis is
                   begin
                      if not A_Command.Template_Clause.Target_Object.Is_Null then
                         Evaluate_Expression (A_Command.Template_Clause.Target_Object);
-                        Tmp_Target := Pop_Object_Dereference;
+                        Tmp_Target := Pop_Object.Dereference;
 
                         if Tmp_Target.all in W_Node_Type'Class then
                            Entity_Target := W_Node (Tmp_Target);
@@ -517,15 +500,15 @@ package body Wrapping.Runtime.Analysis is
                if not A_Language_Entity.Traverse_Decision_Taken then
                   A_Language_Entity.Traverse_Decision_Taken := True;
 
-                  A_Command.Traverse_Expression.Traverse (Visit_Expression'Access);
+                  Evaluate_Expression (A_Command.Traverse_Expression);
 
-                  if Top_Object_Dereference.all in W_Traverse_Decision_Type'Class then
+                  if Top_Object.Dereference.all in W_Traverse_Decision_Type'Class then
                      --  In this case, a decision was taken as to the continuation of the
                      --  iteration.
 
                      declare
                         A_Decision : W_Traverse_Decision := W_Traverse_Decision
-                          (Top_Object_Dereference);
+                          (Top_Object.Dereference);
                      begin
                         Pop_Object;
 
@@ -739,24 +722,28 @@ package body Wrapping.Runtime.Analysis is
 
    end Analyse;
 
-   procedure Evaluate_Expression
-     (Node : Template_Node'Class)
-   is
-      Dummy : Libtemplatelang.Common.Visit_Status := Visit_Expression (Node);
-   begin
-      null;
-   end Evaluate_Expression;
-
-   function Evaluate_Expression
-     (Node : Template_Node'Class) return W_Object
-   is
+   function Evaluate_Expression (Node : Template_Node'Class) return W_Object is
    begin
       Evaluate_Expression (Node);
 
       return Pop_Object;
    end Evaluate_Expression;
 
-   function Visit_Expression (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
+   procedure Evaluate_Expression (Node : Template_Node'Class)
+   is
+      --  Some expression need to match with the outer object. For example:
+      --    match a
+      --  a needs to match with self. Other do not. For example in:
+      --     match has'a
+      --  we need to not match (has'a) expression. Similarly, in :
+      --     match a or b
+      --  we need to match individually a and b, but not the expression (a or b),
+      --  otherwise it wouldn't be possible to write something like:
+      --     match has'a or has'b
+      --  (has would discusonnect the outer match, but the overall expression
+      --  would match again).
+      --  TODO: Review all cases of disconnection, e.g. &, not, a: etc.
+      To_Match : Boolean := True;
    begin
       Push_Error_Location (Node);
 
@@ -793,9 +780,8 @@ package body Wrapping.Runtime.Analysis is
             end if;
 
             Pop_Frame_Context;
+            To_Match := False;
 
-            Pop_Error_Location;
-            return Over;
          when Template_Selector =>
             --  In a selector, we compute the left object, build the right
             --  expression based on the left object, and then put the result
@@ -821,24 +807,31 @@ package body Wrapping.Runtime.Analysis is
                   --     child ().child ().fold ()
                   --  the first child is a selecing the first match, the second
                   --  is folded.
+                  --  Note that the left end of an expression is never matching
+                  --  with the outer context, hence setting the match flag to
+                  --  none.
+
                   Push_Frame_Context;
                   Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
                   Top_Frame.Top_Context.Is_Folding_Context := False;
+                  Top_Frame.Top_Context.Match_Mode := Match_None;
 
                   Evaluate_Expression (Node.As_Selector.F_Left);
                   Pop_Frame_Context;
+
+                  Push_Frame_Context;
+                  Top_Frame.Top_Context.Is_Root_Selection := False;
 
                   --  Leave the result of the previous expression on the stack,
                   --  it's suppposed to be consume by the next expression
 
                   Evaluate_Expression (Node.As_Selector.F_Right);
+                  Pop_Frame_Context;
                end if;
             else
                Evaluate_Expression (Node.As_Selector.F_Right);
             end if;
 
-            Pop_Error_Location;
-            return Over;
          when Template_Binary_Expr =>
             --  The convention for "and" and "or" binary operators is to push to
             --  the stack the last object that matched, otherwise false. This
@@ -848,13 +841,12 @@ package body Wrapping.Runtime.Analysis is
             declare
                Left, Right : W_Object;
             begin
-               Node.As_Binary_Expr.F_Lhs.Traverse (Visit_Expression'Access);
-               Left := Pop_Object;
+               Left := Evaluate_Expression (Node.As_Binary_Expr.F_Lhs).Dereference;
 
                if Node.As_Binary_Expr.F_Op.Kind = Template_Operator_And then
                   if Left /= Match_False then
-                     Node.As_Binary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
-                     Right := Pop_Object;
+                     Right :=
+                       Evaluate_Expression (Node.As_Binary_Expr.F_Rhs).Dereference;
 
                      if Right /= Match_False then
                         Push_Object (Right);
@@ -864,12 +856,14 @@ package body Wrapping.Runtime.Analysis is
                   else
                      Push_Match_False;
                   end if;
+
+                  To_Match := False;
                elsif Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Or then
                   if Left /= Match_False then
                      Push_Object (Left);
                   else
-                     Node.As_Binary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
-                     Right := Pop_Object;
+                     Right :=
+                       Evaluate_Expression (Node.As_Binary_Expr.F_Rhs).Dereference;
 
                      if Right /= Match_False then
                         Push_Object (Right);
@@ -877,59 +871,62 @@ package body Wrapping.Runtime.Analysis is
                         Push_Match_False;
                      end if;
                   end if;
+
+                  To_Match := False;
                elsif Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Amp then
-                  Node.As_Binary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
-                  Right := Pop_Object;
+                  Right :=
+                    Evaluate_Expression (Node.As_Binary_Expr.F_Rhs);
 
-                  declare
-                     Container : W_Vector := new W_Vector_Type;
-                  begin
-                     Container.A_Vector.Append (Left);
-                     Container.A_Vector.Append (Right);
+                  if Left.Dereference.all in W_Text_Expression_Type'Class
+                    and then Right.Dereference.all in W_Text_Expression_Type'Class
+                  then
+                     declare
+                        Container : W_Text_Vector := new W_Text_Vector_Type;
+                     begin
+                        Container.A_Vector.Append (Left);
+                        Container.A_Vector.Append (Right);
 
-                     Push_Object (Container);
-                  end;
+                        Push_Object (Container);
+                     end;
+                  else
+                     declare
+                        Container : W_Vector := new W_Vector_Type;
+                     begin
+                        Container.A_Vector.Append (Left);
+                        Container.A_Vector.Append (Right);
+
+                        Push_Object (Container);
+                     end;
+                  end if;
                end if;
             end;
 
-            Pop_Error_Location;
-            return Over;
          when Template_Unary_Expr =>
             declare
-               Right : W_Object;
+               Right : W_Object :=
+                 Evaluate_Expression (Node.As_Unary_Expr.F_Rhs).Dereference;
             begin
-               Node.As_Unary_Expr.F_Rhs.Traverse (Visit_Expression'Access);
-               Right := Pop_Object;
-
                if Node.As_Unary_Expr.F_Op.Kind = Template_Operator_Not then
                   if Right = Match_False then
-                     Push_Match_True (Top_Frame.Data_Stack.Last_Element);
+                     Push_Match_True (Top_Object.Dereference);
                   else
                      Push_Match_False;
                   end if;
                end if;
             end;
 
-            Pop_Error_Location;
-            return Over;
-
          when Template_Literal =>
             if Node.Text = "true" then
-               Push_Match_True (Top_Frame.Data_Stack.Last_Element);
+               Push_Match_True (Top_Object);
             elsif Node.Text = "false" then
                Push_Match_False;
             else
                Error ("unkown literal '" & Node.Text & "'");
             end if;
 
-            Pop_Error_Location;
-            return Over;
-
          when Template_Token_Identifier | Template_Identifier =>
             Handle_Identifier (Node);
 
-            Pop_Error_Location;
-            return Over;
          when Template_Number =>
             declare
                Val : W_Integer := new W_Integer_Type;
@@ -939,33 +936,22 @@ package body Wrapping.Runtime.Analysis is
                Push_Object (Val);
             end;
 
-            Pop_Error_Location;
-            return Over;
          when Template_Str =>
             Analyze_Replace_String (Node);
 
-            if Top_Frame.Top_Context.Is_Matching_Context then
-               declare
-                  Pattern : Text_Type := Pop_Object.To_String;
-                  Value : Text_Type := Top_Object.To_String;
-               begin
-                  if Match (Pattern, Value) then
-                     Push_Match_True (Top_Object);
-                  else
-                     Push_Match_False;
-                  end if;
-               end;
-            end if;
+            Push_Object (W_Object'(new W_Regexp_Type'(Value => Pop_Object)));
 
-            Pop_Error_Location;
-            return Over;
          when Template_Call_Expr =>
-            --  Resolved the called identifier
-
             Handle_Call (Node.As_Call_Expr);
 
-            Pop_Error_Location;
-            return Over;
+            --  Prepare the matching context for the resulting value.
+            --  As we're on a call match, we can
+            --  change the context without pushing / popping (there's nothing
+            --  else).
+
+            if Top_Frame.Top_Context.Match_Mode = Match_Ref_Default then
+               Top_Frame.Top_Context.Match_Mode := Match_Call_Default;
+            end if;
 
          when Template_Lambda_Expr =>
             declare
@@ -975,7 +961,6 @@ package body Wrapping.Runtime.Analysis is
                Push_Object (A_Lambda);
 
                Pop_Error_Location;
-               return Over;
             end;
 
          when Template_New_Expr =>
@@ -985,9 +970,6 @@ package body Wrapping.Runtime.Analysis is
                Push_Match_False;
             end if;
 
-            Pop_Error_Location;
-            return Over;
-
          when Template_At_Ref =>
             if Top_Frame.Top_Context.Left_Value = null then
                Error ("no left value available in this context");
@@ -995,15 +977,49 @@ package body Wrapping.Runtime.Analysis is
                Push_Object (Top_Frame.Top_Context.Left_Value);
             end if;
 
-            Pop_Error_Location;
-            return Over;
+         when Template_Qualified_Match =>
+            --  We are on an expression like has'something or is'something.
+            --  Specify the kind of match we need to make, which will override
+            --  the default.
+
+            if Top_Frame.Top_Context.Match_Mode = Match_None then
+               Error
+                 ("qualified match operators only available in match context");
+            end if;
+
+            Push_Frame_Context;
+
+            if Node.As_Qualified_Match.F_Op = Template_Operator_Is then
+               Top_Frame.Top_Context.Match_Mode := Match_Is;
+            else
+               Top_Frame.Top_Context.Match_Mode := Match_Has;
+            end if;
+
+            Evaluate_Expression (Node.As_Qualified_Match.F_Rhs);
+
+            Pop_Frame_Context;
+
+            To_Match := False;
 
          when others =>
             Error ("unexpected expression node kind: '" & Node.Kind'Wide_Wide_Image & "'");
-            Pop_Error_Location;
-            return Into;
       end case;
-   end Visit_Expression;
+
+
+      if To_Match
+        and then Top_Frame.Top_Context.Match_Mode not in Match_None | Match_Has
+      then
+         --  If we're matching, and we're not forcing the "has" mode, then check
+         --  that the initial object we had on the stack matches the new one.
+
+         if not Top_Frame.Top_Context.Matching_Object.Match_With_Top_Object then
+            Pop_Object;
+            Push_Match_False;
+         end if;
+      end if;
+
+      Pop_Error_Location;
+   end Evaluate_Expression;
 
    ----------------------------
    -- Analyze_Replace_String --
@@ -1019,7 +1035,7 @@ package body Wrapping.Runtime.Analysis is
       Str : constant Text_Type := Remove_Quotes (Node.Text);
       Context : constant Analysis_Context := Node.Unit.Context;
 
-      Result : W_Vector := new W_Vector_Type;
+      Result : W_Text_Vector := new W_Text_Vector_Type;
       New_Text : W_String;
 
       Next_Index : Integer := Str'First;
@@ -1192,7 +1208,9 @@ package body Wrapping.Runtime.Analysis is
          --  We're on an object to string conversion. Set the text object.
          --  When running the call, the actual text value will be computed and
          --  put in the object.
-         Push_Object (W_Object'(new W_String_Type));
+         --Push_Object (W_Object'(new W_String_Type));
+
+         Error ("not implemented"); -- How about a kind in text_conversion?
 
          return True;
       end if;
@@ -1286,7 +1304,7 @@ package body Wrapping.Runtime.Analysis is
          -- TODO: We probably don't need a specific function here anymore.
 
          if not Pop_Object.Push_Value (Name) then
-            if Top_Frame.Top_Context.Is_Matching_Context then
+            if Top_Frame.Top_Context.Match_Mode /= Match_None then
                Push_Match_False;
             else
                Error ("'" & Node.Text & "' not found");
@@ -1308,9 +1326,9 @@ package body Wrapping.Runtime.Analysis is
       begin
          -- We're resolving a reference to an entity
 
-         Prefix_Entity := Top_Object_Dereference;
+         Prefix_Entity := Top_Object.Dereference;
 
-         if Top_Is_Implicit then
+         if Top_Frame.Top_Context.Is_Root_Selection then
             --  If we're on the implicit entity, then first check if there's
             --  some more global identifier overriding it.
 
@@ -1350,7 +1368,7 @@ package body Wrapping.Runtime.Analysis is
                return;
             end if;
 
-            if Top_Frame.Top_Context.Is_Matching_Context then
+            if Top_Frame.Top_Context.Match_Mode /= Match_None then
                Push_Match_False;
                return;
             else
@@ -1364,7 +1382,7 @@ package body Wrapping.Runtime.Analysis is
                --  We found a component of the entity and it has been pushed
                return;
             else
-               if Top_Frame.Top_Context.Is_Matching_Context then
+               if Top_Frame.Top_Context.Match_Mode /= Match_None then
                   Push_Match_False;
                   return;
                else
@@ -1377,7 +1395,7 @@ package body Wrapping.Runtime.Analysis is
       Top : W_Object;
    begin
       if Top_Frame.Data_Stack.Length /= 0 then
-         Top := Top_Object_Dereference;
+         Top := Top_Object.Dereference;
 
          if Top.all in W_Static_Entity_Type'Class then
             Handle_Static_Entity_Selection;
@@ -1400,6 +1418,9 @@ package body Wrapping.Runtime.Analysis is
       In_Named_Section : Boolean := False;
       Name_Node : Template_Node;
    begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Is_Root_Selection := True;
+
       Parameter_Index := 1;
 
       for Param of Args loop
@@ -1426,6 +1447,8 @@ package body Wrapping.Runtime.Analysis is
 
          Parameter_Index := Parameter_Index + 1;
       end loop;
+
+      Pop_Frame_Context;
    end Handle_Call_Parameters;
 
    procedure Handle_Template_Call
@@ -1447,7 +1470,7 @@ package body Wrapping.Runtime.Analysis is
             --  an empty container.
             --  TODO: we're only handling text types for now, but will need to
             --  handle new ones at some point.
-            New_Value := new W_Vector_Type;
+            New_Value := new W_Text_Vector_Type;
             Top_Frame.Top_Context.Left_Value := New_Value;
          end if;
       end;
@@ -1470,9 +1493,18 @@ package body Wrapping.Runtime.Analysis is
          end if;
 
          --  The container is an indirection to a value. Remove the previous one
-         --  and add the new one instead.
+         --  and add the new one instead. If we were provided with a text,
+         --  reference it, otherwise resolve the text in place and store it.
+         --  TODO: This is effectively an implicit conversion to text. Document
+         --  it, and make sure that it's only done in the case of text kind, not
+         --  object kind.
 
-         Ref.Value := Value;
+         if Value.Dereference.all in W_Text_Expression_Type'Class then
+            Ref.Value := Value;
+         else
+            Ref.Value := new W_String_Type'
+              (Value => To_Unbounded_Text (Value.To_String));
+         end if;
 
          Pop_Frame_Context;
       end Store_Param_Value;
@@ -1572,6 +1604,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Call (Node : Call_Expr'Class) is
       Called : W_Object;
+      Result : W_Object;
 
       procedure Handle_Conversion is
       begin
@@ -1586,30 +1619,48 @@ package body Wrapping.Runtime.Analysis is
 
          if Called.all in W_Text_Conversion_Type'Class then
             W_Text_Conversion (Called).An_Object := Pop_Object;
-         elsif Called.all in W_String_Type'Class then
-            W_String (Called).Value := To_Unbounded_Text
-              (Pop_Object.To_String);
          end if;
 
          Push_Object (Called);
       end Handle_Conversion;
 
    begin
-      Node.F_Called.Traverse (Visit_Expression'Access);
+      Push_Frame_Context;
 
-      Called := Pop_Object_Dereference;
+      --  If we're matching, currently under the default ref mode, then move
+      --  to the default call mode.
 
-      if Top_Frame.Top_Context.Is_Matching_Context then
-         --  If we're on a matching context, we need not to fail upon not
-         --  finding an object, but instead just match false.
-         if Called = Match_False then
+      if Top_Frame.Top_Context.Match_Mode = Match_Ref_Default then
+         Top_Frame.Top_Context.Match_Mode := Match_Call_Default;
+      end if;
+
+      Evaluate_Expression (Node.F_Called);
+
+      Called := Top_Object.Dereference;
+      Top_Frame.Top_Context.Matching_Object := Called;
+      --  TODO: we can probably pop the called object now that we track the matching
+      --  object.
+
+      if Called = Match_False then
+         if Top_Frame.Top_Context.Match_Mode /= Match_None then
+            Pop_Object; -- Pop call symbol
             Push_Match_False;
             return;
+         else
+            Error ("call not matching context");
          end if;
       end if;
 
       --  TODO: It's not clear at all that we need three different branches
       --  here, Push_Call_Result could be properly set for all of these objects.
+
+      --  Within a call, if we're matching, fall back to default ref matching
+
+      if Top_Frame.Top_Context.Match_Mode /= Match_None then
+         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+      end if;
+
+      Top_Frame.Top_Context.Is_Root_Selection := True;
 
       if Called.all in W_Call_To_Global_Type'Class then
          W_Call_To_Global (Called).Analyze_Parameters (Node.F_Args);
@@ -1617,18 +1668,19 @@ package body Wrapping.Runtime.Analysis is
          --  When analyzing a global call, we're only analyzing the
          --  parameters. Push the call back to the stack for later consumption.
          Push_Object (Called);
-      elsif Called.all in W_Text_Conversion_Type'Class
-        or else Called.all in W_String_Type'Class
-      then
-         --  By convention, we stacked a text conversion or a text when
-         --  asking for a conversion to text or to string. This object is
-         --  to be kept, the job of the convertor is to set the right fields
-         --  of that object.
-
+      elsif Called.all in W_Text_Conversion_Type'Class then
+         --  TODO: this is a very hacky way to handle things. Fold that into
+         --  the overall call system.
          Handle_Conversion;
       else
          Called.Push_Call_Result (Node.F_Args);
       end if;
+
+      Result := Pop_Object;
+      Pop_Object; -- Pop call symbol
+      Push_Object (Result);
+
+      Pop_Frame_Context;
    end Handle_Call;
 
    procedure Handle_Fold
@@ -1646,6 +1698,8 @@ package body Wrapping.Runtime.Analysis is
       Push_Frame_Context;
       Top_Frame.Top_Context.Is_Folding_Context := True;
       Top_Frame.Top_Context.Folding_Expression := Template_Node (Node.F_Combine);
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Top_Frame.Top_Context.Is_Root_Selection := False;
 
       --  Inside the folded expression, we need to go back to a situation where
       --  self is top of the stack, as name can refer to the implicit self. Re
@@ -1765,7 +1819,7 @@ package body Wrapping.Runtime.Analysis is
 
    begin
       Push_Frame_Context;
-      Top_Frame.Top_Context.Is_Matching_Context := False;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
 
       Push_Allocated_Entity (Handle_Create_Tree (Node, null));
 
@@ -1797,13 +1851,13 @@ package body Wrapping.Runtime.Analysis is
             --  or new. We don't want to carry this property over to the lambda
             --  call, so remove it.
 
-            if Top_Object_Dereference.all in W_Static_Entity_Type then
+            if Top_Object.Dereference.all in W_Static_Entity_Type then
                --  We don't capture static references, they can later be
                --  retreived from context. Genreating symbols for them would
                --  also confused name resolution as we would have a symbol
                --  and a statically solvable name.
                Pop_Object;
-            elsif Top_Is_Implicit then
+            elsif Top_Frame.Top_Context.Is_Root_Selection then
                A_Lambda.Captured_Symbols.Insert
                  (Name, new W_Reference_Type'
                     (Value => W_Reference (Pop_Object).Value, others => <>));
@@ -1832,7 +1886,13 @@ package body Wrapping.Runtime.Analysis is
          case Node.Kind is
             when Template_Selector =>
                Node.As_Selector.F_Left.Traverse (Capture_Identifiers'Access);
+
+               Push_Frame_Context;
+               Top_Frame.Top_Context.Is_Root_Selection := False;
+
                Node.As_Selector.F_Right.Traverse (Not_Capture_Identifiers'Access);
+
+               Pop_Frame_Context;
 
                Pop_Error_Location;
                return Over;
@@ -1892,9 +1952,14 @@ package body Wrapping.Runtime.Analysis is
             when Template_Call_Expr | Template_New_Expr =>
                --  Resolved the called identifier
 
+               Push_Frame_Context;
+               Top_Frame.Top_Context.Is_Root_Selection := False;
+
                for Arg of Node.As_Call_Expr.F_Args loop
                   Arg.Traverse (Capture_Identifiers'Access);
                end loop;
+
+               Push_Frame_Context;
 
                Pop_Error_Location;
                return Over;

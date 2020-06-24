@@ -75,7 +75,7 @@ package body Wrapping.Runtime.Structure is
 
          Push_Frame_Context;
          Top_Frame.Top_Context.Is_Folding_Context := False;
-         Top_Frame.Top_Context.Is_Matching_Context := False;
+         Top_Frame.Top_Context.Match_Mode := Match_None;
          Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
 
          --  Then evaluate that folding expression
@@ -151,6 +151,7 @@ package body Wrapping.Runtime.Structure is
 
       Push_Frame_Context;
       Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
+      Top_Frame.Top_Context.Matching_Object := W_Object (Browsed);
 
       Evaluate_Expression (Match_Expression);
 
@@ -213,6 +214,41 @@ package body Wrapping.Runtime.Structure is
       Error ("non callable entity");
    end Push_Call_Result;
 
+   function Match_With_Top_Object
+     (An_Entity : access W_Object_Type) return Boolean
+   is
+      Other_Entity : W_Object := Top_Object.Dereference;
+      Matched : Boolean;
+   begin
+      if Other_Entity = Match_False then
+         return True;
+      elsif Other_Entity.all in W_Regexp_Type'Class then
+         Matched := Runtime.Analysis.Match
+           (Other_Entity.To_String,
+            W_Object_Type'Class (An_Entity.all).To_String);
+
+         if not Matched then
+            Pop_Object;
+            Push_Match_False;
+         end if;
+
+         return True;
+      elsif Other_Entity.all in W_Text_Expression_Type'Class then
+         if Other_Entity.To_String /= W_Object_Type'Class (An_Entity.all).To_String then
+            Pop_Object;
+            Push_Match_False;
+         end if;
+
+         return True;
+      elsif Other_Entity.all in W_Function_Type'Class then
+         --  Functions always match, their result is evaluated later.
+
+         return True;
+      end if;
+
+      return False;
+   end Match_With_Top_Object;
+
    Object_For_Entity_Registry : W_Object_Maps.Map;
 
    function Get_Object_For_Entity
@@ -234,7 +270,7 @@ package body Wrapping.Runtime.Structure is
                --  container.
                Result.Symbols.Insert
                  (Var.Name_Node.Text, new W_Reference_Type'
-                    (Value => new W_Vector_Type, others => <>));
+                    (Value => new W_Text_Vector_Type, others => <>));
 
             when others =>
                Error ("global variable type not yet supported");

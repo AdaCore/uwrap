@@ -31,6 +31,32 @@ package Wrapping.Runtime.Structure is
 
    type Allocate_Callback is access procedure (E : access W_Object_Type'Class);
 
+   type Match_Kind is
+     (--  We're not doing any match
+      Match_None,
+
+      --  We are doing a match in the context of a reference, e.g.:
+      --  match x, and taking the default behavior in this context. For example,
+      --  x.f_name is by default an is match
+      Match_Ref_Default,
+
+
+      --  We are doing a match in the context of a call, e.g.:
+      --  match x, and taking the default behavior in this context. For example,
+      --  x.f_name () is by default an is match. Not that this mode applies
+      --  both to the call named matched and its result.
+      --  TODO: document that subtelty, or revisit. e.g. x.a(), a() and its
+      --  result is matched by the same mode. This is due to w_Tmpl () where
+      --  we are matching w_Tmpl(), or name () where we're matching both name
+      --  and its result (which is essentially here the same).
+      Match_Call_Default,
+
+      --  Force a match is, typically through a is', e.g. is'x.f_name ()
+      Match_Is,
+
+      --  Force a match has, typically through a is', e.g. has'x.f_name ()
+      Match_Has);
+
    --  A Frame_Context is a type that is recording stack-based properties that
    --  vary within a given frame, typically through an expression, or various
    --  parts of a command. Each Frame is supposed to start with a fresh frame
@@ -38,7 +64,7 @@ package Wrapping.Runtime.Structure is
    type Frame_Context_Type is record
       Parent_Context : Frame_Context;
 
-      Is_Matching_Context : Boolean := False;
+      Match_Mode : Match_Kind := Match_None;
       Is_Folding_Context : Boolean := False;
 
       --  When hitting a capture expression, the name is being stored here so
@@ -58,6 +84,16 @@ package Wrapping.Runtime.Structure is
       --  For example, in A (V => @ & "something"), @ is the left value refering
       --  to V.
       Left_Value : W_Object;
+
+      -- This flag allows to detect if we're on the root selection of an
+      -- entity. E.g. in A.B.C (D, E.F), A, D and E are root selections. This is
+      -- used to know if we can look at globals when resolving names.
+      Is_Root_Selection : Boolean := True;
+
+      --  The object to match against in this context. For example, in:
+      --     match A (B.C, D);
+      --  B.C and D match against A, A matches against self.
+      Matching_Object : W_Object;
    end record;
 
    type Data_Frame_Type is record
@@ -94,6 +130,12 @@ package Wrapping.Runtime.Structure is
    procedure Push_Call_Result
      (An_Entity : access W_Object_Type;
       Params    : Argument_List);
+
+   --  Match this object with the top of the stack. Return False if no decision
+   --  could be made, true otherwise. If the top object doesn't match, replace
+   --  it with a match false.
+   function Match_With_Top_Object
+     (An_Entity : access W_Object_Type) return Boolean;
 
    type Browse_Mode is (Parent, Child_Depth, Child_Breadth, Next, Prev, Sibling, Template);
 
@@ -133,6 +175,12 @@ package Wrapping.Runtime.Structure is
    --  object is prefered. Note that this is directly linked to the actual
    --  semantics of the language, so should remain consistent with it.
    function To_String (Object : W_Object_Type) return Text_Type is ("");
+
+   --  If Object represents a reference, returns the referenced object
+   --  (recursively) otherwise self.
+   function Dereference
+     (Object : access W_Object_Type)
+      return W_Object is (W_Object (Object));
 
    Null_Object : constant W_Object := new W_Object_Type;
 

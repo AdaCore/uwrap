@@ -151,7 +151,7 @@ package body Wrapping.Runtime.Objects is
       begin
          if W_Map (Object).A_Map.Contains (Name) then
             Push_Object (W_Map (Object).A_Map.Element (Name));
-         elsif Top_Frame.Top_Context.Is_Matching_Context then
+         elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
             Push_Match_False;
          else
             Error ("map doesn't contain element of name " & Name);
@@ -204,6 +204,13 @@ package body Wrapping.Runtime.Objects is
    begin
       An_Entity.Value.Push_Call_Result (Params);
    end Push_Call_Result;
+
+   overriding
+   function Match_With_Top_Object
+     (An_Entity : access W_Reference_Type) return Boolean is
+   begin
+      return Match_With_Top_Object (An_Entity.Value);
+   end Match_With_Top_Object;
 
    overriding
    function Traverse
@@ -375,31 +382,40 @@ package body Wrapping.Runtime.Objects is
 
    overriding
    procedure Push_Call_Result
-     (An_Entity : access W_String_Type;
+     (An_Entity : access W_Text_Expression_Type;
       Params    : Argument_List)
    is
-      Matched : Boolean;
    begin
-      if Params.Children_Count /= 1 then
+      --  TODO: Should that be the high level call result?
+      if Params.Children_Count = 0 then
+         Push_Match_True (An_Entity);
+      elsif Params.Children_Count = 1 then
+         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+      else
          Error ("string comparison takes one argument");
       end if;
-
-      Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-
-      Matched := Runtime.Analysis.Match
-        (Pop_Object.To_String, To_Text (An_Entity.Value));
-
-      if Matched then
-         Push_Match_True (An_Entity);
-      else
-         Push_Match_False;
-      end if;
    end Push_Call_Result;
+
+   overriding
+   function To_String (Object : W_Regexp_Type) return Text_Type is
+   begin
+      return Object.Value.To_String;
+   end To_String;
 
    overriding
    function To_String (Object : W_Text_Conversion_Type) return Text_Type is
    begin
       return Object.An_Object.To_String;
+   end To_String;
+
+   function To_String (Object : W_Text_Vector_Type) return Text_Type is
+      Result : Unbounded_Text_Type;
+   begin
+      for T of Object.A_Vector loop
+         Append (Result, T.To_String);
+      end loop;
+
+      return To_Text (Result);
    end To_String;
 
    overriding
@@ -453,7 +469,7 @@ package body Wrapping.Runtime.Objects is
      (An_Entity : access W_Static_Entity_Type;
       Params    : Argument_List)
    is
-      Implicit_Self : W_Object;
+      Self_Object   : W_Object;
       Prefix        : W_Template_Instance;
       Result        : W_Object;
    begin
@@ -463,35 +479,27 @@ package body Wrapping.Runtime.Objects is
       --    *  Second, check that the expression, if any, corresponds to the
       --       components of the enclosing self
 
-      Implicit_Self := Get_Implicit_Self;
+      Self_Object := Get_Implicit_Self;
 
       --  This function currently only operates on template instances and
       --  template types. Check that self is a template of the right type.
 
-      if Implicit_Self.all not in W_Template_Instance_Type then
+      if Self_Object.all not in W_Template_Instance_Type then
          Push_Match_False;
          return;
       end if;
 
-      Prefix := W_Template_Instance (Implicit_Self);
-
-      if not Instance_Of
-        (Prefix.Template,
-         T_Template (An_Entity.An_Entity))
-      then
-         Push_Match_False;
-         return;
-      end if;
+      Prefix := W_Template_Instance (Self_Object);
 
       --  If we're of the right type, then push the implicit self so that
       --  the stack starts with an implicit entity at the top, and check
       --  the result.
 
       if Params.Children_Count = 0 then
-         Push_Match_True (Implicit_Self);
+         Push_Match_True (Self_Object);
          return;
       elsif Params.Children_Count = 1 then
-         Push_Implicit_Self (Implicit_Self);
+         Push_Implicit_Self (Self_Object);
          Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
          Result := Pop_Object;
          Pop_Object;
@@ -500,7 +508,7 @@ package body Wrapping.Runtime.Objects is
             --  If the result is good, then the result of this match is the
             --  matched object.
 
-            Push_Match_True (Implicit_Self);
+            Push_Match_True (Self_Object);
             return;
          else
             Push_Match_False;
@@ -510,6 +518,18 @@ package body Wrapping.Runtime.Objects is
          Error ("matching a static entity requires one parameter at most");
       end if;
    end Push_Call_Result;
+
+   overriding
+   function Match_With_Top_Object
+     (An_Entity : access W_Static_Entity_Type) return Boolean is
+   begin
+      --  A static entity is essentially a pass through the actual self object
+      --  TODO: This is true for templates, e.g. in:
+      --     match w_Entity
+      --  check the behavior for other kinds.
+      return Get_Implicit_Self.Match_With_Top_Object;
+   end Match_With_Top_Object;
+
 
    overriding
    function To_String (Object : W_Lambda_Type) return Text_Type
@@ -649,23 +669,46 @@ package body Wrapping.Runtime.Objects is
    is
       Result : W_Object;
    begin
+      --  TODO: this code is probably the generic call result code, not specific to
+      --   node type.
       if Params.Children_Count = 0 then
          Push_Match_True (An_Entity);
       elsif Params.Children_Count = 1 then
          Push_Implicit_Self (W_Object (An_Entity));
-         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-         Result := Pop_Object;
+         Result := Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
          Pop_Object;
-
-         if Result = Match_False then
-            Push_Match_False;
-         else
-            Push_Match_True (An_Entity);
-         end if;
+         Push_Object (Result);
       else
          Error ("comparing with a node requires one parameter");
       end if;
    end Push_Call_Result;
+
+   function Match_With_Top_Object
+     (An_Entity : access W_Node_Type) return Boolean
+   is
+      Other_Entity : W_Object := Top_Object.Dereference;
+   begin
+      --  By default, nodes only consider ref as being "is" matches, and
+      --  calls as being "has" matches. So pass through calls before looking.
+
+      if Top_Frame.Top_Context.Match_Mode = Match_Call_Default then
+         return True;
+      end if;
+
+      --  If the two entities are equal, match true
+
+      if An_Entity = Other_Entity then
+         return True;
+      end if;
+
+      --  Otherwise, see if the main checker finds something.
+
+      if W_Object_Type (An_Entity.all).Match_With_Top_Object then
+         return True;
+      end if;
+
+      return False;
+   end Match_With_Top_Object;
 
    function Traverse
      (An_Entity    : access W_Node_Type;
@@ -883,7 +926,10 @@ package body Wrapping.Runtime.Objects is
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.An_Allocate_Callback := null;
-      Top_Frame.Top_Context.Is_Matching_Context := True;
+
+      if Top_Frame.Top_Context.Match_Mode /= Match_None then
+         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+      end if;
 
       Found := W_Node_Type'Class(An_Entity.all).Traverse
         (A_Mode, False, Result, Visitor'Access) = Stop;
@@ -922,7 +968,7 @@ package body Wrapping.Runtime.Objects is
 
       if not Found and then
         not
-          (Top_Frame.Top_Context.Is_Matching_Context
+          (Top_Frame.Top_Context.Match_Mode /= Match_None
            or else Top_Frame.Top_Context.Is_Folding_Context)
       then
          Error ("no result found for browsing function");
@@ -987,7 +1033,7 @@ package body Wrapping.Runtime.Objects is
                      --  empty value here.
 
                      New_Ref := new W_Reference_Type;
-                     New_Ref.Value := new W_Vector_Type;
+                     New_Ref.Value := new W_Text_Vector_Type;
 
                      An_Entity.Symbols.Insert (Name, New_Ref);
 
@@ -1017,6 +1063,40 @@ package body Wrapping.Runtime.Objects is
 
       return False;
    end Push_Value;
+
+   overriding
+   function Match_With_Top_Object
+     (An_Entity : access W_Template_Instance_Type) return Boolean
+   is
+      Other_Entity : W_Object := Top_Object.Dereference;
+   begin
+      --  Special treatment for static entities, that are always checked in
+      --  "is" mode
+
+      if Other_Entity.all in W_Static_Entity_Type'Class then
+         if Top_Frame.Top_Context.Match_Mode in
+           Match_Call_Default | Match_Ref_Default | Match_Is
+         then
+            if not Instance_Of
+              (An_Entity.Template,
+               T_Template (W_Static_Entity (Other_Entity).An_Entity))
+            then
+               Pop_Object;
+               Push_Match_False;
+            end if;
+         else
+            Error ("match has not available for static entity");
+         end if;
+
+         return True;
+      end if;
+
+      if W_Node_Type (An_Entity.all).Match_With_Top_Object then
+         return True;
+      end if;
+
+      return False;
+   end Match_With_Top_Object;
 
    overriding
    function Traverse

@@ -77,7 +77,7 @@ class Str(Expr):
 
 class Operator(TemplateNode):
     enum_node = True
-    alternatives = ['and', 'or', 'not', 'amp']
+    alternatives = ['and', 'or', 'not', 'amp', 'is', 'has']
 
 class BinaryExpr(Expr):
     lhs = Field()
@@ -117,9 +117,6 @@ class TraverseInto (TemplateNode):
 class TraverseOver (TemplateNode):
     pass
 
-class NoNode(TemplateNode):
-    pass
-
 class EntityReference(TemplateNode):
     value=Field()
 
@@ -144,6 +141,10 @@ class CreateTemplateTree (TemplateNode):
     captured=Field()
     root=Field()
     tree=Field()
+
+class QualifiedMatch (TemplateNode):
+    op = Field()
+    rhs = Field()
 
 template_grammar = Grammar('main_rule')
 G = template_grammar
@@ -195,7 +196,11 @@ template_grammar.add_rules(
     relation=G.simple_expression,
     simple_expression=Or (BinaryExpr (G.term, Operator.alt_amp('&'), G.simple_expression), G.term),
     term=G.factor,
-    factor=Or(UnaryExpr (Operator.alt_not('not'), G.primary), MatchCapture(G.identifier, ':', G.primary), G.primary),
+    factor=Or(
+        MatchCapture(G.identifier, ':', G.factor),
+        UnaryExpr (Operator.alt_not('not'), G.qualified_primary), 
+        G.qualified_primary),
+    qualified_primary=Or (QualifiedMatch (Or (Operator.alt_is('is'), Operator.alt_has ('has')), '\'', G.primary), G.primary),
     primary=Or(
      Pick ('(', G.expression, ')'),
      G.lambda_expr,

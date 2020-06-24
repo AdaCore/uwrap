@@ -20,15 +20,9 @@ package body Wrapping.Input.Kit is
          Push_Match_True (Object);
       elsif Params.Children_Count = 1 then
          Push_Implicit_Self (Object);
-         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-         Result := Pop_Object;
+         Result := Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
          Pop_Object;
-
-         if Result /= Match_False then
-            Push_Object (Object);
-         else
-            Push_Match_False;
-         end if;
+         Push_Object (Result);
       elsif Params.Children_Count > 1 then
          Error ("matcher takes only 1 argument");
       end if;
