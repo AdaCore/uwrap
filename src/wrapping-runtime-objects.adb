@@ -900,7 +900,7 @@ package body Wrapping.Runtime.Objects is
       return Into;
    end Traverse;
 
-    procedure Evaluate_Bowse_Functions
+   procedure Evaluate_Bowse_Functions
      (An_Entity         : access W_Node_Type;
       A_Mode            : Browse_Mode;
       Match_Expression  : Template_Node'Class)

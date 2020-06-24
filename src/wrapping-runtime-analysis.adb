@@ -39,6 +39,21 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Template_Node);
 
+   procedure Call_Convert_To_Text
+     (Object : access W_Object_Type'Class;
+      Params : Argument_List)
+   is
+   begin
+      if Params.Children_Count = 1 then
+         Push_Object
+           (W_Object'
+              (new W_Text_Conversion_Type'
+                   (An_Object => Evaluate_Expression (Params.Child (1)))));
+      else
+         Error ("conversion takes 1 argument");
+      end if;
+   end Call_Convert_To_Text;
+
    procedure Push_Error_Location
      (An_Entity : access T_Entity_Type'Class)
    is
@@ -1201,7 +1216,10 @@ package body Wrapping.Runtime.Analysis is
          --  We're on an object to text conversion. Set the runtime object.
          --  When running the call, the link with the undlerlying expression
          --  will be made.
-         Push_Object (W_Object'(new W_Text_Conversion_Type));
+         Push_Object
+           (W_Object'
+              (new W_Function_Type'
+                   (Prefix => null, Call => Call_Convert_To_Text'Access)));
 
          return True;
       elsif Name = "string" then
@@ -1494,7 +1512,9 @@ package body Wrapping.Runtime.Analysis is
 
          --  The container is an indirection to a value. Remove the previous one
          --  and add the new one instead. If we were provided with a text,
-         --  reference it, otherwise resolve the text in place and store it.
+         --  reference it, otherwise add a conversion to text node. We can't
+         --  resolve the value just yet as it may depend on dynamically computed
+         --  data, such as lambda.
          --  TODO: This is effectively an implicit conversion to text. Document
          --  it, and make sure that it's only done in the case of text kind, not
          --  object kind.
@@ -1502,8 +1522,7 @@ package body Wrapping.Runtime.Analysis is
          if Value.Dereference.all in W_Text_Expression_Type'Class then
             Ref.Value := Value;
          else
-            Ref.Value := new W_String_Type'
-              (Value => To_Unbounded_Text (Value.To_String));
+            Ref.Value := new W_Text_Conversion_Type'(An_Object => Value);
          end if;
 
          Pop_Frame_Context;
@@ -1605,25 +1624,6 @@ package body Wrapping.Runtime.Analysis is
    procedure Handle_Call (Node : Call_Expr'Class) is
       Called : W_Object;
       Result : W_Object;
-
-      procedure Handle_Conversion is
-      begin
-         --  The conversion is already stack. We just need to compute the
-         --  resulting object. Make sure that there's only one parameter.
-
-         if Node.F_Args.Children_Count /= 1 then
-            Error ("conversion expects one parameter");
-         end if;
-
-         Evaluate_Expression (Node.F_Args.Child (1).As_Argument.F_Value);
-
-         if Called.all in W_Text_Conversion_Type'Class then
-            W_Text_Conversion (Called).An_Object := Pop_Object;
-         end if;
-
-         Push_Object (Called);
-      end Handle_Conversion;
-
    begin
       Push_Frame_Context;
 
@@ -1667,10 +1667,6 @@ package body Wrapping.Runtime.Analysis is
          --  When analyzing a global call, we're only analyzing the
          --  parameters. Push the call back to the stack for later consumption.
          Push_Object (Called);
-      elsif Called.all in W_Text_Conversion_Type'Class then
-         --  TODO: this is a very hacky way to handle things. Fold that into
-         --  the overall call system.
-         Handle_Conversion;
       else
          Called.Push_Call_Result (Node.F_Args);
       end if;
@@ -1958,7 +1954,7 @@ package body Wrapping.Runtime.Analysis is
                   Arg.Traverse (Capture_Identifiers'Access);
                end loop;
 
-               Push_Frame_Context;
+               Pop_Frame_Context;
 
                Pop_Error_Location;
                return Over;
