@@ -22,7 +22,12 @@ package body Wrapping.Input.Kit is
          Push_Implicit_Self (Object);
          Result := Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
          Pop_Object;
-         Push_Object (Result);
+
+         if Result = Match_False then
+            Push_Match_False;
+         else
+            Push_Object (Object);
+         end if;
       elsif Params.Children_Count > 1 then
          Error ("matcher takes only 1 argument");
       end if;

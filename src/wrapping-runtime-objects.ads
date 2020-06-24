@@ -268,10 +268,6 @@ package Wrapping.Runtime.Objects is
      (An_Entity : access W_Static_Entity_Type;
       Params    : Argument_List);
 
-   overriding
-   function Match_With_Top_Object
-     (An_Entity : access W_Static_Entity_Type) return Boolean;
-
    type W_Expression_Type is new W_Object_Type with record
       Expression : Template_Node;
    end record;

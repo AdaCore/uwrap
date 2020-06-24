@@ -12,13 +12,13 @@ template main_2 {
 
 
 match Entity (f_name ("A"))
-weave with main_1 (a1 => self.tmp ('local'), a2 => self.tmp ('local'));
+weave with main_1 (a1 => self.tmp ("local"), a2 => self.tmp ("local"));
 
 match Entity (f_name ("A"))
-weave with main_1 (a3 => self.tmp ('local'));
+weave with main_1 (a3 => self.tmp ("local"));
 
 match Entity (f_name ("B"))
-weave with main_2 (a1 => self.tmp ('global'), a2 => self.tmp ('local'), a3 => self.tmp());
+weave with main_2 (a1 => self.tmp ("global"), a2 => self.tmp ("local"), a3 => self.tmp());
 
 match main_1 ()
 weave with standard.out ("a1 = \e<a1>, a2 = \e<a2>, a3 = \e<a3>\n");

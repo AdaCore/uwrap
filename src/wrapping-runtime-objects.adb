@@ -59,6 +59,8 @@ package body Wrapping.Runtime.Objects is
       Params : Argument_List)
    is
    begin
+      --  TODO: This is probably never executed, as self is an object directly
+      --  returned by push_value on nodes.
       if Params.Children_Count = 0 then
          Push_Match_True (Object);
       elsif Params.Children_Count = 1 then
@@ -386,6 +388,9 @@ package body Wrapping.Runtime.Objects is
       Params    : Argument_List)
    is
    begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Matching_Object := W_Object (An_Entity);
+
       --  TODO: Should that be the high level call result?
       if Params.Children_Count = 0 then
          Push_Match_True (An_Entity);
@@ -394,6 +399,8 @@ package body Wrapping.Runtime.Objects is
       else
          Error ("string comparison takes one argument");
       end if;
+
+      Pop_Frame_Context;
    end Push_Call_Result;
 
    overriding
@@ -518,18 +525,6 @@ package body Wrapping.Runtime.Objects is
          Error ("matching a static entity requires one parameter at most");
       end if;
    end Push_Call_Result;
-
-   overriding
-   function Match_With_Top_Object
-     (An_Entity : access W_Static_Entity_Type) return Boolean is
-   begin
-      --  A static entity is essentially a pass through the actual self object
-      --  TODO: This is true for templates, e.g. in:
-      --     match w_Entity
-      --  check the behavior for other kinds.
-      return Get_Implicit_Self.Match_With_Top_Object;
-   end Match_With_Top_Object;
-
 
    overriding
    function To_String (Object : W_Lambda_Type) return Text_Type
@@ -669,6 +664,9 @@ package body Wrapping.Runtime.Objects is
    is
       Result : W_Object;
    begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Matching_Object := W_Object (An_Entity);
+
       --  TODO: this code is probably the generic call result code, not specific to
       --   node type.
       if Params.Children_Count = 0 then
@@ -677,10 +675,17 @@ package body Wrapping.Runtime.Objects is
          Push_Implicit_Self (W_Object (An_Entity));
          Result := Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
          Pop_Object;
-         Push_Object (Result);
+
+         if Result = Match_False then
+            Push_Match_False;
+         else
+            Push_Object (W_Object (An_Entity));
+         end if;
       else
          Error ("comparing with a node requires one parameter");
       end if;
+
+      Pop_Frame_Context;
    end Push_Call_Result;
 
    function Match_With_Top_Object
@@ -926,10 +931,7 @@ package body Wrapping.Runtime.Objects is
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.An_Allocate_Callback := null;
-
-      if Top_Frame.Top_Context.Match_Mode /= Match_None then
-         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-      end if;
+      Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
 
       Found := W_Node_Type'Class(An_Entity.all).Traverse
         (A_Mode, False, Result, Visitor'Access) = Stop;
@@ -965,6 +967,8 @@ package body Wrapping.Runtime.Objects is
       end if;
 
       Pop_Frame_Context;
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
 
       if not Found and then
         not
@@ -973,6 +977,8 @@ package body Wrapping.Runtime.Objects is
       then
          Error ("no result found for browsing function");
       end if;
+
+      Pop_Frame_Context;
 
       if Result /= null then
          Push_Object (Result);

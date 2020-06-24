@@ -1637,7 +1637,6 @@ package body Wrapping.Runtime.Analysis is
       Evaluate_Expression (Node.F_Called);
 
       Called := Top_Object.Dereference;
-      Top_Frame.Top_Context.Matching_Object := Called;
       --  TODO: we can probably pop the called object now that we track the matching
       --  object.
 
@@ -1857,7 +1856,7 @@ package body Wrapping.Runtime.Analysis is
                --  also confused name resolution as we would have a symbol
                --  and a statically solvable name.
                Pop_Object;
-            elsif Top_Frame.Top_Context.Is_Root_Selection then
+            elsif Top_Object.all in W_Reference_Type'Class then
                A_Lambda.Captured_Symbols.Insert
                  (Name, new W_Reference_Type'
                     (Value => W_Reference (Pop_Object).Value, others => <>));
