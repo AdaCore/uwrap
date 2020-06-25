@@ -127,6 +127,15 @@ visitor into_binary_compatible (type_name) {
        return_stmt => """return \e<self.tmp ("result_wrapped")>;""");
 }
 
+visitor parameter_into_computed_expression (expr) {
+   match ParamSpec()
+   wrap with w_ParamSpec(
+      generate_formal => "NO",
+      type_expr => "",
+      actual_value => expr
+   );
+}
+
 visitor return_into_exception (registry_package, registry_name) {
    match parent (PackageDecl ()).template (p: w_PackageDecl()) {
       match not p.name (registry_package) 
