@@ -43,9 +43,11 @@ template w_PackageDecl extends w_NamedEntity {
    var spec_content : text;
    var body_content : text;
    var stmt : text;
+   var elaborate_body : text;
 
    var spec : pattern ("""
       package \e<name> is
+        \e<elaborate_body>
         \e<spec_content>
       end \e<name>; 
       """);
@@ -356,12 +358,18 @@ visitor wrappers_post_process () {
       else weave with (txt => @ & o);
     }
     
-    match p: w_PackageDecl (parent (u: w_Unit ()))
-    weave u with 
-        (spec => @ & p.spec,
-         body => @ & p.body,
+    match p: w_PackageDecl (parent (u: w_Unit ())) {
+       weave u with (
+         spec => @ & p.spec,
+         body => @ & p.body
+       );
+    
+       match p.origin ()
+       weave u with (
          body_with_clauses => @ & "with \e<p.original_name>;\n",
-         body_use_clauses => @ & "use \e<p.original_name>;\n");
+         body_use_clauses => @ & "use \e<p.original_name>;\n"
+       );
+    }
 
     match w_WithClause () and parent (u: w_Unit ())
     weave u with (

@@ -3,8 +3,8 @@ import ada.wrappers;
 visitor access_into_out () {
    match ParamSpec("access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
    wrap with w_ParamSpec (
-      pre_call_decl => "\e<sb.tmp ('call')> : aliased \e<te.child (TypeExpr ())> with Address => \e<name>'Address, Import;",
-      actual_value => "\e<sb.tmp ('call')>'Unchecked_Access",
+      pre_call_decl => """\e<sb.tmp ("call")> : aliased \e<te.child (TypeExpr ())> with Address => \e<name>'Address, Import;""",
+      actual_value => """\e<sb.tmp ("call")>'Unchecked_Access""",
       mode => "out",
       type_expr => lambda (new.child (w_TypeExpr()).child (w_TypeExpr ()).txt)
    );
@@ -19,12 +19,12 @@ visitor access_into_return (parameter) {
 
       wrap parameter with w_ParamSpec (
          generate_formal => "NO",  # TODO: introduce boolean here instead
-         actual_value => "\e<self.tmp('call')>'Unchecked_Access",
+         actual_value => """\e<self.tmp("call")>'Unchecked_Access""",
          call_decl => """
-            \e<self.tmp('call')> : aliased \e<te>;
-            \e<self.tmp('ret')>  : aliased \e<result_type_expr> with Address => \e<self.tmp('call')>'Address, Import;
+            \e<self.tmp("call")> : aliased \e<te>;
+            \e<self.tmp("ret")>  : aliased \e<result_type_expr> with Address => \e<self.tmp("call")>'Address, Import;
             """,
-         return_stmt => "return \e<self.tmp('ret')>;",
+         return_stmt => """return \e<self.tmp("ret")>;""",
          result_type_expr => lambda (te.template (w_TypeExpr()).txt));
    }
 }
@@ -45,17 +45,64 @@ visitor chars_into_string () {
    match ParamSpec("Interfaces.C.Strings.chars_ptr") and parent (sb: SubpDecl())
    wrap with w_ParamSpec (
       type_expr => "String",
-      pre_call_decl => "\e<sb.tmp ('c_string')> : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (\e<name>);\n",
-      actual_value => "\e<sb.tmp ('c_string')>",
-      post_call_stmt => "Interfaces.C.Strings.Free (\e<sb.tmp ('c_string')>);\n"
+      pre_call_decl => """\e<sb.tmp ("c_string")> : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (\e<name>);\n""",
+      actual_value => """\e<sb.tmp ("c_string")>""",
+      post_call_stmt => """Interfaces.C.Strings.Free (\e<sb.tmp ("c_string")>);\n"""
    );
 
    match SubpDecl() and child (TypeExpr ("Interfaces.C.Strings.chars_ptr"))
    wrap with w_SubpDecl (
       function_or_procedure => "function",
       result_type_expr => "String",
-      call_decl => "\e<self.tmp ('c_string')> : aliased Interfaces.C.Strings.chars_ptr := \e<call>;\n",
+      call_decl => """\e<self.tmp ("c_string")> : aliased Interfaces.C.Strings.chars_ptr := \e<call>;\n""",
       call_stmt => "null;", 
-      return_stmt => "return Interfaces.C.Strings.Value (\e<self.tmp ('c_string')>);"
+      return_stmt => """return Interfaces.C.Strings.Value (\e<self.tmp ("c_string")>);"""
    );
+}
+
+template w_ExceptionRegistry {
+   var package : text;
+   var name : text;
+   var init : text;
+   var exceptions : text;
+}
+
+match w_ExceptionRegistry () {
+   match r: self () and u: (
+       w_Unit.find (self.child (p: w_PackageDecl(name (r.package))))
+         or
+       new (w_Unit () [p: w_PackageDecl(name => r.package)])) {
+
+       weave p with (
+         spec_content => @ & """
+            package \e<p.tmp ("registry_map")> is new Ada.Containers.Ordered_Maps
+              (Integer, Ada.Exceptions.Exception_Id, "<", Ada.Exceptions."=");
+            \e<name> : \e<p.tmp ("registry_map")>.Map;
+            \e<exceptions>""",
+         stmt => @ & init
+       );
+
+       match not u.child (w_WithClause (ref ("Ada.Exceptions")))
+       wrap u.child (new (w_WithClause (ref => "Ada.Exceptions")));
+
+       match not u.child (w_WithClause (ref ("Ada.Containers.Ordered_Maps")))
+       wrap u.child (new (w_WithClause (ref => "Ada.Containers.Ordered_Maps")));
+
+       match not p.child (w_SubprogramDecl)
+       weave p with (elaborate_body => "pragma Elaborate_Body;\n");
+   }
+}
+
+visitor error_code_into_exception (package_container, registry_name, exception_name) {
+   match d: NumberDecl(child (n: DefiningName ())) {
+      wrap with null (w_NumberDecl);
+      wrap n with null (w_DefiningName);
+
+      match r: (w_ExceptionRegistry.find (package (package_container) and name (registry_name))
+         or new (w_ExceptionRegistry (package => package_container, name => registry_name)))
+      weave r with (
+         exceptions => @ & "\e<exception_name> : exception;\n",
+         init => @ & "\e<registry_name>.Insert (\e<d.f_expr>, \e<exception_name>'Identity);\n"
+      );
+   }
 }
