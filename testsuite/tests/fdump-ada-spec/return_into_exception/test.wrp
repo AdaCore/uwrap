@@ -1,0 +1,16 @@
+import ada.wrappers;
+import ada.transformations;
+
+wrap with wrap_ada_specs ();
+
+match DefiningName ("(.*)_h")
+wrap with w_DefiningName ("\1_Wrapped");
+
+match d: NumberDecl(child (n: DefiningName ("(.*)Error")))
+wrap with error_code_into_exception ("Test_Exceptions", "My_Registry", "\1"); 
+
+match SubpDecl ()
+   and child (f_subp_kind ("function")) 
+   and child (TypeExpr ("int")) 
+   and not child (DefiningName ("lastError"))
+wrap with return_into_exception ("Test_Exceptions", "My_Registry"); 

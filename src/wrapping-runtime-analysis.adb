@@ -1199,9 +1199,10 @@ package body Wrapping.Runtime.Analysis is
                Next_Index := Current;
             elsif Str (Current) = '\' then
                Append_Text ("\");
-               Next_Index := Current;
+               Next_Index := Current + 1;
                Current := Current + 1;
             else
+               Next_Index := Current;
                Current := Current + 1;
             end if;
          else

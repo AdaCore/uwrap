@@ -106,3 +106,28 @@ visitor error_code_into_exception (package_container, registry_name, exception_n
       );
    }
 }
+
+visitor return_into_exception (registry_package, registry_name) {
+   match parent (PackageDecl ()).template (p: w_PackageDecl()) {
+      match not p.name (registry_package) 
+         and u: p.parent (w_Unit ()) {
+            match not u.child (w_WithClause (ref (registry_package)))
+            wrap u.child (new (w_WithClause (ref => registry_package)));
+
+            match not u.child (w_WithClause (ref ("Ada.Exceptions")))
+            wrap u.child (new (w_WithClause (ref => "Ada.Exceptions")));
+         }
+   }
+
+   wrap with w_SubpDecl (
+      function_or_procedure => "procedure",
+      call_decl => """\e<self.tmp ("res")> : Interfaces.C.int := \e<call>;\n""",
+      call_stmt => "null;", 
+      post_call_stmt => """
+         if not Interfaces.C."=" (\e<self.tmp ("res")>, 0) then
+            Ada.Exceptions.Raise_Exception
+               (\e<registry_package>.\e<registry_name>.Element (Integer (\e<self.tmp ("res")>)));
+         end if;
+      """
+   );
+}
