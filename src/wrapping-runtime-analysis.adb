@@ -871,12 +871,11 @@ package body Wrapping.Runtime.Analysis is
             declare
                Left, Right : W_Object;
             begin
-               Left := Evaluate_Expression (Node.As_Binary_Expr.F_Lhs).Dereference;
+               Left := Evaluate_Expression (Node.As_Binary_Expr.F_Lhs);
 
                if Node.As_Binary_Expr.F_Op.Kind = Template_Operator_And then
                   if Left /= Match_False then
-                     Right :=
-                       Evaluate_Expression (Node.As_Binary_Expr.F_Rhs).Dereference;
+                     Right := Evaluate_Expression (Node.As_Binary_Expr.F_Rhs);
 
                      if Right /= Match_False then
                         Push_Object (Right);
@@ -892,8 +891,7 @@ package body Wrapping.Runtime.Analysis is
                   if Left /= Match_False then
                      Push_Object (Left);
                   else
-                     Right :=
-                       Evaluate_Expression (Node.As_Binary_Expr.F_Rhs).Dereference;
+                     Right := Evaluate_Expression (Node.As_Binary_Expr.F_Rhs);
 
                      if Right /= Match_False then
                         Push_Object (Right);
@@ -904,8 +902,7 @@ package body Wrapping.Runtime.Analysis is
 
                   To_Match := False;
                elsif Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Amp then
-                  Right :=
-                    Evaluate_Expression (Node.As_Binary_Expr.F_Rhs);
+                  Right := Evaluate_Expression (Node.As_Binary_Expr.F_Rhs);
 
                   if Left.Dereference.all in W_Text_Expression_Type'Class
                     and then Right.Dereference.all in W_Text_Expression_Type'Class

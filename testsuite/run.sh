@@ -4,7 +4,7 @@ function test () {
     mkdir out
     if [ "$MODE" == "" ]; then
       ./test.sh > out/test.out 2>&1
-      diff -u expected.out out/test.out 
+      diff --strip-trailing-cr -u expected.out out/test.out 
     else
       ./test.sh
     fi
