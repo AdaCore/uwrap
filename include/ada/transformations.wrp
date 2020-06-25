@@ -107,6 +107,26 @@ visitor error_code_into_exception (package_container, registry_name, exception_n
    }
 }
 
+visitor into_binary_compatible (type_name) {
+   match ParamSpec() and parent (sb: SubpDecl ())
+   wrap with w_ParamSpec(
+      type_expr => type_name,
+      pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n""",
+      actual_value => sb.tmp ("local")
+   );
+
+   match child (f_subp_kind ("function")) and child (te: TypeExpr()) 
+   wrap with w_SubpDecl
+      (function_or_procedure => "function",
+       result_type_expr => type_name,
+       call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
+       post_call_decl => """
+          \e<self.tmp ("result_wrapped")> : aliased \e<type_name> 
+          with Address => \e<self.tmp ("result_orig")>'Address, Import;\n""",
+       call_stmt => "null;", 
+       return_stmt => """return \e<self.tmp ("result_wrapped")>;""");
+}
+
 visitor return_into_exception (registry_package, registry_name) {
    match parent (PackageDecl ()).template (p: w_PackageDecl()) {
       match not p.name (registry_package) 

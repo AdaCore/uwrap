@@ -1,0 +1,22 @@
+import ada.wrappers;
+import ada.transformations;
+
+wrap with wrap_ada_specs ();
+
+match DefiningName ("(?<a>.*)_h") {
+   wrap with w_DefiningName ("\e<a>_Wrapped");
+
+   match p: parent (PackageDecl ()).template (w_PackageDecl ()) {
+      weave p with (spec_content => "type Ptr is new System.Address;\n");
+
+      match u: p.parent (w_Unit ()) {
+            match not u.child (w_WithClause (ref ("System")))
+            wrap u.child (new (w_WithClause (ref => "System")));
+      }
+   } 
+
+
+}
+
+match SubpDecl ("return System.Address") or ParamSpec ("System.Address")
+wrap with into_binary_compatible ("Ptr");
