@@ -38,8 +38,6 @@ package body Wrapping.Runtime.Analysis is
       On_Group : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expression : Template_Node) := null);
 
-   procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Template_Node);
-
    procedure Call_Convert_To_Text
      (Object : access W_Object_Type'Class;
       Params : Argument_List)
@@ -988,7 +986,8 @@ package body Wrapping.Runtime.Analysis is
             declare
                A_Lambda : W_Lambda := new W_Lambda_Type;
             begin
-               Build_Lambda (A_Lambda, Node.As_Lambda_Expr.F_Expression);
+               Capture_Lambda_Environment
+                 (A_Lambda, Node.As_Lambda_Expr.F_Expression);
                Push_Object (A_Lambda);
 
                Pop_Error_Location;
@@ -1259,6 +1258,20 @@ package body Wrapping.Runtime.Analysis is
          Error ("not implemented"); -- How about a kind in text_conversion?
 
          return True;
+      elsif Name = "normalize_ada_name" then
+         declare
+            A_Lambda : W_Lambda := new W_Lambda_Type;
+         begin
+            A_Lambda.Call := Normalize_Ada_Name'Access;
+
+            Push_Object
+              (W_Object'
+                 (new W_Function_Type'
+                      (Prefix => W_Object (A_Lambda),
+                       Call   => Build_Lambda'Access)));
+
+            return True;
+         end;
       end if;
 
       -- Check in the dynamic symols in the frame
@@ -1865,7 +1878,7 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_New;
 
-   procedure Build_Lambda (A_Lambda : W_Lambda; Lambda_Expression : Template_Node) is
+   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Params : Argument_List) is
       Local_Symbols : Text_Sets.Set;
 
       function Not_Capture_Identifiers
@@ -2010,12 +2023,15 @@ package body Wrapping.Runtime.Analysis is
          end case;
       end Not_Capture_Identifiers;
    begin
-      Capture_Expression (Lambda_Expression);
-      A_Lambda.Expression := Lambda_Expression;
+      for P of Params.Children loop
+         Capture_Expression (P);
+      end loop;
+
+      A_Lambda.Params := Params;
       A_Lambda.Implicit_Self := W_Node (Get_Implicit_Self);
       A_Lambda.Implicit_New := W_Node (Get_Implicit_New);
       A_Lambda.Lexical_Scope := Top_Frame.Lexical_Scope;
-   end Build_Lambda;
+   end Capture_Lambda_Environment;
 
    procedure Run_Lambda (A_Lambda : W_Lambda_Type) is
       Copy_Symbols : W_Object_Maps.Map;
@@ -2034,7 +2050,12 @@ package body Wrapping.Runtime.Analysis is
          Push_Implicit_New (A_Lambda.Implicit_New);
       end if;
 
-      Evaluate_Expression (A_Lambda.Expression);
+      if A_Lambda.Call = null then
+         Evaluate_Expression (A_Lambda.Params.Child (1).As_Argument.F_Value);
+      else
+         A_Lambda.Call (null, A_Lambda.Params);
+      end if;
+
       Result := Pop_Object;
       Pop_Frame;
       Push_Object (Result);

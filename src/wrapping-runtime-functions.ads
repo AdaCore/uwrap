@@ -5,6 +5,14 @@ with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
 
 package Wrapping.Runtime.Functions is
 
+   procedure Build_Lambda
+     (Object : access W_Object_Type'Class;
+      Params : Argument_List);
+
+   procedure Normalize_Ada_Name
+     (Object : access W_Object_Type'Class;
+      Params : Argument_List);
+
    --  TODO: Reconcider these functions - should probably be function references
    --  instead, and using lambda when their result needs to be defered (as
    --  opposed to defering implicitely right now.

@@ -57,6 +57,8 @@ package Wrapping.Runtime.Analysis is
 
    function Get_Implicit_Self return W_Object;
 
+   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Params : Argument_List);
+
    procedure Run_Lambda (A_Lambda : W_Lambda_Type);
 
    --  This is the counter of visitor. Every time a visitor is started

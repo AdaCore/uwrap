@@ -277,12 +277,23 @@ package Wrapping.Runtime.Objects is
       Into_Expression : Template_Node;
    end record;
 
+   --  A lambda is a function that will be evaluated as late as possible, during
+   --  the To_String calls. The environment is captured at creation time
+   --  to that the various expressions that composed its parameters can be
+   --  computed. It can either support abstract lambda expressions, such as:
+   --     lambda (somethig.something_else);
+   --  or pre-existing lambda-functions, such as:
+   --     normalize_ada_name (some expression).
    type W_Lambda_Type is new W_Object_Type with record
+      --  If not null, this need to be called on lambda To_String. Otherwise,
+      --  only the first parameter is to be evaluated as an expression
+      Call             : Call_Access;
+
       Captured_Symbols : W_Object_Maps.Map;
-      Expression : Template_Node;
-      Implicit_Self : W_Node;
-      Implicit_New : W_Node;
-      Lexical_Scope : T_Entity;
+      Params           : Argument_List;
+      Implicit_Self    : W_Node;
+      Implicit_New     : W_Node;
+      Lexical_Scope    : T_Entity;
       -- TODO: also add the temporary register
    end record;
 
