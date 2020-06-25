@@ -6,6 +6,7 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Strings; use Ada.Strings;
+with Ada.Tags; use Ada.Tags;
 with GNAT.Regpat; use GNAT.Regpat;
 
 with Langkit_Support.Diagnostics;
@@ -409,14 +410,17 @@ package body Wrapping.Runtime.Analysis is
                         Evaluate_Expression (A_Command.Template_Clause.Target_Object);
                         Tmp_Target := Pop_Object.Dereference;
 
-                        if Tmp_Target.all in W_Node_Type'Class then
+                        if Tmp_Target = Match_False then
+                           Error ("could not select object to wrap or weave");
+                        elsif Tmp_Target.all in W_Node_Type'Class then
                            Entity_Target := W_Node (Tmp_Target);
                         elsif Tmp_Target.all in W_Static_Entity_Type'Class then
                            Entity_Target := W_Node
                              (Get_Object_For_Entity
                                 (W_Static_Entity (Tmp_Target).An_Entity));
                         else
-                           Error ("can't wrap or weave selected object");
+                           Error ("can't wrap or weave selected object "
+                                  & Wide_Wide_Expanded_Name (Tmp_Target.all'Tag));
                         end if;
 
                         --  A number of the function below assume that
