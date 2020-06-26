@@ -18,7 +18,7 @@ The initial setp is to retreive an Ada application that we're going to feed to
 uwrap. The project <link to ada tutorial repo> will do. Once you get this 
 project, to to its directory and run:
 
-.. code-block::text
+.. code-block:: text
 
     $ uwrap -l ada -P prj.gpr -w names.wrp src/test.ads
 
@@ -30,7 +30,7 @@ list of files to load, parse and wrap.
 Executing this command should list all entities declared within src/spec.ads. 
 The file tutorial.wrp looks like this:
 
-.. code-block::text
+.. code-block:: text
 
    match DefiningName ()
    wrap with standard.out (self & "'\n");
@@ -38,7 +38,7 @@ The file tutorial.wrp looks like this:
 The above represent a UWrap command. It's composed in three parts: a matching
 expression, the identificaton of a node to wrap, and then a wrapping operation.
 
-.. code-block::text
+.. code-block:: text
 
    [match <matching expression>]
    [wrap [<node to wrap>]
@@ -88,13 +88,13 @@ they are only refered to through .all notation.
 
 Open the code under tutorial/access, and run the test:
 
-.. code-block::text
+.. code-block:: text
 
     $ uwrap -l ada -P prj.gpr -w names.wrp src/test.adb
 
 You should see:
 
-.. code-block::text
+.. code-block:: text
    V2:V2: access object should be out or in out
 
 Indeed, that V2 parameter is only referenced through ``.all``, or said 
@@ -103,7 +103,7 @@ contradiction with the coding standard rule.
 
 Let's open access.wrp and see how this is done:
 
-.. code-block::text
+.. code-block:: text
 
    match param: ParamSpec (" access ") and parent (subp: SubpBody()) {
       match not subp.child (
@@ -122,7 +122,7 @@ matcher. Let's look at them step by step.
 
 First:
 
-.. code-block::text
+.. code-block:: text
 
    match param: ParamSpec (" access ") and parent (subp: SubpBody ())
 
@@ -156,7 +156,7 @@ a unique and larger match expression instead).
 
 The matching block looks like
 
-.. code-block::text
+.. code-block:: text
 
    match not subp.child (
       Identifier () 
@@ -190,7 +190,7 @@ If any node of the form above is found, we're good. There is indeed a reference
 to this parameter as an access value, and access mode can be justified. If not,
 we will create a message wrapper:
 
-.. code-block::text
+.. code-block:: text
 
     wrap with standard.out 
      ("\e<sloc>:\e<self.child (DefiningName())>: access object should be out or in out\n");
@@ -217,7 +217,7 @@ a standard runtime that facilitates wrapping around the Ada language.
 
 Open the code under tutorial/wrap_names, and run the test:
 
-.. code-block::text
+.. code-block:: text
 
     $ uwrap -l ada -P prj.gpr -w wrap_names.wrp src/test.ads
 
@@ -227,7 +227,7 @@ but under different types, parameters and subprogram names.
 
 Let's open wrap_names.wrp and see how this is done:
 
-.. code-block::text
+.. code-block:: text
 
    import ada.wrappers;
 
@@ -248,7 +248,7 @@ in that module without having to prefix.
 
 The next call is:
 
-.. code-block::text
+.. code-block:: text
 
    wrap with wrap_ada_specs ();
 
@@ -266,7 +266,7 @@ This line on its own is already a functionning wrapper code, which will take
 a specification and create a wrapper around it, not changing anything. The next
 line is instructing to alter the way the default wrapper works:
 
-.. code-block::text
+.. code-block:: text
 
    match DefiningName ("Some_(.*)"))
    wrap with w_DefiningName ("My_\1");
@@ -292,7 +292,7 @@ apply, and in particular none of the ones that are declared in ``wrap_ada_specs`
 This effect is more visible by considering the two wrapping operations in this
 file:
 
-.. code-block::text
+.. code-block:: text
 
    match DefiningName ("Some_(.*)"))
    wrap with w_DefiningName ("My_\1");
@@ -332,7 +332,7 @@ expensive operation (a copy) but improves greatly the quality of usage.
 
 Let's have a look. Open the code under tutorial/c_strings and run the following:
 
-.. code-block::text
+.. code-block:: text
 
     $ uwrap -l ada -P prj.gpr -w c_strings.wrp src/test_h.ads
 
@@ -341,7 +341,7 @@ this project also has the original C code. The resulting wrapping code is
 an Ada package that is calling the originally bound C code, and replacing in a 
 few places C strings with Ada strings. Let's look at the wrapper code: 
 
-.. code-block::text
+.. code-block:: text
 
    import ada.wrappers;
    import ada.transformations;
@@ -373,7 +373,7 @@ tutorial, and will be covered by the full UWrap documentation.
 
 The first command reads:
 
-.. code-block::text
+.. code-block:: text
 
   match ParamSpec() 
       and child (SubtypeIndication("Interfaces.C.Strings.chars_ptr")) 
@@ -392,7 +392,7 @@ transformation from C string to Ada string.
 To modify a returned type, a transformation needs to be applied directly on the
 subprogram itself. This is the role of the code
 
-.. code-block::text
+.. code-block:: text
 
    match SubpDecl() 
       and child (f_subp_kind ("function")) 
@@ -417,14 +417,17 @@ While UWrap documentation is still work in progress, and some of its semanics
 are still being refined. The language offers much more capabilities such as 
 template definition, containers, templates types, control over the iteration,
 creation of arbitrary subnodes, matching over the created templates, lambda,
-reductions, etc. A good way to have a glance of it is to check out the core
-testsuite of the language.
+reductions, etc. A good way to have a glance of it is to check out the 
+`core testsuite <https://github.com/AdaCore/uwrap/tree/master/testsuite/tests/core>`_
+of the language.
 
 On top of these, a number of Ada transformations are already implemented, 
 allowing to transform return integers into exception, access parameters into
 returned values or out modes or arrays, etc. A good way to get an idea on how
-these work is to look at the fdump-ada-spec specific testuite, or directly
-at the implementation of the transformations and ada wrappers.
+these work is to look at the `fdump-ada-spec specific testuite
+<https://github.com/AdaCore/uwrap/tree/master/testsuite/tests/fdump-ada-spec>`_, or directly
+at the `runtime implementation <https://github.com/AdaCore/uwrap/tree/master/include/ada>`_
+of the transformations and ada wrappers.
 
 At the time of writing, a lot for work is still necessary to stabilize the 
 language, its processing and error recovergy. Performances have not been 
