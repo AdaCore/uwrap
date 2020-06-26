@@ -1,0 +1,12 @@
+import ada.wrappers;
+
+wrap with wrap_ada_specs ();
+
+match DefiningName ("T(.+)")
+wrap with w_DefiningName ("My_\1");
+
+match DefiningName ("Spec")
+wrap with w_DefiningName ("Spec_Wrapped");
+
+#match TypeExpr ()
+#weave with standard.out (self.parent () & "\n");

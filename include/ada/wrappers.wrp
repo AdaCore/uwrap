@@ -152,6 +152,10 @@ template w_TypeDecl extends w_NamedEntity {
    var aspects_declaration : text;
 }
 
+template w_SubtypeDecl extends w_NamedEntity {
+  var definition : text;
+}
+
 template w_Aspect extends w_Ada {
    var txt : text;
 }
@@ -186,6 +190,25 @@ visitor visit_EnumRepClause (enum_decl) {
      match n: enum_decl.child (EnumLiteralDecl ("\e<i>")) # TODO, we should be able to write text (i) instead.
      wrap n with w_EnumRep (name => lambda (n.template (w_EnumLiteralDecl ()).name), value => v);
   }
+}
+
+visitor build_type_expr (type) {
+  match Identifier () and x: p_referenced_decl () {
+     # not all identifiers are wrapped - in particular those coming from the
+     # standard library are not. So differenciate here the cases where we
+     # find a w_DefiningName (using the provided name) from the cases where we
+     # don't.
+
+     match t: x.child (DefiningName ()).template (w_DefiningName ())
+        weave type with (txt => @ & " " & t.name);
+     else
+        weave type with (txt => @ & " " & self);
+  } else match RangeSpec ()
+     weave type with (txt => @ & " range");
+  else match TypeAccessDef ()
+     weave type with (txt => @ & " access");
+  else match SingleTokNode() 
+     weave type with (txt => @ & " \e<self>");
 }
 
 visitor ada_to_wrappers () {
@@ -232,6 +255,9 @@ visitor ada_to_wrappers () {
       match r: p_get_enum_representation_clause ()
       wrap all r with visit_EnumRepClause (self);
    }
+
+   match SubtypeDecl ()
+   wrap with w_SubtypeDecl ();
 
    match EnumLiteralDecl () {
       wrap with w_EnumLiteralDecl();
@@ -342,7 +368,13 @@ visitor wrappers_post_process () {
 
     match w_TypeDecl () {
        match origin (t: child (TypeAccessDef ())) 
-          weave with (definition => @ & "access \e<child (w_TypeExpr ()).txt>");
+          weave with (definition => @ & " access \e<child (w_TypeExpr ()).txt>");
+       else match origin (t: child (DerivedTypeDef ())) 
+          weave with (definition => @ & "new \e<child (w_TypeExpr ()).txt>");
+       else match origin (t: child (ArrayTypeDef (i: child (UnconstrainedArrayIndex ())))) {
+          match i.child (template (w1 : w_TypeExpr ()))
+          weave with (definition => @ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>");
+       } 
        else match origin (child (RecordTypeDef ()))
           weave with (definition => @ & """
             record
@@ -359,13 +391,19 @@ visitor wrappers_post_process () {
 
        match not parent (w_TypeExpr ()) and parent (p: w_PackageDecl())
        weave p with (spec_content => @ & "type \e<name> is \e<definition>\e<aspects_declaration>;\n\e<rep_declaration>");
-       else match parent (p: w_TypeExpr ())
-       weave p with (txt => @ & definition);
     }
 
-    match w_TypeExpr (o: origin (child (i: Identifier ()))) {
+    match w_SubtypeDecl () {
+       match child (t: w_TypeExpr ())
+       weave with (definition => @ & "\e<t.txt>");
+
+       match parent (p: w_PackageDecl())
+       weave p with (spec_content => @ & "subtype \e<name> is\e<definition>;\n");
+    }
+
+    match w_TypeExpr (o: origin (child (Identifier ()))) {
       match o.p_designated_type_decl.template (w: w_TypeDecl ())
-      weave with (txt => @ & w.name);
+      weave all self.origin () with build_type_expr (self);
       else weave with (txt => @ & o);
     }
     
