@@ -169,22 +169,22 @@ parameter. We're re-using the node captured before under subp, and through
 dot notation, are querying all of it children. We're looking specifically for
 a node that:
 
- * Is an identified: ``Identifier ()``
- * Isn't a declaration, or not a child of a defining name: ``not parent (DefiningName ())``
- * Isn't a dereference, or not a child of explicit deref: ``not parent (ExplicitDeref ())``
- * Is a reference to the parameter param initially captured: ``p_referenced_decl (param)``
+* Is an identified: ``Identifier ()``
+* Isn't a declaration, or not a child of a defining name: ``not parent (DefiningName ())``
+* Isn't a dereference, or not a child of explicit deref: ``not parent (ExplicitDeref ())``
+* Is a reference to the parameter param initially captured: ``p_referenced_decl (param)``
 
 A few notes here:
 
- * ``p_referenced_decl`` is a standard libadalang property query. It does not
- operate on declarations, which is the reason why we have to guard on 
- DefiningNames before.
- * Withing a browsing predicate such as ``child`` or ``parent``, the value of
- ``self`` is switched to the sub-nodes being browsed. So in that second
- child query, p_referenced_decl operates on the child being analyzed, not the
- top level node which is a parameter specification. This is the reason why we
- had to capture the value in the top level matched, then to re-inject it in
- the ``referenced_decl`` call for comparison.
+* ``p_referenced_decl`` is a standard libadalang property query. It does not
+  operate on declarations, which is the reason why we have to guard on 
+  ``DefiningNames`` before.
+* Withing a browsing predicate such as ``child`` or ``parent``, the value of
+  ``self`` is switched to the sub-nodes being browsed. So in that second
+  child query, p_referenced_decl operates on the child being analyzed, not the
+  top level node which is a parameter specification. This is the reason why we
+  had to capture the value in the top level matched, then to re-inject it in
+  the ``referenced_decl`` call for comparison.
 
 If any node of the form above is found, we're good. There is indeed a reference
 to this parameter as an access value, and access mode can be justified. If not,
@@ -370,6 +370,10 @@ understanding of the way Ada wrapping is setup, while the already provided
 transformation are off the shelf. They can also serve as a base to develop 
 custom ones. Description on the way these work go beyond the scope of the
 tutorial, and will be covered by the full UWrap documentation.
+
+Also note the use of ``normalize_ada_name`` when wrapping with w_DefiningName.
+This is a standard function that changes the style of an identifier to match
+the most common Ada rule, e.g. changing "anEntityName" to "An_Entity_Name".
 
 The first command reads:
 
