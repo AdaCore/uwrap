@@ -5,10 +5,6 @@ with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
 
 package Wrapping.Runtime.Functions is
 
-   procedure Call_Build_Lambda
-     (Object : access W_Object_Type'Class;
-      Params : Argument_List);
-
    procedure Call_Normalize_Ada_Name
      (Object : access W_Object_Type'Class;
       Params : Argument_List);

@@ -130,14 +130,6 @@ package body Wrapping.Runtime.Analysis is
                  Call   => A_Call)));
    end Push_Function;
 
-   procedure Push_Lambda_Function (A_Call : Call_Access) is
-      A_Lambda : W_Lambda := new W_Lambda_Type;
-   begin
-      A_Lambda.Call := A_Call;
-
-      Push_Function (W_Object (A_Lambda), Call_Build_Lambda'Access);
-   end Push_Lambda_Function;
-
    procedure Pop_Object (Number : Positive := 1) is
    begin
       Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
@@ -1895,7 +1887,7 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_New;
 
-   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Params : Argument_List) is
+   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expression : Template_Node) is
       Local_Symbols : Text_Sets.Set;
 
       function Not_Capture_Identifiers
@@ -2040,11 +2032,9 @@ package body Wrapping.Runtime.Analysis is
          end case;
       end Not_Capture_Identifiers;
    begin
-      for P of Params.Children loop
-         Capture_Expression (P);
-      end loop;
+      Capture_Expression (Expression);
 
-      A_Lambda.Params := Params;
+      A_Lambda.Expression := Expression;
       A_Lambda.Implicit_Self := W_Node (Get_Implicit_Self);
       A_Lambda.Implicit_New := W_Node (Get_Implicit_New);
       A_Lambda.Lexical_Scope := Top_Frame.Lexical_Scope;
@@ -2067,11 +2057,7 @@ package body Wrapping.Runtime.Analysis is
          Push_Implicit_New (A_Lambda.Implicit_New);
       end if;
 
-      if A_Lambda.Call = null then
-         Evaluate_Expression (A_Lambda.Params.Child (1).As_Argument.F_Value);
-      else
-         A_Lambda.Call (null, A_Lambda.Params);
-      end if;
+      Evaluate_Expression (A_Lambda.Expression);
 
       Result := Pop_Object;
       Pop_Frame;

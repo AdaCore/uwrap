@@ -7,17 +7,6 @@ with Wrapping.Utils; use Wrapping.Utils;
 
 package body Wrapping.Runtime.Functions is
 
-   procedure Call_Build_Lambda
-     (Object : access W_Object_Type'Class;
-      Params : Argument_List)
-   is
-      A_Lambda : W_Lambda := W_Lambda (Object);
-   begin
-      A_Lambda.Params := Params;
-      Capture_Lambda_Environment (A_Lambda, Params);
-      Push_Object (A_Lambda);
-   end Call_Build_Lambda;
-
    P_Normalize_Ada_Name : Parameter_Profile :=
       (Make_Parameter ("str", False),
        Make_Parameter ("match", True));

@@ -222,7 +222,7 @@ template_grammar.add_rules(
     fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, ')'),
     at_ref=AtRef('@'),
     call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
-    lambda_expr=LambdaExpr ('lambda', '(', G.arg_list, ')'),
+    lambda_expr=LambdaExpr ('lambda', '(', G.expression, ')'),
     arg_list=List(Argument(Opt (Or (G.identifier, TokenIdentifier ("match")), "=>"), G.expression), sep=',', empty_valid=True),
     identifier=Or (TokenIdentifier ('template'), TokenIdentifier ('new'), Identifier(Token.Identifier)),
     dotted_name=Selector(Opt (G.dotted_name, '.'), G.identifier),
