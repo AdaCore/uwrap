@@ -437,8 +437,10 @@ visitor wrappers_post_process () {
 
     match w_Unit () and child (p: w_PackageDecl ()) {
       #TODO: we should be using labels instead of extending standard.file
-      wrap with spec_file (path => "\e<to_lower (p.name)>.ads", content => self.spec_text); 
-      wrap with body_file (path => "\e<to_lower (p.name)>.adb", content => self.body_text);
+      wrap with spec_file
+         (path => lambda (to_lower (p.name)) & ".ads", content => self.spec_text); 
+      wrap with body_file 
+         (path => lambda (to_lower (p.name)) & ".adb", content => self.body_text);
     }
 }
 

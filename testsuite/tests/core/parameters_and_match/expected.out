@@ -1,0 +1,16 @@
+to_lower (3) (Aa) = aa
+to_lower (2) (Aa) = aa
+to_lower (1) (Aa) = aa
+to_lower (3) (AA) = aa
+to_lower (2) (AA) = aa
+to_lower (1) (AA) = aa
+to_lower (3) (aa) = aa
+to_lower (2) (aa) = aa
+to_lower (1) (aa) = aa
+REPLACE: a-a
+to_lower (3) (aba) = aba
+to_lower (2) (aba) = aba
+to_lower (1) (aba) = aba
+REPLACE: c-c-z
+to_lower (1) (CBCBZ) = cbcbz
+

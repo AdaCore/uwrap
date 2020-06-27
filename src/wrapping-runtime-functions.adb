@@ -1,12 +1,13 @@
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
+with Ada.Characters.Conversions; use Ada.Characters.Conversions;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
 with Wrapping.Utils; use Wrapping.Utils;
 
 package body Wrapping.Runtime.Functions is
 
-   procedure Build_Lambda
+   procedure Call_Build_Lambda
      (Object : access W_Object_Type'Class;
       Params : Argument_List)
    is
@@ -15,24 +16,29 @@ package body Wrapping.Runtime.Functions is
       A_Lambda.Params := Params;
       Capture_Lambda_Environment (A_Lambda, Params);
       Push_Object (A_Lambda);
-   end Build_Lambda;
+   end Call_Build_Lambda;
 
-   procedure Normalize_Ada_Name
+   P_Normalize_Ada_Name : Parameter_Profile :=
+      (Make_Parameter ("str", False),
+       Make_Parameter ("match", True));
+
+   procedure Call_Normalize_Ada_Name
      (Object : access W_Object_Type'Class;
       Params : Argument_List)
    is
       New_Name : Unbounded_Text_Type;
       Prev_Up  : Boolean := False;
       Prev_Sep : Boolean := False;
+
+      Actuals : Actuals_Type :=
+        Process_Parameters (P_Normalize_Ada_Name, Params);
    begin
-      if Params.Children_Count /= 1 then
-         Error ("expected one parameter");
-      end if;
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
 
       declare
          Name : constant Text_Type :=
-                  Evaluate_Expression
-                    (Params.Child (1).As_Argument.F_Value).To_String;
+            Evaluate_Expression (Actuals (1)).To_String;
          C    : Integer := Name'First;
       begin
          while C <= Name'Last loop
@@ -64,56 +70,95 @@ package body Wrapping.Runtime.Functions is
             C := C + 1;
          end loop;
 
-         Push_Object (W_Object'(new W_String_Type'(Value => New_Name)));
+
+         Push_Match_Result
+           (W_Object'(new W_String_Type'(Value => New_Name)),
+            Actuals (2));
       end;
-   end Normalize_Ada_Name;
 
-   overriding
-   procedure Analyze_Parameters (Call : in out W_Call_To_Lower_Type; Params : Argument_List) is
-   begin
-      if Params.Children_Count /= 1 then
-         Error ("to_lower needs to be called with one parameter");
-      end if;
+      Pop_Frame_Context;
+   end Call_Normalize_Ada_Name;
 
-      Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+   P_Replace_Text : Parameter_Profile :=
+      (Make_Parameter ("source", False),
+       Make_Parameter ("pattern", False),
+       Make_Parameter ("replace", False),
+       Make_Parameter ("match", True));
 
-      Call.Param := Pop_Object;
-   end Analyze_Parameters;
-
-   -------------
-   -- To_Text --
-   -------------
-
-   overriding function To_String
-     (Object : W_Call_To_Lower_Type) return Text_Type
+   procedure Call_Replace_Text
+     (Object : access W_Object_Type'Class;
+      Params : Argument_List)
    is
+      Result : W_Object;
+      Actuals : Actuals_Type :=
+        Process_Parameters (P_Replace_Text, Params);
    begin
-      return To_Lower (Object.Param.To_String);
-   end To_String;
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
 
+      declare
+         Source  : Text_Type := Evaluate_Expression (Actuals (1)).To_String;
+         Pattern : Text_Type := Evaluate_Expression (Actuals (2)).To_String;
+         Replace : Text_Type := Evaluate_Expression (Actuals (3)).To_String;
+      begin
+         Result := (new W_String_Type'
+                      (Value => To_Unbounded_Text
+                       (Replace_String (Source, Pattern, Replace))));
+      end;
 
-   overriding
-   procedure Analyze_Parameters (Call : in out W_Call_Unindent_Type; Params : Argument_List) is
-   begin
-      if Params.Children_Count /= 1 then
-         Error ("unindent needs to be called with one parameter");
-      end if;
+      Push_Match_Result (Result, Actuals (4));
+      Pop_Frame_Context;
+   end Call_Replace_Text;
 
-      Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+   P_To_Lower : Parameter_Profile :=
+      (Make_Parameter ("str", False),
+       Make_Parameter ("match", True));
 
-      Call.Param := Pop_Object;
-   end Analyze_Parameters;
-
-
-   -------------
-   -- To_Text --
-   -------------
-
-   overriding function To_String
-     (Object : W_Call_Unindent_Type) return Text_Type
+   procedure Call_To_Lower
+    (Object : access W_Object_Type'Class; Params : Argument_List)
    is
+      Result : W_Object;
+
+      Actuals          : Actuals_Type :=
+        Process_Parameters (P_To_Lower, Params);
    begin
-      return Unident (Object.Param.To_String);
-   end To_String;
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+
+      Result :=
+        new W_String_Type'
+          (Value => To_Unbounded_Text
+             (To_Lower (Evaluate_Expression (Actuals (1)).To_String)));
+
+      Push_Match_Result (Result, Actuals (2));
+
+      Pop_Frame_Context;
+   end Call_To_Lower;
+
+
+   P_Unindent : Parameter_Profile :=
+      (Make_Parameter ("str", False),
+       Make_Parameter ("match", True));
+
+   procedure Call_Unindent
+    (Object : access W_Object_Type'Class; Params : Argument_List)
+   is
+      Result : W_Object;
+
+      Actuals          : Actuals_Type :=
+        Process_Parameters (P_Unindent, Params);
+   begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+
+      Result :=
+        new W_String_Type'
+          (Value => To_Unbounded_Text
+             (Unindent (Evaluate_Expression (Actuals (1)).To_String)));
+
+      Push_Match_Result (Result, Actuals (2));
+
+      Pop_Frame_Context;
+   end Call_Unindent;
 
 end Wrapping.Runtime.Functions;

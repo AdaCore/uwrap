@@ -1,4 +1,8 @@
 with Ada.Wide_Wide_Characters.Unicode; use Ada.Wide_Wide_Characters.Unicode;
+with Ada.Characters.Conversions; use Ada.Characters.Conversions;
+with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
+
+with GNAT.Regpat; use GNAT.Regpat;
 
 package body Wrapping.Utils is
 
@@ -15,7 +19,7 @@ package body Wrapping.Utils is
       end if;
    end Remove_Quotes;
 
-   function Unident (Text : Text_Type) return Text_Type is
+   function Unindent (Text : Text_Type) return Text_Type is
       Space_Count : Integer := 0;
       Max_Space_Count : Integer := 0;
       Result : Text_Type (Text'Range);
@@ -53,7 +57,7 @@ package body Wrapping.Utils is
       end loop;
 
       return Result (Result'First .. Result_Index);
-   end Unident;
+   end Unindent;
 
    function Suffix (Text : Text_Type) return Text_Type is
    begin
@@ -69,5 +73,35 @@ package body Wrapping.Utils is
 
       return Text;
    end Suffix;
+
+   function Replace_String
+     (Source, Pattern, Replace : Text_Type) return Text_Type
+   is
+      Matcher : Pattern_Matcher := Compile (To_String (Pattern));
+      Result  : Unbounded_Text_Type;
+      Prev    : Integer := Source'First;
+      Matches : Match_Array (0 .. Paren_Count (Matcher));
+
+      Source_Str : String := To_String (Source);
+   begin
+      while Prev in Source'Range loop
+         Match
+           (Matcher,
+            Source_Str (Prev .. Source'Last),
+            Matches);
+
+         if Matches (0) = No_Match then
+            Append (Result, Source (Prev .. Source'Last));
+            exit;
+         else
+            Append (Result, Source (Prev .. Matches (0).First - 1));
+            Append (Result, Replace);
+
+            Prev := Matches (0).Last + 1;
+         end if;
+      end loop;
+
+      return To_Text (Result);
+   end Replace_String;
 
 end Wrapping.Utils;

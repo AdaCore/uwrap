@@ -18,10 +18,13 @@ package Wrapping.Utils is
 
    package Text_Vectors is new Ada.Containers.Indefinite_Vectors (Positive, Text_Type);
 
-   function Unident (Text : Text_Type) return Text_Type;
+   function Unindent (Text : Text_Type) return Text_Type;
    --  Remove as many spaces in front of each lines as possible while keeping
    --  the current indentation
 
    function Suffix (Text : Text_Type) return Text_Type;
+
+   function Replace_String
+     (Source, Pattern, Replace : Text_Type) return Text_Type;
 
 end Wrapping.Utils;

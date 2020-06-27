@@ -121,6 +121,23 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Push_Temporary_Name;
 
+   procedure Push_Function (Prefix : W_Object; A_Call : Call_Access) is
+   begin
+      Push_Object
+        (W_Object'
+           (new W_Function_Type'
+                (Prefix => Prefix,
+                 Call   => A_Call)));
+   end Push_Function;
+
+   procedure Push_Lambda_Function (A_Call : Call_Access) is
+      A_Lambda : W_Lambda := new W_Lambda_Type;
+   begin
+      A_Lambda.Call := A_Call;
+
+      Push_Function (W_Object (A_Lambda), Call_Build_Lambda'Access);
+   end Push_Lambda_Function;
+
    procedure Pop_Object (Number : Positive := 1) is
    begin
       Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
@@ -766,6 +783,8 @@ package body Wrapping.Runtime.Analysis is
       --  would match again).
       --  TODO: Review all cases of disconnection, e.g. &, not, a: etc.
       To_Match : Boolean := True;
+
+      Previous_Value : W_Object;
    begin
       Push_Error_Location (Node);
 
@@ -782,6 +801,13 @@ package body Wrapping.Runtime.Analysis is
             Top_Frame.Top_Context.Name_Captured :=
               To_Unbounded_Text (Node.As_Match_Capture.F_Captured.Text);
 
+            if Top_Frame.Symbols.Contains
+              (Node.As_Match_Capture.F_Captured.Text)
+            then
+               Previous_Value := Top_Frame.Symbols.Element
+                 (Node.As_Match_Capture.F_Captured.Text);
+            end if;
+
             Evaluate_Expression (Node.As_Match_Capture.F_Expression);
 
             if Top_Frame.Data_Stack.Last_Element /= Match_False then
@@ -791,9 +817,13 @@ package body Wrapping.Runtime.Analysis is
             else
                --  For early reference, that name may have already been
                --  captured. If we eneded up not having a match, it needs
-               --  to be removed.
+               --  to be removed, or replaced by the previous value.
 
-               if Top_Frame.Symbols.Contains
+               if Previous_Value /= null then
+                  Top_Frame.Symbols.Include
+                    (Node.As_Match_Capture.F_Captured.Text,
+                     Previous_Value);
+               elsif Top_Frame.Symbols.Contains
                  (Node.As_Match_Capture.F_Captured.Text)
                then
                   Top_Frame.Symbols.Delete
@@ -1243,10 +1273,7 @@ package body Wrapping.Runtime.Analysis is
          --  We're on an object to text conversion. Set the runtime object.
          --  When running the call, the link with the undlerlying expression
          --  will be made.
-         Push_Object
-           (W_Object'
-              (new W_Function_Type'
-                   (Prefix => null, Call => Call_Convert_To_Text'Access)));
+         Push_Function (null, Call_Convert_To_Text'Access);
 
          return True;
       elsif Name = "string" then
@@ -1259,19 +1286,17 @@ package body Wrapping.Runtime.Analysis is
 
          return True;
       elsif Name = "normalize_ada_name" then
-         declare
-            A_Lambda : W_Lambda := new W_Lambda_Type;
-         begin
-            A_Lambda.Call := Normalize_Ada_Name'Access;
-
-            Push_Object
-              (W_Object'
-                 (new W_Function_Type'
-                      (Prefix => W_Object (A_Lambda),
-                       Call   => Build_Lambda'Access)));
-
-            return True;
-         end;
+         Push_Function (null, Call_Normalize_Ada_Name'Access);
+         return True;
+      elsif Name = "replace_text" then
+         Push_Function (null, Call_Replace_Text'Access);
+         return True;
+      elsif Name = "to_lower" then
+         Push_Function (null, Call_To_Lower'Access);
+         return True;
+      elsif Name = "unindent" then
+         Push_Function (null, Call_Unindent'Access);
+         return True;
       end if;
 
       -- Check in the dynamic symols in the frame
@@ -1718,15 +1743,7 @@ package body Wrapping.Runtime.Analysis is
 
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
-      if Called.all in W_Call_To_Global_Type'Class then
-         W_Call_To_Global (Called).Analyze_Parameters (Node.F_Args);
-
-         --  When analyzing a global call, we're only analyzing the
-         --  parameters. Push the call back to the stack for later consumption.
-         Push_Object (Called);
-      else
-         Called.Push_Call_Result (Node.F_Args);
-      end if;
+      Called.Push_Call_Result (Node.F_Args);
 
       Result := Pop_Object;
       Pop_Object; -- Pop call symbol

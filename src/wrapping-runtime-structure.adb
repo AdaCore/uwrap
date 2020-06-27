@@ -21,15 +21,7 @@ package body Wrapping.Runtime.Structure is
       elsif A_Frame.Parent_Frame /= null then
          return Get_Visible_Symbol (A_Frame.Parent_Frame.all, Name);
       else
-         --  Return one of the global function.
-         --  TODO: we probably want some mechanism to allow this to be extended
-         if Name = "unindent" then
-            return new W_Call_Unindent_Type;
-         elsif Name = "to_lower" then
-            return new W_Call_To_Lower_Type;
-         else
-            return null;
-         end if;
+         return null;
       end if;
    end Get_Visible_Symbol;
 
@@ -152,6 +144,7 @@ package body Wrapping.Runtime.Structure is
       Push_Frame_Context;
       Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
       Top_Frame.Top_Context.Matching_Object := W_Object (Browsed);
+      Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
 
       Evaluate_Expression (Match_Expression);
 
@@ -304,5 +297,113 @@ package body Wrapping.Runtime.Structure is
          return W_Object (Result);
       end if;
    end Get_Object_For_Entity;
+
+   function Make_Parameter
+     (Name : Text_Type; Is_Optional : Boolean) return Parameter
+   is
+   begin
+      return Parameter'
+        (Name        => To_Unbounded_Text (Name),
+         Is_Optional => Is_Optional);
+   end Make_Parameter;
+
+   function Process_Parameters
+     (Profile : Parameter_Profile; Arg : Argument_List) return Actuals_Type
+   is
+      Result : Actuals_Type (Profile'Range) := (others => No_Template_Node);
+
+      Parameter_Index : Integer;
+      In_Named_Section : Boolean := False;
+      Formal : Parameter;
+      Param : Argument;
+   begin
+      Parameter_Index := 1;
+
+      for Actual_Index in 1 .. Arg.Children_Count loop
+         Param := Arg.Child (Actual_Index).As_Argument;
+
+         if not Param.As_Argument.F_Name.Is_Null then
+            In_Named_Section := True;
+
+            declare
+               Name : Text_Type := Param.As_Argument.F_Name.Text;
+               Found : Boolean := False;
+            begin
+               for I in Profile'Range loop
+                  if Profile (I).Name = Name then
+                     Parameter_Index := I;
+                     Formal := Profile (Parameter_Index);
+                     Found := True;
+                     exit;
+                  end if;
+               end loop;
+
+               if not Found then
+                  Error ("parameter name '"  & Name & "' doesn't exit");
+               end if;
+            end;
+         else
+            if In_Named_Section then
+               Error ("can't have positional arguments after named ones");
+            end if;
+
+            Formal := Profile (Parameter_Index);
+         end if;
+
+         Result (Parameter_Index) := Param.F_Value;
+
+         Parameter_Index := Parameter_Index + 1;
+      end loop;
+
+      return Result;
+   end Process_Parameters;
+
+   procedure Push_Match_Result
+     (Object              : W_Object;
+      Matching_Expression : Template_Node)
+   is
+   begin
+      if Matching_Expression.Is_Null then
+         Push_Object (Object);
+      else
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Matching_Object := Object;
+         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+
+         Evaluate_Expression (Matching_Expression);
+
+         if Pop_Object /= Match_False then
+            Push_Object (Object);
+         else
+            Push_Match_False;
+         end if;
+      end if;
+   end Push_Match_Result;
+
+   procedure Push_Match_Self_Result
+     (Self                : W_Object;
+      Matching_Expression : Template_Node) is
+   begin
+      if Matching_Expression.Is_Null then
+         Push_Object (Self);
+      else
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Matching_Object := Self;
+         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+
+         Push_Implicit_Self (Self);
+         Evaluate_Expression (Matching_Expression);
+
+         if Pop_Object /= Match_False then
+            Pop_Object; -- Pop self
+            Push_Object (Self);
+         else
+            Pop_Object; -- Pop self
+            Push_Match_False;
+         end if;
+
+         Pop_Frame_Context;
+      end if;
+   end Push_Match_Self_Result;
 
 end Wrapping.Runtime.Structure;

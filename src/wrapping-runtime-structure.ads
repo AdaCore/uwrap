@@ -188,4 +188,27 @@ package Wrapping.Runtime.Structure is
 
    function Get_Object_For_Entity (An_Entity : access T_Entity_Type'Class) return W_Object;
 
+   type Parameter is record
+      Name        : Unbounded_Text_Type;
+      Is_Optional : Boolean;
+   end record;
+
+   type Parameter_Profile is array (Positive range <>) of Parameter;
+
+   type Actuals_Type is array (Positive range <>) of Template_Node;
+
+   function Make_Parameter
+     (Name : Text_Type; Is_Optional : Boolean) return Parameter;
+
+   function Process_Parameters
+     (Profile : Parameter_Profile; Arg : Argument_List) return Actuals_Type;
+
+   procedure Push_Match_Result
+     (Object : W_Object;
+      Matching_Expression : Template_Node);
+
+   procedure Push_Match_Self_Result
+     (Self                : W_Object;
+      Matching_Expression : Template_Node);
+
 end Wrapping.Runtime.Structure;

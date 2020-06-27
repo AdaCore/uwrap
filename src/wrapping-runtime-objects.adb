@@ -64,19 +64,9 @@ package body Wrapping.Runtime.Objects is
       if Params.Children_Count = 0 then
          Push_Match_True (Object);
       elsif Params.Children_Count = 1 then
-         declare
-            Result : W_Object;
-         begin
-            Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-
-            Result := Pop_Object;
-
-            if Result /= Match_False then
-               Push_Match_True (Object);
-            else
-               Push_Match_False;
-            end if;
-         end;
+         Push_Match_Self_Result
+           (W_Object (Object),
+            Params.Child (1).As_Argument.F_Value);
       else
          Error ("self only takes 1 argument");
       end if;

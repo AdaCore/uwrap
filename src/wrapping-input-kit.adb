@@ -14,20 +14,13 @@ package body Wrapping.Input.Kit is
      (Object : access W_Object_Type'Class;
       Params : Libtemplatelang.Analysis.Argument_List)
    is
-      Result : W_Object;
    begin
       if Params.Children_Count = 0 then
          Push_Match_True (Object);
       elsif Params.Children_Count = 1 then
-         Push_Implicit_Self (Object);
-         Result := Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-         Pop_Object;
-
-         if Result = Match_False then
-            Push_Match_False;
-         else
-            Push_Object (Object);
-         end if;
+         Push_Match_Self_Result
+           (W_Object (Object),
+            Params.Child (1).As_Argument.F_Value);
       elsif Params.Children_Count > 1 then
          Error ("matcher takes only 1 argument");
       end if;

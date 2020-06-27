@@ -287,6 +287,7 @@ package Wrapping.Runtime.Objects is
    type W_Lambda_Type is new W_Object_Type with record
       --  If not null, this need to be called on lambda To_String. Otherwise,
       --  only the first parameter is to be evaluated as an expression
+      --  TODO: THIS HAS NOT WORKED, remove and go back to previous semantic.
       Call             : Call_Access;
 
       Captured_Symbols : W_Object_Maps.Map;
