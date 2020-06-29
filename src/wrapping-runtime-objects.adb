@@ -29,20 +29,20 @@ package body Wrapping.Runtime.Objects is
       A_Mode : in Browse_Mode;
    procedure Call_Gen_Browse
      (Object : access W_Object_Type'Class;
-      Params : Argument_List);
+      Params : T_Arg_Vectors.Vector);
 
    procedure Call_Gen_Browse
      (Object : access W_Object_Type'Class;
-      Params : Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
    begin
-      if Params.Children_Count = 0 then
+      if Params.Length = 0 then
          W_Node_Type'Class (Object.all).Evaluate_Bowse_Functions
-           (A_Mode, No_Template_Node);
-      elsif Params.Children_Count = 1 then
+           (A_Mode, null);
+      elsif Params.Length = 1 then
          W_Node_Type'Class (Object.all).Evaluate_Bowse_Functions
-           (A_Mode, Params.Child (1).As_Argument.F_Value);
-      elsif Params.Children_Count > 1 then
+           (A_Mode, Params.Element (1).Expr);
+      elsif Params.Length > 1 then
          Error ("matcher takes only 1 argument");
       end if;
    end Call_Gen_Browse;
@@ -56,17 +56,17 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Browse_Self
      (Object : access W_Object_Type'Class;
-      Params : Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
    begin
       --  TODO: This is probably never executed, as self is an object directly
       --  returned by push_value on nodes.
-      if Params.Children_Count = 0 then
+      if Params.Length = 0 then
          Push_Match_True (Object);
-      elsif Params.Children_Count = 1 then
+      elsif Params.Length = 1 then
          Push_Match_Self_Result
            (W_Object (Object),
-            Params.Child (1).As_Argument.F_Value);
+            Params.Element (1).Expr);
       else
          Error ("self only takes 1 argument");
       end if;
@@ -74,15 +74,15 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Tmp
      (Object : access W_Object_Type'Class;
-      Params : Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
    begin
-      if Params.Children_Count = 0 then
+      if Params.Length = 0 then
          Push_Temporary_Name
            ("",
             W_Node (Object).Tmp_Counter);
-      elsif Params.Children_Count = 1 then
-         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+      elsif Params.Length = 1 then
+         Evaluate_Expression (Params.Element (1).Expr);
 
          Push_Temporary_Name
            (Pop_Object.To_String,
@@ -94,16 +94,16 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Insert
      (Object : access W_Object_Type'Class;
-      Params : Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
       P1, P2 : W_Object;
    begin
-      if Params.Children_Count /= 2 then
+      if Params.Length /= 2 then
          Error ("two parameters expected for insert");
       end if;
 
-      P1 := Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-      P2 := Evaluate_Expression (Params.Child (2).As_Argument.F_Value);
+      P1 := Evaluate_Expression (Params.Element (1).Expr);
+      P2 := Evaluate_Expression (Params.Element (2).Expr);
 
       W_Map (Object).A_Map.Insert (P1.To_String, P2);
 
@@ -112,16 +112,16 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Include
      (Object : access W_Object_Type'Class;
-      Params : Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
       P1, P2 : W_Object;
    begin
-      if Params.Children_Count /= 2 then
+      if Params.Length /= 2 then
          Error ("two parameters expected for insert");
       end if;
 
-      P1 := Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
-      P2 := Evaluate_Expression (Params.Child (2).As_Argument.F_Value);
+      P1 := Evaluate_Expression (Params.Element (1).Expr);
+      P2 := Evaluate_Expression (Params.Element (2).Expr);
 
       W_Map (Object).A_Map.Include (P1.To_String, P2);
 
@@ -130,16 +130,16 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Element
      (Object : access W_Object_Type'Class;
-      Params : Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
    begin
-      if Params.Children_Count /= 1 then
+      if Params.Length /= 1 then
          Error ("element expects one parameter");
       end if;
 
       declare
          Name : Text_Type := Evaluate_Expression
-           (Params.Child (1).As_Argument.F_Value).To_String;
+           (Params.Element (1).Expr).To_String;
       begin
          if W_Map (Object).A_Map.Contains (Name) then
             Push_Object (W_Map (Object).A_Map.Element (Name));
@@ -153,14 +153,14 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Find
      (Object : access W_Object_Type'Class;
-      Params : Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
       A_Template : W_Template_Instance := W_Template_Instance (Object);
       Registry : W_Vector;
       Last_Action : Visit_Action;
       Last_Result : W_Object;
    begin
-      if Params.Children_Count > 1 then
+      if Params.Length > 1 then
          Error ("find expects at most one parameter");
       end if;
 
@@ -170,12 +170,12 @@ package body Wrapping.Runtime.Objects is
 
       if Registry.A_Vector.Length = 0 then
          Push_Match_False;
-      elsif Params.Children_Count = 0 then
+      elsif Params.Length = 0 then
          Push_Match_True (Registry.A_Vector.First_Element);
       else
          for T of Registry.A_Vector loop
             Last_Action := Object.Browse_Entity
-              (T, Params.Child (1).As_Argument.F_Value, Last_Result);
+              (T, Params.Element (1).Expr, Last_Result);
 
             exit when Last_Action = Stop;
          end loop;
@@ -191,7 +191,7 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Reference_Type;
-      Params    : Argument_List)
+      Params    : T_Arg_Vectors.Vector)
    is
    begin
       An_Entity.Value.Push_Call_Result (Params);
@@ -227,7 +227,7 @@ package body Wrapping.Runtime.Objects is
    procedure Evaluate_Bowse_Functions
      (An_Entity        : access W_Reference_Type;
       A_Mode           : Browse_Mode;
-      Match_Expression : Template_Node'Class)
+      Match_Expression : T_Expr)
    is
    begin
       An_Entity.Value.Evaluate_Bowse_Functions
@@ -239,7 +239,7 @@ package body Wrapping.Runtime.Objects is
    function Browse_Entity
      (An_Entity : access W_Reference_Type;
       Browsed : access W_Object_Type'Class;
-      Match_Expression : Template_Node'Class;
+      Match_Expression : T_Expr;
       Result : out W_Object) return Visit_Action is
    begin
       return An_Entity.Value.Browse_Entity
@@ -266,7 +266,7 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Vector_Type;
-      Params    : Argument_List)
+      Params    : T_Arg_Vectors.Vector)
    is
       Result : W_Object;
    begin
@@ -275,11 +275,11 @@ package body Wrapping.Runtime.Objects is
       --  this is OK. We may need a specific vector string type for this, and
       --  have a more comprehensive test here.
 
-      if Params.Children_Count = 0 then
+      if Params.Length = 0 then
          Push_Match_True (An_Entity);
-      elsif Params.Children_Count = 1 then
+      elsif Params.Length = 1 then
          Push_Implicit_Self (An_Entity);
-         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+         Evaluate_Expression (Params.Element (1).Expr);
          Result := Pop_Object;
          Pop_Object;
 
@@ -330,7 +330,7 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Map_Type;
-      Params    : Argument_List)
+      Params    : T_Arg_Vectors.Vector)
    is
       Result : W_Object;
       Action : Visit_Action;
@@ -341,13 +341,13 @@ package body Wrapping.Runtime.Objects is
       --  which is not completely obvious (needs to implement some kind of a
       --  tuple to create key and value at the same time).
 
-      if Params.Children_Count /= 1 then
+      if Params.Length /= 1 then
          Error ("expected one argument for browsing map");
       end if;
 
       for E of An_Entity.A_Map loop
          Action :=
-           An_Entity.Browse_Entity (E, Params.Child (1).As_Argument.F_Value, Result);
+           An_Entity.Browse_Entity (E, Params.Element (1).Expr, Result);
 
          exit when Action = Stop;
       end loop;
@@ -375,17 +375,17 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Text_Expression_Type;
-      Params    : Argument_List)
+      Params    : T_Arg_Vectors.Vector)
    is
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.Matching_Object := W_Object (An_Entity);
 
       --  TODO: Should that be the high level call result?
-      if Params.Children_Count = 0 then
+      if Params.Length = 0 then
          Push_Match_True (An_Entity);
-      elsif Params.Children_Count = 1 then
-         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+      elsif Params.Length = 1 then
+         Evaluate_Expression (Params.Element (1).Expr);
       else
          Error ("string comparison takes one argument");
       end if;
@@ -418,7 +418,7 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Function_Type;
-      Params    : Argument_List) is
+      Params    : T_Arg_Vectors.Vector) is
    begin
       An_Entity.Call (An_Entity.Prefix, Params);
    end Push_Call_Result;
@@ -464,7 +464,7 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Static_Entity_Type;
-      Params    : Argument_List)
+      Params    : T_Arg_Vectors.Vector)
    is
       Self_Object   : W_Object;
       Prefix        : W_Template_Instance;
@@ -492,12 +492,12 @@ package body Wrapping.Runtime.Objects is
       --  the stack starts with an implicit entity at the top, and check
       --  the result.
 
-      if Params.Children_Count = 0 then
+      if Params.Length = 0 then
          Push_Match_True (Self_Object);
          return;
-      elsif Params.Children_Count = 1 then
+      elsif Params.Length = 1 then
          Push_Implicit_Self (Self_Object);
-         Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+         Evaluate_Expression (Params.Element (1).Expr);
          Result := Pop_Object;
          Pop_Object;
 
@@ -650,7 +650,7 @@ package body Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Node_Type;
-      Params    : Argument_List)
+      Params    : T_Arg_Vectors.Vector)
    is
       Result : W_Object;
    begin
@@ -659,11 +659,11 @@ package body Wrapping.Runtime.Objects is
 
       --  TODO: this code is probably the generic call result code, not specific to
       --   node type.
-      if Params.Children_Count = 0 then
+      if Params.Length = 0 then
          Push_Match_True (An_Entity);
-      elsif Params.Children_Count = 1 then
+      elsif Params.Length = 1 then
          Push_Implicit_Self (W_Object (An_Entity));
-         Result := Evaluate_Expression (Params.Child (1).As_Argument.F_Value);
+         Result := Evaluate_Expression (Params.Element (1).Expr);
          Pop_Object;
 
          if Result = Match_False then
@@ -893,7 +893,7 @@ package body Wrapping.Runtime.Objects is
    procedure Evaluate_Bowse_Functions
      (An_Entity         : access W_Node_Type;
       A_Mode            : Browse_Mode;
-      Match_Expression  : Template_Node'Class)
+      Match_Expression  : T_Expr)
    is
       function Visitor
         (E      : access W_Object_Type'Class;
@@ -926,12 +926,12 @@ package body Wrapping.Runtime.Objects is
       Found := W_Node_Type'Class(An_Entity.all).Traverse
         (A_Mode, False, Result, Visitor'Access) = Stop;
 
-      if not Found and Has_Allocator (Match_Expression) then
+      if not Found and Match_Expression.Has_New then
          --  Semantic for search is to look first for matches that do not require
          --  an allocator. If none is found and if there are allocators, then
          --  re-try, this time with allocators enabled.
 
-         if Top_Frame.Top_Context.Is_Folding_Context then
+         if Top_Frame.Top_Context.Is_Expanding_Context then
             --  TODO: it would be best to check that earlier in the system,
             --  as opposed to only when trying to call a folding function.
             Error ("allocators are not allowed in folding browsing functions");
@@ -963,7 +963,7 @@ package body Wrapping.Runtime.Objects is
       if not Found and then
         not
           (Top_Frame.Top_Context.Match_Mode /= Match_None
-           or else Top_Frame.Top_Context.Is_Folding_Context)
+           or else Top_Frame.Top_Context.Is_Expanding_Context)
       then
          Error ("no result found for browsing function");
       end if;
@@ -1043,7 +1043,7 @@ package body Wrapping.Runtime.Objects is
 
                      Push_Implicit_Self (An_Entity);
 
-                     Evaluate_Expression (A_Var.Args.Child (1).As_Argument.F_Value);
+                     Evaluate_Expression (A_Var.Args.Element (1).Expr);
 
                      Result := Pop_Object;
                      Pop_Object;

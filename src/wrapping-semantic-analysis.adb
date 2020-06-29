@@ -2,6 +2,8 @@ with Ada.Containers.Vectors;
 with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Wide_Wide_Text_IO;
+with Ada.Characters.Conversions; use Ada.Characters.Conversions;
+with Ada.Containers; use Ada.Containers;
 
 with Langkit_Support; use Langkit_Support;
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
@@ -24,6 +26,8 @@ package body Wrapping.Semantic.Analysis is
    function Build_Visitor_Structure (Node : Template_Node) return Structure.T_Visitor;
    function Build_Variable_Structure (Node : Libtemplatelang.Analysis.Var) return Structure.T_Var;
    function Build_Command_Scope_Structure (Node : Template_Node'Class) return T_Entity;
+   function Build_Expr (Node : Template_Node'Class) return T_Expr;
+   function Build_Arg (Node : Template_Node'Class) return T_Arg;
 
    procedure Resolve_Template_Names (A_Template : Structure.T_Template);
    procedure Resolve_Module_Names (A_Module : Structure.T_Module);
@@ -32,6 +36,10 @@ package body Wrapping.Semantic.Analysis is
    procedure Resolve_Namespace_Names (A_Namespace : Structure.T_Namespace);
    function Get_Static_Entity_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity;
    function Get_Template_Or_Visitor_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity;
+
+   procedure Analyze_Replace_String
+     (Node   : Template_Node'Class;
+      Result : in out Processed_String_Vector.Vector);
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String);
 
@@ -73,7 +81,10 @@ package body Wrapping.Semantic.Analysis is
 
    procedure Push_Entity (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class) is
    begin
-      Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity));
+      if Entity_Stack.Length > 0 then
+         Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity));
+      end if;
+
       An_Entity.Node := Template_Node (Node);
       Entity_Stack.Append (T_Entity (An_Entity));
    end Push_Entity;
@@ -83,7 +94,10 @@ package body Wrapping.Semantic.Analysis is
       Node      : Template_Node'Class;
       Name      : Text_Type) is
    begin
-      Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity), Name);
+      if Entity_Stack.Length > 0 then
+         Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity), Name);
+      end if;
+
       An_Entity.Node := Template_Node (Node);
       Entity_Stack.Append (T_Entity (An_Entity));
    end Push_Named_Entity;
@@ -199,19 +213,29 @@ package body Wrapping.Semantic.Analysis is
       function Visit (Node : Template_Node'Class) return Visit_Status is
       begin
          case Node.Kind is
-            when Template_Match_Clause =>
-               A_Command.Match_Expression := Template_Node
-                 (Node.As_Match_Clause.F_Expression);
+            when Template_Match_Section =>
+               A_Command.Match_Expression := Build_Expr
+                 (Node.As_Match_Section.F_Expression);
+
+               Node.As_Match_Section.F_Actions.Traverse (Visit'Access);
 
                return Over;
-            when Template_Wrap_Clause | Template_Weave_Clause =>
-               if Node.Kind = Template_Wrap_Clause then
-                  A_Command.Template_Clause := new Wrap_Type;
+            when Template_Pick_Section =>
+               A_Command.Pick_Expression :=
+                 Build_Expr (Node.As_Pick_Section.F_Expression);
+
+               Node.As_Pick_Section.F_Actions.Traverse (Visit'Access);
+
+               return Over;
+
+            when Template_Wrap_Section | Template_Weave_Section =>
+               if Node.Kind = Template_Wrap_Section then
+                  A_Command.Template_Section := new Wrap_Type;
                else
-                  A_Command.Template_Clause := new Weave_Type;
+                  A_Command.Template_Section := new Weave_Type;
                end if;
 
-               A_Command.Template_Clause.Node := Node.As_Template_Clause;
+               A_Command.Template_Section.Node := Node.As_Template_Section;
 
                return Over;
             when Template_Nested_Scope =>
@@ -219,18 +243,18 @@ package body Wrapping.Semantic.Analysis is
                  Build_Command_Scope_Structure (Node.As_Nested_Scope);
 
                return Over;
-            when Template_Else_Clause =>
-               case Node.As_Else_Clause.F_Actions.Kind is
+            when Template_Else_Section =>
+               case Node.As_Else_Section.F_Actions.Kind is
                   when Template_Command =>
-                     A_Command.Else_Actions := T_Entity (Build_Command_Structure (Node.As_Else_Clause.F_Actions));
+                     A_Command.Else_Actions := T_Entity (Build_Command_Structure (Node.As_Else_Section.F_Actions));
 
                   when Template_Nested_Scope =>
-                     A_Command.Else_Actions := Build_Command_Scope_Structure (Node.As_Else_Clause.F_Actions);
+                     A_Command.Else_Actions := Build_Command_Scope_Structure (Node.As_Else_Section.F_Actions);
 
                   when others =>
                      Error
                        ("unexpected node kind for command else: '"
-                        & Node.As_Else_Clause.F_Actions.Kind'Wide_Wide_Image
+                        & Node.As_Else_Section.F_Actions.Kind'Wide_Wide_Image
                         & "'");
 
                end case;
@@ -335,7 +359,9 @@ package body Wrapping.Semantic.Analysis is
                 & Node.F_Typ.Text & "', use text or pattern instead");
       end if;
 
-      A_Var.Args := Node.As_Var.F_Args;
+      for A of Node.As_Var.F_Args loop
+         A_Var.Args.Append (Build_Arg (A));
+      end loop;
 
       Pop_Entity;
 
@@ -512,62 +538,56 @@ package body Wrapping.Semantic.Analysis is
       end if;
    end Resolve_Template_Names;
 
-   procedure Resolve_Command_Names (A_Command : Structure.T_Command) is
+   procedure Resolve_Command_Names (A_Command : T_Command) is
    begin
-      if A_Command.Template_Clause /= null then
-         case A_Command.Template_Clause.Node.F_Action.Kind is
-            when Template_Template_Operation =>
+      if A_Command.Template_Section /= null then
+         case A_Command.Template_Section.Node.F_Actions.Kind is
+            when Template_Template_Call =>
                declare
-                  An_Operation : Template_Operation :=
-                    A_Command.Template_Clause.Node.F_Action.As_Template_Operation;
+                  An_Operation : Template_Call :=
+                    A_Command.Template_Section.Node.F_Actions.As_Template_Call;
                begin
-                  if not An_Operation.F_Entity.Is_Null then
-                     if An_Operation.F_Entity.Kind in Template_Tree_Reference then
-                        A_Command.Template_Clause.Is_All := True;
-                     end if;
+                  if not An_Operation.F_Name.Is_Null then
+                     Push_Error_Location (A_Command.Template_Section.Node);
 
-                     A_Command.Template_Clause.Target_Object :=
-                       Template_Node (An_Operation.F_Entity.F_Value);
-                  end if;
-
-                  if not An_Operation.F_Call.Is_Null then
-                     Push_Error_Location (A_Command.Template_Clause.Node);
-
-                     if An_Operation.F_Call.F_Name.Is_Null then
-                        if A_Command.Template_Clause.Node.Kind = Template_Wrap_Clause then
+                     if An_Operation.F_Name.Is_Null then
+                        if A_Command.Template_Section.Node.Kind = Template_Wrap_Section then
                            Error ("template instances can only be weaved, not wrapped");
                         end if;
                      else
-                        if  An_Operation.F_Call.F_Name.Text = "null" then
+                        if  An_Operation.F_Name.Text = "null" then
                            --  In this case, we're creating a template cancellation
                            --  clause.
 
-                           if A_Command.Template_Clause.Node.Kind = Template_Weave_Clause then
+                           if A_Command.Template_Section.Node.Kind = Template_Weave_Section then
                               Error ("null template only allowed on wrap clauses");
                            end if;
 
-                           A_Command.Template_Clause.Is_Null := True;
+                           A_Command.Template_Section.Is_Null := True;
                         else
-                           A_Command.Template_Clause.Call_Reference := Get_Template_Or_Visitor_By_Name
+                           A_Command.Template_Section.Call_Reference := Get_Template_Or_Visitor_By_Name
                              (A_Command.Parent,
-                              An_Operation.F_Call.F_Name);
+                              An_Operation.F_Name);
                         end if;
                      end if;
 
-                     A_Command.Template_Clause.Arguments := An_Operation.F_Call.F_Args;
+                     for A of An_Operation.F_Args loop
+                        A_Command.Template_Section.Args.Append (Build_Arg (A));
+                     end loop;
+
                      Pop_Error_Location;
                   end if;
                end;
 
             when Template_Traverse_Into =>
-               A_Command.Template_Clause.A_Visit_Action := Into;
+               A_Command.Template_Section.A_Visit_Action := Into;
 
             when Template_Traverse_Over =>
-               A_Command.Template_Clause.A_Visit_Action := Over;
+               A_Command.Template_Section.A_Visit_Action := Over;
 
             when others =>
                Error ("unrecognized template action: "
-                      & A_Command.Template_Clause.Node.F_Action.Kind'Wide_Wide_Image);
+                      & A_Command.Template_Section.Node.F_Actions.Kind'Wide_Wide_Image);
 
          end case;
       end if;
@@ -601,5 +621,236 @@ package body Wrapping.Semantic.Analysis is
          end if;
       end loop;
    end Resolve_Visitor_Names;
+
+   function Build_Expr (Node : Template_Node'Class) return T_Expr is
+      Expr : T_Expr := new T_Expr_Type (Node.Kind);
+      Parent : T_Expr;
+   begin
+      if Entity_Stack.Length > 0
+        and then Entity_Stack.Last_Element.all in T_Expr_Type
+      then
+         Parent := T_Expr (Entity_Stack.Last_Element);
+      end if;
+
+      Push_Entity (Expr, Node);
+
+      case Node.Kind is
+         when Template_Match_Capture =>
+            Expr.Match_Expr := Build_Expr (Node.As_Match_Capture.F_Expression);
+
+         when Template_Selector =>
+            Expr.Selector_Left := Build_Expr (Node.As_Selector.F_Left);
+            Expr.Selector_Right := Build_Expr (Node.As_Selector.F_Right);
+
+            if Expr.Selector_Left.Kind in Template_All_Expr | Template_Fold_Expr then
+               if Parent = null or else Parent.Kind /= Template_Selector then
+                  Error ("all () needs to be selected on an object");
+               else
+                  Parent.Selector_Left_Expansion := Expr.Selector_Left;
+               end if;
+            elsif Expr.Selector_Right.Kind in Template_All_Expr | Template_Fold_Expr then
+               Expr.Selector_Left_Expansion := Expr.Selector_Right;
+            end if;
+
+         when Template_Binary_Expr =>
+            Expr.Binary_Left := Build_Expr (Node.As_Binary_Expr.F_Lhs);
+            Expr.Binary_Right := Build_Expr (Node.As_Binary_Expr.F_Rhs);
+
+         when Template_Unary_Expr =>
+            Expr.Unary_Right := Build_Expr (Node.As_Unary_Expr.F_Rhs);
+
+         when Template_Literal =>
+            null;
+
+         when Template_Token_Identifier | Template_Identifier =>
+            null;
+
+         when Template_Number =>
+            Expr.Number := Integer'Wide_Wide_Value (Node.Text);
+
+         when Template_Str =>
+            Analyze_Replace_String (Node, Expr.Str);
+
+         when Template_Call_Expr =>
+            Expr.Called := Build_Expr (Node.As_Call_Expr.F_Called);
+
+            for A of Node.As_Call_Expr.F_Args loop
+               Expr.Args.Append (Build_Arg (A));
+            end loop;
+
+         when Template_Lambda_Expr =>
+            Expr.Lambda_Expression := Build_Expr (Node.As_Lambda_Expr.F_Expression);
+
+         when Template_New_Expr =>
+            Expr.Has_New := True;
+
+         when Template_At_Ref =>
+            null;
+
+         when Template_Qualified_Match =>
+            Expr.Qualified_Match_Expr := Build_Expr (Node.As_Qualified_Match.F_Rhs);
+
+         when Template_Fold_Expr =>
+            Expr.Default := Build_Expr (Node.As_Fold_Expr.F_Default);
+            Expr.Combine := Build_Expr (Node.As_Fold_Expr.F_Combine);
+
+         when Template_All_Expr =>
+            Expr.All_Match := Build_Expr (Node.As_All_Expr.F_Expression);
+
+         when others =>
+            Error ("Unsupported expression node");
+
+      end case;
+
+      if Expr.Has_New and then Parent /= null then
+         Parent.Has_New := True;
+      end if;
+
+      Pop_Entity;
+
+      return Expr;
+   end Build_Expr;
+
+   function Build_Arg (Node : Template_Node'Class) return T_Arg is
+      Arg : T_Arg := new T_Arg_Type;
+   begin
+      Arg.Name_Node := Node.As_Argument.F_Name;
+
+      if not Node.As_Argument.F_Name.Is_Null then
+         Arg.Name := To_Unbounded_Text (Node.As_Argument.F_Name.Text);
+      end if;
+
+      Arg.Expr := Build_Expr (Node.As_Argument.F_Value);
+
+      return Arg;
+   end Build_Arg;
+
+   Expression_Unit_Number : Integer := 1;
+
+   procedure Analyze_Replace_String
+     (Node   : Template_Node'Class;
+      Result : in out Processed_String_Vector.Vector)
+   is
+      Str : constant Text_Type := Remove_Quotes (Node.Text);
+      Context : constant Analysis_Context := Node.Unit.Context;
+
+      Next_Index : Integer := Str'First;
+
+      Current : Integer := Str'First;
+
+      procedure On_Error
+        (Message : Text_Type;
+         Filename : String;
+         Loc : Source_Location)
+      is
+      begin
+         Push_Error_Location
+           (Node.Unit.Get_Filename,
+            (Node.Sloc_Range.Start_Line, Node.Sloc_Range.Start_Column));
+
+         Ada.Wide_Wide_Text_IO.Put_Line
+           (To_Text (Get_Sloc_Str)
+            & ": " & Message);
+
+         raise Wrapping_Error;
+      end On_Error;
+
+      Prev_Error : Error_Callback_Type;
+   begin
+      Prev_Error := Error_Callback;
+      Error_Callback := On_Error'Unrestricted_Access;
+
+      if Str = "" then
+         Error_Callback := Prev_Error;
+
+         return;
+      end if;
+
+      while Current <= Str'Last loop
+         if Str (Current) = '\' then
+            if Current /= Str'First then
+               Result.Append
+                 ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Current - 1))));
+            end if;
+
+            Current := Current + 1;
+
+            if Str (Current) = 'e' then
+               Current := Current + 1;
+
+               if Str (Current) = '<' then
+                  Next_Index := Current;
+
+                  while Next_Index < Str'Last and then Str (Next_Index) /= '>' loop
+                     Next_Index := Next_Index + 1;
+                  end loop;
+
+                  Expression_Unit_Number := Expression_Unit_Number + 1;
+
+                  declare
+                     Expression_Unit : Analysis_Unit :=
+                       Get_From_Buffer
+                         (Context  => Context,
+                          Filename => "internal expression" & Expression_Unit_Number'Img,
+                          Buffer   => To_String (Str (Current + 1 .. Next_Index - 1)),
+                          Rule     => Expression_Rule);
+                  begin
+                     if Has_Diagnostics (Expression_Unit) then
+                        Error (To_Text (Libtemplatelang.Analysis.Diagnostics (Expression_Unit)(1).Message));
+                     end if;
+
+                     Result.Append ((Expr_Kind, 0, 0, Build_Expr (Expression_Unit.Root)));
+                  end;
+
+                  Current := Next_Index + 1;
+                  Next_Index := Current;
+               else
+                  Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Current - 1 .. Current))));
+                  Next_Index := Current;
+                  Current := Current + 1;
+               end if;
+            elsif Str (Current) = 'n' then
+               Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
+               Current := Current + 1;
+               Next_Index := Current;
+            elsif Str (Current) in '0' .. '9' then
+               Next_Index := Current;
+
+               while Next_Index < Str'Last and then Str (Next_Index) in '0' .. '9' loop
+                  Next_Index := Next_Index + 1;
+               end loop;
+
+               if Str (Next_Index) not in '0' .. '9' then
+                  Next_Index := Next_Index - 1;
+               end if;
+
+               declare
+                  Group_Value : Natural :=
+                    Natural'Wide_Wide_Value (Str (Current .. Next_Index));
+               begin
+                  Result.Append ((Group_Kind, 0, 0, Group_Value));
+               end;
+
+               Current := Next_Index + 1;
+               Next_Index := Current;
+            elsif Str (Current) = '\' then
+               Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text ("\")));
+               Next_Index := Current + 1;
+               Current := Current + 1;
+            else
+               Next_Index := Current;
+               Current := Current + 1;
+            end if;
+         else
+            Current := Current + 1;
+         end if;
+      end loop;
+
+      if Next_Index <= Str'Last then
+         -- Add the end of the text to the result
+
+         Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Str'Last))));
+      end if;
+   end Analyze_Replace_String;
 
 end Wrapping.Semantic.Analysis;

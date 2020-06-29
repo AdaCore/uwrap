@@ -57,6 +57,8 @@ package Wrapping.Runtime.Structure is
       --  Force a match has, typically through a is', e.g. has'x.f_name ()
       Match_Has);
 
+   type Expand_Action_Type is access procedure (Match : W_Object);
+
    --  A Frame_Context is a type that is recording stack-based properties that
    --  vary within a given frame, typically through an expression, or various
    --  parts of a command. Each Frame is supposed to start with a fresh frame
@@ -65,15 +67,15 @@ package Wrapping.Runtime.Structure is
       Parent_Context : Frame_Context;
 
       Match_Mode : Match_Kind := Match_None;
-      Is_Folding_Context : Boolean := False;
+      Is_Expanding_Context : Boolean := False;
 
       --  When hitting a capture expression, the name is being stored here so
       --  that the capturing expression can update its value.
       Name_Captured : Unbounded_Text_Type;
 
-      --  In when folding, browsing functions need to evaluate this expression
-      --  upon all successful matches
-      Folding_Expression : Template_Node;
+      --  When expanding, browsing functions need to perform this expression
+      --  upon all successful matches.
+      Expand_Expression : T_Expr;
 
       --  Callback used to record objects allocated through the new () function.
       --  This needs to be set in particular in browsing functions, in order to
@@ -129,7 +131,7 @@ package Wrapping.Runtime.Structure is
    --  By default, this returns an error (the object is not made for being called).
    procedure Push_Call_Result
      (An_Entity : access W_Object_Type;
-      Params    : Argument_List);
+      Params    : T_Arg_Vectors.Vector);
 
    --  Match this object with the top of the stack. Return False if no decision
    --  could be made, true otherwise. If the top object doesn't match, replace
@@ -155,12 +157,12 @@ package Wrapping.Runtime.Structure is
    procedure Evaluate_Bowse_Functions
      (An_Entity        : access W_Object_Type;
       A_Mode           : Browse_Mode;
-      Match_Expression : Template_Node'Class) is null;
+      Match_Expression : T_Expr) is null;
 
    function Browse_Entity
      (An_Entity : access W_Object_Type;
       Browsed : access W_Object_Type'Class;
-      Match_Expression : Template_Node'Class;
+      Match_Expression : T_Expr;
       Result : out W_Object) return Visit_Action;
 
    procedure Push_Match_True (An_Entity : access W_Object_Type'Class);
@@ -195,20 +197,20 @@ package Wrapping.Runtime.Structure is
 
    type Parameter_Profile is array (Positive range <>) of Parameter;
 
-   type Actuals_Type is array (Positive range <>) of Template_Node;
+   type Actuals_Type is array (Positive range <>) of T_Expr;
 
    function Make_Parameter
      (Name : Text_Type; Is_Optional : Boolean) return Parameter;
 
    function Process_Parameters
-     (Profile : Parameter_Profile; Arg : Argument_List) return Actuals_Type;
+     (Profile : Parameter_Profile; Arg : T_Arg_Vectors.Vector) return Actuals_Type;
 
    procedure Push_Match_Result
      (Object : W_Object;
-      Matching_Expression : Template_Node);
+      Matching_Expression : T_Expr);
 
    procedure Push_Match_Self_Result
      (Self                : W_Object;
-      Matching_Expression : Template_Node);
+      Matching_Expression : T_Expr);
 
 end Wrapping.Runtime.Structure;

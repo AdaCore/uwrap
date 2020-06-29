@@ -55,10 +55,10 @@ package body Wrapping.Runtime.Structure is
    function Browse_Entity
      (An_Entity : access W_Object_Type;
       Browsed : access W_Object_Type'Class;
-      Match_Expression : Template_Node'Class;
+      Match_Expression : T_Expr;
       Result : out W_Object) return Visit_Action
    is
-      procedure Evaluate_Fold_Function is
+      procedure Evaluate_Expand_Function is
       begin
          --  When evaluating a folding function in a browsing call, we need to
          --  first deactivate folding in the expression itself. We also we need
@@ -66,17 +66,17 @@ package body Wrapping.Runtime.Structure is
          --  are capturing in this browsing iteration.
 
          Push_Frame_Context;
-         Top_Frame.Top_Context.Is_Folding_Context := False;
+         Top_Frame.Top_Context.Is_Expanding_Context := False;
          Top_Frame.Top_Context.Match_Mode := Match_None;
          Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
 
          --  Then evaluate that folding expression
 
          Push_Implicit_Self (Browsed);
-         Evaluate_Expression (Top_Frame.Top_Context.Folding_Expression);
+         Evaluate_Expression (Top_Frame.Top_Context.Expand_Expression);
 
          --  The result of the evaluate expression is the result of the
-         --  folding function, as opposed to the matching entity in normal
+         --  expanding function, as opposed to the matching entity in normal
          --  browsing.
          Result := Pop_Object;
          Pop_Object;
@@ -92,7 +92,7 @@ package body Wrapping.Runtime.Structure is
               (To_Text (Top_Frame.Top_Context.Name_Captured),
                Result);
          end if;
-      end Evaluate_Fold_Function;
+      end Evaluate_Expand_Function;
 
       Expression_Result : W_Object;
 
@@ -101,9 +101,9 @@ package body Wrapping.Runtime.Structure is
 
       --  If the match expression is null, we're only looking for the
       --  presence of a node, not its form. The result is always true.
-      if Match_Expression.Is_Null then
-         if Top_Frame.Top_Context.Is_Folding_Context then
-            Evaluate_Fold_Function;
+      if Match_Expression = null then
+         if Top_Frame.Top_Context.Is_Expanding_Context then
+            Evaluate_Expand_Function;
 
             return Into;
          else
@@ -129,7 +129,7 @@ package body Wrapping.Runtime.Structure is
       --  the folding expression will actually be what needs to be captured.
 
       if Top_Frame.Top_Context.Name_Captured /= ""
-        and then not Top_Frame.Top_Context.Is_Folding_Context
+        and then not Top_Frame.Top_Context.Is_Expanding_Context
       then
          Top_Frame.Symbols.Include
            (To_Text (Top_Frame.Top_Context.Name_Captured),
@@ -169,14 +169,14 @@ package body Wrapping.Runtime.Structure is
             --  stop allocating). This case is supposed to have being taken
             --  care of earlier but raise an error here just in case.
 
-            if Top_Frame.Top_Context.Is_Folding_Context then
-               Error ("allocation in folding browsing functions is illegal");
+            if Top_Frame.Top_Context.Is_Expanding_Context then
+               Error ("allocation in expanding browsing functions is illegal");
             end if;
 
             return Stop;
          else
-            if Top_Frame.Top_Context.Is_Folding_Context then
-               Evaluate_Fold_Function;
+            if Top_Frame.Top_Context.Is_Expanding_Context then
+               Evaluate_Expand_Function;
 
                return Into;
             else
@@ -202,7 +202,7 @@ package body Wrapping.Runtime.Structure is
 
    procedure Push_Call_Result
      (An_Entity : access W_Object_Type;
-      Params    : Argument_List) is
+      Params    : T_Arg_Vectors.Vector) is
    begin
       Error ("non callable entity");
    end Push_Call_Result;
@@ -308,25 +308,25 @@ package body Wrapping.Runtime.Structure is
    end Make_Parameter;
 
    function Process_Parameters
-     (Profile : Parameter_Profile; Arg : Argument_List) return Actuals_Type
+     (Profile : Parameter_Profile; Arg : T_Arg_Vectors.Vector) return Actuals_Type
    is
-      Result : Actuals_Type (Profile'Range) := (others => No_Template_Node);
+      Result : Actuals_Type (Profile'Range) := (others => null);
 
       Parameter_Index : Integer;
       In_Named_Section : Boolean := False;
       Formal : Parameter;
-      Param : Argument;
+      Param : T_Arg;
    begin
       Parameter_Index := 1;
 
-      for Actual_Index in 1 .. Arg.Children_Count loop
-         Param := Arg.Child (Actual_Index).As_Argument;
+      for Actual_Index in 1 .. Arg.Length loop
+         Param := Arg.Element (Integer (Actual_Index));
 
-         if not Param.As_Argument.F_Name.Is_Null then
+         if Param.Name /= "" then
             In_Named_Section := True;
 
             declare
-               Name : Text_Type := Param.As_Argument.F_Name.Text;
+               Name : Text_Type := To_Text (Param.Name);
                Found : Boolean := False;
             begin
                for I in Profile'Range loop
@@ -350,7 +350,7 @@ package body Wrapping.Runtime.Structure is
             Formal := Profile (Parameter_Index);
          end if;
 
-         Result (Parameter_Index) := Param.F_Value;
+         Result (Parameter_Index) := Param.Expr;
 
          Parameter_Index := Parameter_Index + 1;
       end loop;
@@ -360,10 +360,10 @@ package body Wrapping.Runtime.Structure is
 
    procedure Push_Match_Result
      (Object              : W_Object;
-      Matching_Expression : Template_Node)
+      Matching_Expression : T_Expr)
    is
    begin
-      if Matching_Expression.Is_Null then
+      if Matching_Expression = null then
          Push_Object (Object);
       else
          Push_Frame_Context;
@@ -382,9 +382,9 @@ package body Wrapping.Runtime.Structure is
 
    procedure Push_Match_Self_Result
      (Self                : W_Object;
-      Matching_Expression : Template_Node) is
+      Matching_Expression : T_Expr) is
    begin
-      if Matching_Expression.Is_Null then
+      if Matching_Expression = null then
          Push_Object (Self);
       else
          Push_Frame_Context;

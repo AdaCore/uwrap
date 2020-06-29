@@ -5,6 +5,7 @@ with Langkit_Support.Text; use Langkit_Support.Text;
 with Langkit_Support.Slocs; use Langkit_Support.Slocs;
 
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
+with Libtemplatelang.Common; use Libtemplatelang.Common;
 
 package Wrapping.Semantic.Structure is
    -- The purpose is to create the "program" of the wrapping.
@@ -69,6 +70,14 @@ package Wrapping.Semantic.Structure is
    use T_Visitor_Maps;
    package T_Visitor_Vectors is new Ada.Containers.Vectors (Positive, T_Visitor);
    use T_Visitor_Vectors;
+
+   type T_Expr_Type (Kind : Template_Node_Kind_Type);
+   type T_Expr is access all T_Expr_Type'Class;
+   package T_Expr_Vectors is new Ada.Containers.Vectors (Positive, T_Expr);
+
+   type T_Arg_Type;
+   type T_Arg is access all T_Arg_Type'Class;
+   package T_Arg_Vectors is new Ada.Containers.Vectors (Positive, T_Arg);
 
    type T_Entity_Type is tagged record
       Node : Template_Node;
@@ -150,21 +159,19 @@ package Wrapping.Semantic.Structure is
 
    type T_Var_Type is new T_Named_Entity_Type with record
       Kind : Var_Type_Kind;
-      Args : Argument_List;
+      Args : T_Arg_Vectors.Vector;
    end record;
 
    type Match_Type is new T_Entity_Type with record
-      Matcher_Expression : Template_Node;
+      Matcher_Expression : T_Expr;
    end record;
 
    type T_Weave_Or_Wrap_Type is tagged record
-      Node                         : Template_Clause;
-      Is_All                       : Boolean := False;
-      Is_Null                      : Boolean := False;
-      Target_Object                : Template_Node;
-      Call_Reference               : T_Entity;
-      Arguments                    : Argument_List;
-      A_Visit_Action               : Visit_Action := Unknown;
+      Node           : Template_Section;
+      Is_Null        : Boolean := False;
+      Call_Reference : T_Entity;
+      Args           : T_Arg_Vectors.Vector;
+      A_Visit_Action : Visit_Action := Unknown;
    end record;
 
    type Wrap_Type is new T_Weave_Or_Wrap_Type with record
@@ -175,20 +182,15 @@ package Wrapping.Semantic.Structure is
       null;
    end record;
 
-   type Apply_Type is new T_Entity_Type with record
-      null;
-   end record;
-
    type Import_Type is new T_Entity_Type with record
      Imported_Module : Unbounded_Text_Type;
    end record;
 
    type T_Command_Type is new T_Entity_Type with record
-      Match_Expression : Template_Node;
+      Match_Expression : T_Expr;
+      Pick_Expression  : T_Expr;
+      Template_Section : T_Weave_Or_Wrap;
 
-      Template_Clause : T_Weave_Or_Wrap;
-
-      Traverse_Expression : Template_Node;
       Nested_Actions   : T_Entity;
       Else_Actions     : T_Entity;
    end Record;
@@ -196,6 +198,105 @@ package Wrapping.Semantic.Structure is
    type T_Visitor_Type is new T_Named_Entity_Type with record
       Arguments_Ordered : T_Var_Vectors.Vector;
       Arguments_Indexed : T_Var_Maps.Map;
+   end record;
+
+   type String_Part_Kind is (Str_Kind, Expr_Kind, Group_Kind);
+
+   type String_Part (Kind : String_Part_Kind := Str_Kind) is record
+      Offset_Line, Offset_Column : Integer;
+
+      case Kind is
+         when Str_Kind =>
+            Value : Unbounded_Text_Type;
+
+         when Expr_Kind =>
+            Expr : T_Expr;
+
+         when Group_Kind =>
+            Group_Number : Integer;
+
+      end case;
+   end record;
+
+   package Processed_String_Vector is new Ada.Containers.Vectors (Positive, String_Part);
+   use Processed_String_Vector;
+
+   type T_Expr_Type (Kind : Template_Node_Kind_Type) is new T_Entity_Type with record
+      Has_New : Boolean := False;
+
+      case Kind is
+         when Template_Match_Capture =>
+            Match_Expr : T_Expr;
+
+         when Template_Selector =>
+            Selector_Left, Selector_Right : T_Expr;
+
+            --  In patterns such as x.fold ().z or x.all ().z, it's important to
+            --  know that an expansion function (so fold or all here) is
+            --  present, so that the left call can be done as an expanding code.
+            --  In particular in the case of e.g. child().all().z, child will
+            --  behave differently and expand to all values as opposed to
+            --  only selecting the first one.
+            --  Note that a lookup to the right isn't sufficient, as in
+            --  a.all().b, right represent a selector all().b and not just the
+            --  terminal all.
+            --  When left expansion is set, the selector right will be processed
+            --  by the expantion function. e.g. called for every object in the
+            --  context of all and for the resulting value in the context of
+            --  fold.
+            Selector_Left_Expansion : T_Expr;
+
+         when Template_Binary_Expr =>
+            Binary_Left, Binary_Right : T_Expr;
+
+         when Template_Unary_Expr =>
+            Unary_Right : T_Expr;
+
+         when Template_Literal =>
+            null;
+
+         when Template_Token_Identifier | Template_Identifier =>
+            Static_Reference : T_Entity;
+
+         when Template_Number =>
+            Number : Integer;
+
+         when Template_Str =>
+            Str : Processed_String_Vector.Vector;
+
+         when Template_Call_Expr =>
+            Called : T_Expr;
+            Args   : T_Arg_Vectors.Vector;
+
+         when Template_Lambda_Expr =>
+            Lambda_Expression : T_Expr;
+
+         when Template_New_Expr =>
+            null;
+
+         when Template_At_Ref =>
+            null;
+
+         when Template_Qualified_Match =>
+            Qualified_Match_Expr : T_Expr;
+
+         when Template_Fold_Expr =>
+            Default     : T_Expr;
+            Combine     : T_Expr;
+
+         when Template_All_Expr =>
+            All_Prefix : T_Expr;
+            All_Match  : T_Expr;
+
+         when others =>
+            null;
+      end case;
+   end record;
+
+   type T_Arg_Type is tagged record
+      Name_Node : Template_Node;
+      Name : Unbounded_Text_Type;
+      Expr : T_Expr;
    end record;
 
 end Wrapping.Semantic.Structure;

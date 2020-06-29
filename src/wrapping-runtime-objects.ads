@@ -87,6 +87,9 @@ package Wrapping.Runtime.Objects is
    package W_Template_Instance_Vectors is new Ada.Containers.Vectors (Positive, W_Template_Instance);
    use W_Template_Instance_Vectors;
 
+   type W_All_Type;
+   type W_All is access all W_All_Type;
+
    type W_Reference_Type is new W_Object_Type with record
       Value : W_Object;
 
@@ -108,7 +111,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Reference_Type;
-      Params    : Argument_List);
+      Params    : T_Arg_Vectors.Vector);
 
    function Match_With_Top_Object
      (An_Entity : access W_Reference_Type) return Boolean;
@@ -128,13 +131,13 @@ package Wrapping.Runtime.Objects is
    procedure Evaluate_Bowse_Functions
      (An_Entity        : access W_Reference_Type;
       A_Mode           : Browse_Mode;
-      Match_Expression : Template_Node'Class);
+      Match_Expression : T_Expr);
 
    overriding
    function Browse_Entity
      (An_Entity : access W_Reference_Type;
       Browsed : access W_Object_Type'Class;
-      Match_Expression : Template_Node'Class;
+      Match_Expression : T_Expr;
       Result : out W_Object) return Visit_Action;
 
    function Is_Implicit (Object : W_Reference_Type) return Boolean is
@@ -163,7 +166,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Vector_Type;
-      Params    : Argument_List);
+      Params    : T_Arg_Vectors.Vector);
 
    overriding
    function To_String (Object : W_Vector_Type) return Text_Type;
@@ -185,7 +188,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Map_Type;
-      Params    : Argument_List);
+      Params    : T_Arg_Vectors.Vector);
 
    type W_Integer_Type is new W_Object_Type with record
       Value : Integer;
@@ -201,7 +204,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Text_Expression_Type;
-      Params    : Argument_List);
+      Params    : T_Arg_Vectors.Vector);
 
    type W_String_Type is new W_Text_Expression_Type with record
       Value : Unbounded_Text_Type;
@@ -242,7 +245,7 @@ package Wrapping.Runtime.Objects is
 
    type Call_Access is access procedure
      (Object : access W_Object_Type'Class;
-      Params : Argument_List);
+      Params : T_Arg_Vectors.Vector);
 
    type W_Function_Type is new W_Object_Type with record
       Prefix : W_Object;
@@ -252,7 +255,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Function_Type;
-      Params    : Argument_List);
+      Params    : T_Arg_Vectors.Vector);
 
    type W_Static_Entity_Type is new W_Object_Type with record
       An_Entity : T_Entity;
@@ -266,7 +269,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Static_Entity_Type;
-      Params    : Argument_List);
+      Params    : T_Arg_Vectors.Vector);
 
    type W_Expression_Type is new W_Object_Type with record
       Expression : Template_Node;
@@ -342,7 +345,7 @@ package Wrapping.Runtime.Objects is
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Node_Type;
-      Params    : Argument_List);
+      Params    : T_Arg_Vectors.Vector);
 
    overriding
    function Match_With_Top_Object
@@ -365,7 +368,7 @@ package Wrapping.Runtime.Objects is
    procedure Evaluate_Bowse_Functions
      (An_Entity        : access W_Node_Type;
       A_Mode           : Browse_Mode;
-      Match_Expression : Template_Node'Class);
+      Match_Expression : T_Expr);
 
    function To_String (An_Entity : W_Node_Type) return Text_Type is ("");
 
@@ -411,5 +414,10 @@ package Wrapping.Runtime.Objects is
         (E      : access W_Object_Type'Class;
          Result : out W_Object) return Visit_Action)
       return Visit_Action;
+
+   type W_All_Type is record
+      Iterable : W_Object;
+      Prefix, Suffix : Template_node;
+   end record;
 
 end Wrapping.Runtime.Objects;

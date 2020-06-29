@@ -13,7 +13,7 @@ package body Wrapping.Runtime.Functions is
 
    procedure Call_Normalize_Ada_Name
      (Object : access W_Object_Type'Class;
-      Params : Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
       New_Name : Unbounded_Text_Type;
       Prev_Up  : Boolean := False;
@@ -76,7 +76,7 @@ package body Wrapping.Runtime.Functions is
 
    procedure Call_Replace_Text
      (Object : access W_Object_Type'Class;
-      Params : Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
       Result : W_Object;
       Actuals : Actuals_Type :=
@@ -104,7 +104,7 @@ package body Wrapping.Runtime.Functions is
        Make_Parameter ("match", True));
 
    procedure Call_To_Lower
-    (Object : access W_Object_Type'Class; Params : Argument_List)
+    (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       Result : W_Object;
 
@@ -130,7 +130,7 @@ package body Wrapping.Runtime.Functions is
        Make_Parameter ("match", True));
 
    procedure Call_Unindent
-    (Object : access W_Object_Type'Class; Params : Argument_List)
+    (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       Result : W_Object;
 

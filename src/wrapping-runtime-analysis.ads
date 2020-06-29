@@ -15,9 +15,9 @@ package Wrapping.Runtime.Analysis is
 
    procedure Analyse (Root_Entity : W_Node);
 
-   procedure Evaluate_Expression (Node : Template_Node'Class);
+   procedure Evaluate_Expression (Expr : T_Expr);
 
-   function Evaluate_Expression (Node : Template_Node'Class) return W_Object;
+   function Evaluate_Expression (Expr : T_Expr) return W_Object;
 
    function Analyze_Visitor
      (E : access W_Object_Type'Class;

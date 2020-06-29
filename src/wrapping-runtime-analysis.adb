@@ -23,31 +23,33 @@ with Wrapping.Runtime.Functions; use Wrapping.Runtime.Functions;
 package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Identifier (Node : Template_Node'Class);
-   procedure Handle_Call (Node : Call_Expr'Class);
-   procedure Handle_Template_Call (A_Template_Instance : W_Template_Instance; Args : Argument_List);
+   procedure Handle_Call (Expr : T_Expr);
+   procedure Handle_Template_Call
+     (A_Template_Instance : W_Template_Instance;
+      Args : T_Arg_Vectors.Vector);
    procedure Handle_Visitor_Call
-     (An_Entity : W_Node;
-      A_Visitor : T_Visitor;
-      Args : Argument_List;
-      Apply_To_All : Boolean);
-   procedure Handle_Fold (Folded_Expression : Template_Node'Class; Node : Fold_Expr'Class);
+     (An_Entity    : W_Node;
+      A_Visitor    : T_Visitor;
+      Args         : T_Arg_Vectors.Vector);
+   procedure Handle_Fold (Selector : T_Expr; Fold_Expr : T_Expr);
    procedure Handle_New (Node : Create_Template_Tree'Class);
+   procedure Handle_All (Selector : T_Expr; All_Expr : T_Expr);
 
    procedure Analyze_Replace_String
-     (Node : Template_Node'Class;
-      On_Group : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expression : Template_Node) := null);
+     (Expr          : T_Expr;
+      On_Group      : access procedure (Index : Integer; Value : W_Object) := null;
+      On_Expression : access procedure (Expr : T_Expr) := null);
 
    procedure Call_Convert_To_Text
      (Object : access W_Object_Type'Class;
-      Params : Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
    begin
-      if Params.Children_Count = 1 then
+      if Params.Length = 1 then
          Push_Object
            (W_Object'
               (new W_Text_Conversion_Type'
-                   (An_Object => Evaluate_Expression (Params.Child (1)))));
+                   (An_Object => Evaluate_Expression (Params.Element (1).Expr))));
       else
          Error ("conversion takes 1 argument");
       end if;
@@ -160,9 +162,9 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context := new Frame_Context_Type'
         (Parent_Context       => Top_Frame.Top_Context,
          Match_Mode           => Top_Frame.Top_Context.Match_Mode,
-         Is_Folding_Context   => Top_Frame.Top_Context.Is_Folding_Context,
+         Is_Expanding_Context => Top_Frame.Top_Context.Is_Expanding_Context,
          Name_Captured        => Top_Frame.Top_Context.Name_Captured,
-         Folding_Expression   => Top_Frame.Top_Context.Folding_Expression,
+         Expand_Expression    => Top_Frame.Top_Context.Expand_Expression,
          An_Allocate_Callback => Top_Frame.Top_Context.An_Allocate_Callback,
          Left_Value           => Top_Frame.Top_Context.Left_Value,
          Is_Root_Selection    => Top_Frame.Top_Context.Is_Root_Selection,
@@ -274,14 +276,14 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Create_And_Set_Template_Instance
         (A_Command  : T_Command;
-         Expression : Template_Node'Class);
+         Expression : T_Expr);
       --  This will create a template instance from the clause information,
       --  setting parameter expression and adding it to the relevant language
       --  object.
 
       procedure Create_And_Set_Template_Instance
         (A_Command : T_Command;
-         Expression : Template_Node'Class)
+         Expression : T_Expr)
       is
       begin
          Evaluate_Expression (Expression);
@@ -300,11 +302,11 @@ package body Wrapping.Runtime.Analysis is
             --  We've set a null template - the objective is to prevent this
             --  entity to be wrapped by this template.
 
-            if Template_Clause.Arguments.Children_Count /= 1 then
+            if Template_Clause.Args.Length /= 1 then
                Error ("expected one argument to null");
             end if;
 
-            Evaluate_Expression (Template_Clause.Arguments.Child (1).As_Argument.F_Value);
+            Evaluate_Expression (Template_Clause.Args.Element (1).Expr);
             Result := Pop_Object.Dereference;
 
             if Result.all not in W_Static_Entity_Type'Class
@@ -360,8 +362,7 @@ package body Wrapping.Runtime.Analysis is
                   Push_Implicit_New (A_Template_Instance);
                end if;
 
-
-               Handle_Template_Call (A_Template_Instance, Template_Clause.Arguments);
+               Handle_Template_Call (A_Template_Instance, Template_Clause.Args);
 
                if not Self_Weave then
                   Pop_Object;
@@ -374,16 +375,19 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Apply_Command (A_Command : T_Command) is
          Matched : Boolean;
+         Self    : W_Node;
+         Result  : W_Object;
       begin
+         Self := A_Language_Entity;
          --  The command is the enclosing scope for all of its clauses. It
          --  will in particular receive the matching groups and the temporary
          --  values that can be used consistently in the various clauses
          Push_Frame (A_Command);
-         Push_Implicit_Self (A_Language_Entity);
+         Push_Implicit_Self (Self);
 
          Top_Frame.Top_Context.An_Allocate_Callback := Allocate'Unrestricted_Access;
 
-         if not A_Command.Match_Expression.Is_Null then
+         if A_Command.Match_Expression /= null then
             Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
 
             Top_Frame.Top_Context.Matching_Object := W_Object
@@ -397,171 +401,131 @@ package body Wrapping.Runtime.Analysis is
          end if;
 
          if Matched then
-            if A_Command.Template_Clause /= null then
+            if A_Command.Pick_Expression /= null then
+               Result := Evaluate_Expression (A_Command.Pick_Expression);
+               Pop_Object; -- Pop previous self.
+
+               --  TODO: Handle case where result is "all"
+
+               if Result.all in W_Node_Type'Class then
+                  Push_Implicit_Self (Result);
+                  Self := W_Node (Result);
+               else
+                  Error ("can't pick selected object");
+               end if;
+            end if;
+
+            if A_Command.Nested_Actions /= null then
+               Apply_Wrapping_Program
+                 (Self,
+                  A_Command.Nested_Actions,
+                  A_Visit_Action);
+            elsif A_Command.Template_Section /= null then
                -- HANDLE WEAVE OR WRAP
 
-               if A_Command.Template_Clause.A_Visit_Action /= Unknown then
+               if A_Command.Template_Section.A_Visit_Action /= Unknown then
                   -- TODO: consider differences between weave and wrap here
                   --  TODO: This doesn't consider different visits, each
                   --  should have its own decision
                   if not A_Language_Entity.Traverse_Decision_Taken then
                      A_Language_Entity.Traverse_Decision_Taken := True;
-                     A_Visit_Action := A_Command.Template_Clause.A_Visit_Action;
+                     A_Visit_Action := A_Command.Template_Section.A_Visit_Action;
                   end if;
                else
                   declare
-                     Entity_Target : W_Node;
-                     Tmp_Target : W_Object;
+                     --Tmp_Target    : W_Object;
                   begin
-                     if not A_Command.Template_Clause.Target_Object.Is_Null then
-                        Evaluate_Expression (A_Command.Template_Clause.Target_Object);
-                        Tmp_Target := Pop_Object.Dereference;
-
-                        if Tmp_Target = Match_False then
-                           Error ("could not select object to wrap or weave");
-                        elsif Tmp_Target.all in W_Node_Type'Class then
-                           Entity_Target := W_Node (Tmp_Target);
-                        elsif Tmp_Target.all in W_Static_Entity_Type'Class then
-                           Entity_Target := W_Node
-                             (Get_Object_For_Entity
-                                (W_Static_Entity (Tmp_Target).An_Entity));
-                        else
-                           Error ("can't wrap or weave selected object "
-                                  & Wide_Wide_Expanded_Name (Tmp_Target.all'Tag));
-                        end if;
-
-                        --  A number of the function below assume that
-                        -- children for the entity are set - make sure that
-                        -- they are
-                        W_Node_Type'Class (Entity_Target.all).Pre_Visit;
-                     else
-                        Entity_Target := A_Language_Entity;
-                     end if;
-
-                     if A_Command.Template_Clause.Call_Reference /= null
-                       or else not A_Command.Template_Clause.Arguments.Is_Null
+                     if A_Command.Template_Section.Call_Reference /= null
+                       or else A_Command.Template_Section.Args.Length /= 0
                      then
                         -- There is an explicit template call. Pass this on either the
                         -- current template or the whole tree
 
-                        if A_Command.Template_Clause.Call_Reference/= null
-                          and then A_Command.Template_Clause.Call_Reference.all in T_Visitor_Type'Class
+                        if A_Command.Template_Section.Call_Reference/= null
+                          and then A_Command.Template_Section.Call_Reference.all in T_Visitor_Type'Class
                         then
                            Handle_Visitor_Call
-                             (Entity_Target,
-                              T_Visitor (A_Command.Template_Clause.Call_Reference),
-                              A_Command.Template_Clause.Arguments,
-                              A_Command.Template_Clause.Is_All);
-                        elsif A_Command.Template_Clause.Is_All then
-                           -- TODO: This could all be moved to Handle Template Call instead, and
-                           -- would be consistent with the fact that everything above is
-                           -- in Handle_Visitor_Call
-                           declare
-                              function Apply_Template
-                                (E      : access W_Object_Type'Class;
-                                 Result : out W_Object) return Visit_Action
-                              is
-                              begin
-                                 Result := null;
-
-                                 Apply_Template_Action (W_Node (E), A_Command.Template_Clause);
-
-                                 return Into;
-                              end Apply_Template;
-
-                              Traverse_Result : W_Object;
-                           begin
-                              A_Visit_Action := Entity_Target.Traverse
-                                (A_Mode       => Child_Depth,
-                                 Include_Self => True,
-                                 Final_Result => Traverse_Result,
-                                 Visitor      => Apply_Template'Access);
-                           end;
+                             (Self,
+                              T_Visitor (A_Command.Template_Section.Call_Reference),
+                              A_Command.Template_Section.Args);
+                        --  Move the below section to the generic all behavior
+                        --  elsif A_Command.Template_Section.Is_All then
+                        --     -- TODO: This could all be moved to Handle Template Call instead, and
+                        --     -- would be consistent with the fact that everything above is
+                        --     -- in Handle_Visitor_Call
+                        --     declare
+                        --        function Apply_Template
+                        --          (E      : access W_Object_Type'Class;
+                        --           Result : out W_Object) return Visit_Action
+                        --        is
+                        --        begin
+                        --           Result := null;
+                        --
+                        --           Apply_Template_Action (W_Node (E), A_Command.Template_Section);
+                        --
+                        --           return Into;
+                        --        end Apply_Template;
+                        --
+                        --        Traverse_Result : W_Object;
+                        --     begin
+                        --        A_Visit_Action := Entity_Target.Traverse
+                        --          (A_Mode       => Child_Depth,
+                        --           Include_Self => True,
+                        --           Final_Result => Traverse_Result,
+                        --           Visitor      => Apply_Template'Access);
+                        --     end;
                         else
-                           Apply_Template_Action (Entity_Target, A_Command.Template_Clause);
+                           Apply_Template_Action (Self, A_Command.Template_Section);
                         end if;
                      else
-                        if A_Command.Template_Clause.Is_All then
-                           --  There is no template call. Apply the current
-                           --  program to all children. Avoid to apply it on the
-                           --  current entity which is already being analyzed
-                           --  under the current program.
-
-                           for E of Entity_Target.Children_Ordered loop
-                              declare
-                                 Dummy_Action : Visit_Action;
-                                 Prev_Visit_Id : Integer;
-                                 Traverse_Result : W_Object;
-                              begin
-                                 --  Increment the visitor counter and set the current visitor id, as to
-                                 --  track entities that are being visited by this iteration.
-                                 Prev_Visit_Id := Current_Visitor_Id;
-                                 Visitor_Counter := Visitor_Counter + 1;
-                                 Current_Visitor_Id := Visitor_Counter;
-
-                                 -- TODO: This only works for the main program.
-                                 -- implement support in case this is called
-                                 -- from a visitor (the visitor should be
-                                 -- traversed, not the main program.
-
-                                 Dummy_Action := E.Traverse
-                                   (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
-
-                                 Current_Visitor_Id := Prev_Visit_Id;
-                              end;
-                           end loop;
-                        else
+                        --  Ned to generalize the usage of all.
+                        null;
+                        --  if A_Command.Template_Section.Is_All then
+                        --     --  There is no template call. Apply the current
+                        --     --  program to all children. Avoid to apply it on the
+                        --     --  current entity which is already being analyzed
+                        --     --  under the current program.
+                        --
+                        --     for E of Entity_Target.Children_Ordered loop
+                        --        declare
+                        --           Dummy_Action    : Visit_Action;
+                        --           Prev_Visit_Id   : Integer;
+                        --           Traverse_Result : W_Object;
+                        --        begin
+                        --           --  Increment the visitor counter and set the current visitor id, as to
+                        --           --  track entities that are being visited by this iteration.
+                        --           Prev_Visit_Id := Current_Visitor_Id;
+                        --           Visitor_Counter := Visitor_Counter + 1;
+                        --           Current_Visitor_Id := Visitor_Counter;
+                        --
+                        --           -- TODO: This only works for the main program.
+                        --           -- implement support in case this is called
+                        --           -- from a visitor (the visitor should be
+                        --           -- traversed, not the main program.
+                        --
+                        --           Dummy_Action := E.Traverse
+                        --             (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
+                        --
+                        --           Current_Visitor_Id := Prev_Visit_Id;
+                        --        end;
+                        --     end loop;
+                        -- else
                            -- TODO: APPLY THE CURRENT PROGRAM ON THE TARGET ONLY
-                           null;
-                        end if;
+                        --   null;
+                        --end if;
                      end if;
                   end;
                end if;
-            elsif A_Command.Nested_Actions /= null then
-               Apply_Wrapping_Program
-                 (A_Language_Entity,
-                  A_Command.Nested_Actions,
-                  A_Visit_Action);
-            elsif not A_Command.Traverse_Expression.Is_Null then
-               if not A_Language_Entity.Traverse_Decision_Taken then
-                  A_Language_Entity.Traverse_Decision_Taken := True;
-
-                  Evaluate_Expression (A_Command.Traverse_Expression);
-
-                  if Top_Object.Dereference.all in W_Traverse_Decision_Type'Class then
-                     --  In this case, a decision was taken as to the continuation of the
-                     --  iteration.
-
-                     declare
-                        A_Decision : W_Traverse_Decision := W_Traverse_Decision
-                          (Top_Object.Dereference);
-                     begin
-                        Pop_Object;
-
-                        if A_Decision.A_Visit_Action = Over then
-                           A_Visit_Action := Over;
-                        else
-                           if A_Decision.Into_Expression.Is_Null then
-                              A_Visit_Action := Into;
-                           else
-                              Error ("traverse into functions not yet implemented");
-
-                              A_Visit_Action := Over;
-                           end if;
-                        end if;
-                     end;
+            else
+               if A_Command.Else_Actions /= null then
+                  if A_Command.Else_Actions.all in T_Command_Type'Class then
+                     Apply_Command (T_Command (A_Command.Else_Actions));
+                  else
+                     Apply_Wrapping_Program
+                       (A_Language_Entity,
+                        A_Command.Else_Actions,
+                        A_Visit_Action);
                   end if;
-               end if;
-            end if;
-         else
-            if A_Command.Else_Actions /= null then
-               if A_Command.Else_Actions.all in T_Command_Type'Class then
-                  Apply_Command (T_Command (A_Command.Else_Actions));
-               else
-                  Apply_Wrapping_Program
-                    (A_Language_Entity,
-                     A_Command.Else_Actions,
-                     A_Visit_Action);
                end if;
             end if;
          end if;
@@ -753,14 +717,14 @@ package body Wrapping.Runtime.Analysis is
 
    end Analyse;
 
-   function Evaluate_Expression (Node : Template_Node'Class) return W_Object is
+   function Evaluate_Expression (Expr : T_Expr) return W_Object is
    begin
-      Evaluate_Expression (Node);
+      Evaluate_Expression (Expr);
 
       return Pop_Object;
    end Evaluate_Expression;
 
-   procedure Evaluate_Expression (Node : Template_Node'Class)
+   procedure Evaluate_Expression (Expr : T_Expr)
    is
       --  Some expression need to match with the outer object. For example:
       --    match a
@@ -775,69 +739,69 @@ package body Wrapping.Runtime.Analysis is
       --  would match again).
       --  TODO: Review all cases of disconnection, e.g. &, not, a: etc.
       To_Match : Boolean := True;
-
-      Previous_Value : W_Object;
    begin
-      Push_Error_Location (Node);
+      Push_Error_Location (Expr.Node);
 
-      case Node.Kind is
+      case Expr.Kind is
          when Template_Match_Capture =>
+            declare
+               Captured_Name : Text_Type := Expr.Node.As_Match_Capture.F_Captured.Text;
+               Previous_Value : W_Object;
+            begin
+               --  This expression captures the result of the underlying
+               --  expression and lets its value pass through.
 
-            --  This expression captures the result of the underlying
-            --  expression and lets its value pass through.
+               --  First, save any previous name capture for restoration,
+               --  and store the new one.
 
-            --  First, save any previous name capture for restoration,
-            --  and store the new one.
+               Push_Frame_Context;
+               Top_Frame.Top_Context.Name_Captured :=
+                 To_Unbounded_Text (Captured_Name);
 
-            Push_Frame_Context;
-            Top_Frame.Top_Context.Name_Captured :=
-              To_Unbounded_Text (Node.As_Match_Capture.F_Captured.Text);
-
-            if Top_Frame.Symbols.Contains
-              (Node.As_Match_Capture.F_Captured.Text)
-            then
-               Previous_Value := Top_Frame.Symbols.Element
-                 (Node.As_Match_Capture.F_Captured.Text);
-            end if;
-
-            Evaluate_Expression (Node.As_Match_Capture.F_Expression);
-
-            if Top_Frame.Data_Stack.Last_Element /= Match_False then
-               Top_Frame.Symbols.Include
-                 (Node.As_Match_Capture.F_Captured.Text,
-                  Top_Frame.Data_Stack.Last_Element);
-            else
-               --  For early reference, that name may have already been
-               --  captured. If we eneded up not having a match, it needs
-               --  to be removed, or replaced by the previous value.
-
-               if Previous_Value /= null then
-                  Top_Frame.Symbols.Include
-                    (Node.As_Match_Capture.F_Captured.Text,
-                     Previous_Value);
-               elsif Top_Frame.Symbols.Contains
-                 (Node.As_Match_Capture.F_Captured.Text)
-               then
-                  Top_Frame.Symbols.Delete
-                    (Node.As_Match_Capture.F_Captured.Text);
+               if Top_Frame.Symbols.Contains (Captured_Name) then
+                  Previous_Value := Top_Frame.Symbols.Element (Captured_Name);
                end if;
-            end if;
 
-            Pop_Frame_Context;
-            To_Match := False;
+               Evaluate_Expression (Expr.Match_Expr);
+
+               if Top_Frame.Data_Stack.Last_Element /= Match_False then
+                  Top_Frame.Symbols.Include (Captured_Name, Top_Object);
+               else
+                  --  For early reference, that name may have already been
+                  --  captured. If we eneded up not having a match, it needs
+                  --  to be removed, or replaced by the previous value.
+
+                  if Previous_Value /= null then
+                     Top_Frame.Symbols.Include (Captured_Name, Previous_Value);
+                  elsif Top_Frame.Symbols.Contains (Captured_Name) then
+                     Top_Frame.Symbols.Delete (Captured_Name);
+                  end if;
+               end if;
+
+               Pop_Frame_Context;
+               To_Match := False;
+            end;
 
          when Template_Selector =>
             --  In a selector, we compute the left object, build the right
             --  expression based on the left object, and then put the result
             --  on the left object on the stack.
 
-            if not Node.As_Selector.F_Left.Is_Null then
-               if Node.As_Selector.F_Right.Kind = Template_Fold_Expr then
-                  --  Folding needs to be handled speparately, as the prefix
+            if Expr.Selector_Left /= null then
+               if Expr.Selector_Left_Expansion /= null then
+                  --  Expansion needs to be handled speparately, as the prefix
                   --  needs to be handled in folding context, with all
                   --  processing expressions properly set.
 
-                  Handle_Fold (Node.As_Selector.F_Left, Node.As_Selector.F_Right.As_Fold_Expr);
+                  --  TODO: Don't forget to evaluate past
+
+                  if Expr.Selector_Left_Expansion.Kind = Template_Fold_Expr then
+                     Handle_Fold (Expr, Expr.Selector_Left_Expansion);
+                  elsif Expr.Selector_Left_Expansion.Kind = Template_All_Expr then
+                     Handle_All (Expr, Expr.Selector_Left_Expansion);
+                  else
+                     Error ("unknown expansion operation");
+                  end if;
                else
                   --  The left part of a selector may have calls. In this
                   --  case, these calls are unrelated to the value that is
@@ -857,10 +821,10 @@ package body Wrapping.Runtime.Analysis is
 
                   Push_Frame_Context;
                   Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
-                  Top_Frame.Top_Context.Is_Folding_Context := False;
+                  Top_Frame.Top_Context.Is_Expanding_Context := False;
                   Top_Frame.Top_Context.Match_Mode := Match_None;
 
-                  Evaluate_Expression (Node.As_Selector.F_Left);
+                  Evaluate_Expression (Expr.Selector_Left);
                   Pop_Frame_Context;
 
                   Push_Frame_Context;
@@ -869,14 +833,14 @@ package body Wrapping.Runtime.Analysis is
                   --  Leave the result of the previous expression on the stack,
                   --  it's suppposed to be consume by the next expression
 
-                  Evaluate_Expression (Node.As_Selector.F_Right);
+                  Evaluate_Expression (Expr.Selector_Right);
 
                   Pop_Frame_Context;
                end if;
             else
                Push_Frame_Context;
                Top_Frame.Top_Context.Is_Root_Selection := True;
-               Evaluate_Expression (Node.As_Selector.F_Right);
+               Evaluate_Expression (Expr.Selector_Right);
                Pop_Frame_Context;
             end if;
 
@@ -895,11 +859,11 @@ package body Wrapping.Runtime.Analysis is
             declare
                Left, Right : W_Object;
             begin
-               Left := Evaluate_Expression (Node.As_Binary_Expr.F_Lhs);
+               Left := Evaluate_Expression (Expr.Binary_Left);
 
-               if Node.As_Binary_Expr.F_Op.Kind = Template_Operator_And then
+               if Expr.Node.As_Binary_Expr.F_Op.Kind = Template_Operator_And then
                   if Left /= Match_False then
-                     Right := Evaluate_Expression (Node.As_Binary_Expr.F_Rhs);
+                     Right := Evaluate_Expression (Expr.Binary_Right);
 
                      if Right /= Match_False then
                         Push_Object (Right);
@@ -911,11 +875,11 @@ package body Wrapping.Runtime.Analysis is
                   end if;
 
                   To_Match := False;
-               elsif Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Or then
+               elsif Expr.Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Or then
                   if Left /= Match_False then
                      Push_Object (Left);
                   else
-                     Right := Evaluate_Expression (Node.As_Binary_Expr.F_Rhs);
+                     Right := Evaluate_Expression (Expr.Binary_Right);
 
                      if Right /= Match_False then
                         Push_Object (Right);
@@ -925,8 +889,8 @@ package body Wrapping.Runtime.Analysis is
                   end if;
 
                   To_Match := False;
-               elsif Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Amp then
-                  Right := Evaluate_Expression (Node.As_Binary_Expr.F_Rhs);
+               elsif Expr.Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Amp then
+                  Right := Evaluate_Expression (Expr.Binary_Right);
 
                   if Left.Dereference.all in W_Text_Expression_Type'Class
                     and then Right.Dereference.all in W_Text_Expression_Type'Class
@@ -955,9 +919,9 @@ package body Wrapping.Runtime.Analysis is
          when Template_Unary_Expr =>
             declare
                Right : W_Object :=
-                 Evaluate_Expression (Node.As_Unary_Expr.F_Rhs).Dereference;
+                 Evaluate_Expression (Expr.Unary_Right).Dereference;
             begin
-               if Node.As_Unary_Expr.F_Op.Kind = Template_Operator_Not then
+               if Expr.Node.As_Unary_Expr.F_Op.Kind = Template_Operator_Not then
                   if Right = Match_False then
                      Push_Match_True (Top_Object.Dereference);
                   else
@@ -967,33 +931,27 @@ package body Wrapping.Runtime.Analysis is
             end;
 
          when Template_Literal =>
-            if Node.Text = "true" then
+            if Expr.Node.Text = "true" then
                Push_Match_True (Top_Object);
-            elsif Node.Text = "false" then
+            elsif Expr.Node.Text = "false" then
                Push_Match_False;
             else
-               Error ("unkown literal '" & Node.Text & "'");
+               Error ("unkown literal '" & Expr.Node.Text & "'");
             end if;
 
          when Template_Token_Identifier | Template_Identifier =>
-            Handle_Identifier (Node);
+            Handle_Identifier (Expr.Node);
 
          when Template_Number =>
-            declare
-               Val : W_Integer := new W_Integer_Type;
-            begin
-               Val.Value := Integer'Wide_Wide_Value (Node.Text);
-
-               Push_Object (Val);
-            end;
+            Push_Object (W_Object'(new W_Integer_Type'(Value => Expr.Number)));
 
          when Template_Str =>
-            Analyze_Replace_String (Node);
+            Analyze_Replace_String (Expr);
 
             Push_Object (W_Object'(new W_Regexp_Type'(Value => Pop_Object)));
 
          when Template_Call_Expr =>
-            Handle_Call (Node.As_Call_Expr);
+            Handle_Call (Expr);
 
             --  Prepare the matching context for the resulting value.
             --  As we're on a call match, we can
@@ -1009,7 +967,7 @@ package body Wrapping.Runtime.Analysis is
                A_Lambda : W_Lambda := new W_Lambda_Type;
             begin
                Capture_Lambda_Environment
-                 (A_Lambda, Node.As_Lambda_Expr.F_Expression);
+                 (A_Lambda, Expr.Node.As_Lambda_Expr.F_Expression);
                Push_Object (A_Lambda);
 
                Pop_Error_Location;
@@ -1017,7 +975,7 @@ package body Wrapping.Runtime.Analysis is
 
          when Template_New_Expr =>
             if Top_Frame.Top_Context.An_Allocate_Callback /= null then
-               Handle_New (Node.As_New_Expr.F_Tree);
+               Handle_New (Expr.Node.As_New_Expr.F_Tree);
             else
                Push_Match_False;
             end if;
@@ -1043,20 +1001,22 @@ package body Wrapping.Runtime.Analysis is
 
             Push_Frame_Context;
 
-            if Node.As_Qualified_Match.F_Op = Template_Operator_Is then
+            if Expr.Node.As_Qualified_Match.F_Op = Template_Operator_Is then
                Top_Frame.Top_Context.Match_Mode := Match_Is;
             else
                Top_Frame.Top_Context.Match_Mode := Match_Has;
             end if;
 
-            Evaluate_Expression (Node.As_Qualified_Match.F_Rhs);
+            Evaluate_Expression (Expr.Qualified_Match_Expr);
 
             Pop_Frame_Context;
 
             To_Match := False;
 
          when others =>
-            Error ("unexpected expression node kind: '" & Node.Kind'Wide_Wide_Image & "'");
+            Error
+              ("unexpected expression node kind: '"
+               & Expr.Node.Kind'Wide_Wide_Image & "'");
       end case;
 
 
@@ -1082,19 +1042,12 @@ package body Wrapping.Runtime.Analysis is
    Expression_Unit_Number : Integer := 1;
 
    procedure Analyze_Replace_String
-     (Node : Template_Node'Class;
-      On_Group : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expression : Template_Node) := null)
+     (Expr          : T_Expr;
+      On_Group      : access procedure (Index : Integer; Value : W_Object) := null;
+      On_Expression : access procedure (Expr : T_Expr) := null)
    is
-      Str : constant Text_Type := Remove_Quotes (Node.Text);
-      Context : constant Analysis_Context := Node.Unit.Context;
-
       Result : W_Text_Vector := new W_Text_Vector_Type;
       New_Text : W_String;
-
-      Next_Index : Integer := Str'First;
-
-      Current : Integer := Str'First;
 
       procedure Append_Text (Text : Text_Type) is
       begin
@@ -1105,14 +1058,13 @@ package body Wrapping.Runtime.Analysis is
       end Append_Text;
 
       procedure On_Error
-        (Message : Text_Type;
-         Filename : String;
-         Loc : Source_Location)
+        (Message : Text_Type; Filename : String; Loc : Source_Location)
       is
       begin
          Push_Error_Location
-           (Node.Unit.Get_Filename,
-            (Node.Sloc_Range.Start_Line, Node.Sloc_Range.Start_Column));
+           (Expr.Node.Unit.Get_Filename,
+            (Expr.Node.Sloc_Range.Start_Line,
+             Expr.Node.Sloc_Range.Start_Column));
 
          Put_Line
            (To_Text (Get_Sloc_Str)
@@ -1126,116 +1078,35 @@ package body Wrapping.Runtime.Analysis is
       Prev_Error := Error_Callback;
       Error_Callback := On_Error'Unrestricted_Access;
 
-      if Str = "" then
-         Append_Text ("");
-         Error_Callback := Prev_Error;
-         Push_Object (Result);
-
-         return;
-      end if;
-
-      --  When evaluating a string, e.g.: "str \e<r.f_name> str", the expressions
-      --  are not matched against the outside object. Every expression is also
-      --  to be considered a root selection.
-
       Push_Frame_Context;
       Top_Frame.Top_Context.Match_Mode := Match_None;
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
-      while Current <= Str'Last loop
-         if Str (Current) = '\' then
-            if Current /= Str'First then
-               Append_Text (Str (Next_Index .. Current - 1));
-            end if;
-
-            Current := Current + 1;
-
-            if Str (Current) = 'e' then
-               Current := Current + 1;
-
-               if Str (Current) = '<' then
-                  Next_Index := Current;
-
-                  while Next_Index < Str'Last and then Str (Next_Index) /= '>' loop
-                     Next_Index := Next_Index + 1;
-                  end loop;
-
-                  Expression_Unit_Number := Expression_Unit_Number + 1;
-
-                  declare
-                     Expression_Unit : Analysis_Unit :=
-                       Get_From_Buffer
-                         (Context  => Context,
-                          Filename => "internal expression" & Expression_Unit_Number'Img,
-                          Buffer   => To_String (Str (Current + 1 .. Next_Index - 1)),
-                          Rule     => Expression_Rule);
-                  begin
-                     if Has_Diagnostics (Expression_Unit) then
-                        Error (To_Text (Diagnostics (Expression_Unit)(1).Message));
-                     end if;
-
-                     if On_Expression /= null then
-                        On_Expression.All (Expression_Unit.Root);
-                     else
-                        Evaluate_Expression (Expression_Unit.Root);
-                        Result.A_Vector.Append (W_Object (Pop_Object));
-                     end if;
-                  end;
-
-                  Current := Next_Index + 1;
-                  Next_Index := Current;
+      for Str of Expr.Str loop
+         case Str.Kind is
+            when Str_Kind =>
+               Result.A_Vector.Append
+                 (new W_String_Type'(Value => Str.Value));
+            when Expr_Kind =>
+               if On_Expression /= null then
+                  On_Expression.All (Str.Expr);
                else
-                  Append_Text (Str (Current - 1 .. Current));
-                  Next_Index := Current;
-                  Current := Current + 1;
+                  Evaluate_Expression (Str.Expr);
+                  Result.A_Vector.Append (W_Object (Pop_Object));
                end if;
-            elsif Str (Current) = 'n' then
-               Append_Text (To_Text (String'(1 => ASCII.LF)));
-               Current := Current + 1;
-               Next_Index := Current;
-            elsif Str (Current) in '0' .. '9' then
-               Next_Index := Current;
-
-               while Next_Index < Str'Last and then Str (Next_Index) in '0' .. '9' loop
-                  Next_Index := Next_Index + 1;
-               end loop;
-
-               if Str (Next_Index) not in '0' .. '9' then
-                  Next_Index := Next_Index - 1;
-               end if;
-
+            when Group_Kind =>
                declare
-                  Group : Natural :=
-                    Natural'Wide_Wide_Value (Str (Current .. Next_Index));
-                  Value : W_Object := Top_Frame.Matched_Groups.Element (Group);
+                  Value : W_Object :=
+                    Top_Frame.Matched_Groups.Element (Str.Group_Number);
                begin
                   if On_Group /= null then
-                     On_Group.all (Group, Value);
+                     On_Group.all (Str.Group_Number, Value);
                   else
                      Append_Text (Value.To_String);
                   end if;
                end;
-
-               Current := Next_Index + 1;
-               Next_Index := Current;
-            elsif Str (Current) = '\' then
-               Append_Text ("\");
-               Next_Index := Current + 1;
-               Current := Current + 1;
-            else
-               Next_Index := Current;
-               Current := Current + 1;
-            end if;
-         else
-            Current := Current + 1;
-         end if;
+         end case;
       end loop;
-
-      if Next_Index <= Str'Last then
-         -- Add the end of the text to the result
-
-         Append_Text (Str (Next_Index .. Str'Last));
-      end if;
 
       Push_Object (Result);
       Error_Callback := Prev_Error;
@@ -1484,7 +1355,7 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Identifier;
 
    procedure Handle_Call_Parameters
-     (Args : Argument_List;
+     (Args : T_Arg_Vectors.Vector;
       Name_For_Position : access function (Position : Integer) return Template_Node;
       Store_Param_Value : access procedure (Name_Node : Template_Node; Value : W_Object);
       Perpare_Param_Evaluation : access procedure (Name_Node : Template_Node; Position : Integer) := null)
@@ -1500,9 +1371,9 @@ package body Wrapping.Runtime.Analysis is
       Parameter_Index := 1;
 
       for Param of Args loop
-         if not Param.As_Argument.F_Name.Is_Null then
+         if Param.Name /= "" then
             In_Named_Section := True;
-            Name_Node := Param.As_Argument.F_Name;
+            Name_Node := Param.Name_Node;
          else
             if In_Named_Section then
                Error ("can't have positional arguments after named ones");
@@ -1515,7 +1386,7 @@ package body Wrapping.Runtime.Analysis is
             Perpare_Param_Evaluation (Name_Node, Parameter_Index);
          end if;
 
-         Evaluate_Expression (Param.F_Value);
+         Evaluate_Expression (Param.Expr);
 
          Parameter_Value := Pop_Object;
 
@@ -1529,7 +1400,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Template_Call
      (A_Template_Instance : W_Template_Instance;
-      Args : Argument_List)
+      Args : T_Arg_Vectors.Vector)
    is
       procedure Perpare_Param_Evaluation (Name_Node : Template_Node; Position : Integer) is
          New_Value : W_Object;
@@ -1611,8 +1482,7 @@ package body Wrapping.Runtime.Analysis is
    procedure Handle_Visitor_Call
      (An_Entity : W_Node;
       A_Visitor : T_Visitor;
-      Args : Argument_List;
-      Apply_To_All : Boolean)
+      Args      : T_Arg_Vectors.Vector)
    is
       Symbols : W_Object_Maps.Map;
 
@@ -1645,7 +1515,7 @@ package body Wrapping.Runtime.Analysis is
 
       Prev_Visit_Id : Integer;
       A_Visit_Action : Visit_Action := Unknown;
-      Traverse_Result : W_Object;
+      --Traverse_Result : W_Object;
    begin
       --  Increment the visitor counter and set the current visitor id, as to
       --  track entities that are being visited by this iteration.
@@ -1670,18 +1540,18 @@ package body Wrapping.Runtime.Analysis is
       -- actual entity to be analyzed. The one pushed above is global to all
       -- calls and contains parameter evaluation, to be done only once.
 
-      if not Apply_To_All then
+      --if not Apply_To_All then
          Apply_Wrapping_Program
            (An_Entity,
             A_Visitor,
             A_Visit_Action);
-      else
-         A_Visit_Action := An_Entity.Traverse
-           (Child_Depth,
-            True,
-            Traverse_Result,
-            Sub_Visitor'Access);
-      end if;
+      --  else
+      --     A_Visit_Action := An_Entity.Traverse
+      --       (Child_Depth,
+      --        True,
+      --        Traverse_Result,
+      --        Sub_Visitor'Access);
+      --  end if;
 
       if A_Visit_Action in Over | Stop then
          Error ("visit action from visitor to caller not implemented");
@@ -1694,7 +1564,7 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame;
    end Handle_Visitor_Call;
 
-   procedure Handle_Call (Node : Call_Expr'Class) is
+   procedure Handle_Call (Expr : T_Expr) is
       Called : W_Object;
       Result : W_Object;
    begin
@@ -1707,7 +1577,7 @@ package body Wrapping.Runtime.Analysis is
          Top_Frame.Top_Context.Match_Mode := Match_Call_Default;
       end if;
 
-      Evaluate_Expression (Node.F_Called);
+      Evaluate_Expression (Expr.Called);
 
       Called := Top_Object.Dereference;
       --  TODO: we can probably pop the called object now that we track the matching
@@ -1735,7 +1605,7 @@ package body Wrapping.Runtime.Analysis is
 
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
-      Called.Push_Call_Result (Node.F_Args);
+      Called.Push_Call_Result (Expr.Args);
 
       Result := Pop_Object;
       Pop_Object; -- Pop call symbol
@@ -1744,9 +1614,7 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_Call;
 
-   procedure Handle_Fold
-     (Folded_Expression : Template_Node'Class; Node : Fold_Expr'Class)
-   is
+   procedure Handle_Fold (Selector : T_Expr; Fold_Expr : T_Expr) is
       Init_Value : W_Object;
    begin
       --  While it is not strictly mandatory (e.g. you can use fold to create
@@ -1757,8 +1625,8 @@ package body Wrapping.Runtime.Analysis is
       --  and combine.
 
       Push_Frame_Context;
-      Top_Frame.Top_Context.Is_Folding_Context := True;
-      Top_Frame.Top_Context.Folding_Expression := Template_Node (Node.F_Combine);
+      Top_Frame.Top_Context.Is_Expanding_Context := True;
+      Top_Frame.Top_Context.Expand_Expression := Fold_Expr.Combine;
       Top_Frame.Top_Context.Match_Mode := Match_None;
       Top_Frame.Top_Context.Is_Root_Selection := False;
 
@@ -1768,7 +1636,7 @@ package body Wrapping.Runtime.Analysis is
 
       Push_Implicit_Self (Get_Implicit_Self);
 
-      Evaluate_Expression (Node.F_Default);
+      Evaluate_Expression (Fold_Expr.Default);
       Init_Value := Pop_Object;
 
       if Top_Frame.Top_Context.Name_Captured /= "" then
@@ -1780,7 +1648,7 @@ package body Wrapping.Runtime.Analysis is
 
       Pop_Object;
 
-      Evaluate_Expression (Folded_Expression);
+      Evaluate_Expression (Selector.Selector_Left);
 
       --  Keep the result of the evaluate expression. If the result is false,
       --  this means that nothing was actually found. In that case, the init
@@ -1796,272 +1664,304 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_Fold;
 
-   procedure Handle_New (Node : Create_Template_Tree'Class) is
-
-      function Handle_Create_Template
-        (A_Call : Template_Call'Class;
-         Captured : Template_Node'Class)
-         return W_Template_Instance
-      is
-         An_Object : W_Object;
-         A_Template : T_Entity;
-         A_Template_Instance : W_Template_Instance;
-      begin
-         An_Object := Evaluate_Expression (A_Call.F_Name);
-
-         if An_Object.all not in W_Static_Entity_Type'Class then
-            Error ("expected template reference");
-         end if;
-
-         A_Template := W_Static_Entity (An_Object).An_Entity;
-
-         if A_Template.all not in T_Template_Type'Class then
-            Error ("expected template reference");
-         end if;
-
-         A_Template_Instance := Create_Template_Instance (null, T_Template (A_Template));
-
-         if not Captured.Is_Null then
-            Top_Frame.Symbols.Include
-              (Captured.Text, W_Object (A_Template_Instance));
-         end if;
-
-         Push_Implicit_New (A_Template_Instance);
-         Handle_Template_Call (A_Template_Instance, A_Call.F_Args);
-         Pop_Object;
-
-         return A_Template_Instance;
-      end Handle_Create_Template;
-
-      function Handle_Create_Tree
-        (A_Tree : Create_Template_Tree'Class; Parent : W_Template_Instance) return W_Template_Instance
-      is
-         Main_Node : W_Template_Instance;
-         Dummy : W_Template_Instance;
-      begin
-         if not A_Tree.F_Root.Is_Null then
-            Main_Node := Handle_Create_Template (A_Tree.F_Root, A_Tree.F_Captured);
-
-            if Parent = null then
-               --  If this is the root of the creation, then we need to signal this
-               --  outside. This is needed in particular for constructions like:
-               --  child (new (T ())) or child (new ([T(), T()])) where the root
-               --  entities need to be connected to the children of the parent entity.
-
-               --  for the form new (T() []), only the first one needs to be
-               --  passed above.
-
-               Top_Frame.Top_Context.An_Allocate_Callback.all (Main_Node);
-            else
-               Add_Child (Parent, Main_Node);
-            end if;
-
-            if not A_Tree.F_Tree.Is_Null then
-               for C of A_Tree.F_Tree loop
-                  Dummy := Handle_Create_Tree (C, Main_Node);
-               end loop;
-            end if;
-
-            return Main_Node;
-         else
-            --  In the case of new ([T(), T()], every first level will need to
-            --  be passed to the above level, and the last one will be the
-            --  result of the operator.
-
-            if not A_Tree.F_Tree.Is_Null then
-               for C of A_Tree.F_Tree loop
-                  Main_Node := Handle_Create_Tree (C, Parent);
-               end loop;
-            end if;
-
-            return Main_Node;
-         end if;
-      end Handle_Create_Tree;
-
+   procedure Handle_All (Selector : T_Expr; All_Expr : T_Expr)
+   is
+      Suffix : T_Expr;
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
+      if Selector.Selector_Right.Kind = Template_All_Expr then
+         --  In this case, we are on an expression such as x.all (). This is
+         --  an error. There should always be something selected a the end
+         --  of all, or it should be followed by a wrap instruction.
 
-      Push_Allocated_Entity (Handle_Create_Tree (Node, null));
+         Error ("all can't be a terminal unless in a pick instruction");
+      else
+         --  In this case, we are on an expression such as x.all ().something.
+         --  all is set as the left element of the selector right, and the
+         --  suffix is the left element.
+
+         Suffix := Selector.Selector_Right.Selector_Right;
+      end if;
+
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Is_Expanding_Context := True;
+      Top_Frame.Top_Context.Expand_Expression := Suffix;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Top_Frame.Top_Context.Is_Root_Selection := False;
+
+      Evaluate_Expression (Selector.Selector_Left);
 
       Pop_Frame_Context;
+   end Handle_All;
+
+   procedure Handle_New (Node : Create_Template_Tree'Class) is
+
+      --  function Handle_Create_Template
+      --    (A_Call : Template_Call'Class;
+      --     Captured : Template_Node'Class)
+      --     return W_Template_Instance
+      --  is
+      --     An_Object : W_Object;
+      --     A_Template : T_Entity;
+      --     A_Template_Instance : W_Template_Instance;
+      --  begin
+      --     An_Object := Evaluate_Expression (A_Call.F_Name);
+      --
+      --     if An_Object.all not in W_Static_Entity_Type'Class then
+      --        Error ("expected template reference");
+      --     end if;
+      --
+      --     A_Template := W_Static_Entity (An_Object).An_Entity;
+      --
+      --     if A_Template.all not in T_Template_Type'Class then
+      --        Error ("expected template reference");
+      --     end if;
+      --
+      --     A_Template_Instance := Create_Template_Instance (null, T_Template (A_Template));
+      --
+      --     if not Captured.Is_Null then
+      --        Top_Frame.Symbols.Include
+      --          (Captured.Text, W_Object (A_Template_Instance));
+      --     end if;
+      --
+      --     Push_Implicit_New (A_Template_Instance);
+      --     Handle_Template_Call (A_Template_Instance, A_Call.F_Args);
+      --     Pop_Object;
+      --
+      --     return A_Template_Instance;
+      --  end Handle_Create_Template;
+      --
+      --  function Handle_Create_Tree
+      --    (A_Tree : Create_Template_Tree'Class; Parent : W_Template_Instance) return W_Template_Instance
+      --  is
+      --     Main_Node : W_Template_Instance;
+      --     Dummy : W_Template_Instance;
+      --  begin
+      --     if not A_Tree.F_Root.Is_Null then
+      --        Main_Node := Handle_Create_Template (A_Tree.F_Root, A_Tree.F_Captured);
+      --
+      --        if Parent = null then
+      --           --  If this is the root of the creation, then we need to signal this
+      --           --  outside. This is needed in particular for constructions like:
+      --           --  child (new (T ())) or child (new ([T(), T()])) where the root
+      --           --  entities need to be connected to the children of the parent entity.
+      --
+      --           --  for the form new (T() []), only the first one needs to be
+      --           --  passed above.
+      --
+      --           Top_Frame.Top_Context.An_Allocate_Callback.all (Main_Node);
+      --        else
+      --           Add_Child (Parent, Main_Node);
+      --        end if;
+      --
+      --        if not A_Tree.F_Tree.Is_Null then
+      --           for C of A_Tree.F_Tree loop
+      --              Dummy := Handle_Create_Tree (C, Main_Node);
+      --           end loop;
+      --        end if;
+      --
+      --        return Main_Node;
+      --     else
+      --        --  In the case of new ([T(), T()], every first level will need to
+      --        --  be passed to the above level, and the last one will be the
+      --        --  result of the operator.
+      --
+      --        if not A_Tree.F_Tree.Is_Null then
+      --           for C of A_Tree.F_Tree loop
+      --              Main_Node := Handle_Create_Tree (C, Parent);
+      --           end loop;
+      --        end if;
+      --
+      --        return Main_Node;
+      --     end if;
+      --  end Handle_Create_Tree;
+      --
+   begin
+      null;
+      --  Push_Frame_Context;
+      --  Top_Frame.Top_Context.Match_Mode := Match_None;
+      --
+      --  Push_Allocated_Entity (Handle_Create_Tree (Node, null));
+      --
+      --  Pop_Frame_Context;
    end Handle_New;
 
    procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expression : Template_Node) is
-      Local_Symbols : Text_Sets.Set;
-
-      function Not_Capture_Identifiers
-        (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
-
-      function Capture_Identifiers
-        (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
-
-      procedure Capture (Name : Text_Type) is
-      begin
-         if Local_Symbols.Contains (Name) then
-            --  If the symbol is local to the lambda, then there's nothing to
-            --  capture.
-            return;
-         end if;
-
-         if Push_Global_Identifier (Name) then
-            --  We found a global identifier to record. If not, we expect it
-            --  to be resolved later when running the lambda.
-
-            --  If the object is an imlicit ref, it may be marked self
-            --  or new. We don't want to carry this property over to the lambda
-            --  call, so remove it.
-
-            if Top_Object.Dereference.all in W_Static_Entity_Type then
-               --  We don't capture static references, they can later be
-               --  retreived from context. Genreating symbols for them would
-               --  also confused name resolution as we would have a symbol
-               --  and a statically solvable name.
-               Pop_Object;
-            elsif Top_Object.all in W_Reference_Type'Class then
-               A_Lambda.Captured_Symbols.Insert
-                 (Name, new W_Reference_Type'
-                    (Value => W_Reference (Pop_Object).Value, others => <>));
-            else
-               A_Lambda.Captured_Symbols.Insert (Name, Pop_Object);
-            end if;
-         end if;
-      end Capture;
-
-      procedure Capture_Group (Index : Integer; Value : W_Object) is
-      begin
-         Error ("not yet implemented");
-      end Capture_Group;
-
-      procedure Capture_Expression (Expression : Template_Node) is
-      begin
-         Expression.Traverse (Capture_Identifiers'Access);
-      end Capture_Expression;
-
-      function Capture_Identifiers
-        (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status
-      is
-      begin
-         Push_Error_Location (Node);
-
-         case Node.Kind is
-            when Template_Selector =>
-               Node.As_Selector.F_Left.Traverse (Capture_Identifiers'Access);
-
-               Push_Frame_Context;
-               Top_Frame.Top_Context.Is_Root_Selection := False;
-
-               Node.As_Selector.F_Right.Traverse (Not_Capture_Identifiers'Access);
-
-               Pop_Frame_Context;
-
-               Pop_Error_Location;
-               return Over;
-
-            when Template_Token_Identifier | Template_Identifier =>
-               Capture (Node.Text);
-
-               Pop_Error_Location;
-               return Over;
-
-            when others =>
-               Pop_Error_Location;
-
-               return Not_Capture_Identifiers (Node);
-         end case;
-      end Capture_Identifiers;
-
-      function Not_Capture_Identifiers
-        (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
-      begin
-         Push_Error_Location (Node);
-
-         case Node.Kind is
-            when Template_Match_Capture =>
-               declare
-                  Name : Text_Type := Node.As_Match_Capture.F_Captured.Text;
-               begin
-                  --  If the name isn't already identified as a local name,
-                  --  identify it as such for the remainder of the analysis.
-                  --  Otherwise, just pass through.
-
-                  if not Local_Symbols.Contains (Name) then
-                     Local_Symbols.Insert (Name);
-                     Node.As_Match_Capture.F_Expression.Traverse
-                       (Capture_Identifiers'Access);
-                     Local_Symbols.Delete (Name);
-                     return Over;
-                  else
-                     return Into;
-                  end if;
-               end;
-            when Template_Str =>
-               --  Analyze_Replace_String ABI is expecting that capturing an
-               --  expression pushes a value on the stack (it's going to get
-               --  popped. So use Capture_Expression_And_Push_Dummy in order
-               --  to avoid popping the top of the stack.
-
-               Analyze_Replace_String
-                 (Node,
-                  Capture_Group'Access,
-                  Capture_Expression'Access);
-
-               Pop_Object;
-
-               Pop_Error_Location;
-               return Over;
-            when Template_Call_Expr | Template_New_Expr =>
-               --  Resolved the called identifier
-
-               Push_Frame_Context;
-               Top_Frame.Top_Context.Is_Root_Selection := False;
-
-               for Arg of Node.As_Call_Expr.F_Args loop
-                  Arg.Traverse (Capture_Identifiers'Access);
-               end loop;
-
-               Pop_Frame_Context;
-
-               Pop_Error_Location;
-               return Over;
-
-         when others =>
-
-            Pop_Error_Location;
-            return Into;
-         end case;
-      end Not_Capture_Identifiers;
+   --     Local_Symbols : Text_Sets.Set;
+   --
+   --     function Not_Capture_Identifiers
+   --       (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
+   --
+   --     function Capture_Identifiers
+   --       (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
+   --
+   --     procedure Capture (Name : Text_Type) is
+   --     begin
+   --        if Local_Symbols.Contains (Name) then
+   --           --  If the symbol is local to the lambda, then there's nothing to
+   --           --  capture.
+   --           return;
+   --        end if;
+   --
+   --        if Push_Global_Identifier (Name) then
+   --           --  We found a global identifier to record. If not, we expect it
+   --           --  to be resolved later when running the lambda.
+   --
+   --           --  If the object is an imlicit ref, it may be marked self
+   --           --  or new. We don't want to carry this property over to the lambda
+   --           --  call, so remove it.
+   --
+   --           if Top_Object.Dereference.all in W_Static_Entity_Type then
+   --              --  We don't capture static references, they can later be
+   --              --  retreived from context. Genreating symbols for them would
+   --              --  also confused name resolution as we would have a symbol
+   --              --  and a statically solvable name.
+   --              Pop_Object;
+   --           elsif Top_Object.all in W_Reference_Type'Class then
+   --              A_Lambda.Captured_Symbols.Insert
+   --                (Name, new W_Reference_Type'
+   --                   (Value => W_Reference (Pop_Object).Value, others => <>));
+   --           else
+   --              A_Lambda.Captured_Symbols.Insert (Name, Pop_Object);
+   --           end if;
+   --        end if;
+   --     end Capture;
+   --
+   --     procedure Capture_Group (Index : Integer; Value : W_Object) is
+   --     begin
+   --        Error ("not yet implemented");
+   --     end Capture_Group;
+   --
+   --     procedure Capture_Expression (Expression : Template_Node) is
+   --     begin
+   --        Expression.Traverse (Capture_Identifiers'Access);
+   --     end Capture_Expression;
+   --
+   --     function Capture_Identifiers
+   --       (Expr : T_Expr) return Libtemplatelang.Common.Visit_Status
+   --     is
+   --     begin
+   --        Push_Error_Location (Node);
+   --
+   --        case Node.Kind is
+   --           when Template_Selector =>
+   --              Node.As_Selector.F_Left.Traverse (Capture_Identifiers'Access);
+   --
+   --              Push_Frame_Context;
+   --              Top_Frame.Top_Context.Is_Root_Selection := False;
+   --
+   --              Node.As_Selector.F_Right.Traverse (Not_Capture_Identifiers'Access);
+   --
+   --              Pop_Frame_Context;
+   --
+   --              Pop_Error_Location;
+   --              return Over;
+   --
+   --           when Template_Token_Identifier | Template_Identifier =>
+   --              Capture (Node.Text);
+   --
+   --              Pop_Error_Location;
+   --              return Over;
+   --
+   --           when others =>
+   --              Pop_Error_Location;
+   --
+   --              return Not_Capture_Identifiers (Node);
+   --        end case;
+   --     end Capture_Identifiers;
+   --
+   --     function Not_Capture_Identifiers
+   --       (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
+   --     begin
+   --        Push_Error_Location (Node);
+   --
+   --        case Node.Kind is
+   --           when Template_Match_Capture =>
+   --              declare
+   --                 Name : Text_Type := Node.As_Match_Capture.F_Captured.Text;
+   --              begin
+   --                 --  If the name isn't already identified as a local name,
+   --                 --  identify it as such for the remainder of the analysis.
+   --                 --  Otherwise, just pass through.
+   --
+   --                 if not Local_Symbols.Contains (Name) then
+   --                    Local_Symbols.Insert (Name);
+   --                    Node.As_Match_Capture.F_Expression.Traverse
+   --                      (Capture_Identifiers'Access);
+   --                    Local_Symbols.Delete (Name);
+   --                    return Over;
+   --                 else
+   --                    return Into;
+   --                 end if;
+   --              end;
+   --           when Template_Str =>
+   --              --  Analyze_Replace_String ABI is expecting that capturing an
+   --              --  expression pushes a value on the stack (it's going to get
+   --              --  popped. So use Capture_Expression_And_Push_Dummy in order
+   --              --  to avoid popping the top of the stack.
+   --
+   --              Analyze_Replace_String
+   --                (Node,
+   --                 Capture_Group'Access,
+   --                 Capture_Expression'Access);
+   --
+   --              Pop_Object;
+   --
+   --              Pop_Error_Location;
+   --              return Over;
+   --           when Template_Call_Expr | Template_New_Expr =>
+   --              --  Resolved the called identifier
+   --
+   --              Push_Frame_Context;
+   --              Top_Frame.Top_Context.Is_Root_Selection := False;
+   --
+   --              for Arg of Node.As_Call_Expr.F_Args loop
+   --                 Arg.Traverse (Capture_Identifiers'Access);
+   --              end loop;
+   --
+   --              Pop_Frame_Context;
+   --
+   --              Pop_Error_Location;
+   --              return Over;
+   --
+   --        when others =>
+   --
+   --           Pop_Error_Location;
+   --           return Into;
+   --        end case;
+   --     end Not_Capture_Identifiers;
    begin
-      Capture_Expression (Expression);
-
-      A_Lambda.Expression := Expression;
-      A_Lambda.Implicit_Self := W_Node (Get_Implicit_Self);
-      A_Lambda.Implicit_New := W_Node (Get_Implicit_New);
-      A_Lambda.Lexical_Scope := Top_Frame.Lexical_Scope;
+      null;
+   --     Capture_Expression (Expression);
+   --
+   --     A_Lambda.Expression := Expression;
+   --     A_Lambda.Implicit_Self := W_Node (Get_Implicit_Self);
+   --     A_Lambda.Implicit_New := W_Node (Get_Implicit_New);
+   --     A_Lambda.Lexical_Scope := Top_Frame.Lexical_Scope;
    end Capture_Lambda_Environment;
 
    procedure Run_Lambda (A_Lambda : W_Lambda_Type) is
-      Copy_Symbols : W_Object_Maps.Map;
-      Result : W_Object;
+      --  Copy_Symbols : W_Object_Maps.Map;
+      --  Result : W_Object;
    begin
-      Push_Frame (A_Lambda.Lexical_Scope);
-
-      Copy_Symbols := A_Lambda.Captured_Symbols.Copy;
-      Top_Frame.Symbols.Move (Copy_Symbols);
-
-      if A_Lambda.Implicit_Self /= null then
-         Push_Implicit_Self (A_Lambda.Implicit_Self);
-      end if;
-
-      if A_Lambda.Implicit_New /= null then
-         Push_Implicit_New (A_Lambda.Implicit_New);
-      end if;
-
-      Evaluate_Expression (A_Lambda.Expression);
-
-      Result := Pop_Object;
-      Pop_Frame;
-      Push_Object (Result);
+      null;
+      --  Push_Frame (A_Lambda.Lexical_Scope);
+      --
+      --  Copy_Symbols := A_Lambda.Captured_Symbols.Copy;
+      --  Top_Frame.Symbols.Move (Copy_Symbols);
+      --
+      --  if A_Lambda.Implicit_Self /= null then
+      --     Push_Implicit_Self (A_Lambda.Implicit_Self);
+      --  end if;
+      --
+      --  if A_Lambda.Implicit_New /= null then
+      --     Push_Implicit_New (A_Lambda.Implicit_New);
+      --  end if;
+      --
+      --  Evaluate_Expression (A_Lambda.Expression);
+      --
+      --  Result := Pop_Object;
+      --  Pop_Frame;
+      --  Push_Object (Result);
    end Run_Lambda;
 
 end Wrapping.Runtime.Analysis;

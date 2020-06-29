@@ -5,6 +5,7 @@ with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Text_IO;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
+with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 
 package body Wrapping.Input.Kit is
 
@@ -12,16 +13,16 @@ package body Wrapping.Input.Kit is
 
    procedure Call_Check_Expression
      (Object : access W_Object_Type'Class;
-      Params : Libtemplatelang.Analysis.Argument_List)
+      Params : T_Arg_Vectors.Vector)
    is
    begin
-      if Params.Children_Count = 0 then
+      if Params.Length = 0 then
          Push_Match_True (Object);
-      elsif Params.Children_Count = 1 then
+      elsif Params.Length = 1 then
          Push_Match_Self_Result
            (W_Object (Object),
-            Params.Child (1).As_Argument.F_Value);
-      elsif Params.Children_Count > 1 then
+            Params.Element (1).Expr);
+      elsif Params.Length > 1 then
          Error ("matcher takes only 1 argument");
       end if;
    end Call_Check_Expression;
