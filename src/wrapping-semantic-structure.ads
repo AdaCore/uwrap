@@ -79,6 +79,10 @@ package Wrapping.Semantic.Structure is
    type T_Arg is access all T_Arg_Type'Class;
    package T_Arg_Vectors is new Ada.Containers.Vectors (Positive, T_Arg);
 
+   type T_Create_Tree_Type;
+   type T_Create_Tree is access all T_Create_Tree_Type'Class;
+   package T_Create_Tree_Vectors is new Ada.Containers.Vectors (Positive, T_Create_Tree);
+
    type T_Entity_Type is tagged record
       Node : Template_Node;
       Unit : Analysis_Unit;
@@ -105,6 +109,8 @@ package Wrapping.Semantic.Structure is
 
    function Get_Component (An_Entity : T_Entity_Type; Name : Text_Type) return T_Entity
    is (null);
+
+   procedure Resolve_Names (An_Entity : access T_Entity_Type);
 
    type T_Named_Entity_Type is new T_Entity_Type with record
       Name_Node : Template_Node;
@@ -138,6 +144,9 @@ package Wrapping.Semantic.Structure is
 
    function Get_Component (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity;
 
+   overriding
+   procedure Resolve_Names (An_Entity : access T_Module_Type);
+
    type T_Template_Type is new T_Named_Entity_Type with record
       Extends : T_Template;
 
@@ -154,6 +163,9 @@ package Wrapping.Semantic.Structure is
    function Get_Component (A_Template : T_Template_Type; Name : Text_Type) return T_Entity;
 
    function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return T_Namespace;
+
+   overriding
+   procedure Resolve_Names (An_Entity : access T_Template_Type);
 
    type Var_Type_Kind is (Text_Kind, Set_Kind, Map_Kind, Pattern_Kind);
 
@@ -194,6 +206,9 @@ package Wrapping.Semantic.Structure is
       Nested_Actions   : T_Entity;
       Else_Actions     : T_Entity;
    end Record;
+
+   overriding
+   procedure Resolve_Names (An_Entity : access T_Command_Type);
 
    type T_Visitor_Type is new T_Named_Entity_Type with record
       Arguments_Ordered : T_Var_Vectors.Vector;
@@ -272,7 +287,7 @@ package Wrapping.Semantic.Structure is
             Lambda_Expression : T_Expr;
 
          when Template_New_Expr =>
-            null;
+            Tree : T_Create_Tree;
 
          when Template_At_Ref =>
             null;
@@ -293,10 +308,23 @@ package Wrapping.Semantic.Structure is
       end case;
    end record;
 
-   type T_Arg_Type is tagged record
+   overriding
+   procedure Resolve_Names (An_Entity : access T_Expr_Type);
+
+   type T_Arg_Type is new T_Entity_Type with record
       Name_Node : Template_Node;
       Name : Unbounded_Text_Type;
       Expr : T_Expr;
    end record;
+
+   type T_Create_Tree_Type is new T_Entity_Type with record
+      Capture_Name : Unbounded_Text_Type;
+      A_Template   : T_Template;
+      Args         : T_Arg_Vectors.Vector;
+      Subtree      : T_Create_Tree_Vectors.Vector;
+   end record;
+
+   overriding
+   procedure Resolve_Names (An_Entity : access T_Create_Tree_Type);
 
 end Wrapping.Semantic.Structure;

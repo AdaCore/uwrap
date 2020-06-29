@@ -174,7 +174,7 @@ template_grammar.add_rules(
          G.wrap_section,
          G.weave_section,
          G.nested_commands,
-         Null (G.nested_commands, ';'))
+         Pick (Null (G.nested_commands), ';'))
    ),
    pick_section=PickSection (
       Pick ('pick', G.expression),
@@ -182,7 +182,7 @@ template_grammar.add_rules(
          G.wrap_section,
          G.weave_section,
          G.nested_commands,
-         Null (G.nested_commands, ';'))
+         Pick (Null (G.nested_commands), ';'))
    ),
    weave_section=WeaveSection(
       'weave',

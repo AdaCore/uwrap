@@ -32,7 +32,7 @@ package body Wrapping.Runtime.Analysis is
       A_Visitor    : T_Visitor;
       Args         : T_Arg_Vectors.Vector);
    procedure Handle_Fold (Selector : T_Expr; Fold_Expr : T_Expr);
-   procedure Handle_New (Node : Create_Template_Tree'Class);
+   procedure Handle_New (Create_Tree : T_Create_Tree);
    procedure Handle_All (Selector : T_Expr; All_Expr : T_Expr);
 
    procedure Analyze_Replace_String
@@ -402,7 +402,7 @@ package body Wrapping.Runtime.Analysis is
 
          if Matched then
             if A_Command.Pick_Expression /= null then
-               Result := Evaluate_Expression (A_Command.Pick_Expression);
+               Result := Evaluate_Expression (A_Command.Pick_Expression).Dereference;
                Pop_Object; -- Pop previous self.
 
                --  TODO: Handle case where result is "all"
@@ -975,7 +975,7 @@ package body Wrapping.Runtime.Analysis is
 
          when Template_New_Expr =>
             if Top_Frame.Top_Context.An_Allocate_Callback /= null then
-               Handle_New (Expr.Node.As_New_Expr.F_Tree);
+               Handle_New (Expr.Tree);
             else
                Push_Match_False;
             end if;
@@ -1431,15 +1431,15 @@ package body Wrapping.Runtime.Analysis is
       procedure Store_Param_Value (Name_Node : Template_Node; Value : W_Object) is
          Ref : W_Reference;
          A_Var : T_Var;
+         Name : Text_Type := Name_Node.Text;
       begin
-         A_Var := T_Var (A_Template_Instance.Defining_Entity.Get_Component (Name_Node.Text));
+         A_Var := T_Var (A_Template_Instance.Defining_Entity.Get_Component (Name));
 
-         if A_Template_Instance.Symbols.Contains (Name_Node.Text) then
-            Ref := A_Template_Instance.Symbols.Element (Name_Node.Text);
+         if A_Template_Instance.Symbols.Contains (Name) then
+            Ref := A_Template_Instance.Symbols.Element (Name);
          else
             Ref := new W_Reference_Type;
-            A_Template_Instance.Symbols.Insert
-              (Name_Node.Text, Ref);
+            A_Template_Instance.Symbols.Insert (Name, Ref);
          end if;
 
          --  The container is an indirection to a value. Remove the previous one
@@ -1693,96 +1693,78 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_All;
 
-   procedure Handle_New (Node : Create_Template_Tree'Class) is
+   procedure Handle_New (Create_Tree : T_Create_Tree) is
 
-      --  function Handle_Create_Template
-      --    (A_Call : Template_Call'Class;
-      --     Captured : Template_Node'Class)
-      --     return W_Template_Instance
-      --  is
-      --     An_Object : W_Object;
-      --     A_Template : T_Entity;
-      --     A_Template_Instance : W_Template_Instance;
-      --  begin
-      --     An_Object := Evaluate_Expression (A_Call.F_Name);
-      --
-      --     if An_Object.all not in W_Static_Entity_Type'Class then
-      --        Error ("expected template reference");
-      --     end if;
-      --
-      --     A_Template := W_Static_Entity (An_Object).An_Entity;
-      --
-      --     if A_Template.all not in T_Template_Type'Class then
-      --        Error ("expected template reference");
-      --     end if;
-      --
-      --     A_Template_Instance := Create_Template_Instance (null, T_Template (A_Template));
-      --
-      --     if not Captured.Is_Null then
-      --        Top_Frame.Symbols.Include
-      --          (Captured.Text, W_Object (A_Template_Instance));
-      --     end if;
-      --
-      --     Push_Implicit_New (A_Template_Instance);
-      --     Handle_Template_Call (A_Template_Instance, A_Call.F_Args);
-      --     Pop_Object;
-      --
-      --     return A_Template_Instance;
-      --  end Handle_Create_Template;
-      --
-      --  function Handle_Create_Tree
-      --    (A_Tree : Create_Template_Tree'Class; Parent : W_Template_Instance) return W_Template_Instance
-      --  is
-      --     Main_Node : W_Template_Instance;
-      --     Dummy : W_Template_Instance;
-      --  begin
-      --     if not A_Tree.F_Root.Is_Null then
-      --        Main_Node := Handle_Create_Template (A_Tree.F_Root, A_Tree.F_Captured);
-      --
-      --        if Parent = null then
-      --           --  If this is the root of the creation, then we need to signal this
-      --           --  outside. This is needed in particular for constructions like:
-      --           --  child (new (T ())) or child (new ([T(), T()])) where the root
-      --           --  entities need to be connected to the children of the parent entity.
-      --
-      --           --  for the form new (T() []), only the first one needs to be
-      --           --  passed above.
-      --
-      --           Top_Frame.Top_Context.An_Allocate_Callback.all (Main_Node);
-      --        else
-      --           Add_Child (Parent, Main_Node);
-      --        end if;
-      --
-      --        if not A_Tree.F_Tree.Is_Null then
-      --           for C of A_Tree.F_Tree loop
-      --              Dummy := Handle_Create_Tree (C, Main_Node);
-      --           end loop;
-      --        end if;
-      --
-      --        return Main_Node;
-      --     else
-      --        --  In the case of new ([T(), T()], every first level will need to
-      --        --  be passed to the above level, and the last one will be the
-      --        --  result of the operator.
-      --
-      --        if not A_Tree.F_Tree.Is_Null then
-      --           for C of A_Tree.F_Tree loop
-      --              Main_Node := Handle_Create_Tree (C, Parent);
-      --           end loop;
-      --        end if;
-      --
-      --        return Main_Node;
-      --     end if;
-      --  end Handle_Create_Tree;
-      --
+      function Handle_Create_Template (New_Tree : T_Create_Tree)
+         return W_Template_Instance
+      is
+         A_Template_Instance : W_Template_Instance;
+         Captured : Text_Type := To_Text (New_Tree.Capture_Name);
+      begin
+         A_Template_Instance := Create_Template_Instance
+           (null, New_Tree.A_Template);
+
+         if Captured /= "" then
+            Top_Frame.Symbols.Include
+              (Captured, W_Object (A_Template_Instance));
+         end if;
+
+         Push_Implicit_New (A_Template_Instance);
+         Handle_Template_Call (A_Template_Instance, New_Tree.Args);
+         Pop_Object;
+
+         return A_Template_Instance;
+      end Handle_Create_Template;
+
+      function Handle_Create_Tree
+        (A_Tree : T_Create_Tree;
+         Parent : W_Template_Instance) return W_Template_Instance
+      is
+         Main_Node : W_Template_Instance;
+         Dummy : W_Template_Instance;
+      begin
+         if A_Tree.A_Template /= null then
+            Main_Node := Handle_Create_Template (A_Tree);
+
+            if Parent = null then
+               --  If this is the root of the creation, then we need to signal this
+               --  outside. This is needed in particular for constructions like:
+               --  child (new (T ())) or child (new ([T(), T()])) where the root
+               --  entities need to be connected to the children of the parent entity.
+
+               --  for the form new (T() []), only the first one needs to be
+               --  passed above.
+
+               Top_Frame.Top_Context.An_Allocate_Callback.all (Main_Node);
+            else
+               Add_Child (Parent, Main_Node);
+            end if;
+
+            for C of A_Tree.Subtree loop
+               Dummy := Handle_Create_Tree (C, Main_Node);
+            end loop;
+
+            return Main_Node;
+         else
+            --  In the case of new ([T(), T()], every first level will need to
+            --  be passed to the above level, and the last one will be the
+            --  result of the operator.
+
+            for C of A_Tree.Subtree loop
+               Main_Node := Handle_Create_Tree (C, Parent);
+            end loop;
+
+            return Main_Node;
+         end if;
+      end Handle_Create_Tree;
+
    begin
-      null;
-      --  Push_Frame_Context;
-      --  Top_Frame.Top_Context.Match_Mode := Match_None;
-      --
-      --  Push_Allocated_Entity (Handle_Create_Tree (Node, null));
-      --
-      --  Pop_Frame_Context;
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+
+      Push_Allocated_Entity (Handle_Create_Tree (Create_Tree, null));
+
+      Pop_Frame_Context;
    end Handle_New;
 
    procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expression : Template_Node) is

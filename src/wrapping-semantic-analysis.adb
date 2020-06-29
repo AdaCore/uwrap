@@ -28,14 +28,7 @@ package body Wrapping.Semantic.Analysis is
    function Build_Command_Scope_Structure (Node : Template_Node'Class) return T_Entity;
    function Build_Expr (Node : Template_Node'Class) return T_Expr;
    function Build_Arg (Node : Template_Node'Class) return T_Arg;
-
-   procedure Resolve_Template_Names (A_Template : Structure.T_Template);
-   procedure Resolve_Module_Names (A_Module : Structure.T_Module);
-   procedure Resolve_Command_Names (A_Command : Structure.T_Command);
-   procedure Resolve_Visitor_Names (A_Visitor : Structure.T_Visitor);
-   procedure Resolve_Namespace_Names (A_Namespace : Structure.T_Namespace);
-   function Get_Static_Entity_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity;
-   function Get_Template_Or_Visitor_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity;
+   function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree;
 
    procedure Analyze_Replace_String
      (Node   : Template_Node'Class;
@@ -61,7 +54,7 @@ package body Wrapping.Semantic.Analysis is
 
    procedure Analyze is
    begin
-      Resolve_Namespace_Names (Root);
+      Root.Resolve_Names;
    end Analyze;
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String) is
@@ -81,9 +74,7 @@ package body Wrapping.Semantic.Analysis is
 
    procedure Push_Entity (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class) is
    begin
-      if Entity_Stack.Length > 0 then
-         Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity));
-      end if;
+      Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity));
 
       An_Entity.Node := Template_Node (Node);
       Entity_Stack.Append (T_Entity (An_Entity));
@@ -94,9 +85,7 @@ package body Wrapping.Semantic.Analysis is
       Node      : Template_Node'Class;
       Name      : Text_Type) is
    begin
-      if Entity_Stack.Length > 0 then
-         Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity), Name);
-      end if;
+      Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity), Name);
 
       An_Entity.Node := Template_Node (Node);
       Entity_Stack.Append (T_Entity (An_Entity));
@@ -237,12 +226,20 @@ package body Wrapping.Semantic.Analysis is
 
                A_Command.Template_Section.Node := Node.As_Template_Section;
 
-               return Over;
+               return Into;
             when Template_Nested_Scope =>
                A_Command.Nested_Actions :=
                  Build_Command_Scope_Structure (Node.As_Nested_Scope);
 
                return Over;
+
+            when Template_Template_Call =>
+               for A of Node.As_Template_Call.F_Args loop
+                  A_Command.Template_Section.Args.Append (Build_Arg (A));
+               end loop;
+
+               return Over;
+
             when Template_Else_Section =>
                case Node.As_Else_Section.F_Actions.Kind is
                   when Template_Command =>
@@ -393,242 +390,11 @@ package body Wrapping.Semantic.Analysis is
       return Container_Entity;
    end Build_Command_Scope_Structure;
 
-   procedure Resolve_Namespace_Names (A_Namespace : Structure.T_Namespace) is
-   begin
-      for C of A_Namespace.Children_Ordered loop
-         if C.all in T_Namespace_Type'Class then
-            Resolve_Namespace_Names (T_Namespace (C));
-         elsif C.all in T_Module_Type'Class then
-            Resolve_Module_Names (Structure.T_Module (C));
-         end if;
-      end loop;
-   end Resolve_Namespace_Names;
-
-   procedure Resolve_Module_Names (A_Module : Structure.T_Module) is
-   begin
-      for C of A_Module.Node.As_Module.F_Import_Clauses.Children loop
-         Push_Error_Location (C);
-
-         if C.Kind = Template_Import then
-            declare
-               Imported : Structure.T_Module :=
-                 Resolve_Module_By_Name (C.As_Import.F_Name.Text);
-            begin
-               if Imported = null then
-                  Error ("can't find module '" & C.As_Import.F_Name.Text & "'");
-               end if;
-
-               A_Module.Imported_Modules.Insert (C.As_Import.F_Name.Text, Imported);
-            end;
-         end if;
-
-         Pop_Error_Location;
-      end loop;
-
-      for C of A_Module.Children_Ordered loop
-         if C.all in T_Template_Type'Class then
-            Resolve_Template_Names (Structure.T_Template (C));
-         elsif C.all in T_Command_Type'Class then
-            Resolve_Command_Names (Structure.T_Command (C));
-         elsif C.all in T_Visitor_Type'Class then
-            Resolve_Visitor_Names (Structure.T_Visitor (C));
-         end if;
-      end loop;
-   end Resolve_Module_Names;
-
-   function Get_Static_Entity_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity is
-
-      function Get_Visible_Entity (An_Entity : T_Entity; Name : Text_Type) return Structure.T_Entity is
-      begin
-         if An_Entity.all in T_Module_Type then
-            declare
-               Potential_Entity : Structure.T_Entity;
-            begin
-               if T_Module_Type (An_Entity.all).Children_Indexed.Contains (Name) then
-                  Potential_Entity := T_Module_Type (An_Entity.all).Children_Indexed.Element (Name);
-               end if;
-
-               for M of T_Module_Type (An_Entity.all).Imported_Modules loop
-                  if M.Children_Indexed.Contains (Name) then
-                     if Potential_Entity /= null then
-                        Error ("entity name ambiguous, multiple import clauses hiding");
-                     else
-                        Potential_Entity := M.Children_Indexed.Element (Name);
-                     end if;
-                  end if;
-               end loop;
-
-               return Potential_Entity;
-            end;
-         elsif An_Entity.Parent /= null then
-            return Get_Visible_Entity (An_Entity.Parent, Name);
-         else
-            return null;
-         end if;
-      end Get_Visible_Entity;
-
-      Extending_Module : Structure.T_Module;
-      Result : Structure.T_Entity;
-   begin
-      Push_Error_Location (Name);
-
-      if not Name.F_Left.Is_Null then
-         Extending_Module := Resolve_Module_By_Name
-           (Name.F_Left.Text);
-
-         if Extending_Module = null then
-            Error ("module '" & Name.F_Left.Text & "' not found");
-         end if;
-
-         if Extending_Module.Children_Indexed.Contains
-           (Name.F_Right.Text)
-         then
-            Result := Extending_Module.Children_Indexed.Element
-              (Name.F_Right.Text);
-         end if;
-      else
-         Result := Get_Visible_Entity (Current_Scope, Name.Text);
-      end if;
-
-      Pop_Error_Location;
-
-      return Result;
-   end Get_Static_Entity_By_Name;
-
-   function Get_Template_Or_Visitor_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity is
-      An_Entity : T_Entity;
-   begin
-      An_Entity := Get_Static_Entity_By_Name
-        (Current_Scope,
-         Name);
-
-      if An_Entity = null then
-         Error ("can't find reference to '" & Name.Text & "'");
-      end if;
-
-      if An_Entity.all not in T_Template_Type'Class
-        and then An_Entity.all not in T_Visitor_Type'Class
-      then
-         Error ("expected visitor or template name");
-      end if;
-
-      return An_Entity;
-   end Get_Template_Or_Visitor_By_Name;
-
-   procedure Resolve_Template_Names (A_Template : Structure.T_Template) is
-      An_Entity : T_Entity;
-   begin
-      if not A_Template.Node.As_Template.F_Extending.Is_Null then
-         Push_Error_Location (A_Template.Node.As_Template.F_Extending);
-
-         An_Entity :=
-           Get_Static_Entity_By_Name
-             (A_Template.Parent, A_Template.Node.As_Template.F_Extending);
-
-         if An_Entity = null then
-            Error ("template '" & A_Template.Node.As_Template.F_Extending.Text & "' not found");
-         end if;
-
-         if An_Entity.all not in T_Template_Type'Class then
-            Error ("expected template name");
-         end if;
-
-         A_Template.Extends := Structure.T_Template (An_Entity);
-         Pop_Error_Location;
-      end if;
-   end Resolve_Template_Names;
-
-   procedure Resolve_Command_Names (A_Command : T_Command) is
-   begin
-      if A_Command.Template_Section /= null then
-         case A_Command.Template_Section.Node.F_Actions.Kind is
-            when Template_Template_Call =>
-               declare
-                  An_Operation : Template_Call :=
-                    A_Command.Template_Section.Node.F_Actions.As_Template_Call;
-               begin
-                  if not An_Operation.F_Name.Is_Null then
-                     Push_Error_Location (A_Command.Template_Section.Node);
-
-                     if An_Operation.F_Name.Is_Null then
-                        if A_Command.Template_Section.Node.Kind = Template_Wrap_Section then
-                           Error ("template instances can only be weaved, not wrapped");
-                        end if;
-                     else
-                        if  An_Operation.F_Name.Text = "null" then
-                           --  In this case, we're creating a template cancellation
-                           --  clause.
-
-                           if A_Command.Template_Section.Node.Kind = Template_Weave_Section then
-                              Error ("null template only allowed on wrap clauses");
-                           end if;
-
-                           A_Command.Template_Section.Is_Null := True;
-                        else
-                           A_Command.Template_Section.Call_Reference := Get_Template_Or_Visitor_By_Name
-                             (A_Command.Parent,
-                              An_Operation.F_Name);
-                        end if;
-                     end if;
-
-                     for A of An_Operation.F_Args loop
-                        A_Command.Template_Section.Args.Append (Build_Arg (A));
-                     end loop;
-
-                     Pop_Error_Location;
-                  end if;
-               end;
-
-            when Template_Traverse_Into =>
-               A_Command.Template_Section.A_Visit_Action := Into;
-
-            when Template_Traverse_Over =>
-               A_Command.Template_Section.A_Visit_Action := Over;
-
-            when others =>
-               Error ("unrecognized template action: "
-                      & A_Command.Template_Section.Node.F_Actions.Kind'Wide_Wide_Image);
-
-         end case;
-      end if;
-
-      if A_Command.Nested_Actions /= null then
-         for C of A_Command.Nested_Actions.Children_Ordered loop
-            if C.all in T_Command_Type'Class then
-               Resolve_Command_Names (Structure.T_Command (C));
-            end if;
-         end loop;
-      end if;
-
-      if A_Command.Else_Actions /= null then
-         if A_Command.Else_Actions.all in T_Command_Type then
-            Resolve_Command_Names (Structure.T_Command (A_Command.Else_Actions));
-         else
-            for C of A_Command.Else_Actions.Children_Ordered loop
-               if C.all in T_Command_Type'Class then
-                  Resolve_Command_Names (Structure.T_Command (C));
-               end if;
-            end loop;
-         end if;
-      end if;
-   end Resolve_Command_Names;
-
-   procedure Resolve_Visitor_Names (A_Visitor : Structure.T_Visitor) is
-   begin
-      for C of A_Visitor.Children_Ordered loop
-         if C.all in T_Command_Type'Class then
-            Resolve_Command_Names (Structure.T_Command (C));
-         end if;
-      end loop;
-   end Resolve_Visitor_Names;
-
    function Build_Expr (Node : Template_Node'Class) return T_Expr is
       Expr : T_Expr := new T_Expr_Type (Node.Kind);
       Parent : T_Expr;
    begin
-      if Entity_Stack.Length > 0
-        and then Entity_Stack.Last_Element.all in T_Expr_Type
-      then
+      if Entity_Stack.Last_Element.all in T_Expr_Type'Class then
          Parent := T_Expr (Entity_Stack.Last_Element);
       end if;
 
@@ -683,6 +449,7 @@ package body Wrapping.Semantic.Analysis is
 
          when Template_New_Expr =>
             Expr.Has_New := True;
+            Expr.Tree := Build_Create_Tree (Node.As_New_Expr.F_Tree);
 
          when Template_At_Ref =>
             null;
@@ -714,6 +481,8 @@ package body Wrapping.Semantic.Analysis is
    function Build_Arg (Node : Template_Node'Class) return T_Arg is
       Arg : T_Arg := new T_Arg_Type;
    begin
+      Push_Entity (Arg, Node);
+
       Arg.Name_Node := Node.As_Argument.F_Name;
 
       if not Node.As_Argument.F_Name.Is_Null then
@@ -721,6 +490,8 @@ package body Wrapping.Semantic.Analysis is
       end if;
 
       Arg.Expr := Build_Expr (Node.As_Argument.F_Value);
+
+      Pop_Entity;
 
       return Arg;
    end Build_Arg;
@@ -852,5 +623,30 @@ package body Wrapping.Semantic.Analysis is
          Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Str'Last))));
       end if;
    end Analyze_Replace_String;
+
+   function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree is
+      New_Tree : T_Create_Tree := new T_Create_Tree_Type;
+      Tree : Create_Template_Tree := Node.As_Create_Template_Tree;
+   begin
+      Push_Entity (New_Tree, Node);
+
+      if not Tree.F_Captured.Is_Null then
+         New_Tree.Capture_Name := To_Unbounded_Text (Tree.F_Captured.Text);
+      end if;
+
+      for C of Tree.F_Tree.Children loop
+         New_Tree.Subtree.Append (Build_Create_Tree (C));
+      end loop;
+
+      if not Tree.F_Root.Is_Null then
+         for A of Tree.F_Root.F_Args loop
+            New_Tree.Args.Append (Build_Arg (A));
+         end loop;
+      end if;
+
+      Pop_Entity;
+
+      return New_Tree;
+   end Build_Create_Tree;
 
 end Wrapping.Semantic.Analysis;
