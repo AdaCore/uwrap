@@ -379,7 +379,7 @@ package body Wrapping.Runtime.Objects is
    is
    begin
       Push_Frame_Context;
-      Top_Frame.Top_Context.Matching_Object := W_Object (An_Entity);
+      Top_Frame.Top_Context.Outer_Object := W_Object (An_Entity);
 
       --  TODO: Should that be the high level call result?
       if Params.Length = 0 then
@@ -655,7 +655,7 @@ package body Wrapping.Runtime.Objects is
       Result : W_Object;
    begin
       Push_Frame_Context;
-      Top_Frame.Top_Context.Matching_Object := W_Object (An_Entity);
+      Top_Frame.Top_Context.Outer_Object := W_Object (An_Entity);
 
       --  TODO: this code is probably the generic call result code, not specific to
       --   node type.
@@ -926,7 +926,10 @@ package body Wrapping.Runtime.Objects is
       Found := W_Node_Type'Class(An_Entity.all).Traverse
         (A_Mode, False, Result, Visitor'Access) = Stop;
 
-      if not Found and Match_Expression.Has_New then
+      if not Found
+        and then Match_Expression /= null
+        and then Match_Expression.Has_New
+      then
          --  Semantic for search is to look first for matches that do not require
          --  an allocator. If none is found and if there are allocators, then
          --  re-try, this time with allocators enabled.

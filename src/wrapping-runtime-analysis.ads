@@ -72,4 +72,8 @@ package Wrapping.Runtime.Analysis is
    --  TODO: maybe this should be frame information?
    Current_Visitor_Id : Integer := 0;
 
+   procedure Outer_Expression_Match;
+
+   procedure Outer_Expression_Pick;
+
 end Wrapping.Runtime.Analysis;

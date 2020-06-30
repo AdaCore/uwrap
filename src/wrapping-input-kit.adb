@@ -185,6 +185,13 @@ package body Wrapping.Input.Kit is
       return Object.Node.Text;
    end To_String;
 
+   overriding
+   function To_Debug_String (Object : W_Kit_Node_Type) return Text_Type is
+   begin
+      return Object.Node.Kind'Wide_Wide_Image & ": "
+        & W_Kit_Node_Type'Class (Object).To_String;
+   end To_Debug_String;
+
    procedure Analyze_File (File : String) is
       Unit : Analysis_Unit;
       Context : Analysis_Context := Create_Context;

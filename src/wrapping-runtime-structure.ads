@@ -31,6 +31,8 @@ package Wrapping.Runtime.Structure is
 
    type Allocate_Callback is access procedure (E : access W_Object_Type'Class);
 
+   type Outer_Expr_Callback_Type is access procedure;
+
    type Match_Kind is
      (--  We're not doing any match
       Match_None,
@@ -57,7 +59,7 @@ package Wrapping.Runtime.Structure is
       --  Force a match has, typically through a is', e.g. has'x.f_name ()
       Match_Has);
 
-   type Expand_Action_Type is access procedure (Match : W_Object);
+   type Expand_Action_Type is access procedure;
 
    --  A Frame_Context is a type that is recording stack-based properties that
    --  vary within a given frame, typically through an expression, or various
@@ -65,6 +67,20 @@ package Wrapping.Runtime.Structure is
    --  context (ie information does not travel through frame contexts).
    type Frame_Context_Type is record
       Parent_Context : Frame_Context;
+
+      --  Some processing may need to be done once reaching an expression terminals.
+      --  For example:
+      --    X (A or B);
+      --  needs to match X against A and against B.
+      --     pick a.b wrap C ()
+      --  needs to apply the C wrapping to a.b.
+      --     pick (a.all () and b) wrap C ()
+      --  needs to apply wrapping to the expansion of a and b
+      --  The type below allows to idenrify this callback
+      Outer_Expr_Callback : Outer_Expr_Callback_Type;
+
+      --  The command currently processed
+      Current_Command : T_Command;
 
       Match_Mode : Match_Kind := Match_None;
       Is_Expanding_Context : Boolean := False;
@@ -75,7 +91,7 @@ package Wrapping.Runtime.Structure is
 
       --  When expanding, browsing functions need to perform this expression
       --  upon all successful matches.
-      Expand_Expression : T_Expr;
+      Expand_Action : Expand_Action_Type;
 
       --  Callback used to record objects allocated through the new () function.
       --  This needs to be set in particular in browsing functions, in order to
@@ -92,10 +108,10 @@ package Wrapping.Runtime.Structure is
       -- used to know if we can look at globals when resolving names.
       Is_Root_Selection : Boolean := True;
 
-      --  The object to match against in this context. For example, in:
+      --  The object to around this context. For example, in:
       --     match A (B.C, D);
       --  B.C and D match against A, A matches against self.
-      Matching_Object : W_Object;
+      Outer_Object : W_Object;
    end record;
 
    type Data_Frame_Type is record
@@ -177,6 +193,9 @@ package Wrapping.Runtime.Structure is
    --  object is prefered. Note that this is directly linked to the actual
    --  semantics of the language, so should remain consistent with it.
    function To_String (Object : W_Object_Type) return Text_Type is ("");
+
+   function To_Debug_String (Object : W_Object_Type) return Text_Type
+     is (W_Object_Type'Class (Object).To_String);
 
    --  If Object represents a reference, returns the referenced object
    --  (recursively) otherwise self.

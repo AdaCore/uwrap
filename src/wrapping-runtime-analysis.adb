@@ -40,6 +40,11 @@ package body Wrapping.Runtime.Analysis is
       On_Group      : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expr : T_Expr) := null);
 
+   procedure Apply_Wrapping_Program
+     (Self           : W_Node;
+      Lexical_Scope  : access T_Entity_Type'Class;
+      A_Visit_Action : in out Visit_Action);
+
    procedure Call_Convert_To_Text
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
@@ -160,15 +165,17 @@ package body Wrapping.Runtime.Analysis is
    procedure Push_Frame_Context is
    begin
       Top_Frame.Top_Context := new Frame_Context_Type'
-        (Parent_Context       => Top_Frame.Top_Context,
-         Match_Mode           => Top_Frame.Top_Context.Match_Mode,
-         Is_Expanding_Context => Top_Frame.Top_Context.Is_Expanding_Context,
-         Name_Captured        => Top_Frame.Top_Context.Name_Captured,
-         Expand_Expression    => Top_Frame.Top_Context.Expand_Expression,
-         An_Allocate_Callback => Top_Frame.Top_Context.An_Allocate_Callback,
-         Left_Value           => Top_Frame.Top_Context.Left_Value,
-         Is_Root_Selection    => Top_Frame.Top_Context.Is_Root_Selection,
-         Matching_Object      => Top_Frame.Top_Context.Matching_Object);
+        (Parent_Context            => Top_Frame.Top_Context,
+         Current_Command           => Top_Frame.Top_Context.Current_Command,
+         Outer_Expr_Callback => Top_Frame.Top_Context.Outer_Expr_Callback,
+         Match_Mode                => Top_Frame.Top_Context.Match_Mode,
+         Is_Expanding_Context      => Top_Frame.Top_Context.Is_Expanding_Context,
+         Name_Captured             => Top_Frame.Top_Context.Name_Captured,
+         Expand_Action             => Top_Frame.Top_Context.Expand_Action,
+         An_Allocate_Callback      => Top_Frame.Top_Context.An_Allocate_Callback,
+         Left_Value                => Top_Frame.Top_Context.Left_Value,
+         Is_Root_Selection         => Top_Frame.Top_Context.Is_Root_Selection,
+         Outer_Object              => Top_Frame.Top_Context.Outer_Object);
    end Push_Frame_Context;
 
    procedure Pop_Frame_Context is
@@ -262,8 +269,147 @@ package body Wrapping.Runtime.Analysis is
       return True;
    end Match;
 
+   procedure Apply_Template_Action
+     (Self : W_Node; Template_Clause : T_Weave_Or_Wrap)
+   is
+      A_Template_Instance : W_Template_Instance;
+      Self_Weave : Boolean := False;
+      Result : W_Object;
+   begin
+      Push_Error_Location (Template_Clause.Node);
+      Push_Implicit_Self (Self);
+
+      if Template_Clause.Is_Null then
+         --  We've set a null template - the objective is to prevent this
+         --  entity to be wrapped by this template.
+
+         if Template_Clause.Args.Length /= 1 then
+            Error ("expected one argument to null");
+         end if;
+
+         Evaluate_Expression (Template_Clause.Args.Element (1).Expr);
+         Result := Pop_Object.Dereference;
+
+         if Result.all not in W_Static_Entity_Type'Class
+           or else W_Static_Entity (Result).An_Entity.all
+         not in T_Template_Type'Class
+         then
+            Error ("expected template reference");
+         end if;
+
+         Self.Forbidden_Template_Names.Include
+           (T_Template (W_Static_Entity (Result).An_Entity).Full_Name);
+
+         --  TODO: remove the template if it's already been created in the
+         --  context of a weave clause
+      else
+         if Template_Clause.Call_Reference = null then
+            --  No name to the call, that means that we're expecting to self-weave
+            --  the current template.
+            if Template_Clause.all not in Weave_Type'Class then
+               Error ("self wrap not allowed, either weave or provide a template or visitor name");
+            elsif Self.all in W_Template_Instance_Type'Class then
+               A_Template_Instance := W_Template_Instance (Self);
+            else
+               Error ("only template instances can be self weaved");
+            end if;
+
+            Self_Weave := True;
+         elsif Template_Clause.Call_Reference.all in T_Template_Type'Class then
+            A_Template_Instance := Self.Get_Template_Instance
+              (T_Template (Template_Clause.Call_Reference));
+
+            if (Template_Clause.all in Weave_Type'Class
+                or else A_Template_Instance = null
+                or else A_Template_Instance.Is_Wrapping = False)
+              and then not Self.Forbidden_Template_Names.Contains
+                (Template_Clause.Call_Reference.Full_Name)
+            then
+               if A_Template_Instance = null then
+                  A_Template_Instance := Self.Create_Template_Instance
+                    (T_Template (Template_Clause.Call_Reference));
+               end if;
+
+               if Template_Clause.all in Wrap_Type'Class then
+                  A_Template_Instance.Is_Wrapping := True;
+               end if;
+            else
+               A_Template_Instance := null;
+            end if;
+         end if;
+
+         if A_Template_Instance /= null then
+            if not Self_Weave then
+               Push_Implicit_New (A_Template_Instance);
+            end if;
+
+            Handle_Template_Call (A_Template_Instance, Template_Clause.Args);
+
+            if not Self_Weave then
+               Pop_Object;
+            end if;
+         end if;
+      end if;
+
+      Pop_Object;
+      Pop_Error_Location;
+   end Apply_Template_Action;
+
+   procedure Handle_Command
+     (Command        : T_Command;
+      A_Visit_Action : in out Visit_Action)
+   is
+      Top : W_Object := Top_Object.Dereference;
+      Self : W_Node;
+   begin
+      if Top = Match_False then
+         return;
+      elsif Top.all in W_Node_Type'Class then
+         Self := W_Node (Top);
+      else
+         Error ("can't pick selected object");
+      end if;
+
+      if Command.Nested_Actions /= null then
+         Apply_Wrapping_Program
+           (Self,
+            Command.Nested_Actions,
+            A_Visit_Action);
+      elsif Command.Template_Section /= null then
+         if Command.Template_Section.A_Visit_Action /= Unknown then
+            -- TODO: consider differences between weave and wrap here
+            --  TODO: This doesn't consider different visits, each
+            --  should have its own decision
+
+            if not Self.Traverse_Decision_Taken then
+               Self.Traverse_Decision_Taken := True;
+               A_Visit_Action := Command.Template_Section.A_Visit_Action;
+            end if;
+         elsif Command.Template_Section.Call_Reference /= null
+           or else Command.Template_Section.Args.Length /= 0
+         then
+            -- There is an explicit template call. Pass this on either the
+            -- current template or the whole tree
+
+            if Command.Template_Section.Call_Reference/= null
+              and then Command.Template_Section.Call_Reference.all in T_Visitor_Type'Class
+            then
+               Handle_Visitor_Call
+                 (Self,
+                  T_Visitor (Command.Template_Section.Call_Reference),
+                  Command.Template_Section.Args);
+            else
+               Apply_Template_Action (Self, Command.Template_Section);
+            end if;
+         else
+            null;
+            -- TODO: How to handle pick all () without any specific wrap? or pick self.f_something?
+         end if;
+      end if;
+   end Handle_Command;
+
    procedure Apply_Wrapping_Program
-     (A_Language_Entity : W_Node;
+     (Self : W_Node;
       Lexical_Scope     : access T_Entity_Type'Class;
       A_Visit_Action    : in out Visit_Action)
    is
@@ -289,249 +435,64 @@ package body Wrapping.Runtime.Analysis is
          Evaluate_Expression (Expression);
       end Create_And_Set_Template_Instance;
 
-      procedure Apply_Template_Action
-        (A_Language_Entity : W_Node; Template_Clause : T_Weave_Or_Wrap)
-      is
-         A_Template_Instance : W_Template_Instance;
-         Self_Weave : Boolean := False;
-         Result : W_Object;
-      begin
-         Push_Error_Location (Template_Clause.Node);
-
-         if Template_Clause.Is_Null then
-            --  We've set a null template - the objective is to prevent this
-            --  entity to be wrapped by this template.
-
-            if Template_Clause.Args.Length /= 1 then
-               Error ("expected one argument to null");
-            end if;
-
-            Evaluate_Expression (Template_Clause.Args.Element (1).Expr);
-            Result := Pop_Object.Dereference;
-
-            if Result.all not in W_Static_Entity_Type'Class
-              or else W_Static_Entity (Result).An_Entity.all
-                not in T_Template_Type'Class
-            then
-               Error ("expected template reference");
-            end if;
-
-            A_Language_Entity.Forbidden_Template_Names.Include
-              (T_Template (W_Static_Entity (Result).An_Entity).Full_Name);
-
-            --  TODO: remove the template if it's already been created in the
-            --  context of a weave clause
-         else
-            if Template_Clause.Call_Reference = null then
-               --  No name to the call, that means that we're expecting to self-weave
-               --  the current template.
-               if Template_Clause.all not in Weave_Type'Class then
-                  Error ("self wrap not allowed, either weave or provide a template or visitor name");
-               elsif A_Language_Entity.all in W_Template_Instance_Type'Class then
-                  A_Template_Instance := W_Template_Instance (A_Language_Entity);
-               else
-                  Error ("only template instances can be self weaved");
-               end if;
-
-               Self_Weave := True;
-            elsif Template_Clause.Call_Reference.all in T_Template_Type'Class then
-               A_Template_Instance := A_Language_Entity.Get_Template_Instance
-                 (T_Template (Template_Clause.Call_Reference));
-
-               if (Template_Clause.all in Weave_Type'Class
-                   or else A_Template_Instance = null
-                   or else A_Template_Instance.Is_Wrapping = False)
-                 and then not A_Language_Entity.Forbidden_Template_Names.Contains
-                      (Template_Clause.Call_Reference.Full_Name)
-               then
-                  if A_Template_Instance = null then
-                     A_Template_Instance := A_Language_Entity.Create_Template_Instance
-                       (T_Template (Template_Clause.Call_Reference));
-                  end if;
-
-                  if Template_Clause.all in Wrap_Type'Class then
-                     A_Template_Instance.Is_Wrapping := True;
-                  end if;
-               else
-                  A_Template_Instance := null;
-               end if;
-            end if;
-
-            if A_Template_Instance /= null then
-               if not Self_Weave then
-                  Push_Implicit_New (A_Template_Instance);
-               end if;
-
-               Handle_Template_Call (A_Template_Instance, Template_Clause.Args);
-
-               if not Self_Weave then
-                  Pop_Object;
-               end if;
-            end if;
-         end if;
-
-         Pop_Error_Location;
-      end Apply_Template_Action;
-
-      procedure Apply_Command (A_Command : T_Command) is
+      procedure Apply_Command (Command : T_Command) is
          Matched : Boolean;
-         Self    : W_Node;
          Result  : W_Object;
       begin
-         Self := A_Language_Entity;
+
          --  The command is the enclosing scope for all of its clauses. It
          --  will in particular receive the matching groups and the temporary
          --  values that can be used consistently in the various clauses
-         Push_Frame (A_Command);
+         Push_Frame (Command);
          Push_Implicit_Self (Self);
 
          Top_Frame.Top_Context.An_Allocate_Callback := Allocate'Unrestricted_Access;
+         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+         Top_Frame.Top_Context.Current_Command := Command;
+         Top_Frame.Top_Context.Is_Root_Selection := True;
 
-         if A_Command.Match_Expression /= null then
+         if Command.Match_Expression /= null then
             Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+            Top_Frame.Top_Context.Outer_Object := W_Object (Self);
 
-            Top_Frame.Top_Context.Matching_Object := W_Object
-              (A_Language_Entity);
+            Evaluate_Expression (Command.Match_Expression);
 
-            Evaluate_Expression (A_Command.Match_Expression);
             Matched := Pop_Object /= Match_False;
             Top_Frame.Top_Context.Match_Mode := Match_None;
+            Top_Frame.Top_Context.Outer_Object := null;
          else
             Matched := True;
          end if;
 
          if Matched then
-            if A_Command.Pick_Expression /= null then
-               Result := Evaluate_Expression (A_Command.Pick_Expression).Dereference;
-               Pop_Object; -- Pop previous self.
+            if Command.Pick_Expression /= null then
+               --  When evaluating a pick expression, the wrapping program will
+               --  be evaluated by the outer epxression callback. This caters
+               --  in particular for cases where more than one object is
+               --  being retreived.
 
-               --  TODO: Handle case where result is "all"
+               Top_Frame.Top_Context.Outer_Expr_Callback :=
+                 Outer_Expression_Pick'Access;
 
-               if Result.all in W_Node_Type'Class then
-                  Push_Implicit_Self (Result);
-                  Self := W_Node (Result);
-               else
-                  Error ("can't pick selected object");
-               end if;
-            end if;
+               Result := Evaluate_Expression (Command.Pick_Expression).Dereference;
 
-            if A_Command.Nested_Actions /= null then
-               Apply_Wrapping_Program
-                 (Self,
-                  A_Command.Nested_Actions,
-                  A_Visit_Action);
-            elsif A_Command.Template_Section /= null then
-               -- HANDLE WEAVE OR WRAP
-
-               if A_Command.Template_Section.A_Visit_Action /= Unknown then
-                  -- TODO: consider differences between weave and wrap here
-                  --  TODO: This doesn't consider different visits, each
-                  --  should have its own decision
-                  if not A_Language_Entity.Traverse_Decision_Taken then
-                     A_Language_Entity.Traverse_Decision_Taken := True;
-                     A_Visit_Action := A_Command.Template_Section.A_Visit_Action;
-                  end if;
-               else
-                  declare
-                     --Tmp_Target    : W_Object;
-                  begin
-                     if A_Command.Template_Section.Call_Reference /= null
-                       or else A_Command.Template_Section.Args.Length /= 0
-                     then
-                        -- There is an explicit template call. Pass this on either the
-                        -- current template or the whole tree
-
-                        if A_Command.Template_Section.Call_Reference/= null
-                          and then A_Command.Template_Section.Call_Reference.all in T_Visitor_Type'Class
-                        then
-                           Handle_Visitor_Call
-                             (Self,
-                              T_Visitor (A_Command.Template_Section.Call_Reference),
-                              A_Command.Template_Section.Args);
-                        --  Move the below section to the generic all behavior
-                        --  elsif A_Command.Template_Section.Is_All then
-                        --     -- TODO: This could all be moved to Handle Template Call instead, and
-                        --     -- would be consistent with the fact that everything above is
-                        --     -- in Handle_Visitor_Call
-                        --     declare
-                        --        function Apply_Template
-                        --          (E      : access W_Object_Type'Class;
-                        --           Result : out W_Object) return Visit_Action
-                        --        is
-                        --        begin
-                        --           Result := null;
-                        --
-                        --           Apply_Template_Action (W_Node (E), A_Command.Template_Section);
-                        --
-                        --           return Into;
-                        --        end Apply_Template;
-                        --
-                        --        Traverse_Result : W_Object;
-                        --     begin
-                        --        A_Visit_Action := Entity_Target.Traverse
-                        --          (A_Mode       => Child_Depth,
-                        --           Include_Self => True,
-                        --           Final_Result => Traverse_Result,
-                        --           Visitor      => Apply_Template'Access);
-                        --     end;
-                        else
-                           Apply_Template_Action (Self, A_Command.Template_Section);
-                        end if;
-                     else
-                        --  Ned to generalize the usage of all.
-                        null;
-                        --  if A_Command.Template_Section.Is_All then
-                        --     --  There is no template call. Apply the current
-                        --     --  program to all children. Avoid to apply it on the
-                        --     --  current entity which is already being analyzed
-                        --     --  under the current program.
-                        --
-                        --     for E of Entity_Target.Children_Ordered loop
-                        --        declare
-                        --           Dummy_Action    : Visit_Action;
-                        --           Prev_Visit_Id   : Integer;
-                        --           Traverse_Result : W_Object;
-                        --        begin
-                        --           --  Increment the visitor counter and set the current visitor id, as to
-                        --           --  track entities that are being visited by this iteration.
-                        --           Prev_Visit_Id := Current_Visitor_Id;
-                        --           Visitor_Counter := Visitor_Counter + 1;
-                        --           Current_Visitor_Id := Visitor_Counter;
-                        --
-                        --           -- TODO: This only works for the main program.
-                        --           -- implement support in case this is called
-                        --           -- from a visitor (the visitor should be
-                        --           -- traversed, not the main program.
-                        --
-                        --           Dummy_Action := E.Traverse
-                        --             (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
-                        --
-                        --           Current_Visitor_Id := Prev_Visit_Id;
-                        --        end;
-                        --     end loop;
-                        -- else
-                           -- TODO: APPLY THE CURRENT PROGRAM ON THE TARGET ONLY
-                        --   null;
-                        --end if;
-                     end if;
-                  end;
-               end if;
+               Top_Frame.Top_Context.Outer_Expr_Callback :=
+                 Outer_Expression_Match'Access;
             else
-               if A_Command.Else_Actions /= null then
-                  if A_Command.Else_Actions.all in T_Command_Type'Class then
-                     Apply_Command (T_Command (A_Command.Else_Actions));
-                  else
-                     Apply_Wrapping_Program
-                       (A_Language_Entity,
-                        A_Command.Else_Actions,
-                        A_Visit_Action);
-                  end if;
+               Handle_Command (Command, A_Visit_Action);
+            end if;
+         else
+            if Command.Else_Actions /= null then
+               if Command.Else_Actions.all in T_Command_Type'Class then
+                  Apply_Command (T_Command (Command.Else_Actions));
+               else
+                  Apply_Wrapping_Program
+                    (Self, Command.Else_Actions, A_Visit_Action);
                end if;
             end if;
          end if;
 
-         Pop_Object;
-
+         Pop_Object; -- Pop self.
          Pop_Frame;
       end Apply_Command;
    begin
@@ -544,7 +505,7 @@ package body Wrapping.Runtime.Analysis is
            or else Wrapping_Entity.all in T_Namespace_Type'Class
          then
             Apply_Wrapping_Program
-              (A_Language_Entity, Wrapping_Entity, A_Visit_Action);
+              (Self, Wrapping_Entity, A_Visit_Action);
          end if;
       end loop;
 
@@ -726,7 +687,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Evaluate_Expression (Expr : T_Expr)
    is
-      --  Some expression need to match with the outer object. For example:
+      --  Some expression need to run the outer object callback. For example:
       --    match a
       --  a needs to match with self. Other do not. For example in:
       --     match has'a
@@ -737,8 +698,7 @@ package body Wrapping.Runtime.Analysis is
       --     match has'a or has'b
       --  (has would discusonnect the outer match, but the overall expression
       --  would match again).
-      --  TODO: Review all cases of disconnection, e.g. &, not, a: etc.
-      To_Match : Boolean := True;
+      Run_Outer_Callback : Boolean := True;
    begin
       Push_Error_Location (Expr.Node);
 
@@ -779,7 +739,7 @@ package body Wrapping.Runtime.Analysis is
                end if;
 
                Pop_Frame_Context;
-               To_Match := False;
+               Run_Outer_Callback := False;
             end;
 
          when Template_Selector =>
@@ -823,6 +783,7 @@ package body Wrapping.Runtime.Analysis is
                   Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
                   Top_Frame.Top_Context.Is_Expanding_Context := False;
                   Top_Frame.Top_Context.Match_Mode := Match_None;
+                  Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
                   Evaluate_Expression (Expr.Selector_Left);
                   Pop_Frame_Context;
@@ -848,7 +809,7 @@ package body Wrapping.Runtime.Analysis is
             --  before, when evaluating the right operand. At this stage,
             --  we may also not be in the right match mode anymore (e.g.
             --  we don't know if we match a reference or a call result).
-            To_Match := False;
+            Run_Outer_Callback := False;
 
          when Template_Binary_Expr =>
             --  The convention for "and" and "or" binary operators is to push to
@@ -874,7 +835,7 @@ package body Wrapping.Runtime.Analysis is
                      Push_Match_False;
                   end if;
 
-                  To_Match := False;
+                  Run_Outer_Callback := False;
                elsif Expr.Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Or then
                   if Left /= Match_False then
                      Push_Object (Left);
@@ -888,7 +849,7 @@ package body Wrapping.Runtime.Analysis is
                      end if;
                   end if;
 
-                  To_Match := False;
+                  Run_Outer_Callback := False;
                elsif Expr.Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Amp then
                   Right := Evaluate_Expression (Expr.Binary_Right);
 
@@ -980,7 +941,7 @@ package body Wrapping.Runtime.Analysis is
                Push_Match_False;
             end if;
 
-            To_Match := False;
+            Run_Outer_Callback := False;
 
          when Template_At_Ref =>
             if Top_Frame.Top_Context.Left_Value = null then
@@ -1000,6 +961,7 @@ package body Wrapping.Runtime.Analysis is
             end if;
 
             Push_Frame_Context;
+            Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
             if Expr.Node.As_Qualified_Match.F_Op = Template_Operator_Is then
                Top_Frame.Top_Context.Match_Mode := Match_Is;
@@ -1011,7 +973,7 @@ package body Wrapping.Runtime.Analysis is
 
             Pop_Frame_Context;
 
-            To_Match := False;
+            Run_Outer_Callback := False;
 
          when others =>
             Error
@@ -1019,17 +981,8 @@ package body Wrapping.Runtime.Analysis is
                & Expr.Node.Kind'Wide_Wide_Image & "'");
       end case;
 
-
-      if To_Match
-        and then Top_Frame.Top_Context.Match_Mode not in Match_None | Match_Has
-      then
-         --  If we're matching, and we're not forcing the "has" mode, then check
-         --  that the initial object we had on the stack matches the new one.
-
-         if not Top_Frame.Top_Context.Matching_Object.Match_With_Top_Object then
-            Pop_Object;
-            Push_Match_False;
-         end if;
+      if Run_Outer_Callback then
+         Top_Frame.Top_Context.Outer_Expr_Callback.all;
       end if;
 
       Pop_Error_Location;
@@ -1367,6 +1320,7 @@ package body Wrapping.Runtime.Analysis is
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.Is_Root_Selection := True;
+      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
       Parameter_Index := 1;
 
@@ -1527,10 +1481,15 @@ package body Wrapping.Runtime.Analysis is
       -- to get capture groups) then all valuated symbols needs to be allocated
       -- to the next frame (in particular to be destroyed when popping).
 
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+
       Handle_Call_Parameters
         (Args,
          Name_For_Position'Access,
          Store_Param_Value'Access);
+
+      Pop_Frame_Context;
 
       Push_Frame (A_Visitor);
 
@@ -1540,18 +1499,10 @@ package body Wrapping.Runtime.Analysis is
       -- actual entity to be analyzed. The one pushed above is global to all
       -- calls and contains parameter evaluation, to be done only once.
 
-      --if not Apply_To_All then
-         Apply_Wrapping_Program
-           (An_Entity,
-            A_Visitor,
-            A_Visit_Action);
-      --  else
-      --     A_Visit_Action := An_Entity.Traverse
-      --       (Child_Depth,
-      --        True,
-      --        Traverse_Result,
-      --        Sub_Visitor'Access);
-      --  end if;
+      Apply_Wrapping_Program
+        (An_Entity,
+         A_Visitor,
+         A_Visit_Action);
 
       if A_Visit_Action in Over | Stop then
          Error ("visit action from visitor to caller not implemented");
@@ -1577,7 +1528,17 @@ package body Wrapping.Runtime.Analysis is
          Top_Frame.Top_Context.Match_Mode := Match_Call_Default;
       end if;
 
+      Push_Frame_Context;
+
+      --  We want to use the outer expression callback when evaluating the
+      --  parameters, in particular to support something like
+      --     child (bla).all()
+      --  where the child identifier is extracted through regular test, but the
+      --  bla expression needs to be using whatever outer expression callback
+      --  is set.
+      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
       Evaluate_Expression (Expr.Called);
+      Pop_Frame_Context;
 
       Called := Top_Object.Dereference;
       --  TODO: we can probably pop the called object now that we track the matching
@@ -1615,78 +1576,98 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Call;
 
    procedure Handle_Fold (Selector : T_Expr; Fold_Expr : T_Expr) is
-      Init_Value : W_Object;
+      --  Init_Value : W_Object;
    begin
-      --  While it is not strictly mandatory (e.g. you can use fold to create
-      --  a bunch of elements without caring of the aggregated result), fold
-      --  commands usually have an accumulator. They usually look of the form:
-      --     f: fold (expression, init, combine).
-      --  in this case, the accumulator needs to receive the value of init
-      --  and combine.
-
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Is_Expanding_Context := True;
-      Top_Frame.Top_Context.Expand_Expression := Fold_Expr.Combine;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
-      Top_Frame.Top_Context.Is_Root_Selection := False;
-
-      --  Inside the folded expression, we need to go back to a situation where
-      --  self is top of the stack, as name can refer to the implicit self. Re
-      --  push this value
-
-      Push_Implicit_Self (Get_Implicit_Self);
-
-      Evaluate_Expression (Fold_Expr.Default);
-      Init_Value := Pop_Object;
-
-      if Top_Frame.Top_Context.Name_Captured /= "" then
-         Top_Frame.Symbols.Include
-           (To_Text (Top_Frame.Top_Context.Name_Captured), Init_Value);
-      end if;
-
-       --  Then pop both the self implicit value
-
-      Pop_Object;
-
-      Evaluate_Expression (Selector.Selector_Left);
-
-      --  Keep the result of the evaluate expression. If the result is false,
-      --  this means that nothing was actually found. In that case, the init
-      --  value needs to be pused.
-      --  TODO: This will not work for folding evaluating booleans, where
-      --  the init value may be true, but the result is false.
-
-      if Top_Frame.Data_Stack.Last_Element = Match_False then
-         Pop_Object;
-         Push_Object (Init_Value);
-      end if;
-
-      Pop_Frame_Context;
+      null;
+      --  --  While it is not strictly mandatory (e.g. you can use fold to create
+      --  --  a bunch of elements without caring of the aggregated result), fold
+      --  --  commands usually have an accumulator. They usually look of the form:
+      --  --     f: fold (expression, init, combine).
+      --  --  in this case, the accumulator needs to receive the value of init
+      --  --  and combine.
+      --
+      --  Push_Frame_Context;
+      --  Top_Frame.Top_Context.Is_Expanding_Context := True;
+      --  Top_Frame.Top_Context.Expand_Expression := Fold_Expr.Combine;
+      --  Top_Frame.Top_Context.Match_Mode := Match_None;
+      --  Top_Frame.Top_Context.Is_Root_Selection := False;
+      --
+      --  --  Inside the folded expression, we need to go back to a situation where
+      --  --  self is top of the stack, as name can refer to the implicit self. Re
+      --  --  push this value
+      --
+      --  Push_Implicit_Self (Get_Implicit_Self);
+      --
+      --  Evaluate_Expression (Fold_Expr.Default);
+      --  Init_Value := Pop_Object;
+      --
+      --  if Top_Frame.Top_Context.Name_Captured /= "" then
+      --     Top_Frame.Symbols.Include
+      --       (To_Text (Top_Frame.Top_Context.Name_Captured), Init_Value);
+      --  end if;
+      --
+      --   --  Then pop both the self implicit value
+      --
+      --  Pop_Object;
+      --
+      --  Evaluate_Expression (Selector.Selector_Left);
+      --
+      --  --  Keep the result of the evaluate expression. If the result is false,
+      --  --  this means that nothing was actually found. In that case, the init
+      --  --  value needs to be pused.
+      --  --  TODO: This will not work for folding evaluating booleans, where
+      --  --  the init value may be true, but the result is false.
+      --
+      --  if Top_Frame.Data_Stack.Last_Element = Match_False then
+      --     Pop_Object;
+      --     Push_Object (Init_Value);
+      --  end if;
+      --
+      --  Pop_Frame_Context;
    end Handle_Fold;
 
    procedure Handle_All (Selector : T_Expr; All_Expr : T_Expr)
    is
       Suffix : T_Expr;
-   begin
-      if Selector.Selector_Right.Kind = Template_All_Expr then
-         --  In this case, we are on an expression such as x.all (). This is
-         --  an error. There should always be something selected a the end
-         --  of all, or it should be followed by a wrap instruction.
 
-         Error ("all can't be a terminal unless in a pick instruction");
-      else
+      Initial_Outer_Expr_Callback : Outer_Expr_Callback_Type :=
+        Top_Frame.Top_Context.Outer_Expr_Callback;
+
+      procedure Expand_Action is
+      begin
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+         Evaluate_Expression (Suffix);
+
+         --  Execute the outer action once per run of the suffix, which may be
+         --  a Outer_Expression_Pick call.
+         Initial_Outer_Expr_Callback.all;
+         Pop_Frame_Context;
+      end Expand_Action;
+
+   begin
+      Push_Frame_Context;
+
+      if Selector.Selector_Right.Kind /= Template_All_Expr then
          --  In this case, we are on an expression such as x.all ().something.
          --  all is set as the left element of the selector right, and the
          --  suffix is the left element.
+         --  In this case, we want to make sure that the prefix is analyzed with
+         --  the match outer check. E.g. in:
+         --     pick child (e).all().b
+         --  e is checked against the match outer, then b will be checked against
+         --  outer expression pick.
 
          Suffix := Selector.Selector_Right.Selector_Right;
+
+         Top_Frame.Top_Context.Expand_Action := Expand_Action'Unrestricted_Access;
+         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
       end if;
 
-      Push_Frame_Context;
       Top_Frame.Top_Context.Is_Expanding_Context := True;
-      Top_Frame.Top_Context.Expand_Expression := Suffix;
       Top_Frame.Top_Context.Match_Mode := Match_None;
-      Top_Frame.Top_Context.Is_Root_Selection := False;
+
+      Put_Line ("ENTER ALL ON " & Get_Implicit_Self.To_Debug_String);
 
       Evaluate_Expression (Selector.Selector_Left);
 
@@ -1945,5 +1926,43 @@ package body Wrapping.Runtime.Analysis is
       --  Pop_Frame;
       --  Push_Object (Result);
    end Run_Lambda;
+
+   procedure Outer_Expression_Match is
+   begin
+      if Top_Frame.Top_Context.Match_Mode not in Match_None | Match_Has then
+         --  If we're matching, and we're not forcing the "has" mode, then check
+         --  that the initial object we had on the stack matches the new one.
+
+         if not Top_Frame.Top_Context.Outer_Object.Match_With_Top_Object then
+            Pop_Object;
+            Push_Match_False;
+         end if;
+      end if;
+   end Outer_Expression_Match;
+
+   procedure Outer_Expression_Pick is
+      --  TODO: Visit action probably to be controlled on the frame here.
+      A_Visit_Action : Visit_Action := Into;
+   begin
+      if Top_Frame.Top_Context.Outer_Object /= null then
+         --  In this case, we're in a call like child (something). The element
+         --  set by child should be the one we process against. We should first
+         --  verify that the condition match, then handle the command if that's
+         --  the case.
+
+         Outer_Expression_Match;
+
+         if Top_Object /= Match_False then
+            Push_Object (Top_Frame.Top_Context.Outer_Object);
+            Handle_Command (Top_Frame.Top_Context.Current_Command, A_Visit_Action);
+            Pop_Object;
+         end if;
+      else
+         --  Otherwise, we're on something without a context, e.g. a.b. Just
+         --  use b.
+
+         Handle_Command (Top_Frame.Top_Context.Current_Command, A_Visit_Action);
+      end if;
+   end Outer_Expression_Pick;
 
 end Wrapping.Runtime.Analysis;

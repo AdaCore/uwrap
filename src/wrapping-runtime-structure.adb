@@ -60,20 +60,30 @@ package body Wrapping.Runtime.Structure is
    is
       procedure Evaluate_Expand_Function is
       begin
-         --  When evaluating a folding function in a browsing call, we need to
-         --  first deactivate folding in the expression itself. We also we need
+         --  In certain cases, there's no expression to be evaluated upon
+         --  expansion. E.g.:
+         --    x.all ()
+         --  as opposed to:
+         --    x.all().something().
+         if Top_Frame.Top_Context.Expand_Action = null then
+            return;
+         end if;
+
+         --  When evaluating a expanding function in a browsing call, we need to
+         --  first deactivate expanding in the expression itself. We also we need
          --  to remove potential name capture, as it would override the one we
-         --  are capturing in this browsing iteration.
+         --  are capturing in this browsing iteration. TODO: quite the opposite if we do fold (i : inti, i: acc);
 
          Push_Frame_Context;
          Top_Frame.Top_Context.Is_Expanding_Context := False;
          Top_Frame.Top_Context.Match_Mode := Match_None;
          Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
+         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
          --  Then evaluate that folding expression
 
          Push_Implicit_Self (Browsed);
-         Evaluate_Expression (Top_Frame.Top_Context.Expand_Expression);
+         Top_Frame.Top_Context.Expand_Action.all;
 
          --  The result of the evaluate expression is the result of the
          --  expanding function, as opposed to the matching entity in normal
@@ -102,11 +112,22 @@ package body Wrapping.Runtime.Structure is
       --  If the match expression is null, we're only looking for the
       --  presence of a node, not its form. The result is always true.
       if Match_Expression = null then
+         --  In the case of
+         --     pick child().all(),
+         --  child needs to be evaluated against the outer expression to
+         --  be captured by the possible wrap or weave command.
+
+         Push_Implicit_Self (Browsed);
+         Top_Frame.Top_Context.Outer_Expr_Callback.all;
+         Pop_Object;
+
          if Top_Frame.Top_Context.Is_Expanding_Context then
             Evaluate_Expand_Function;
 
             return Into;
          else
+            Put_Line ("BROWSED NULL : " & Browsed.To_Debug_String);
+
             Result := new W_Reference_Type'
               (Value => W_Object (Browsed), others => <>);
 
@@ -143,8 +164,10 @@ package body Wrapping.Runtime.Structure is
 
       Push_Frame_Context;
       Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
-      Top_Frame.Top_Context.Matching_Object := W_Object (Browsed);
+      Top_Frame.Top_Context.Outer_Object := W_Object (Browsed);
       Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+
+      Put_Line ("BROWSED WITH " & Browsed.To_Debug_String);
 
       Evaluate_Expression (Match_Expression);
 
@@ -155,6 +178,7 @@ package body Wrapping.Runtime.Structure is
       Pop_Object;
 
       if Expression_Result /= Match_False then
+         Put_Line ("MATCH TRUE");
          if Expression_Result.all in W_Reference_Type'Class
            and then W_Reference (Expression_Result).Is_Allocated
          then
@@ -175,6 +199,7 @@ package body Wrapping.Runtime.Structure is
 
             return Stop;
          else
+            Put_Line ("MATCH FALSE");
             if Top_Frame.Top_Context.Is_Expanding_Context then
                Evaluate_Expand_Function;
 
@@ -367,7 +392,7 @@ package body Wrapping.Runtime.Structure is
          Push_Object (Object);
       else
          Push_Frame_Context;
-         Top_Frame.Top_Context.Matching_Object := Object;
+         Top_Frame.Top_Context.Outer_Object := Object;
          Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
 
          Evaluate_Expression (Matching_Expression);
@@ -388,7 +413,7 @@ package body Wrapping.Runtime.Structure is
          Push_Object (Self);
       else
          Push_Frame_Context;
-         Top_Frame.Top_Context.Matching_Object := Self;
+         Top_Frame.Top_Context.Outer_Object := Self;
          Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
 
          Push_Implicit_Self (Self);

@@ -391,9 +391,15 @@ package body Wrapping.Semantic.Analysis is
    end Build_Command_Scope_Structure;
 
    function Build_Expr (Node : Template_Node'Class) return T_Expr is
-      Expr : T_Expr := new T_Expr_Type (Node.Kind);
+      Expr : T_Expr;
       Parent : T_Expr;
    begin
+      if Node.Is_Null then
+         return null;
+      end if;
+
+      Expr := new T_Expr_Type (Node.Kind);
+
       if Entity_Stack.Last_Element.all in T_Expr_Type'Class then
          Parent := T_Expr (Entity_Stack.Last_Element);
       end if;
@@ -622,6 +628,8 @@ package body Wrapping.Semantic.Analysis is
 
          Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Str'Last))));
       end if;
+
+      Error_Callback := Prev_Error;
    end Analyze_Replace_String;
 
    function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree is

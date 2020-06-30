@@ -101,6 +101,9 @@ package Wrapping.Input.Kit is
    overriding
    function To_String (Object : W_Kit_Node_Type) return Text_Type;
 
+   overriding
+   function To_Debug_String (Object : W_Kit_Node_Type) return Text_Type;
+
    procedure Analyze_File (File : String);
 
    procedure Analyze_Unit (Unit : Analysis_Unit);
