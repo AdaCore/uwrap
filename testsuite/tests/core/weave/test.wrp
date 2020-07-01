@@ -10,11 +10,11 @@ match Entity () {
     match f_name ("A")
     weave main (title => @ & "IMPLICIT TEMPLATE FOR A\n");
 
-    match p: parent (f_name ("A"))
-    pick p weave main (content => @ & "'A' HAS A CHILD NAMED '\e<f_name>'\n");
+    match e: self () and p: parent (f_name ("A"))
+    pick p weave main (content => @ & "'A' HAS A CHILD NAMED '\e<e.f_name>'\n");
 
-    match parent (Entity () and p: parent (f_name ("A")))
-    pick p weave main (content => @ & "'A' HAS A GRAND CHILD NAMED '\e<f_name>'\n");
+    match e: self () and parent (Entity () and p: parent (f_name ("A")))
+    pick p weave main (content => @ & "'A' HAS A GRAND CHILD NAMED '\e<e.f_name>'\n");
 }
 
 match main ()

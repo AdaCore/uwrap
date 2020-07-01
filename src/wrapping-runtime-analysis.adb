@@ -704,6 +704,8 @@ package body Wrapping.Runtime.Analysis is
       --  (has would discusonnect the outer match, but the overall expression
       --  would match again).
       Run_Outer_Callback : Boolean := True;
+
+      Do_Pop_Frame_Context : Boolean := False;
    begin
       Push_Error_Location (Expr.Node);
 
@@ -889,7 +891,9 @@ package body Wrapping.Runtime.Analysis is
                Push_Match_False;
             end if;
 
-            Run_Outer_Callback := False;
+            Push_Frame_Context;
+            Top_Frame.Top_Context.Match_Mode := Match_Has;
+            Do_Pop_Frame_Context := True;
 
          when Template_At_Ref =>
             if Top_Frame.Top_Context.Left_Value = null then
@@ -933,6 +937,10 @@ package body Wrapping.Runtime.Analysis is
         and then Top_Frame.Top_Context.Outer_Expr_Callback /= null
       then
          Top_Frame.Top_Context.Outer_Expr_Callback.all;
+      end if;
+
+      if Do_Pop_Frame_Context then
+         Pop_Frame_Context;
       end if;
 
       Pop_Error_Location;
