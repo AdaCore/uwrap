@@ -3,4 +3,4 @@ template t_in_z {
 }
 
 match Entity ()
-weave with t_in_z ("a.c.z.t_in_z (\e<f_name>)\n");
+weave t_in_z ("a.c.z.t_in_z (\e<f_name>)\n");

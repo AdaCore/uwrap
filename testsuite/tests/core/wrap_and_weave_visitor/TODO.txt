@@ -1,0 +1,2 @@
+Same behavior as for templates: with a wrap, you can
+only visit once a visitor. Weave allows for multiple times.

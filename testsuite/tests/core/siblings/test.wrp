@@ -1,10 +1,10 @@
 match Entity () {
     match f_name ("A") and x: prev ()
-    weave with standard.out ("PREV (\e<f_name>) = \e<x.f_name>\n");
+    weave standard.out ("PREV (\e<f_name>) = \e<x.f_name>\n");
 
     match r: self (f_name ("B")) {
         match x: next (not f_name ("\e<r.f_name>"))
-        weave with standard.out ("NEXT NOT MATCH (\e<r.f_name>) = \e<x.f_name>\n");
+        weave standard.out ("NEXT NOT MATCH (\e<r.f_name>) = \e<x.f_name>\n");
     }
  
 }

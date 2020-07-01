@@ -8,20 +8,20 @@ template main_2 {
 
 match Entity () {
     match f_name (".*A.*")
-    wrap with main_1 ("MATCHES A: \e<f_name>\n");
+    wrap main_1 ("MATCHES A: \e<f_name>\n");
 
     match f_name ("AB.*")
-    wrap with main_1 ("MATCHES AB: \e<f_name>\n");
+    wrap main_1 ("MATCHES AB: \e<f_name>\n");
 
     match f_name (".*F.*")
-    wrap with main_1 ("MATCHES F: \e<f_name>\n");
+    wrap main_1 ("MATCHES F: \e<f_name>\n");
 
     match f_name ("[0-9]+")
-    wrap with main_2 ("MATCHES NUMBER: \e<f_name>\n");
+    wrap main_2 ("MATCHES NUMBER: \e<f_name>\n");
 }
 
 match main_1 ()
-wrap with standard.out ("\e<txt>");
+wrap standard.out ("\e<txt>");
 
 match main_2 ()
-wrap with standard.out ("\e<txt>");
+wrap standard.out ("\e<txt>");

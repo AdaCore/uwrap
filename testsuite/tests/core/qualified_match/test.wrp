@@ -3,13 +3,13 @@ template w_Entity {
 }
 
 match has'f_name
-wrap with w_Entity (f_name);
+wrap w_Entity (f_name);
 
 match s: self() and w_Entity (c: child (w_Entity (name (s.name))))
-weave with standard.out (@ & "\e<s.name> has a child of DEFAULT same name (\e<c.name>)\n");
+weave standard.out (@ & "\e<s.name> has a child of DEFAULT same name (\e<c.name>)\n");
 
 match s: self() and w_Entity (c: child (w_Entity (name (is's.name))))
-weave with standard.out (@ & "\e<s.name> has a child of IS same name (\e<c.name>)\n");
+weave standard.out (@ & "\e<s.name> has a child of IS same name (\e<c.name>)\n");
 
 match s: self() and w_Entity (c: child (w_Entity (name (has's.name))))
-weave with standard.out (@ & "\e<s.name> has a child of HAS same name (\e<c.name>)\n");
+weave standard.out (@ & "\e<s.name> has a child of HAS same name (\e<c.name>)\n");

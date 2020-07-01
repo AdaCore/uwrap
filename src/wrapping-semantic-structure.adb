@@ -310,8 +310,6 @@ package body Wrapping.Semantic.Structure is
    procedure Resolve_References (An_Entity : access T_Template_Type) is
       Extending : T_Entity;
    begin
-      T_Entity_Type (An_Entity.all).Resolve_References;
-
       if not An_Entity.Node.As_Template.F_Extending.Is_Null then
          Push_Error_Location (An_Entity.Node.As_Template.F_Extending);
 
@@ -330,13 +328,13 @@ package body Wrapping.Semantic.Structure is
          An_Entity.Extends := T_Template (Extending);
          Pop_Error_Location;
       end if;
+
+      T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
    overriding
    procedure Resolve_References (An_Entity : access T_Command_Type) is
    begin
-      T_Entity_Type (An_Entity.all).Resolve_References;
-
       if An_Entity.Template_Section /= null then
          case An_Entity.Template_Section.Node.F_Actions.Kind is
             when Template_Template_Call =>
@@ -385,13 +383,13 @@ package body Wrapping.Semantic.Structure is
 
          end case;
       end if;
+
+      T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
    overriding
    procedure Resolve_References (An_Entity : access T_Module_Type) is
    begin
-      T_Entity_Type (An_Entity.all).Resolve_References;
-
       for C of An_Entity.Node.As_Module.F_Import_Clauses.Children loop
          Push_Error_Location (C);
 
@@ -410,26 +408,26 @@ package body Wrapping.Semantic.Structure is
 
          Pop_Error_Location;
       end loop;
+
+      T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
    overriding
    procedure Resolve_References (An_Entity : access T_Expr_Type) is
    begin
-      T_Entity_Type (An_Entity.all).Resolve_References;
-
       if An_Entity.Kind = Template_Lambda_Expr then
          Compute_Lambda_Closure (T_Expr (An_Entity));
       end if;
 
       --  TODO: There are a few cases where names can be resolved statically,
       --  e.g. static references in identifiers
+
+      T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
    overriding
    procedure Resolve_References (An_Entity : access T_Create_Tree_Type) is
    begin
-      T_Entity_Type (An_Entity.all).Resolve_References;
-
       Push_Error_Location (An_Entity.Node);
 
       if not An_Entity.Node.As_Create_Template_Tree.F_Root.Is_Null then
@@ -445,6 +443,8 @@ package body Wrapping.Semantic.Structure is
       end if;
 
       Pop_Error_Location;
+
+      T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
    procedure Compute_Lambda_Closure (A_Lambda : T_Expr) is

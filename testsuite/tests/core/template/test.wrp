@@ -16,41 +16,41 @@ template w_option {
 
 match Entity () {
     match not (parent (Entity ()))
-    wrap with w_root (
+    wrap w_root (
         name => f_name,
         level => "0"
     );
 
     match parent (Entity ())
-    wrap with w_entity (
+    wrap w_entity (
         name => f_name,
         level => "1"
     );    
 
     match parent (Entity (parent (Entity ())))
-    wrap with w_entity (
+    wrap w_entity (
         name => f_name,
         level => "2+"
     );
 
     match not f_name ("A")
-    wrap with w_option ("\e<f_name> IS NOT A");
+    wrap w_option ("\e<f_name> IS NOT A");
 }
 
 match w_root ()
-weave self with (contents => @ & "PROCESSING ROOT \e<origin.f_name>\n");
+pick self weave (contents => @ & "PROCESSING ROOT \e<origin.f_name>\n");
 
-match w_entity () and parent (w: w_root ())
-weave w with (contents => @ & self.output);
+match e: w_entity () and parent (w: w_root ())
+pick w weave (contents => @ & e.output);
 
-match w_entity () and origin (template (o: w_option ())) and parent (w: w_root ())
-weave w with (contents => @ & "OPTION FROM ORIGIN: \e<o.option>\n");
+match e: w_entity () and origin (template (o: w_option ())) and parent (w: w_root ())
+pick w weave (contents => @ & "OPTION FROM ORIGIN: \e<o.option>\n");
 
-match w_entity () and sibling (o: w_option ()) and parent (w: w_root ())
-weave w with (contents => @ & "\e<origin.f_name> SIBLING OPTION: \e<o.option>\n");
+match e: w_entity () and sibling (o: w_option ()) and parent (w: w_root ())
+pick w weave (contents => @ & "\e<e.origin.f_name> SIBLING OPTION: \e<o.option>\n");
 
-match w_entity () and (prev (o: w_option ()) or next (o: w_option ())) and parent (w: w_root ())
-weave w with (contents => @ & "\e<origin.f_name> PREV OR NEXT OPTION: \e<o.option>\n");
+match e: w_entity () and (prev (o: w_option ()) or next (o: w_option ())) and parent (w: w_root ())
+pick w weave (contents => @ & "\e<e.origin.f_name> PREV OR NEXT OPTION: \e<o.option>\n");
 
 match w_root ()
-wrap with standard.out ("DISPLAYING ROOT\n\e<contents>");
+wrap standard.out ("DISPLAYING ROOT\n\e<contents>");

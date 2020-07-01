@@ -8,7 +8,7 @@ template my_out extends standard.out {}
 
 match Entity ("A(?<a>.+)") {
    match not test.entity_map.element ("\e<a>") {
-      weave test with (entity_map => @.insert ("\e<a>", new (w_Entity (name => "[\e<a>]"))));
-      wrap test with my_out (@ & "RESULT: " & lambda (acc: test.entity_map(v: true).fold ("", acc & v.name & " ")));
+      pick test weave (entity_map => @.insert ("\e<a>", new (w_Entity (name => "[\e<a>]"))));
+      pick test wrap my_out (@ & "RESULT: " & lambda (acc: test.entity_map(v: true).fold ("", acc & v.name & " ")));
    }
 }

@@ -1,16 +1,16 @@
 visitor sub_analyze (p1, p2) {
     match Entity () or Call ()
-    wrap with standard.out ("sub_analyze: \e<f_name>, \e<p1>, \e<p2>\n"); 
+    wrap standard.out ("sub_analyze: \e<f_name>, \e<p1>, \e<p2>\n"); 
 }
 
 match Entity () or Call ()
-wrap with standard.out ("default: \e<f_name>\n");
+wrap standard.out ("default: \e<f_name>\n");
 
 match f_name("A(.*)")
-wrap with sub_analyze ("A", "\1");
+wrap sub_analyze ("A", "\1");
 
 match f_name ("B(.*)")
-wrap with sub_analyze (p2 => "\1", p1 => "B");
+wrap sub_analyze (p2 => "\1", p1 => "B");
 
 match f_name ("C(?<x>.*)") {
     wrap all with sub_analyze ("C", x);

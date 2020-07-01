@@ -3,10 +3,10 @@ template T {
 }
 
 match Entity ()
-wrap with T ();
+wrap T ();
 
 match Entity ("[0-9]+")
-wrap with null (T);
+wrap null (T);
 
 match T ()
-weave with standard.out ("\e<self.origin.f_name>\n");
+weave standard.out ("\e<self.origin.f_name>\n");

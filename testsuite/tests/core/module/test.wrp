@@ -6,32 +6,32 @@ template base_template {
 
 match Entity () {
     match (f_name ("A"))
-    wrap with x.t_in_x ("x.t_in_x (\e<f_name>)\n");
+    wrap x.t_in_x ("x.t_in_x (\e<f_name>)\n");
 
     match (f_name ("B"))
-    wrap with t_in_x ("a.x.t_in_x (\e<f_name>)\n");
+    wrap t_in_x ("a.x.t_in_x (\e<f_name>)\n");
 
     match (f_name ("B"))
-    wrap with a.b.y.t_in_y ("a.b.y.t_in_y (\e<f_name>)\n");
+    wrap a.b.y.t_in_y ("a.b.y.t_in_y (\e<f_name>)\n");
 
     match (f_name ("A"))
-    wrap with base_template ("base_template (\e<f_name>)\n");
+    wrap base_template ("base_template (\e<f_name>)\n");
 }
 
 match base_template ()
-weave with standard.out (@ & "base_template = \e<self.content>");
+weave standard.out (@ & "base_template = \e<self.content>");
 
 match x.t_in_x ()
-weave with standard.out (@ & "x.t_in_x = \e<self.content>");
+weave standard.out (@ & "x.t_in_x = \e<self.content>");
 
 match a.x.t_in_x ()
-weave with standard.out (@ & "a.x.t_in_x = \e<self.content>");
+weave standard.out (@ & "a.x.t_in_x = \e<self.content>");
 
 match a.b.y.t_in_y ()
-weave with standard.out (@ & "a.b.y.t_in_y = \e<self.content>");
+weave standard.out (@ & "a.b.y.t_in_y = \e<self.content>");
 
 match a.c.z.t_in_z ()
-weave with standard.out (@ & "a.c.z.t_in_z = \e<self.content>");
+weave standard.out (@ & "a.c.z.t_in_z = \e<self.content>");
 
 match t_in_x ()
-weave with standard.out (@ & "a.x.t_in_x = \e<self.content>");
+weave standard.out (@ & "a.x.t_in_x = \e<self.content>");
