@@ -6,6 +6,8 @@ with Wrapping.Utils; use Wrapping.Utils;
 
 package body Wrapping.Semantic.Structure is
 
+   procedure Compute_Lambda_Closure (A_Lambda : T_Expr);
+
    procedure Add_Child (Parent, Child : access T_Entity_Type'Class) is
    begin
       Child.Parent := T_Entity (Parent);
@@ -297,18 +299,18 @@ package body Wrapping.Semantic.Structure is
       return An_Entity;
    end Get_Template_Or_Visitor_By_Name;
 
-   procedure Resolve_Names (An_Entity : access T_Entity_Type) is
+   procedure Resolve_References (An_Entity : access T_Entity_Type) is
    begin
       for C of An_Entity.Children_Ordered loop
-         C.Resolve_Names;
+         C.Resolve_References;
       end loop;
-   end Resolve_Names;
+   end Resolve_References;
 
    overriding
-   procedure Resolve_Names (An_Entity : access T_Template_Type) is
+   procedure Resolve_References (An_Entity : access T_Template_Type) is
       Extending : T_Entity;
    begin
-      T_Entity_Type (An_Entity.all).Resolve_Names;
+      T_Entity_Type (An_Entity.all).Resolve_References;
 
       if not An_Entity.Node.As_Template.F_Extending.Is_Null then
          Push_Error_Location (An_Entity.Node.As_Template.F_Extending);
@@ -328,12 +330,12 @@ package body Wrapping.Semantic.Structure is
          An_Entity.Extends := T_Template (Extending);
          Pop_Error_Location;
       end if;
-   end Resolve_Names;
+   end Resolve_References;
 
    overriding
-   procedure Resolve_Names (An_Entity : access T_Command_Type) is
+   procedure Resolve_References (An_Entity : access T_Command_Type) is
    begin
-      T_Entity_Type (An_Entity.all).Resolve_Names;
+      T_Entity_Type (An_Entity.all).Resolve_References;
 
       if An_Entity.Template_Section /= null then
          case An_Entity.Template_Section.Node.F_Actions.Kind is
@@ -383,12 +385,12 @@ package body Wrapping.Semantic.Structure is
 
          end case;
       end if;
-   end Resolve_Names;
+   end Resolve_References;
 
    overriding
-   procedure Resolve_Names (An_Entity : access T_Module_Type) is
+   procedure Resolve_References (An_Entity : access T_Module_Type) is
    begin
-      T_Entity_Type (An_Entity.all).Resolve_Names;
+      T_Entity_Type (An_Entity.all).Resolve_References;
 
       for C of An_Entity.Node.As_Module.F_Import_Clauses.Children loop
          Push_Error_Location (C);
@@ -408,21 +410,25 @@ package body Wrapping.Semantic.Structure is
 
          Pop_Error_Location;
       end loop;
-   end Resolve_Names;
+   end Resolve_References;
 
    overriding
-   procedure Resolve_Names (An_Entity : access T_Expr_Type) is
+   procedure Resolve_References (An_Entity : access T_Expr_Type) is
    begin
-      T_Entity_Type (An_Entity.all).Resolve_Names;
+      T_Entity_Type (An_Entity.all).Resolve_References;
+
+      if An_Entity.Kind = Template_Lambda_Expr then
+         Compute_Lambda_Closure (T_Expr (An_Entity));
+      end if;
 
       --  TODO: There are a few cases where names can be resolved statically,
       --  e.g. static references in identifiers
-   end Resolve_Names;
+   end Resolve_References;
 
    overriding
-   procedure Resolve_Names (An_Entity : access T_Create_Tree_Type) is
+   procedure Resolve_References (An_Entity : access T_Create_Tree_Type) is
    begin
-      T_Entity_Type (An_Entity.all).Resolve_Names;
+      T_Entity_Type (An_Entity.all).Resolve_References;
 
       Push_Error_Location (An_Entity.Node);
 
@@ -439,6 +445,122 @@ package body Wrapping.Semantic.Structure is
       end if;
 
       Pop_Error_Location;
-   end Resolve_Names;
+   end Resolve_References;
+
+   procedure Compute_Lambda_Closure (A_Lambda : T_Expr) is
+      Local_Symbols : Text_Sets.Set;
+
+      procedure Not_Capture_Identifiers (Expr : T_Expr);
+
+      procedure Capture_Identifiers (Expr : T_Expr);
+
+      procedure Capture (Name : Text_Type) is
+      begin
+         if Local_Symbols.Contains (Name) then
+            --  If the symbol is local to the lambda, then there's nothing to
+            --  capture.
+            return;
+         else
+            --  Otherwise, record this symbol to be captured.
+
+            A_Lambda.Lambda_Closure.Include (Name);
+         end if;
+      end Capture;
+
+      procedure Capture_Identifiers (Expr : T_Expr) is
+      begin
+         Push_Error_Location (Expr.Node);
+
+         case Expr.Kind is
+            when Template_Selector =>
+               Capture_Identifiers (Expr.Selector_Left);
+               Not_Capture_Identifiers (Expr.Selector_Right);
+
+            when Template_Token_Identifier | Template_Identifier =>
+               Capture (Expr.Node.Text);
+
+            when others =>
+               Not_Capture_Identifiers (Expr);
+         end case;
+
+         Pop_Error_Location;
+      end Capture_Identifiers;
+
+      procedure Not_Capture_Identifiers (Expr : T_Expr) is
+      begin
+         Push_Error_Location (Expr.Node);
+
+         case Expr.Kind is
+            when Template_Token_Identifier
+               | Template_Identifier
+               | Template_Literal
+               | Template_Number
+               | Template_At_Ref =>
+               null;
+
+            when Template_Match_Capture =>
+               declare
+                  Name : Text_Type := Expr.Node.As_Match_Capture.F_Captured.Text;
+               begin
+                  --  If the name isn't already identified as a local name,
+                  --  identify it as such for the remainder of the analysis.
+                  --  Otherwise, just pass through.
+
+                  if not Local_Symbols.Contains (Name) then
+                     Local_Symbols.Insert (Name);
+                     Capture_Identifiers (Expr.Match_Expr);
+                     Local_Symbols.Delete (Name);
+                     return;
+                  else
+                     Capture_Identifiers (Expr.Match_Expr);
+                  end if;
+               end;
+            when Template_Str =>
+               --  Analyze_Replace_String ABI is expecting that capturing an
+               --  expression pushes a value on the stack (it's going to get
+               --  popped. So use Capture_Expression_And_Push_Dummy in order
+               --  to avoid popping the top of the stack.
+
+               for S of Expr.Str loop
+                  case S.Kind is
+                     when Expr_Kind =>
+                        Capture_Identifiers (S.Expr);
+
+                     when Group_Kind =>
+                        Error ("capture of groups not yet implemented");
+
+                     when others =>
+                        null;
+                  end case;
+               end loop;
+
+            when Template_Binary_Expr
+               | Template_Unary_Expr
+               | Template_Qualified_Match
+               | Template_All_Expr
+               | Template_Fold_Expr
+               | Template_Lambda_Expr
+               | Template_Call_Expr
+               | Template_New_Expr =>
+
+               for C of Expr.Children_Ordered loop
+                  if C.all in T_Expr_Type'Class then
+                     Capture_Identifiers (T_Expr (C));
+                  elsif C.all in T_Arg_Type'Class then
+                     Capture_Identifiers (T_Arg (C).Expr);
+                  end if;
+               end loop;
+
+            when others =>
+               Error
+                 ("unhandled expression kind in capture identifers: "
+                  & Expr.Kind'Wide_Wide_Image);
+         end case;
+
+         Pop_Error_Location;
+      end Not_Capture_Identifiers;
+   begin
+      Capture_Identifiers (A_Lambda.Lambda_Expr);
+   end Compute_Lambda_Closure;
 
 end Wrapping.Semantic.Structure;

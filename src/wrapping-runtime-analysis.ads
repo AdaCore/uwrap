@@ -59,7 +59,7 @@ package Wrapping.Runtime.Analysis is
 
    function Get_Implicit_Self return W_Object;
 
-   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expression : Template_Node);
+   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expr : T_Expr);
 
    procedure Run_Lambda (A_Lambda : W_Lambda_Type);
 

@@ -285,7 +285,7 @@ package Wrapping.Runtime.Objects is
    --  to that the expression can be valuated later on.
    type W_Lambda_Type is new W_Object_Type with record
       Captured_Symbols : W_Object_Maps.Map;
-      Expression       : Template_Node;
+      Expr             : T_Expr;
       Implicit_Self    : W_Node;
       Implicit_New     : W_Node;
       Lexical_Scope    : T_Entity;

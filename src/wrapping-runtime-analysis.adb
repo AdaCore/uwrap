@@ -876,8 +876,7 @@ package body Wrapping.Runtime.Analysis is
             declare
                A_Lambda : W_Lambda := new W_Lambda_Type;
             begin
-               Capture_Lambda_Environment
-                 (A_Lambda, Expr.Node.As_Lambda_Expr.F_Expression);
+               Capture_Lambda_Environment (A_Lambda, Expr);
                Push_Object (A_Lambda);
 
                Pop_Error_Location;
@@ -930,7 +929,9 @@ package body Wrapping.Runtime.Analysis is
                & Expr.Node.Kind'Wide_Wide_Image & "'");
       end case;
 
-      if Run_Outer_Callback then
+      if Run_Outer_Callback
+        and then Top_Frame.Top_Context.Outer_Expr_Callback /= null
+      then
          Top_Frame.Top_Context.Outer_Expr_Callback.all;
       end if;
 
@@ -1758,183 +1759,59 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_New;
 
-   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expression : Template_Node) is
-   --     Local_Symbols : Text_Sets.Set;
-   --
-   --     function Not_Capture_Identifiers
-   --       (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
-   --
-   --     function Capture_Identifiers
-   --       (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status;
-   --
-   --     procedure Capture (Name : Text_Type) is
-   --     begin
-   --        if Local_Symbols.Contains (Name) then
-   --           --  If the symbol is local to the lambda, then there's nothing to
-   --           --  capture.
-   --           return;
-   --        end if;
-   --
-   --        if Push_Global_Identifier (Name) then
-   --           --  We found a global identifier to record. If not, we expect it
-   --           --  to be resolved later when running the lambda.
-   --
-   --           --  If the object is an imlicit ref, it may be marked self
-   --           --  or new. We don't want to carry this property over to the lambda
-   --           --  call, so remove it.
-   --
-   --           if Top_Object.Dereference.all in W_Static_Entity_Type then
-   --              --  We don't capture static references, they can later be
-   --              --  retreived from context. Genreating symbols for them would
-   --              --  also confused name resolution as we would have a symbol
-   --              --  and a statically solvable name.
-   --              Pop_Object;
-   --           elsif Top_Object.all in W_Reference_Type'Class then
-   --              A_Lambda.Captured_Symbols.Insert
-   --                (Name, new W_Reference_Type'
-   --                   (Value => W_Reference (Pop_Object).Value, others => <>));
-   --           else
-   --              A_Lambda.Captured_Symbols.Insert (Name, Pop_Object);
-   --           end if;
-   --        end if;
-   --     end Capture;
-   --
-   --     procedure Capture_Group (Index : Integer; Value : W_Object) is
-   --     begin
-   --        Error ("not yet implemented");
-   --     end Capture_Group;
-   --
-   --     procedure Capture_Expression (Expression : Template_Node) is
-   --     begin
-   --        Expression.Traverse (Capture_Identifiers'Access);
-   --     end Capture_Expression;
-   --
-   --     function Capture_Identifiers
-   --       (Expr : T_Expr) return Libtemplatelang.Common.Visit_Status
-   --     is
-   --     begin
-   --        Push_Error_Location (Node);
-   --
-   --        case Node.Kind is
-   --           when Template_Selector =>
-   --              Node.As_Selector.F_Left.Traverse (Capture_Identifiers'Access);
-   --
-   --              Push_Frame_Context;
-   --              Top_Frame.Top_Context.Is_Root_Selection := False;
-   --
-   --              Node.As_Selector.F_Right.Traverse (Not_Capture_Identifiers'Access);
-   --
-   --              Pop_Frame_Context;
-   --
-   --              Pop_Error_Location;
-   --              return Over;
-   --
-   --           when Template_Token_Identifier | Template_Identifier =>
-   --              Capture (Node.Text);
-   --
-   --              Pop_Error_Location;
-   --              return Over;
-   --
-   --           when others =>
-   --              Pop_Error_Location;
-   --
-   --              return Not_Capture_Identifiers (Node);
-   --        end case;
-   --     end Capture_Identifiers;
-   --
-   --     function Not_Capture_Identifiers
-   --       (Node : Template_Node'Class) return Libtemplatelang.Common.Visit_Status is
-   --     begin
-   --        Push_Error_Location (Node);
-   --
-   --        case Node.Kind is
-   --           when Template_Match_Capture =>
-   --              declare
-   --                 Name : Text_Type := Node.As_Match_Capture.F_Captured.Text;
-   --              begin
-   --                 --  If the name isn't already identified as a local name,
-   --                 --  identify it as such for the remainder of the analysis.
-   --                 --  Otherwise, just pass through.
-   --
-   --                 if not Local_Symbols.Contains (Name) then
-   --                    Local_Symbols.Insert (Name);
-   --                    Node.As_Match_Capture.F_Expression.Traverse
-   --                      (Capture_Identifiers'Access);
-   --                    Local_Symbols.Delete (Name);
-   --                    return Over;
-   --                 else
-   --                    return Into;
-   --                 end if;
-   --              end;
-   --           when Template_Str =>
-   --              --  Analyze_Replace_String ABI is expecting that capturing an
-   --              --  expression pushes a value on the stack (it's going to get
-   --              --  popped. So use Capture_Expression_And_Push_Dummy in order
-   --              --  to avoid popping the top of the stack.
-   --
-   --              Analyze_Replace_String
-   --                (Node,
-   --                 Capture_Group'Access,
-   --                 Capture_Expression'Access);
-   --
-   --              Pop_Object;
-   --
-   --              Pop_Error_Location;
-   --              return Over;
-   --           when Template_Call_Expr | Template_New_Expr =>
-   --              --  Resolved the called identifier
-   --
-   --              Push_Frame_Context;
-   --              Top_Frame.Top_Context.Is_Root_Selection := False;
-   --
-   --              for Arg of Node.As_Call_Expr.F_Args loop
-   --                 Arg.Traverse (Capture_Identifiers'Access);
-   --              end loop;
-   --
-   --              Pop_Frame_Context;
-   --
-   --              Pop_Error_Location;
-   --              return Over;
-   --
-   --        when others =>
-   --
-   --           Pop_Error_Location;
-   --           return Into;
-   --        end case;
-   --     end Not_Capture_Identifiers;
+   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expr : T_Expr) is
    begin
-      null;
-   --     Capture_Expression (Expression);
-   --
-   --     A_Lambda.Expression := Expression;
-   --     A_Lambda.Implicit_Self := W_Node (Get_Implicit_Self);
-   --     A_Lambda.Implicit_New := W_Node (Get_Implicit_New);
-   --     A_Lambda.Lexical_Scope := Top_Frame.Lexical_Scope;
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Is_Root_Selection := True;
+
+      for Name of Expr.Lambda_Closure loop
+         if Push_Global_Identifier (Name) then
+            --  If the object is an imlicit ref, it may be marked self
+            --  or new. We don't want to carry this property over to the lambda
+            --  call, so remove it.
+
+            if Top_Object.Dereference.all in W_Static_Entity_Type then
+               --  We don't capture static references, they can later be
+               --  retreived from context. Genreating symbols for them would
+               --  also confused name resolution as we would have a symbol
+               --  and a statically solvable name.
+               Pop_Object;
+            elsif Top_Object.all in W_Reference_Type'Class then
+               A_Lambda.Captured_Symbols.Insert
+                 (Name, new W_Reference_Type'
+                    (Value => W_Reference (Pop_Object).Value, others => <>));
+            else
+               A_Lambda.Captured_Symbols.Insert (Name, Pop_Object);
+            end if;
+         end if;
+      end loop;
+
+      A_Lambda.Expr := Expr.Lambda_Expr;
+      A_Lambda.Implicit_Self := W_Node (Get_Implicit_Self);
+      A_Lambda.Implicit_New := W_Node (Get_Implicit_New);
+      A_Lambda.Lexical_Scope := Top_Frame.Lexical_Scope;
    end Capture_Lambda_Environment;
 
    procedure Run_Lambda (A_Lambda : W_Lambda_Type) is
-      --  Copy_Symbols : W_Object_Maps.Map;
-      --  Result : W_Object;
+      Copy_Symbols : W_Object_Maps.Map;
+      Result : W_Object;
    begin
-      null;
-      --  Push_Frame (A_Lambda.Lexical_Scope);
-      --
-      --  Copy_Symbols := A_Lambda.Captured_Symbols.Copy;
-      --  Top_Frame.Symbols.Move (Copy_Symbols);
-      --
-      --  if A_Lambda.Implicit_Self /= null then
-      --     Push_Implicit_Self (A_Lambda.Implicit_Self);
-      --  end if;
-      --
-      --  if A_Lambda.Implicit_New /= null then
-      --     Push_Implicit_New (A_Lambda.Implicit_New);
-      --  end if;
-      --
-      --  Evaluate_Expression (A_Lambda.Expression);
-      --
-      --  Result := Pop_Object;
-      --  Pop_Frame;
-      --  Push_Object (Result);
+      Push_Frame (A_Lambda.Lexical_Scope);
+
+      Copy_Symbols := A_Lambda.Captured_Symbols.Copy;
+      Top_Frame.Symbols.Move (Copy_Symbols);
+
+      if A_Lambda.Implicit_Self /= null then
+         Push_Implicit_Self (A_Lambda.Implicit_Self);
+      end if;
+
+      if A_Lambda.Implicit_New /= null then
+         Push_Implicit_New (A_Lambda.Implicit_New);
+      end if;
+
+      Result := Evaluate_Expression (A_Lambda.Expr);
+      Pop_Frame;
+      Push_Object (Result);
    end Run_Lambda;
 
    procedure Outer_Expression_Match is

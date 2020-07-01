@@ -54,7 +54,7 @@ package body Wrapping.Semantic.Analysis is
 
    procedure Analyze is
    begin
-      Root.Resolve_Names;
+      Root.Resolve_References;
    end Analyze;
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String) is
@@ -463,7 +463,7 @@ package body Wrapping.Semantic.Analysis is
             end loop;
 
          when Template_Lambda_Expr =>
-            Expr.Lambda_Expression := Build_Expr (Node.As_Lambda_Expr.F_Expression);
+            Expr.Lambda_Expr := Build_Expr (Node.As_Lambda_Expr.F_Expression);
 
          when Template_New_Expr =>
             Expr.Has_New := True;
