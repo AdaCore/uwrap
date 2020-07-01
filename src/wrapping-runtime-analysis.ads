@@ -29,6 +29,8 @@ package Wrapping.Runtime.Analysis is
 
    procedure Push_Frame_Context;
 
+   procedure Push_Frame_Context (Context : Frame_Context_Type);
+
    procedure Pop_Frame_Context;
 
    procedure Push_Object (An_Object : access W_Object_Type'Class);

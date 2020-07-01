@@ -246,21 +246,6 @@ package Wrapping.Semantic.Structure is
          when Template_Selector =>
             Selector_Left, Selector_Right : T_Expr;
 
-            --  In patterns such as x.fold ().z or x.all ().z, it's important to
-            --  know that an expansion function (so fold or all here) is
-            --  present, so that the left call can be done as an expanding code.
-            --  In particular in the case of e.g. child().all().z, child will
-            --  behave differently and expand to all values as opposed to
-            --  only selecting the first one.
-            --  Note that a lookup to the right isn't sufficient, as in
-            --  a.all().b, right represent a selector all().b and not just the
-            --  terminal all.
-            --  When left expansion is set, the selector right will be processed
-            --  by the expantion function. e.g. called for every object in the
-            --  context of all and for the resulting value in the context of
-            --  fold.
-            Selector_Left_Expansion : T_Expr;
-
          when Template_Binary_Expr =>
             Binary_Left, Binary_Right : T_Expr;
 

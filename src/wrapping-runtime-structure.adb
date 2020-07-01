@@ -126,8 +126,6 @@ package body Wrapping.Runtime.Structure is
 
             return Into;
          else
-            Put_Line ("BROWSED NULL : " & Browsed.To_Debug_String);
-
             Result := new W_Reference_Type'
               (Value => W_Object (Browsed), others => <>);
 
@@ -166,8 +164,7 @@ package body Wrapping.Runtime.Structure is
       Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
       Top_Frame.Top_Context.Outer_Object := W_Object (Browsed);
       Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-
-      Put_Line ("BROWSED WITH " & Browsed.To_Debug_String);
+      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
       Evaluate_Expression (Match_Expression);
 
@@ -178,7 +175,6 @@ package body Wrapping.Runtime.Structure is
       Pop_Object;
 
       if Expression_Result /= Match_False then
-         Put_Line ("MATCH TRUE");
          if Expression_Result.all in W_Reference_Type'Class
            and then W_Reference (Expression_Result).Is_Allocated
          then
@@ -199,7 +195,6 @@ package body Wrapping.Runtime.Structure is
 
             return Stop;
          else
-            Put_Line ("MATCH FALSE");
             if Top_Frame.Top_Context.Is_Expanding_Context then
                Evaluate_Expand_Function;
 

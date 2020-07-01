@@ -414,14 +414,26 @@ package body Wrapping.Semantic.Analysis is
             Expr.Selector_Left := Build_Expr (Node.As_Selector.F_Left);
             Expr.Selector_Right := Build_Expr (Node.As_Selector.F_Right);
 
-            if Expr.Selector_Left.Kind in Template_All_Expr | Template_Fold_Expr then
-               if Parent = null or else Parent.Kind /= Template_Selector then
-                  Error ("all () needs to be selected on an object");
-               else
-                  Parent.Selector_Left_Expansion := Expr.Selector_Left;
-               end if;
-            elsif Expr.Selector_Right.Kind in Template_All_Expr | Template_Fold_Expr then
-               Expr.Selector_Left_Expansion := Expr.Selector_Right;
+            --  The tree that libtemplatelang creates needs to be
+            --  inverted for selector, so that the analysis goes from the
+            --  right to the left. If we are a the root of a selector, then
+            --  do the inverstion
+
+            if Parent = null or else Parent.Kind /= Template_Selector then
+               declare
+                  Current : T_Expr := Expr;
+                  Right : T_Expr;
+               begin
+                  while Current.Selector_Right.Kind = Template_Selector loop
+                     Right := Current.Selector_Right;
+                     Current.Selector_Right := Right.Selector_Left;
+                     Right.Selector_Left := Current;
+
+                     Current := Right;
+                  end loop;
+
+                  Expr := Current;
+               end;
             end if;
 
          when Template_Binary_Expr =>

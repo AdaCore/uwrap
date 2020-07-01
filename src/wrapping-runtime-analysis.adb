@@ -31,9 +31,10 @@ package body Wrapping.Runtime.Analysis is
      (An_Entity    : W_Node;
       A_Visitor    : T_Visitor;
       Args         : T_Arg_Vectors.Vector);
-   procedure Handle_Fold (Selector : T_Expr; Fold_Expr : T_Expr);
+   procedure Handle_Fold (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector);
    procedure Handle_New (Create_Tree : T_Create_Tree);
-   procedure Handle_All (Selector : T_Expr; All_Expr : T_Expr);
+   procedure Handle_All (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector);
+   procedure Handle_Selector (Expr : T_Expr;  Suffix : in out T_Expr_Vectors.Vector);
 
    procedure Analyze_Replace_String
      (Expr          : T_Expr;
@@ -164,18 +165,23 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Push_Frame_Context is
    begin
+      Push_Frame_Context (Top_Frame.Top_Context.all);
+   end Push_Frame_Context;
+
+   procedure Push_Frame_Context (Context : Frame_Context_Type) is
+   begin
       Top_Frame.Top_Context := new Frame_Context_Type'
-        (Parent_Context            => Top_Frame.Top_Context,
-         Current_Command           => Top_Frame.Top_Context.Current_Command,
-         Outer_Expr_Callback => Top_Frame.Top_Context.Outer_Expr_Callback,
-         Match_Mode                => Top_Frame.Top_Context.Match_Mode,
-         Is_Expanding_Context      => Top_Frame.Top_Context.Is_Expanding_Context,
-         Name_Captured             => Top_Frame.Top_Context.Name_Captured,
-         Expand_Action             => Top_Frame.Top_Context.Expand_Action,
-         An_Allocate_Callback      => Top_Frame.Top_Context.An_Allocate_Callback,
-         Left_Value                => Top_Frame.Top_Context.Left_Value,
-         Is_Root_Selection         => Top_Frame.Top_Context.Is_Root_Selection,
-         Outer_Object              => Top_Frame.Top_Context.Outer_Object);
+        (Parent_Context       => Top_Frame.Top_Context,
+         Current_Command      => Context.Current_Command,
+         Outer_Expr_Callback  => Context.Outer_Expr_Callback,
+         Match_Mode           => Context.Match_Mode,
+         Is_Expanding_Context => Context.Is_Expanding_Context,
+         Name_Captured        => Context.Name_Captured,
+         Expand_Action        => Context.Expand_Action,
+         An_Allocate_Callback => Context.An_Allocate_Callback,
+         Left_Value           => Context.Left_Value,
+         Is_Root_Selection    => Context.Is_Root_Selection,
+         Outer_Object         => Context.Outer_Object);
    end Push_Frame_Context;
 
    procedure Pop_Frame_Context is
@@ -421,14 +427,14 @@ package body Wrapping.Runtime.Analysis is
       end Allocate;
 
       procedure Create_And_Set_Template_Instance
-        (A_Command  : T_Command;
+        (Command  : T_Command;
          Expression : T_Expr);
       --  This will create a template instance from the clause information,
       --  setting parameter expression and adding it to the relevant language
       --  object.
 
       procedure Create_And_Set_Template_Instance
-        (A_Command : T_Command;
+        (Command : T_Command;
          Expression : T_Expr)
       is
       begin
@@ -450,16 +456,15 @@ package body Wrapping.Runtime.Analysis is
          Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
          Top_Frame.Top_Context.Current_Command := Command;
          Top_Frame.Top_Context.Is_Root_Selection := True;
+         Top_Frame.Top_Context.Outer_Object := W_Object (Self);
 
          if Command.Match_Expression /= null then
             Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-            Top_Frame.Top_Context.Outer_Object := W_Object (Self);
 
             Evaluate_Expression (Command.Match_Expression);
 
             Matched := Pop_Object /= Match_False;
             Top_Frame.Top_Context.Match_Mode := Match_None;
-            Top_Frame.Top_Context.Outer_Object := null;
          else
             Matched := True;
          end if;
@@ -743,67 +748,11 @@ package body Wrapping.Runtime.Analysis is
             end;
 
          when Template_Selector =>
-            --  In a selector, we compute the left object, build the right
-            --  expression based on the left object, and then put the result
-            --  on the left object on the stack.
-
-            if Expr.Selector_Left /= null then
-               if Expr.Selector_Left_Expansion /= null then
-                  --  Expansion needs to be handled speparately, as the prefix
-                  --  needs to be handled in folding context, with all
-                  --  processing expressions properly set.
-
-                  --  TODO: Don't forget to evaluate past
-
-                  if Expr.Selector_Left_Expansion.Kind = Template_Fold_Expr then
-                     Handle_Fold (Expr, Expr.Selector_Left_Expansion);
-                  elsif Expr.Selector_Left_Expansion.Kind = Template_All_Expr then
-                     Handle_All (Expr, Expr.Selector_Left_Expansion);
-                  else
-                     Error ("unknown expansion operation");
-                  end if;
-               else
-                  --  The left part of a selector may have calls. In this
-                  --  case, these calls are unrelated to the value that is
-                  --  possibly being captured. E.g. in:
-                  --     a: b ().c
-                  --  b () value is not being captured in a.
-                  --  In order to respect that, the current captured name is
-                  --  removed when processing the left part of the selector.
-                  --  Similarily, we only fold on the target of the fold. For
-                  --  example, in:
-                  --     child ().child ().fold ()
-                  --  the first child is a selecing the first match, the second
-                  --  is folded.
-                  --  Note that the left end of an expression is never matching
-                  --  with the outer context, hence setting the match flag to
-                  --  none.
-
-                  Push_Frame_Context;
-                  Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
-                  Top_Frame.Top_Context.Is_Expanding_Context := False;
-                  Top_Frame.Top_Context.Match_Mode := Match_None;
-                  Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-
-                  Evaluate_Expression (Expr.Selector_Left);
-                  Pop_Frame_Context;
-
-                  Push_Frame_Context;
-                  Top_Frame.Top_Context.Is_Root_Selection := False;
-
-                  --  Leave the result of the previous expression on the stack,
-                  --  it's suppposed to be consume by the next expression
-
-                  Evaluate_Expression (Expr.Selector_Right);
-
-                  Pop_Frame_Context;
-               end if;
-            else
-               Push_Frame_Context;
-               Top_Frame.Top_Context.Is_Root_Selection := True;
-               Evaluate_Expression (Expr.Selector_Right);
-               Pop_Frame_Context;
-            end if;
+            declare
+               Suffix : T_Expr_Vectors.Vector;
+            begin
+               Handle_Selector (Expr, Suffix);
+            end;
 
             --  Never match the result of a selection. Matching happened
             --  before, when evaluating the right operand. At this stage,
@@ -1466,7 +1415,6 @@ package body Wrapping.Runtime.Analysis is
          return A_Visit_Action;
       end Sub_Visitor;
 
-
       Prev_Visit_Id : Integer;
       A_Visit_Action : Visit_Action := Unknown;
       --Traverse_Result : W_Object;
@@ -1575,7 +1523,78 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_Call;
 
-   procedure Handle_Fold (Selector : T_Expr; Fold_Expr : T_Expr) is
+   procedure Handle_Selector (Expr : T_Expr; Suffix : in out T_Expr_Vectors.Vector) is
+      Terminal : T_Expr;
+   begin
+      --  In a selector, we compute the left object, build the right
+      --  expression based on the left object, and then put the result
+      --  on the left object on the stack.
+
+      if Expr.Selector_Left = null then
+         --  This can happen in particualr with the rule "dotted_identifier".
+         --  TODO: We should look at getting rid of this special case.
+
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Is_Root_Selection := True;
+         Evaluate_Expression (Expr.Selector_Right);
+         Pop_Frame_Context;
+      elsif Expr.Selector_Right.Kind in Template_All_Expr then
+         Handle_All (Expr, Suffix);
+      elsif Expr.Selector_Right.Kind in Template_Fold_Expr then
+         Handle_Fold (Expr, Suffix);
+      elsif Expr.Selector_Left.Kind in Template_Selector then
+         Suffix.Prepend (Expr.Selector_Right);
+         Handle_Selector (Expr.Selector_Left, Suffix);
+      else
+         Suffix.Prepend (Expr.Selector_Right);
+         Suffix.Prepend (Expr.Selector_Left);
+
+         Terminal := Suffix.Last_Element;
+         Suffix.Delete_Last;
+
+         --  The left part of a selector may have calls. In this
+         --  case, these calls are unrelated to the value that is
+         --  possibly being captured. E.g. in:
+         --     a: b ().c
+         --  b () value is not being captured in a.
+         --  In order to respect that, the current captured name is
+         --  removed when processing the left part of the selector.
+         --  Similarily, we only fold on the target of the fold. For
+         --  example, in:
+         --     child ().child ().fold ()
+         --  the first child is a selecing the first match, the second
+         --  is folded.
+         --  Note that the left end of an expression is never matching
+         --  with the outer context, hence setting the match flag to
+         --  none.
+
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
+         Top_Frame.Top_Context.Is_Expanding_Context := False;
+         Top_Frame.Top_Context.Match_Mode := Match_None;
+         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+
+         for Suffix_Expression of Suffix loop
+            Evaluate_Expression (Suffix_Expression);
+            Top_Frame.Top_Context.Is_Root_Selection := False;
+         end loop;
+
+         Pop_Frame_Context;
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Is_Root_Selection := False;
+
+         --  Run the terminal separately. In particular in the case of:
+         --     x.y.z.child().all()
+         --  while x.y.z needs to be called outside of the expanding context,
+         --  child () need to be called with the frame context set by all which
+         --  set in particular expanding context to true.
+
+         Evaluate_Expression (Terminal);
+         Pop_Frame_Context;
+      end if;
+   end Handle_Selector;
+
+   procedure Handle_Fold (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector) is
       --  Init_Value : W_Object;
    begin
       null;
@@ -1626,48 +1645,39 @@ package body Wrapping.Runtime.Analysis is
       --  Pop_Frame_Context;
    end Handle_Fold;
 
-   procedure Handle_All (Selector : T_Expr; All_Expr : T_Expr)
+   procedure Handle_All (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector)
    is
-      Suffix : T_Expr;
-
-      Initial_Outer_Expr_Callback : Outer_Expr_Callback_Type :=
-        Top_Frame.Top_Context.Outer_Expr_Callback;
+      Initial_Context : Frame_Context := Top_Frame.Top_Context;
 
       procedure Expand_Action is
       begin
-         Push_Frame_Context;
+         --  Restore the context at this point of the call. This is important
+         --  in particular if there was an expansion happening there,
+         --  e.g. a.all().b.all().
+         Push_Frame_Context (Initial_Context.all);
+
+         --  The outer callback has to be a match check here. If it's a
+         --  Outer_Expression_Pick, this is only to be called on the returning
+         --  value.
          Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-         Evaluate_Expression (Suffix);
+
+         for Suffix_Expression of Suffix loop
+            Evaluate_Expression (Suffix_Expression);
+         end loop;
 
          --  Execute the outer action once per run of the suffix, which may be
          --  a Outer_Expression_Pick call.
-         Initial_Outer_Expr_Callback.all;
+         Initial_Context.Outer_Expr_Callback.all;
          Pop_Frame_Context;
       end Expand_Action;
 
    begin
       Push_Frame_Context;
 
-      if Selector.Selector_Right.Kind /= Template_All_Expr then
-         --  In this case, we are on an expression such as x.all ().something.
-         --  all is set as the left element of the selector right, and the
-         --  suffix is the left element.
-         --  In this case, we want to make sure that the prefix is analyzed with
-         --  the match outer check. E.g. in:
-         --     pick child (e).all().b
-         --  e is checked against the match outer, then b will be checked against
-         --  outer expression pick.
-
-         Suffix := Selector.Selector_Right.Selector_Right;
-
-         Top_Frame.Top_Context.Expand_Action := Expand_Action'Unrestricted_Access;
-         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-      end if;
-
+      Top_Frame.Top_Context.Expand_Action := Expand_Action'Unrestricted_Access;
+      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
       Top_Frame.Top_Context.Is_Expanding_Context := True;
       Top_Frame.Top_Context.Match_Mode := Match_None;
-
-      Put_Line ("ENTER ALL ON " & Get_Implicit_Self.To_Debug_String);
 
       Evaluate_Expression (Selector.Selector_Left);
 
@@ -1944,25 +1954,7 @@ package body Wrapping.Runtime.Analysis is
       --  TODO: Visit action probably to be controlled on the frame here.
       A_Visit_Action : Visit_Action := Into;
    begin
-      if Top_Frame.Top_Context.Outer_Object /= null then
-         --  In this case, we're in a call like child (something). The element
-         --  set by child should be the one we process against. We should first
-         --  verify that the condition match, then handle the command if that's
-         --  the case.
-
-         Outer_Expression_Match;
-
-         if Top_Object /= Match_False then
-            Push_Object (Top_Frame.Top_Context.Outer_Object);
-            Handle_Command (Top_Frame.Top_Context.Current_Command, A_Visit_Action);
-            Pop_Object;
-         end if;
-      else
-         --  Otherwise, we're on something without a context, e.g. a.b. Just
-         --  use b.
-
-         Handle_Command (Top_Frame.Top_Context.Current_Command, A_Visit_Action);
-      end if;
+      Handle_Command (Top_Frame.Top_Context.Current_Command, A_Visit_Action);
    end Outer_Expression_Pick;
 
 end Wrapping.Runtime.Analysis;
