@@ -165,7 +165,7 @@ template_grammar.add_rules(
          G.wrap_section, 
          G.weave_section
       ),
-      Opt(Pick ('else', ElseSection(G.command)))
+      Opt(Pick ('else', ElseSection(Or(G.command, G.nested_commands))))
    ),
    match_section=MatchSection (
       Pick ('match', G.expression),

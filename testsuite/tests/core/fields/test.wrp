@@ -1,5 +1,5 @@
 match Call () and f_args (child (a: Entity ("M|N") and not child (Entity ())))
-weave with standard.out ("argument of \e<f_name> is \e<a.f_name> (no child)\n");
+weave standard.out ("argument of \e<f_name> is \e<a.f_name> (no child)\n");
 
 match Call () and f_args (child (a: Entity ("M|N") and child (c: Entity ())))
-weave with standard.out ("argument of \e<f_name> is \e<a.f_name> (child \e<c.f_name>)\n");
+weave standard.out ("argument of \e<f_name> is \e<a.f_name> (child \e<c.f_name>)\n");

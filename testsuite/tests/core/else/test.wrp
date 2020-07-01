@@ -1,15 +1,15 @@
 match Entity () {
     match f_name ("A")
-    weave with standard.out (@ & "\e<f_name>: FOUND A\n");
-    else weave with standard.out (@ & "\e<f_name>: NOT FOUND A\n");
+    weave standard.out (@ & "\e<f_name>: FOUND A\n");
+    else weave standard.out (@ & "\e<f_name>: NOT FOUND A\n");
 
     match f_name ("B")
-    weave with standard.out (@ & "\e<f_name>: FOUND B\n");
+    weave standard.out (@ & "\e<f_name>: FOUND B\n");
     else match f_name ("[0-9]+")
-    weave with standard.out (@ & "\e<f_name>: FOUND NUMBER\n");
+    weave standard.out (@ & "\e<f_name>: FOUND NUMBER\n");
     else {
         match f_name ("C")
-        weave with standard.out (@ & "\e<f_name>: FOUND C\n");
-        else weave with standard.out (@ & "\e<f_name>: NOT FOUND B, NUMBER OR C\n");
+        weave standard.out (@ & "\e<f_name>: FOUND C\n");
+        else weave standard.out (@ & "\e<f_name>: NOT FOUND B, NUMBER OR C\n");
     }
 }
