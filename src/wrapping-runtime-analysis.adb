@@ -372,6 +372,8 @@ package body Wrapping.Runtime.Analysis is
          return;
       elsif Top.all in W_Node_Type'Class then
          Self := W_Node (Top);
+      elsif Top.all in W_Static_Entity_Type then
+         Self := W_Node (Get_Object_For_Entity (W_Static_Entity (Top).An_Entity));
       else
          Error ("can't pick selected object");
       end if;
@@ -1631,6 +1633,18 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Is_Root_Selection := True;
       Push_Implicit_Self (Get_Implicit_Self);
       Init_Value := Evaluate_Expression (Fold_Expr.Default);
+
+      --  If the name captured is not null, provide its value here. This allows
+      --  two equivalent stypes for fold:
+      --     x: child ().fold ("", x & something)
+      --  or
+      --     child ().fold (x: "", x: (x & something))
+      --  which is consistent with the overall way capture works.
+      if Top_Frame.Top_Context.Name_Captured /= "" then
+         Top_Frame.Symbols.Include
+           (To_Text (Top_Frame.Top_Context.Name_Captured), Init_Value);
+      end if;
+
       Pop_Object;
       Pop_Frame_Context;
 
