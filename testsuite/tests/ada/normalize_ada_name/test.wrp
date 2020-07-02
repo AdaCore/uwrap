@@ -1,9 +1,9 @@
 import ada.wrappers;
 
-wrap with wrap_ada_specs ();
+wrap wrap_ada_specs ();
 
 match DefiningName ()
-wrap with w_DefiningName (normalize_ada_name (self));
+wrap w_DefiningName (normalize_ada_name (self));
 
 match DefiningName ("Spec")
-wrap with w_DefiningName ("Spec_Wrapped");
+wrap w_DefiningName ("Spec_Wrapped");

@@ -1,9 +1,9 @@
 import ada.wrappers;
 
-wrap with wrap_ada_specs ();
+wrap wrap_ada_specs ();
 
 match DefiningName ("^Lit(.+)")
-wrap with w_DefiningName ("Literal_\1");
+wrap w_DefiningName ("Literal_\1");
 
 match DefiningName ("^A_(.+)")
-wrap with w_DefiningName ("The_\1");
+wrap w_DefiningName ("The_\1");

@@ -1,13 +1,13 @@
 import ada.wrappers;
 import ada.transformations;
 
-wrap with wrap_ada_specs ();
+wrap wrap_ada_specs ();
 
 match DefiningName ("(?<a>.*)_h")
-wrap with w_DefiningName ("\e<a>_Wrapped");
+wrap w_DefiningName ("\e<a>_Wrapped");
 
 match ParamSpec("arr") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
-wrap with w_ParamSpec (
+wrap w_ParamSpec (
    type_expr => "in out Integer_Array",
    pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<te.child (TypeExpr ())> with Address => \e<name>'Address, Import;""",
    actual_value => sb.tmp ("local") & "'Access"
@@ -15,11 +15,11 @@ wrap with w_ParamSpec (
 
 
 match DefiningName ("(?<a>.*)_h") {
-   wrap with w_DefiningName ("\e<a>_Wrapped");
+   wrap w_DefiningName ("\e<a>_Wrapped");
 
    match p: parent (PackageDecl ()).template (w_PackageDecl ())
-   weave p with (spec_content => "type Integer_Array is array (Integer range <>) of Integer;\n");
+   pick p weave (spec_content => "type Integer_Array is array (Integer range <>) of Integer;\n");
 }
 
 match ParamSpec("length")
-wrap with parameter_into_computed_expression ("Arr'Length");
+wrap parameter_into_computed_expression ("Arr'Length");

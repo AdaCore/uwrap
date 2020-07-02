@@ -293,8 +293,16 @@ package body Wrapping.Runtime.Analysis is
             Error ("expected one argument to null");
          end if;
 
+         Push_Frame_Context;
+
+         --  There's nothing to check on the expression below. Deactivate the
+         --  expression callback (otherwise, it may perform wrong calls, either
+         --  to an unwanted check, or to the outer pick function.
+         Top_Frame.Top_Context.Outer_Expr_Callback := null;
+
          Evaluate_Expression (Template_Clause.Args.Element (1).Expr);
          Result := Pop_Object.Dereference;
+         Pop_Frame_Context;
 
          if Result.all not in W_Static_Entity_Type'Class
            or else W_Static_Entity (Result).An_Entity.all

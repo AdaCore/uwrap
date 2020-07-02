@@ -1,13 +1,13 @@
 import ada.wrappers;
 import ada.transformations;
 
-wrap with wrap_ada_specs ();
+wrap wrap_ada_specs ();
 
 match DefiningName ("(.*)_h")
-wrap with w_DefiningName ("\1_Wrapped");
+wrap w_DefiningName ("\1_Wrapped");
 
 match DefiningName ("myStruct")
-wrap with w_DefiningName ("My_Struct");
+wrap w_DefiningName ("My_Struct");
 
 match SubpDecl(".*Get.*") and child (p: ParamSpec("access *" and not prev ()))
-wrap with access_into_return (p); 
+wrap access_into_return (p); 

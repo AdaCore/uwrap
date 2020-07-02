@@ -1,2 +1,2 @@
 match DefiningName ()
-wrap with standard.out ("defining name: '\e<self>'\n");
+wrap standard.out ("defining name: '\e<self>'\n");

@@ -1,6 +1,6 @@
 import ada.wrappers;
 
-wrap with wrap_ada_specs ();
+wrap wrap_ada_specs ();
 
 match DefiningName ("^A_(.*)")
-wrap with w_DefiningName ("The_\1");
+wrap w_DefiningName ("The_\1");

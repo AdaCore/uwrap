@@ -2,7 +2,7 @@ import ada.wrappers;
 
 visitor access_into_out () {
    match ParamSpec("access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
-   wrap with w_ParamSpec (
+   wrap w_ParamSpec (
       pre_call_decl => """\e<sb.tmp ("call")> : aliased \e<te.child (TypeExpr ())> with Address => \e<name>'Address, Import;""",
       actual_value => """\e<sb.tmp ("call")>'Unchecked_Access""",
       mode => "out",
@@ -12,12 +12,12 @@ visitor access_into_out () {
 
 visitor access_into_return (parameter) {
    match parameter.child (TypeExpr (child (te: TypeExpr ()))) {
-      wrap with w_SubpDecl
-         (call_stmt => "\e<call>;", 
-          return_stmt => "null;",
-          function_or_procedure => "function");
+      wrap w_SubpDecl (
+         call_stmt => "\e<call>;", 
+         return_stmt => "null;",
+         function_or_procedure => "function");
 
-      wrap parameter with w_ParamSpec (
+      pick parameter wrap w_ParamSpec (
          generate_formal => "NO",  # TODO: introduce boolean here instead
          actual_value => """\e<self.tmp("call")>'Unchecked_Access""",
          call_decl => """
@@ -31,19 +31,19 @@ visitor access_into_return (parameter) {
 
 visitor constant_into_enumeration (type_name, lit_name) {
    match d: NumberDecl(child (n: DefiningName ())) and parent (template (p: w_PackageDecl())) {
-      wrap with null (w_NumberDecl);
-      wrap n with null (w_DefiningName);
+      wrap null (w_NumberDecl);
+      pick n wrap null (w_DefiningName);
 
       match t: p.child (w_TypeDecl (name (type_name)) or new (w_TypeDecl (name => type_name, kind => "enumeration"))) {
-         weave t.child (new (w_EnumLiteralDecl (name => lit_name)));
-         weave t.child (new (w_EnumRep (name => lit_name, value => d.f_expr)));
+         pick t.child (new (w_EnumLiteralDecl (name => lit_name)));
+         pick t.child (new (w_EnumRep (name => lit_name, value => d.f_expr)));
       }
    }
 }
 
 visitor chars_into_string () {
    match ParamSpec("Interfaces.C.Strings.chars_ptr") and parent (sb: SubpDecl())
-   wrap with w_ParamSpec (
+   wrap w_ParamSpec (
       type_expr => "String",
       pre_call_decl => """\e<sb.tmp ("c_string")> : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (\e<name>);\n""",
       actual_value => """\e<sb.tmp ("c_string")>""",
@@ -51,7 +51,7 @@ visitor chars_into_string () {
    );
 
    match SubpDecl() and child (TypeExpr ("Interfaces.C.Strings.chars_ptr"))
-   wrap with w_SubpDecl (
+   wrap w_SubpDecl (
       function_or_procedure => "function",
       result_type_expr => "String",
       call_decl => """\e<self.tmp ("c_string")> : aliased Interfaces.C.Strings.chars_ptr := \e<call>;\n""",
@@ -73,34 +73,34 @@ match w_ExceptionRegistry () {
          or
        new (w_Unit () [p: w_PackageDecl(name => r.package)])) {
 
-       weave p with (
+      pick p weave (
          spec_content => @ & """
             package \e<p.tmp ("registry_map")> is new Ada.Containers.Ordered_Maps
               (Integer, Ada.Exceptions.Exception_Id, "<", Ada.Exceptions."=");
-            \e<name> : \e<p.tmp ("registry_map")>.Map;
-            \e<exceptions>""",
-         stmt => @ & init
+            \e<r.name> : \e<p.tmp ("registry_map")>.Map;
+            \e<r.exceptions>""",
+         stmt => @ & r.init
        );
 
-       match not u.child (w_WithClause (ref ("Ada.Exceptions")))
-       wrap u.child (new (w_WithClause (ref => "Ada.Exceptions")));
+      match not u.child (w_WithClause (ref ("Ada.Exceptions")))
+      pick u.child (new (w_WithClause (ref => "Ada.Exceptions")));
 
-       match not u.child (w_WithClause (ref ("Ada.Containers.Ordered_Maps")))
-       wrap u.child (new (w_WithClause (ref => "Ada.Containers.Ordered_Maps")));
+      match not u.child (w_WithClause (ref ("Ada.Containers.Ordered_Maps")))
+      pick u.child (new (w_WithClause (ref => "Ada.Containers.Ordered_Maps")));
 
-       match not p.child (w_SubprogramDecl)
-       weave p with (elaborate_body => "pragma Elaborate_Body;\n");
+      match not p.child (w_SubprogramDecl)
+      pick p weave (elaborate_body => "pragma Elaborate_Body;\n");
    }
 }
 
 visitor error_code_into_exception (package_container, registry_name, exception_name) {
    match d: NumberDecl(child (n: DefiningName ())) {
-      wrap with null (w_NumberDecl);
-      wrap n with null (w_DefiningName);
+      wrap null (w_NumberDecl);
+      pick n wrap null (w_DefiningName);
 
       match r: (w_ExceptionRegistry.find (package (package_container) and name (registry_name))
          or new (w_ExceptionRegistry (package => package_container, name => registry_name)))
-      weave r with (
+      pick r weave (
          exceptions => @ & "\e<exception_name> : exception;\n",
          init => @ & "\e<registry_name>.Insert (\e<d.f_expr>, \e<exception_name>'Identity);\n"
       );
@@ -109,27 +109,27 @@ visitor error_code_into_exception (package_container, registry_name, exception_n
 
 visitor into_binary_compatible (type_name) {
    match ParamSpec() and parent (sb: SubpDecl ())
-   wrap with w_ParamSpec(
+   wrap w_ParamSpec(
       type_expr => type_name,
       pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n""",
       actual_value => sb.tmp ("local")
    );
 
    match child (f_subp_kind ("function")) and child (te: TypeExpr()) 
-   wrap with w_SubpDecl
+   wrap w_SubpDecl
       (function_or_procedure => "function",
        result_type_expr => type_name,
        call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
        post_call_decl => """
-          \e<self.tmp ("result_wrapped")> : aliased \e<type_name> 
-          with Address => \e<self.tmp ("result_orig")>'Address, Import;\n""",
+         \e<self.tmp ("result_wrapped")> : aliased \e<type_name> 
+         with Address => \e<self.tmp ("result_orig")>'Address, Import;\n""",
        call_stmt => "null;", 
        return_stmt => """return \e<self.tmp ("result_wrapped")>;""");
 }
 
 visitor parameter_into_computed_expression (expr) {
    match ParamSpec()
-   wrap with w_ParamSpec(
+   wrap w_ParamSpec(
       generate_formal => "NO",
       type_expr => "",
       actual_value => expr
@@ -141,14 +141,14 @@ visitor return_into_exception (registry_package, registry_name) {
       match not p.name (registry_package) 
          and u: p.parent (w_Unit ()) {
             match not u.child (w_WithClause (ref (registry_package)))
-            wrap u.child (new (w_WithClause (ref => registry_package)));
+            pick u.child (new (w_WithClause (ref => registry_package)));
 
             match not u.child (w_WithClause (ref ("Ada.Exceptions")))
-            wrap u.child (new (w_WithClause (ref => "Ada.Exceptions")));
+            pick u.child (new (w_WithClause (ref => "Ada.Exceptions")));
          }
    }
 
-   wrap with w_SubpDecl (
+   wrap w_SubpDecl (
       function_or_procedure => "procedure",
       call_decl => """\e<self.tmp ("res")> : Interfaces.C.int := \e<call>;\n""",
       call_stmt => "null;", 
