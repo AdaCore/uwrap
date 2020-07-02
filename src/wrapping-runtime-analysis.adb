@@ -31,7 +31,7 @@ package body Wrapping.Runtime.Analysis is
      (An_Entity    : W_Node;
       A_Visitor    : T_Visitor;
       Args         : T_Arg_Vectors.Vector);
-   procedure Handle_Fold (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector);
+   procedure Handle_Fold (Selector : T_Expr;  Suffix : in out T_Expr_Vectors.Vector);
    procedure Handle_New (Create_Tree : T_Create_Tree);
    procedure Handle_All (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector);
    procedure Handle_Selector (Expr : T_Expr;  Suffix : in out T_Expr_Vectors.Vector);
@@ -1532,8 +1532,58 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_Call;
 
-   procedure Handle_Selector (Expr : T_Expr; Suffix : in out T_Expr_Vectors.Vector) is
+   procedure Compute_Selector_Suffix (Suffix : in out T_Expr_Vectors.Vector) is
       Terminal : T_Expr;
+   begin
+      if Suffix.Length = 0 then
+         return;
+      end if;
+
+      Terminal := Suffix.Last_Element;
+      Suffix.Delete_Last;
+
+      --  The left part of a selector may have calls. In this
+      --  case, these calls are unrelated to the value that is
+      --  possibly being captured. E.g. in:
+      --     a: b ().c
+      --  b () value is not being captured in a.
+      --  In order to respect that, the current captured name is
+      --  removed when processing the left part of the selector.
+      --  Similarily, we only fold on the target of the fold. For
+      --  example, in:
+      --     child ().child ().fold ()
+      --  the first child is a selecing the first match, the second
+      --  is folded.
+      --  Note that the left end of an expression is never matching
+      --  with the outer context, hence setting the match flag to
+      --  none.
+
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
+      Top_Frame.Top_Context.Is_Expanding_Context := False;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+
+      for Suffix_Expression of Suffix loop
+         Evaluate_Expression (Suffix_Expression);
+         Top_Frame.Top_Context.Is_Root_Selection := False;
+      end loop;
+
+      Pop_Frame_Context;
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Is_Root_Selection := False;
+
+      --  Run the terminal separately. In particular in the case of:
+      --     x.y.z.child().all()
+      --  while x.y.z needs to be called outside of the expanding context,
+      --  child () need to be called with the frame context set by all which
+      --  set in particular expanding context to true.
+
+      Evaluate_Expression (Terminal);
+      Pop_Frame_Context;
+   end Compute_Selector_Suffix;
+
+   procedure Handle_Selector (Expr : T_Expr; Suffix : in out T_Expr_Vectors.Vector) is
    begin
       --  In a selector, we compute the left object, build the right
       --  expression based on the left object, and then put the result
@@ -1558,100 +1608,54 @@ package body Wrapping.Runtime.Analysis is
          Suffix.Prepend (Expr.Selector_Right);
          Suffix.Prepend (Expr.Selector_Left);
 
-         Terminal := Suffix.Last_Element;
-         Suffix.Delete_Last;
-
-         --  The left part of a selector may have calls. In this
-         --  case, these calls are unrelated to the value that is
-         --  possibly being captured. E.g. in:
-         --     a: b ().c
-         --  b () value is not being captured in a.
-         --  In order to respect that, the current captured name is
-         --  removed when processing the left part of the selector.
-         --  Similarily, we only fold on the target of the fold. For
-         --  example, in:
-         --     child ().child ().fold ()
-         --  the first child is a selecing the first match, the second
-         --  is folded.
-         --  Note that the left end of an expression is never matching
-         --  with the outer context, hence setting the match flag to
-         --  none.
-
-         Push_Frame_Context;
-         Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
-         Top_Frame.Top_Context.Is_Expanding_Context := False;
-         Top_Frame.Top_Context.Match_Mode := Match_None;
-         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-
-         for Suffix_Expression of Suffix loop
-            Evaluate_Expression (Suffix_Expression);
-            Top_Frame.Top_Context.Is_Root_Selection := False;
-         end loop;
-
-         Pop_Frame_Context;
-         Push_Frame_Context;
-         Top_Frame.Top_Context.Is_Root_Selection := False;
-
-         --  Run the terminal separately. In particular in the case of:
-         --     x.y.z.child().all()
-         --  while x.y.z needs to be called outside of the expanding context,
-         --  child () need to be called with the frame context set by all which
-         --  set in particular expanding context to true.
-
-         Evaluate_Expression (Terminal);
-         Pop_Frame_Context;
+         Compute_Selector_Suffix (Suffix);
       end if;
    end Handle_Selector;
 
-   procedure Handle_Fold (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector) is
-      --  Init_Value : W_Object;
+   procedure Handle_Fold (Selector : T_Expr;  Suffix : in out T_Expr_Vectors.Vector) is
+
+      Fold_Expr : T_Expr := Selector.Selector_Right;
+      Init_Value : W_Object;
+
+      procedure Expand_Action is
+      begin
+         Evaluate_Expression (Fold_Expr.Combine);
+      end Expand_Action;
+
    begin
-      null;
-      --  --  While it is not strictly mandatory (e.g. you can use fold to create
-      --  --  a bunch of elements without caring of the aggregated result), fold
-      --  --  commands usually have an accumulator. They usually look of the form:
-      --  --     f: fold (expression, init, combine).
-      --  --  in this case, the accumulator needs to receive the value of init
-      --  --  and combine.
-      --
-      --  Push_Frame_Context;
-      --  Top_Frame.Top_Context.Is_Expanding_Context := True;
-      --  Top_Frame.Top_Context.Expand_Expression := Fold_Expr.Combine;
-      --  Top_Frame.Top_Context.Match_Mode := Match_None;
-      --  Top_Frame.Top_Context.Is_Root_Selection := False;
-      --
-      --  --  Inside the folded expression, we need to go back to a situation where
-      --  --  self is top of the stack, as name can refer to the implicit self. Re
-      --  --  push this value
-      --
-      --  Push_Implicit_Self (Get_Implicit_Self);
-      --
-      --  Evaluate_Expression (Fold_Expr.Default);
-      --  Init_Value := Pop_Object;
-      --
-      --  if Top_Frame.Top_Context.Name_Captured /= "" then
-      --     Top_Frame.Symbols.Include
-      --       (To_Text (Top_Frame.Top_Context.Name_Captured), Init_Value);
-      --  end if;
-      --
-      --   --  Then pop both the self implicit value
-      --
-      --  Pop_Object;
-      --
-      --  Evaluate_Expression (Selector.Selector_Left);
-      --
-      --  --  Keep the result of the evaluate expression. If the result is false,
-      --  --  this means that nothing was actually found. In that case, the init
-      --  --  value needs to be pused.
-      --  --  TODO: This will not work for folding evaluating booleans, where
-      --  --  the init value may be true, but the result is false.
-      --
-      --  if Top_Frame.Data_Stack.Last_Element = Match_False then
-      --     Pop_Object;
-      --     Push_Object (Init_Value);
-      --  end if;
-      --
-      --  Pop_Frame_Context;
+      --  Inside the folded expression, we need to go back to a situation where
+      --  self is top of the stack, as name can refer to the implicit self. Re
+      --  push this value
+
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Is_Root_Selection := True;
+      Push_Implicit_Self (Get_Implicit_Self);
+      Init_Value := Evaluate_Expression (Fold_Expr.Default);
+      Pop_Object;
+      Pop_Frame_Context;
+
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Is_Expanding_Context := True;
+      Top_Frame.Top_Context.Expand_Action := Expand_Action'Unrestricted_Access;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Top_Frame.Top_Context.Is_Root_Selection := True;
+
+      Evaluate_Expression (Selector.Selector_Left);
+
+      --  Keep the result of the evaluate expression. If the result is false,
+      --  this means that nothing was actually found. In that case, the init
+      --  value needs to be pused.
+      --  TODO: This will not work for folding evaluating booleans, where
+      --  the init value may be true, but the result is false.
+
+      if Top_Frame.Data_Stack.Last_Element = Match_False then
+         Pop_Object;
+         Push_Object (Init_Value);
+      end if;
+
+      Pop_Frame_Context;
+
+      Compute_Selector_Suffix (Suffix);
    end Handle_Fold;
 
    procedure Handle_All (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector)

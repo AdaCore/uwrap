@@ -3,10 +3,10 @@ template w_Entity {
 }
 
 match Entity ()
-wrap with w_Entity (name => f_name);
+wrap w_Entity (name => f_name);
 
 match w_Entity ()
-weave with standard.out (@ & "\n");
+weave standard.out (@ & "\n");
 
 match w_Entity ()
-weave with standard.out (@ & f: self.child (w: w_Entity ()).fold ("children of \e<name>:", "\e<f> \e<w.name>"));
+weave standard.out (@ & self.child (w: w_Entity ()).fold (f: "children of \e<name>:", f: "\e<f> \e<w.name>"));
