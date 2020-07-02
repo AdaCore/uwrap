@@ -152,10 +152,6 @@ template w_TypeDecl extends w_NamedEntity {
    var aspects_declaration : text;
 }
 
-template w_SubtypeDecl extends w_NamedEntity {
-  var definition : text;
-}
-
 template w_Aspect extends w_Ada {
    var txt : text;
 }
@@ -244,7 +240,7 @@ visitor ada_to_wrappers () {
       actual_value => sb.tmp ("local")
    );
 
-   match TypeDecl ()
+   match BaseTypeDecl () 
    wrap w_TypeDecl ();
 
    match TypeDecl () and child (EnumTypeDef ()) {
@@ -256,12 +252,8 @@ visitor ada_to_wrappers () {
       pick r.child().all () wrap visit_EnumRepClause (s);
    }
 
-   match SubtypeDecl ()
-   wrap w_SubtypeDecl ();
-
-   match EnumLiteralDecl () {
-      wrap w_EnumLiteralDecl();
-   }
+   match EnumLiteralDecl ()
+   wrap w_EnumLiteralDecl();
 
    match ComponentDecl ()
    wrap w_ComponentDecl ();
@@ -374,30 +366,34 @@ visitor wrappers_post_process () {
       else match origin (t: child (ArrayTypeDef (i: child (UnconstrainedArrayIndex ())))) {
          match i.child (template (w1 : w_TypeExpr ()))
          weave (definition => @ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>");
-      } else match origin (child (RecordTypeDef ()))
-         weave (definition => @ & """
-            record
-               \e<content_definition>
-            end record""");
+      } else match origin (child (RecordTypeDef ())) {
+         match child (w_ComponentDecl())
+            weave (definition => @ & """
+               record
+                  \e<content_definition>
+               end record""");
+         else
+            weave (definition => @ & "null record");
+      }
       else match kind ("enumeration") # TODO: this whole test should be using enumeration instead
          weave (definition => @ & "(\e<content_definition>)");
       else match origin (child (t: TypeDef ())) 
          weave (definition => @ & "\e<t>");
+      else match child (t: w_TypeExpr())
+         weave (definition => @ & "\e<t.txt>");
 
       match child (w_EnumRep ()) {
          weave (rep_declaration => @ & "for \e<name> use (\n\e<rep_definition>\n);\n");
       }
 
-      match s: self () and not parent (w_TypeExpr ()) and parent (p: w_PackageDecl())
-      pick p weave (spec_content => @ & "type \e<s.name> is \e<s.definition>\e<s.aspects_declaration>;\n\e<s.rep_declaration>");
-   }
-
-   match w_SubtypeDecl () {
-      match child (t: w_TypeExpr ())
-      weave (definition => @ & "\e<t.txt>");
-
-      match s: self() and parent (p: w_PackageDecl())
-      pick p weave (spec_content => @ & "subtype \e<s.name> is \e<s.definition>;\n");
+      match s: self () and not parent (w_TypeExpr ()) and parent (p: w_PackageDecl()) {
+         match origin (IncompleteTypeDecl ())
+            pick p weave (spec_content => @ & "type \e<s.name>;\n");
+         else match origin (SubtypeDecl ())
+            pick p weave (spec_content => @ & "subtype \e<s.name> is \e<s.definition>;\n");
+         else
+            pick p weave (spec_content => @ & "type \e<s.name> is \e<s.definition>\e<s.aspects_declaration>;\n\e<s.rep_declaration>");
+      }
    }
 
    match w_TypeExpr (o: origin (child (Identifier ()))) {
