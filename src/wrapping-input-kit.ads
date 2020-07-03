@@ -1,15 +1,15 @@
 with Ada.Containers.Indefinite_Hashed_Maps;
+with Ada.Containers.Indefinite_Ordered_Maps;
 
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
-
-with Libtestlang.Analysis; use Libtestlang.Analysis;
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
+with Langkit_Support.Slocs; use Langkit_Support.Slocs;
 
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
 
 generic
    type Kit_Node is tagged private;
+   type Kit_Unit is tagged private;
    type Kit_Node_Array is array (Positive range <>) of Kit_Node;
    type Any_Node_Data_Reference is (<>);
    type Any_Node_Type_Id is (<>);
@@ -24,7 +24,6 @@ generic
    type Value_Constraint is private;
    type Value_Constraint_Array is
      array (Positive range <>) of Value_Constraint;
-
 
    None : Any_Node_Data_Reference;
    No_Kit_Node : Kit_Node;
@@ -73,15 +72,22 @@ generic
    with function Property_Argument_Default_Value
      (Property : Any_Node_Data_Reference; Argument_Number : Positive)
       return Value_Type is <>;
-
+   with function Full_Sloc_Image (Node : Kit_Node'Class) return Text_Type is <>;
+   with function Sloc_Range (Node : Kit_Node'Class) return Source_Location_Range is <>;
+   with function Get_Filename (Unit : Kit_Unit'Class) return String is <>;
+   with function Unit (Node : Kit_Node'Class) return Kit_Unit is <>;
 package Wrapping.Input.Kit is
 
    type W_Kit_Node_Type;
    type W_Kit_Node is access all W_Kit_Node_Type'Class;
 
+   function Lt (Left, Right : Kit_Node) return Boolean;
+
+   function Eq (Left, Right : W_Kit_Node) return Boolean;
+
    package W_Kit_Node_Entity_Node_Maps is new
-     Ada.Containers.Indefinite_Hashed_Maps
-       (Kit_Node, W_Kit_Node, Hash, "=", "=");
+     Ada.Containers.Indefinite_Ordered_Maps
+       (Kit_Node, W_Kit_Node, Lt, Eq);
    use W_Kit_Node_Entity_Node_Maps;
 
    type W_Kit_Node_Type is new W_Node_Type with record

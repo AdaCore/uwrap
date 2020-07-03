@@ -203,8 +203,10 @@ visitor build_type_expr (type) {
      pick type weave (txt => @ & " range");
   else match TypeAccessDef ()
      pick type weave (txt => @ & " access");
-  else match s: self () and SingleTokNode() 
+  else match s: self () and SingleTokNode()
      pick type weave (txt => @ & " \e<s>");
+  else match DottedName ()
+     pick type weave (txt => @ & ".");
 }
 
 visitor ada_to_wrappers () {
@@ -258,10 +260,10 @@ visitor ada_to_wrappers () {
    match ComponentDecl ()
    wrap w_ComponentDecl ();
 
-   match WithClause() and child(d: DottedName ())
+   match WithClause() and child(d: Name ())
    wrap w_WithClause(ref => d);
 
-   match UseClause() and child(d: DottedName ())
+   match UseClause() and child(d: Name ())
    wrap w_UseClause(ref => d);
 
    match TypeExpr ()
@@ -396,11 +398,8 @@ visitor wrappers_post_process () {
       }
    }
 
-   match w_TypeExpr (o: origin (child (Identifier ()))) {
-      match s: self () and o.p_designated_type_decl.template (w: w_TypeDecl ())
-         pick self.origin ().child ().all() weave build_type_expr (s);
-      else weave (txt => @ & o);
-   }
+   match s: w_TypeExpr (o: origin (child (Identifier ())))
+   pick self.origin ().child ().all() weave build_type_expr (s);
     
    match p: w_PackageDecl (parent (u: w_Unit ())) {
       pick u weave (
@@ -415,17 +414,19 @@ visitor wrappers_post_process () {
       );
    }
 
-   match w: w_WithClause () and parent (u: w_Unit ())
-   pick u weave (
-      spec_with_clauses => @ & "with \e<w.ref>;\n",
-      body_with_clauses => @ & "with \e<w.ref>;\n"
-   );
-
-   match w: w_UseClause () and parent (u: w_Unit ())
-   pick u weave (
-      spec_with_clauses => @ & "use \e<w.ref>;\n",
-      body_with_clauses => @ & "use \e<w.ref>;\n"
-   );
+   match ((w: w_WithClause () and c: has'"with") or (w: w_UseClause () and c: has'"use"))
+    and parent (u: w_Unit ()) {
+      match origin (child (r: Name()))
+        and (r.p_referenced_decl ().template (child (n: w_DefiningName ())))
+            pick u weave (
+               spec_with_clauses => @ & "\e<c> \e<n.name>;\n",
+               body_with_clauses => @ & "\e<c> \e<w.ref>;\n"
+            );
+      else pick u weave (
+         spec_with_clauses => @ & "\e<c> \e<w.ref>;\n",
+         body_with_clauses => @ & "\e<c> \e<w.ref>;\n"
+      );
+   }
 
    match s: w_DefiningName () and parent (n: w_NamedEntity ())
    pick n weave (name => @ & s.name, original_name => @ & n.origin.p_fully_qualified_name);

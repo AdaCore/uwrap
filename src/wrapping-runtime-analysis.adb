@@ -579,15 +579,9 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Analyze_Visitor;
 
-   procedure Analyse (Root_Entity : W_Node) is
-      File_Template : T_Template;
-      Out_Template : T_Template;
-      A_Template_Instance : W_Template_Instance;
+   procedure Analyse_Input (Root_Entity : W_Node) is
       Dummy_Action : Visit_Action;
       Traverse_Result : W_Object;
-
-      Files :  W_Template_Instance_Vectors.Vector;
-      Output : W_Template_Instance_Vectors.Vector;
    begin
       -- Set the visitor id - we're on the main iteration, id is 0.
 
@@ -595,7 +589,18 @@ package body Wrapping.Runtime.Analysis is
 
       Dummy_Action := Root_Entity.Traverse
         (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
+   end Analyse_Input;
 
+   procedure Analyze_Templates is
+      A_Template_Instance : W_Template_Instance;
+      Dummy_Action : Visit_Action;
+      Traverse_Result : W_Object;
+
+      Files :  W_Template_Instance_Vectors.Vector;
+      Output : W_Template_Instance_Vectors.Vector;
+      File_Template : T_Template;
+      Out_Template : T_Template;
+   begin
       File_Template := T_Template
         (Resolve_Module_By_Name ("standard").
              Children_Indexed.Element ("file"));
@@ -690,8 +695,7 @@ package body Wrapping.Runtime.Analysis is
             Pop_Frame;
          end;
       end loop;
-
-   end Analyse;
+   end Analyze_Templates;
 
    function Evaluate_Expression (Expr : T_Expr) return W_Object is
    begin

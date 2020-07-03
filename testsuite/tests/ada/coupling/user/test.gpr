@@ -1,0 +1,9 @@
+project Test is
+
+   for Source_Dirs use (".", "../out", "../src");
+   for Main use ("main.adb") & project'Main;
+
+   for Object_Dir use "obj";
+
+end Test;
+

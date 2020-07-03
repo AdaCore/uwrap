@@ -13,7 +13,9 @@ package Wrapping.Runtime.Analysis is
 
    Templates_To_Traverse : W_Template_Instance_Vectors.Vector;
 
-   procedure Analyse (Root_Entity : W_Node);
+   procedure Analyse_Input (Root_Entity : W_Node);
+
+   procedure Analyze_Templates;
 
    procedure Evaluate_Expression (Expr : T_Expr);
 

@@ -28,6 +28,7 @@ package body Wrapping.Run is
 
       package Input is new Wrapping.Input.Kit
         (Kit_Node                   => Libtestlang.Analysis.Test_Node,
+         Kit_Unit                   => Libtestlang.Analysis.Analysis_Unit,
          Kit_Node_Array             => Libtestlang.Analysis.Test_Node_Array,
          Any_Node_Data_Reference    => Libtestlang.Common.Any_Node_Data_Reference,
          Any_Node_Type_Id           => Libtestlang.Common.Any_Node_Type_Id,
@@ -59,6 +60,7 @@ package body Wrapping.Run is
 
       package Input is new Wrapping.Input.Kit
         (Kit_Node                   => Libadalang.Analysis.Ada_Node,
+         Kit_Unit                   => Libadalang.Analysis.Analysis_Unit,
          Kit_Node_Array             => Libadalang.Analysis.Ada_Node_Array,
          Any_Node_Data_Reference    => Libadalang.Common.Any_Node_Data_Reference,
          Any_Node_Type_Id           => Libadalang.Common.Any_Node_Type_Id,
@@ -160,6 +162,8 @@ package body Wrapping.Run is
                   Adalang.Input.Analyze_Unit (Unit);
                end loop;
             end loop;
+
+            Analyze_Templates;
          elsif Language = "proxy" then
             null;
          elsif Language = "test" then

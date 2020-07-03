@@ -1,8 +1,10 @@
+with Ada.Directories;
 with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
 with Ada.Characters.Conversions; use Ada.Characters.Conversions;
 with Ada.Containers.Vectors; use Ada.Containers;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Text_IO;
+with Ada.Containers; use Ada.Containers;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
@@ -10,6 +12,52 @@ with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 package body Wrapping.Input.Kit is
 
    Global_Node_Registry : W_Kit_Node_Entity_Node_Maps.Map;
+
+   function Lt (Left, Right : Kit_Node) return Boolean is
+   begin
+      if Left.Kind < Right.Kind then
+         return True;
+      elsif Left.Kind > Right.Kind then
+         return False;
+      else
+         declare
+            R_Left : Source_Location_Range := Sloc_Range (Left);
+            R_Right : Source_Location_Range := Sloc_Range (Right);
+         begin
+            if R_Left.Start_Line < R_Right.Start_Line then
+               return True;
+            elsif R_Left.Start_Line > R_Right.Start_Line then
+               return False;
+            elsif R_Left.Start_Column < R_Right.Start_Column then
+               return True;
+            elsif R_Left.Start_Column > R_Right.Start_Column then
+               return False;
+            elsif R_Left.End_Line < R_Right.End_Line then
+               return True;
+            elsif R_Left.End_Line > R_Right.End_Line then
+               return False;
+            elsif R_Left.End_Column < R_Right.End_Column then
+               return True;
+            elsif R_Left.End_Column > R_Right.End_Column then
+               return False;
+            else
+               declare
+                  Left_Name : String := Ada.Directories.Simple_Name
+                    (Get_Filename (Unit (Left)));
+                  Right_Name : String := Ada.Directories.Simple_Name
+                    (Get_Filename (Unit (Right)));
+               begin
+                  return Left_Name < Right_Name;
+               end;
+            end if;
+         end;
+      end if;
+   end Lt;
+
+   function Eq (Left, Right : W_Kit_Node) return Boolean is
+   begin
+      return Left = Right;
+   end Eq;
 
    procedure Call_Check_Expression
      (Object : access W_Object_Type'Class;
@@ -41,6 +89,10 @@ package body Wrapping.Input.Kit is
          end loop;
 
          An_Entity.Children_Computed := True;
+
+         --  TODO: We probably want to compute parents there too, just in case
+         --  this entity is obtaned from a property cross ref and the parent
+         --  is not known yet.
       end if;
    end Pre_Visit;
 
@@ -137,6 +189,20 @@ package body Wrapping.Input.Kit is
          return True;
       end if;
 
+      if Name = "hash" then
+         Push_Object
+           (W_Object'
+              (new W_String_Type'
+                   (Value => To_Unbounded_Text (Hash_Type'Wide_Wide_Image (Hash (An_Entity.Node))))));
+         return True;
+      elsif Name = "sloc" then
+         Push_Object
+           (W_Object'
+              (new W_String_Type'
+                   (Value => To_Unbounded_Text (Full_Sloc_Image (An_Entity.Node)))));
+         return True;
+      end if;
+
       Id := Lookup_DSL_Name (To_String (Name));
 
       if Id /= No_Node_Type_Id and then Is_Derived_From (Id_For_Kind (An_Entity.Node.Kind), Id) then
@@ -206,6 +272,7 @@ package body Wrapping.Input.Kit is
       end if;
 
       Analyze_Unit (Unit);
+      Analyze_Templates;
    end Analyze_File;
 
    procedure Analyze_Unit (Unit : Analysis_Unit) is
@@ -213,7 +280,7 @@ package body Wrapping.Input.Kit is
    begin
       Root_Entity := W_Node (Get_Entity_For_Node (Unit.Root));
 
-      Wrapping.Runtime.Analysis.Analyse (Root_Entity);
+      Wrapping.Runtime.Analysis.Analyse_Input (Root_Entity);
    end Analyze_Unit;
 
 end Wrapping.Input.Kit;
