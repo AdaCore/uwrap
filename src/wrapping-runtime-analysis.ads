@@ -61,6 +61,14 @@ package Wrapping.Runtime.Analysis is
 
    function Get_Implicit_Self return W_Object;
 
+   --  This function is supposed to be called when iterating over a structure
+   --  with programs. When a frame has a decision, it will be returned (instead
+   --  of the default_decision), and that decision will be reset. This supports
+   --  commands like:
+   --     wrap over;
+   function Pop_Frame_Visit_Decision
+     (Default_Decision : Visit_Action) return Visit_Action;
+
    procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expr : T_Expr);
 
    procedure Run_Lambda (A_Lambda : W_Lambda_Type);

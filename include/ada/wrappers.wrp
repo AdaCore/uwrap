@@ -188,25 +188,43 @@ visitor visit_EnumRepClause (enum_decl) {
   }
 }
 
-visitor build_type_expr (type) {  
-  match i: Identifier () and x: p_referenced_decl () {
-     # not all identifiers are wrapped - in particular those coming from the
-     # standard library are not. So differenciate here the cases where we
-     # find a w_DefiningName (using the provided name) from the cases where we
-     # don't.
+visitor build_dotted_name (type) {
+   match s: self () and c: child (DottedName ()) {
+      pick c {
+         # TODO: it's a bit weak to rely on the reverse order of the weave 
+         # functions. We could have instead
+         #    weave [W1, W2, ...]
+         # or perhaps
+         #    [weave W1, wrap W2, weave W3]...
+         pick type weave (txt => @ & "." & s.child (Identifier()));
+         weave build_dotted_name (type); 
+      }
+   } else {
+      match child (i1: Identifier() and next (i2: Identifier()))
+      pick type weave (txt => @ & "\e<i1>.\e<i2>");
+   }
+}
 
-     match t: x.child (DefiningName ()).template (w_DefiningName ())
-        pick type weave (txt => @ & " " & t.name);
-     else
-        pick type weave (txt => @ & " " & i);
-  } else match RangeSpec ()
-     pick type weave (txt => @ & " range");
-  else match TypeAccessDef ()
-     pick type weave (txt => @ & " access");
-  else match s: self () and SingleTokNode()
-     pick type weave (txt => @ & " \e<s>");
-  else match DottedName ()
-     pick type weave (txt => @ & ".");
+visitor build_type_expr (type) {  
+   match d: DottedName () {
+      pick d wrap build_dotted_name (type);
+      wrap over;
+   } else match i: Identifier () and x: p_referenced_decl () {
+      # not all identifiers are wrapped - in particular those coming from the
+      # standard library are not. So differenciate here the cases where we
+      # find a w_DefiningName (using the provided name) from the cases where we
+      # don't.
+
+      match t: x.child (DefiningName ()).template (w_DefiningName ())
+         pick type weave (txt => @ & " " & t.name);
+      else
+         pick type weave (txt => @ & " " & i);
+   } else match RangeSpec ()
+      pick type weave (txt => @ & " range");
+   else match TypeAccessDef ()
+      pick type weave (txt => @ & " access");
+   else match s: self () and SingleTokNode()
+      pick type weave (txt => @ & " \e<s>");
 }
 
 visitor ada_to_wrappers () {

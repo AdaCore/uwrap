@@ -197,8 +197,6 @@ package body Wrapping.Runtime.Analysis is
          --  TODO: Do we really need to carry allocate callback from frame to
          --  frame?
          New_Frame.Top_Context.An_Allocate_Callback := Top_Frame.Top_Context.An_Allocate_Callback;
-
-         New_Frame.Visit_Decision := Top_Frame.Visit_Decision;
       end if;
 
       Top_Frame := New_Frame;
@@ -212,9 +210,25 @@ package body Wrapping.Runtime.Analysis is
       Old_Frame := Top_Frame;
       Top_Frame := Old_Frame.Parent_Frame;
 
-      if Top_Frame /= null then
+      if Top_Frame /= null
+        and then Old_Frame.Visit_Decision /= Unknown
+        and then Top_Frame.Visit_Decision = Unknown
+      then
          --  Visit decisions are passed from frame down to their parents as to be
-         --  taken into account by caller contexts.
+         --  taken into account by caller contexts. If there's no visit
+         --  decision left on the child, it's either because there was none or
+         --  because it has already been taken into account. In that case,
+         --  potential decisions on the parent needs to be preserved as to allow
+         --  structures like:
+         --     pick child ().all () {
+         --        pick child().all () {
+         --           wrap over;
+         --        }
+         --     }
+         --     wrap over;
+         --   where the outer wrap needs to be preserved when popping from the
+         --   inner sequence.
+
          Top_Frame.Visit_Decision := Old_Frame.Visit_Decision;
       end if;
 
@@ -246,6 +260,21 @@ package body Wrapping.Runtime.Analysis is
 
       return null;
    end Get_Implicit_New;
+
+   function Pop_Frame_Visit_Decision
+     (Default_Decision : Visit_Action) return Visit_Action
+   is
+      Tmp : Visit_Action;
+   begin
+      if Top_Frame.Visit_Decision = Unknown then
+         return Default_Decision;
+      else
+         Tmp := Top_Frame.Visit_Decision;
+         Top_Frame.Visit_Decision := Unknown;
+
+         return Tmp;
+      end if;
+   end Pop_Frame_Visit_Decision;
 
    function Match (Pattern, Text : Text_Type) return Boolean is
       Text_Str : String := To_String (Text);
@@ -573,20 +602,13 @@ package body Wrapping.Runtime.Analysis is
          --  In case a decision has been taken, return it and reset the value
          --  for further iterations.
 
-         if Top_Frame.Visit_Decision /= Unknown then
-            declare
-               Temp : Visit_Action := Top_Frame.Visit_Decision;
-            begin
-               Top_Frame.Visit_Decision := Unknown;
-               Pop_Frame;
-
-               return Temp;
-            end;
-         else
+         declare
+            Res : Visit_Action :=  Pop_Frame_Visit_Decision (Into);
+         begin
             Pop_Frame;
 
-            return Into;
-         end if;
+            return Res;
+         end;
       end if;
    end Analyze_Visitor;
 
