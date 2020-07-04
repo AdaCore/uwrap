@@ -225,6 +225,14 @@ visitor build_type_expr (type) {
       pick type weave (txt => @ & " access");
    else match s: self () and SingleTokNode()
       pick type weave (txt => @ & " \e<s>");
+   else match s: IndexConstraint () {
+      # TODO: as before, the order of the evaluation of the weave is odd
+      # and forces to reverse the logical order when building the parenthesis
+      pick type weave (txt => @ & " )");
+      pick child ().all () wrap build_type_expr (type);
+      pick type weave (txt => @ & " (");
+      wrap over;
+   }
 }
 
 visitor ada_to_wrappers () {
@@ -452,7 +460,9 @@ visitor wrappers_post_process () {
    match w_Unit () and child (p: w_PackageDecl ()) {
       #TODO: we should be using labels instead of extending standard.file
       wrap spec_file
-         (path => lambda (replace_text (to_lower (p.name), "\\.", "-")) & ".ads", content => self.spec_text); 
+         (path => lambda (replace_text (to_lower (p.name), "\\.", "-")) & ".ads", content => self.spec_text);
+
+      match child (w_SubpDecl ()) or p (elaborate_body (".+"))
       wrap body_file 
          (path => lambda (replace_text (to_lower (p.name), "\\.", "-")) & ".adb", content => self.body_text);
    }

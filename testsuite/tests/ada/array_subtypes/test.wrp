@@ -1,0 +1,9 @@
+import ada.wrappers;
+
+wrap wrap_ada_specs ();
+
+match DefiningName ("T(.+)")
+wrap w_DefiningName ("My_\1");
+
+match DefiningName ("Spec")
+wrap w_DefiningName ("Spec_Wrapped");
