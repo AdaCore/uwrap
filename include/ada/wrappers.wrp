@@ -188,6 +188,20 @@ visitor visit_EnumRepClause (enum_decl) {
   }
 }
 
+visitor build_identifier (type) {
+   # not all identifiers are wrapped - in particular those coming from the
+   # standard library are not. So differenciate here the cases where we
+   # find a w_DefiningName (using the provided name) from the cases where we
+   # don't.
+
+   match i: self() 
+      and x: p_referenced_decl ()
+      and t: x.child (DefiningName ()).template (w_DefiningName ())
+         pick type weave (txt => @ & " " & t.name);
+      else
+         pick type weave (txt => @ & " " & i);
+}
+
 visitor build_dotted_name (type) {
    match s: self () and c: child (DottedName ()) {
       pick c {
@@ -196,12 +210,19 @@ visitor build_dotted_name (type) {
          #    weave [W1, W2, ...]
          # or perhaps
          #    [weave W1, wrap W2, weave W3]...
-         pick type weave (txt => @ & "." & s.child (Identifier()));
+      
+         pick s.child (Identifier()) wrap build_identifier (type);
+         pick type weave (txt => @ & ".");
          weave build_dotted_name (type); 
       }
    } else {
-      match child (i1: Identifier() and next (i2: Identifier()))
-      pick type weave (txt => @ & "\e<i1>.\e<i2>");
+      match child (i1: Identifier() and next (i2: Identifier())) {
+         # yet another one of these weird sequences...
+         pick i2 wrap build_identifier (type);
+         pick type weave (txt => @ & ".");
+         pick i1 wrap build_identifier (type);
+         pick type weave (txt => @ & " ");
+      }
    }
 }
 
@@ -209,16 +230,8 @@ visitor build_type_expr (type) {
    match d: DottedName () {
       pick d wrap build_dotted_name (type);
       wrap over;
-   } else match i: Identifier () and x: p_referenced_decl () {
-      # not all identifiers are wrapped - in particular those coming from the
-      # standard library are not. So differenciate here the cases where we
-      # find a w_DefiningName (using the provided name) from the cases where we
-      # don't.
-
-      match t: x.child (DefiningName ()).template (w_DefiningName ())
-         pick type weave (txt => @ & " " & t.name);
-      else
-         pick type weave (txt => @ & " " & i);
+   } else match i: Identifier () {
+      pick i weave build_identifier (type);     
    } else match RangeSpec ()
       pick type weave (txt => @ & " range");
    else match TypeAccessDef ()
