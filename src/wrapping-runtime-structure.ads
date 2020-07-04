@@ -115,15 +115,17 @@ package Wrapping.Runtime.Structure is
    end record;
 
    type Data_Frame_Type is record
-      Parent_Frame : Data_Frame;
+      Parent_Frame   : Data_Frame;
 
-      Symbols         : W_Object_Maps.Map;
-      Matched_Groups  : W_Object_Vectors.Vector;
-      Data_Stack      : W_Object_Vectors.Vector;
-      Top_Context     : Frame_Context;
-      Lexical_Scope   : T_Entity;
+      Symbols        : W_Object_Maps.Map;
+      Matched_Groups : W_Object_Vectors.Vector;
+      Data_Stack     : W_Object_Vectors.Vector;
+      Top_Context    : Frame_Context;
+      Lexical_Scope  : T_Entity;
 
-      Temp_Names      : Text_Maps.Map;
+      Temp_Names     : Text_Maps.Map;
+
+      Visit_Decision : Visit_Action := Unknown;
    end record;
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return W_Object;

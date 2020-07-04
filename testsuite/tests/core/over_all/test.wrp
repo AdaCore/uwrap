@@ -1,0 +1,10 @@
+match Entity ("A")
+pick child (Entity ()).all () {
+    weave standard.out (@ & "SUB ITERATION:" & f_name & "\n");
+
+    match Entity ("B")
+    wrap over;
+}
+
+match Entity ()
+weave standard.out (@ & "MAIN ITERATION:" & f_name & "\n");

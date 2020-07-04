@@ -197,6 +197,8 @@ package body Wrapping.Runtime.Analysis is
          --  TODO: Do we really need to carry allocate callback from frame to
          --  frame?
          New_Frame.Top_Context.An_Allocate_Callback := Top_Frame.Top_Context.An_Allocate_Callback;
+
+         New_Frame.Visit_Decision := Top_Frame.Visit_Decision;
       end if;
 
       Top_Frame := New_Frame;
@@ -209,6 +211,12 @@ package body Wrapping.Runtime.Analysis is
    begin
       Old_Frame := Top_Frame;
       Top_Frame := Old_Frame.Parent_Frame;
+
+      if Top_Frame /= null then
+         --  Visit decisions are passed from frame down to their parents as to be
+         --  taken into account by caller contexts.
+         Top_Frame.Visit_Decision := Old_Frame.Visit_Decision;
+      end if;
 
       Free (Old_Frame);
    end Pop_Frame;
@@ -390,8 +398,8 @@ package body Wrapping.Runtime.Analysis is
             --  TODO: This doesn't consider different visits, each
             --  should have its own decision
 
-            if Self.A_Visit_Action = Unknown then
-               Self.A_Visit_Action := Command.Template_Section.A_Visit_Action;
+            if Top_Frame.Visit_Decision = Unknown then
+               Top_Frame.Visit_Decision := Command.Template_Section.A_Visit_Action;
             end if;
          elsif Command.Template_Section.Call_Reference /= null
            or else Command.Template_Section.Args.Length /= 0
@@ -409,16 +417,13 @@ package body Wrapping.Runtime.Analysis is
             else
                Apply_Template_Action (Self, Command.Template_Section);
             end if;
-         else
-            null;
-            -- TODO: How to handle pick all () without any specific wrap? or pick self.f_something?
          end if;
       end if;
    end Handle_Command;
 
    procedure Apply_Wrapping_Program
-     (Self : W_Node;
-      Lexical_Scope     : access T_Entity_Type'Class)
+     (Self          : W_Node;
+      Lexical_Scope : access T_Entity_Type'Class)
    is
       procedure Allocate (E : access W_Object_Type'Class) is
       begin
@@ -523,6 +528,7 @@ package body Wrapping.Runtime.Analysis is
       A_Visit_Action : Visit_Action := Into;
       N : W_Node;
    begin
+      Push_Frame (Wrapping.Semantic.Analysis.Root);
       Result := null;
 
       --  Check if this entity has already been analyzed through this visitor
@@ -551,6 +557,7 @@ package body Wrapping.Runtime.Analysis is
          --  visited this entity. We already also made the decisions on sub
          --  entities. Stop the iteration.
 
+         Pop_Frame;
          return Over;
       else
          --  Otherwise, stack this visitor Id and visit. We need not to remove
@@ -563,9 +570,21 @@ package body Wrapping.Runtime.Analysis is
            (N,
             Wrapping.Semantic.Analysis.Root);
 
-         if N.A_Visit_Action = Over then
-            return Over;
+         --  In case a decision has been taken, return it and reset the value
+         --  for further iterations.
+
+         if Top_Frame.Visit_Decision /= Unknown then
+            declare
+               Temp : Visit_Action := Top_Frame.Visit_Decision;
+            begin
+               Top_Frame.Visit_Decision := Unknown;
+               Pop_Frame;
+
+               return Temp;
+            end;
          else
+            Pop_Frame;
+
             return Into;
          end if;
       end if;
@@ -1411,19 +1430,6 @@ package body Wrapping.Runtime.Analysis is
       begin
          Symbols.Insert (Name_Node.Text, Value);
       end Store_Param_Value;
-
-      function Sub_Visitor
-        (E : access W_Object_Type'Class;
-         Result : out W_Object) return Visit_Action
-      is
-         A_Visit_Action : Visit_Action := Into;
-      begin
-         Result := null;
-
-         Apply_Wrapping_Program (W_Node (E), Visitor);
-
-         return A_Visit_Action;
-      end Sub_Visitor;
 
       Prev_Visit_Id : Integer;
       A_Visit_Action : Visit_Action := Unknown;

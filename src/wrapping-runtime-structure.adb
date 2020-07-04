@@ -198,7 +198,20 @@ package body Wrapping.Runtime.Structure is
             if Top_Frame.Top_Context.Is_Expanding_Context then
                Evaluate_Expand_Function;
 
-               return Into;
+               --  The result of the expansion can be calls to wrap functions,
+               --  and one of this wrap function may be a visit decision. If
+               --  that's the case, take it into account and reset the flag.
+
+               if Top_Frame.Visit_Decision /= Unknown then
+                  declare
+                     Temp : Visit_Action := Top_Frame.Visit_Decision;
+                  begin
+                     Top_Frame.Visit_Decision := Unknown;
+                     return Temp;
+                  end;
+               else
+                  return Into;
+               end if;
             else
                Result := W_Object (Browsed);
 
