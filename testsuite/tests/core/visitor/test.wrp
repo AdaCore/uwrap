@@ -13,11 +13,11 @@ match f_name ("B(.*)")
 wrap sub_analyze (p2 => "\1", p1 => "B");
 
 match f_name ("C(?<x>.*)") {
-    wrap all with sub_analyze ("C", x);
+    pick child ().all () wrap sub_analyze ("C", x);
     wrap over;
 }
 
 match f_name ("D(?<x>.*)") {
-    wrap all f_args with sub_analyze ("D", "\e<x>");
+    pick f_args.child ().all () wrap sub_analyze ("D", "\e<x>");
     wrap over;
 }

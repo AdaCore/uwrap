@@ -101,7 +101,15 @@ package body Wrapping.Semantic.Structure is
       if An_Entity.Parent = null then
          return To_Text (An_Entity.Name);
       else
-         return An_Entity.Parent.Full_Name & "." & To_Text (An_Entity.Name);
+         declare
+            Parent_Name : Text_Type := An_Entity.Parent.Full_Name;
+         begin
+            if Parent_Name = "" then
+               return To_Text (An_Entity.Name);
+            else
+               return Parent_Name & "." & To_Text (An_Entity.Name);
+            end if;
+         end;
       end if;
    end Full_Name;
 

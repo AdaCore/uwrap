@@ -12,3 +12,9 @@ template file {
 template out {
     var content : text;
 }
+
+# this visitor represents the root of the wrapping program. Commands can wrap
+# and weave into it in order to control the flow of the iteration.
+visitor root () {
+    
+}

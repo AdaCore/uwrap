@@ -28,9 +28,7 @@ package body Wrapping.Runtime.Analysis is
      (A_Template_Instance : W_Template_Instance;
       Args : T_Arg_Vectors.Vector);
    procedure Handle_Visitor_Call
-     (An_Entity    : W_Node;
-      A_Visitor    : T_Visitor;
-      Args         : T_Arg_Vectors.Vector);
+     (Self : W_Node; Visitor : T_Visitor; Args : T_Arg_Vectors.Vector);
    procedure Handle_Fold (Selector : T_Expr;  Suffix : in out T_Expr_Vectors.Vector);
    procedure Handle_New (Create_Tree : T_Create_Tree);
    procedure Handle_All (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector);
@@ -43,8 +41,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Apply_Wrapping_Program
      (Self           : W_Node;
-      Lexical_Scope  : access T_Entity_Type'Class;
-      A_Visit_Action : in out Visit_Action);
+      Lexical_Scope  : access T_Entity_Type'Class);
 
    procedure Call_Convert_To_Text
      (Object : access W_Object_Type'Class;
@@ -369,10 +366,7 @@ package body Wrapping.Runtime.Analysis is
       Pop_Error_Location;
    end Apply_Template_Action;
 
-   procedure Handle_Command
-     (Command        : T_Command;
-      A_Visit_Action : in out Visit_Action)
-   is
+   procedure Handle_Command (Command : T_Command) is
       Top : W_Object := Top_Object.Dereference;
       Self : W_Node;
    begin
@@ -389,17 +383,15 @@ package body Wrapping.Runtime.Analysis is
       if Command.Nested_Actions /= null then
          Apply_Wrapping_Program
            (Self,
-            Command.Nested_Actions,
-            A_Visit_Action);
+            Command.Nested_Actions);
       elsif Command.Template_Section /= null then
          if Command.Template_Section.A_Visit_Action /= Unknown then
             -- TODO: consider differences between weave and wrap here
             --  TODO: This doesn't consider different visits, each
             --  should have its own decision
 
-            if not Self.Traverse_Decision_Taken then
-               Self.Traverse_Decision_Taken := True;
-               A_Visit_Action := Command.Template_Section.A_Visit_Action;
+            if Self.A_Visit_Action = Unknown then
+               Self.A_Visit_Action := Command.Template_Section.A_Visit_Action;
             end if;
          elsif Command.Template_Section.Call_Reference /= null
            or else Command.Template_Section.Args.Length /= 0
@@ -426,8 +418,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Apply_Wrapping_Program
      (Self : W_Node;
-      Lexical_Scope     : access T_Entity_Type'Class;
-      A_Visit_Action    : in out Visit_Action)
+      Lexical_Scope     : access T_Entity_Type'Class)
    is
       procedure Allocate (E : access W_Object_Type'Class) is
       begin
@@ -494,15 +485,14 @@ package body Wrapping.Runtime.Analysis is
                Top_Frame.Top_Context.Outer_Expr_Callback :=
                  Outer_Expression_Match'Access;
             else
-               Handle_Command (Command, A_Visit_Action);
+               Handle_Command (Command);
             end if;
          else
             if Command.Else_Actions /= null then
                if Command.Else_Actions.all in T_Command_Type'Class then
                   Apply_Command (T_Command (Command.Else_Actions));
                else
-                  Apply_Wrapping_Program
-                    (Self, Command.Else_Actions, A_Visit_Action);
+                  Apply_Wrapping_Program (Self, Command.Else_Actions);
                end if;
             end if;
          end if;
@@ -519,8 +509,7 @@ package body Wrapping.Runtime.Analysis is
          elsif Wrapping_Entity.all in T_Module_Type'Class
            or else Wrapping_Entity.all in T_Namespace_Type'Class
          then
-            Apply_Wrapping_Program
-              (Self, Wrapping_Entity, A_Visit_Action);
+            Apply_Wrapping_Program (Self, Wrapping_Entity);
          end if;
       end loop;
 
@@ -572,10 +561,13 @@ package body Wrapping.Runtime.Analysis is
 
          Apply_Wrapping_Program
            (N,
-            Wrapping.Semantic.Analysis.Root,
-            A_Visit_Action);
+            Wrapping.Semantic.Analysis.Root);
 
-         return A_Visit_Action;
+         if N.A_Visit_Action = Over then
+            return Over;
+         else
+            return Into;
+         end if;
       end if;
    end Analyze_Visitor;
 
@@ -1406,15 +1398,13 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Template_Call;
 
    procedure Handle_Visitor_Call
-     (An_Entity : W_Node;
-      A_Visitor : T_Visitor;
-      Args      : T_Arg_Vectors.Vector)
+     (Self : W_Node; Visitor : T_Visitor; Args : T_Arg_Vectors.Vector)
    is
       Symbols : W_Object_Maps.Map;
 
       function Name_For_Position (Position : Integer) return Template_Node is
       begin
-         return A_Visitor.Arguments_Ordered.Element (Position).Name_Node;
+         return Visitor.Arguments_Ordered.Element (Position).Name_Node;
       end Name_For_Position;
 
       procedure Store_Param_Value (Name_Node : Template_Node; Value : W_Object) is
@@ -1430,10 +1420,7 @@ package body Wrapping.Runtime.Analysis is
       begin
          Result := null;
 
-         Apply_Wrapping_Program
-           (W_Node (E),
-            A_Visitor,
-            A_Visit_Action);
+         Apply_Wrapping_Program (W_Node (E), Visitor);
 
          return A_Visit_Action;
       end Sub_Visitor;
@@ -1462,7 +1449,7 @@ package body Wrapping.Runtime.Analysis is
 
       Pop_Frame_Context;
 
-      Push_Frame (A_Visitor);
+      Push_Frame (Visitor);
 
       Top_Frame.Symbols.Move (Symbols);
 
@@ -1470,13 +1457,10 @@ package body Wrapping.Runtime.Analysis is
       -- actual entity to be analyzed. The one pushed above is global to all
       -- calls and contains parameter evaluation, to be done only once.
 
-      Apply_Wrapping_Program
-        (An_Entity,
-         A_Visitor,
-         A_Visit_Action);
-
-      if A_Visit_Action in Over | Stop then
-         Error ("visit action from visitor to caller not implemented");
+      if Visitor.Full_Name = "standard.root" then
+         Apply_Wrapping_Program (Self, Wrapping.Semantic.Analysis.Root);
+      else
+         Apply_Wrapping_Program (Self, Visitor);
       end if;
 
       --  Reset the visitor id to the previous value, we're back to the
@@ -1866,10 +1850,8 @@ package body Wrapping.Runtime.Analysis is
    end Outer_Expression_Match;
 
    procedure Outer_Expression_Pick is
-      --  TODO: Visit action probably to be controlled on the frame here.
-      A_Visit_Action : Visit_Action := Into;
    begin
-      Handle_Command (Top_Frame.Top_Context.Current_Command, A_Visit_Action);
+      Handle_Command (Top_Frame.Top_Context.Current_Command);
    end Outer_Expression_Pick;
 
 end Wrapping.Runtime.Analysis;

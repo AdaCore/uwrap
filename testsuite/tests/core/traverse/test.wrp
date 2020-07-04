@@ -7,24 +7,24 @@ match Call () {
    wrap into;
 
    match f_name ("^ARGS_THEN_OVER$") {
-      pick f_args.all();
+      pick f_args.child().all() wrap standard.root ();
       wrap over;
    }
     
    match f_name ("^NESTED_THEN_ARGS_THEN_OVER$") {
-      pick f_args.all();
-      pick f_nested.all(); 
+      pick f_args.child().all() wrap standard.root ();
+      pick f_nested.child().all() wrap standard.root (); 
       wrap over;
    }
     
    match f_name ("^ARGS_THEN_NESTED_THEN_OVER$") {
-      pick f_nested.all();
-      pick f_args.all();
+      pick f_nested.child().all() wrap standard.root ();
+      pick f_args.child().all() wrap standard.root ();
       wrap over;
   }
     
    match f_name ("^ARGS_THEN_INTO$") {
-      pick f_args.all();
+      pick f_args.child().all() wrap standard.root ();
       wrap into;
    }
 }

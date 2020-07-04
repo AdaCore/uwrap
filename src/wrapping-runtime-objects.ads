@@ -307,10 +307,11 @@ package Wrapping.Runtime.Objects is
 
       Forbidden_Template_Names : Text_Sets.Set;
 
-      --  This flag trackes wether or not a traverse decision (e.g. wrap over)
-      --  has already been taken. Once one decision is taken, no other can
-      --  overlap.
-      Traverse_Decision_Taken : Boolean := False;
+      --  This flag tracks if a visit decision has been taken for this node,
+      --  and if so which one. Over will cause iterations not to look for
+      --  children in the wrapping program (but these will still be accessible
+      --  though explicit browsing such as with .all()).
+      A_Visit_Action : Visit_Action := Unknown;
 
       Tmp_Counter : Integer := 0;
 
