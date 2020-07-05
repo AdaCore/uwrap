@@ -1,5 +1,6 @@
 with Ada.Containers.Vectors;
 use Ada.Containers;
+with Ada.Directories;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
 with Ada.Strings; use Ada.Strings;
@@ -57,7 +58,10 @@ package body Wrapping is
 
    procedure Push_Error_Location (Filename : String; Loc : Source_Location) is
    begin
-      Error_Stack.Append (Error_Location'(To_Unbounded_String (Filename), Loc));
+      Error_Stack.Append
+        (Error_Location'
+           (To_Unbounded_String (Ada.Directories.Simple_Name
+            (Filename)), Loc));
    end Push_Error_Location;
 
    procedure Pop_Error_Location is

@@ -29,6 +29,8 @@ package body Wrapping.Semantic.Analysis is
    function Build_Expr (Node : Template_Node'Class) return T_Expr;
    function Build_Arg (Node : Template_Node'Class) return T_Arg;
    function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree;
+   function Build_Command_Sequence (Node : Command_Sequence'Class) return T_Command_Sequence;
+   function Build_Template_Call (Node : Template_Call'Class) return T_Template_Call;
 
    procedure Analyze_Replace_String
      (Node   : Template_Node'Class;
@@ -67,9 +69,13 @@ package body Wrapping.Semantic.Analysis is
 
    procedure Push_Error_Location (Node : Template_Node'Class) is
    begin
-      Push_Error_Location
-        (Node.Unit.Get_Filename,
-         (Node.Sloc_Range.Start_Line, Node.Sloc_Range.Start_Column));
+      if Node.Is_Null then
+         Push_Error_Location ("no source", (0, 0));
+      else
+         Push_Error_Location
+           (Node.Unit.Get_Filename,
+            (Node.Sloc_Range.Start_Line, Node.Sloc_Range.Start_Column));
+      end if;
    end Push_Error_Location;
 
    procedure Push_Entity (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class) is
@@ -114,12 +120,12 @@ package body Wrapping.Semantic.Analysis is
    function Build_Module_Structure
      (Node        : Template_Node;
       Module_Name : Text_Type)
-      return Structure.T_Module
+      return T_Module
    is
-      A_Module : Structure.T_Module := new T_Module_Type;
-      A_Namespace : Structure.T_Namespace;
+      A_Module : T_Module := new T_Module_Type;
+      A_Namespace : T_Namespace;
 
-      Dummy_Command : Structure.T_Command;
+      Dummy_Command : T_Command;
 
       Program_Node : Template_Node;
    begin
@@ -173,7 +179,7 @@ package body Wrapping.Semantic.Analysis is
    end Build_Module_Structure;
 
    function Build_Template_Structure (Node : Template_Node) return Structure.T_Template is
-      A_Template : Structure.T_Template := new T_Template_Type;
+      A_Template : T_Template := new T_Template_Type;
    begin
       Push_Named_Entity (A_Template, Node, Node.As_Template.F_Name);
 
@@ -196,8 +202,43 @@ package body Wrapping.Semantic.Analysis is
       return A_Template;
    end Build_Template_Structure;
 
-   function Build_Command_Structure (Node : Template_Node'Class) return Structure.T_Command is
-      A_Command : Structure.T_Command := new T_Command_Type;
+   function Build_Command_Sequence (Node : Command_Sequence'Class) return T_Command_Sequence is
+      Sequence : T_Command_Sequence := new T_Command_Sequence_Type;
+   begin
+      Push_Entity (Sequence, Node);
+
+      Sequence.Current := Build_Command_Structure (Node.F_Current);
+
+      if not Node.F_Then.Is_Null then
+         Sequence.Next_Sequence := Build_Command_Sequence (Node.F_Then);
+      end if;
+
+      Pop_Entity;
+
+      return Sequence;
+   end Build_Command_Sequence;
+
+   function Build_Template_Call (Node : Template_Call'Class) return T_Template_Call is
+      A_Template_Call : T_Template_Call := new T_Template_Call_Type;
+   begin
+      Push_Entity (A_Template_Call, Node);
+
+      if not Node.F_Captured.Is_Null then
+         A_Template_Call.Captured_Name :=
+           To_Unbounded_Text (Node.F_Captured.Text);
+      end if;
+
+      for A of Node.F_Args loop
+         A_Template_Call.Args.Append (Build_Arg (A));
+      end loop;
+
+      Pop_Entity;
+
+      return A_Template_Call;
+   end Build_Template_Call;
+
+   function Build_Command_Structure (Node : Template_Node'Class) return T_Command is
+      A_Command : T_Command := new T_Command_Type;
 
       function Visit (Node : Template_Node'Class) return Visit_Status is
       begin
@@ -207,6 +248,11 @@ package body Wrapping.Semantic.Analysis is
                  (Node.As_Match_Section.F_Expression);
 
                Node.As_Match_Section.F_Actions.Traverse (Visit'Access);
+
+               if not Node.As_Match_Section.F_Alternate_Actions.Is_Null then
+                  A_Command.Else_Actions :=
+                    Build_Command_Structure (Node.As_Match_Section.F_Alternate_Actions.F_Actions);
+               end if;
 
                return Over;
             when Template_Pick_Section =>
@@ -224,9 +270,14 @@ package body Wrapping.Semantic.Analysis is
                   A_Command.Template_Section := new Weave_Type;
                end if;
 
-               A_Command.Template_Section.Node := Node.As_Template_Section;
+               Push_Entity (T_Entity (A_Command.Template_Section), Node);
 
-               return Into;
+               Node.As_Template_Section.F_Actions.Traverse
+                 (Visit'Access);
+
+               Pop_Entity;
+
+               return Over;
             when Template_Nested_Scope =>
                A_Command.Nested_Actions :=
                  Build_Command_Scope_Structure (Node.As_Nested_Scope);
@@ -234,30 +285,16 @@ package body Wrapping.Semantic.Analysis is
                return Over;
 
             when Template_Template_Call =>
-               for A of Node.As_Template_Call.F_Args loop
-                  A_Command.Template_Section.Args.Append (Build_Arg (A));
-               end loop;
+               A_Command.Template_Section.Call := Build_Template_Call
+                 (Node.As_Template_Call);
 
                return Over;
 
-            when Template_Else_Section =>
-               case Node.As_Else_Section.F_Actions.Kind is
-                  when Template_Command =>
-                     A_Command.Else_Actions := T_Entity (Build_Command_Structure (Node.As_Else_Section.F_Actions));
-
-                  when Template_Nested_Scope =>
-                     A_Command.Else_Actions := Build_Command_Scope_Structure (Node.As_Else_Section.F_Actions);
-
-                  when others =>
-                     Error
-                       ("unexpected node kind for command else: '"
-                        & Node.As_Else_Section.F_Actions.Kind'Wide_Wide_Image
-                        & "'");
-
-               end case;
+            when Template_Command_Sequence =>
+               A_Command.Command_Sequence := Build_Command_Sequence
+                 (Node.As_Command_Sequence);
 
                return Over;
-
             when others =>
                return Into;
          end case;
@@ -274,16 +311,16 @@ package body Wrapping.Semantic.Analysis is
       return A_Command;
    end Build_Command_Structure;
 
-   function Build_Visitor_Structure (Node : Template_Node) return Structure.T_Visitor is
-      A_Visitor : Semantic.Structure.T_Visitor := new T_Visitor_Type;
-      Program_Node : Template_Node;
-      Dummy_Command : Structure.T_Command;
+   function Build_Visitor_Structure (Node : Template_Node) return T_Visitor is
+      A_Visitor     : T_Visitor := new T_Visitor_Type;
+      Program_Node  : Template_Node;
+      Dummy_Command : T_Command;
    begin
       Push_Named_Entity (A_Visitor, Node, Node.As_Visitor.F_Name);
 
       for A of Node.As_Visitor.F_Args loop
          declare
-            A_Var : Semantic.Structure.T_Var := new T_Var_Type;
+            A_Var : T_Var := new T_Var_Type;
          begin
             Push_Named_Entity (A_Var, A, A);
 
@@ -368,14 +405,14 @@ package body Wrapping.Semantic.Analysis is
    function Build_Command_Scope_Structure (Node : Template_Node'Class) return T_Entity is
       Container_Entity : T_Entity := new T_Entity_Type;
 
-      Dummy_Command : Structure.T_Command;
+      Dummy_Command : T_Command;
    begin
       Push_Entity (Container_Entity, Node);
 
       for C of Node.As_Nested_Scope.F_Scope loop
          case C.Kind is
             when Template_Command =>
-               Dummy_Command := Build_Command_Structure (Template_Node (C));
+               Dummy_Command := Build_Command_Structure (C);
 
             when others =>
                Error
@@ -650,18 +687,12 @@ package body Wrapping.Semantic.Analysis is
    begin
       Push_Entity (New_Tree, Node);
 
-      if not Tree.F_Captured.Is_Null then
-         New_Tree.Capture_Name := To_Unbounded_Text (Tree.F_Captured.Text);
-      end if;
-
       for C of Tree.F_Tree.Children loop
          New_Tree.Subtree.Append (Build_Create_Tree (C));
       end loop;
 
       if not Tree.F_Root.Is_Null then
-         for A of Tree.F_Root.F_Args loop
-            New_Tree.Args.Append (Build_Arg (A));
-         end loop;
+         New_Tree.Call := Build_Template_Call (Tree.F_Root);
       end if;
 
       Pop_Entity;

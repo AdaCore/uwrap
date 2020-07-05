@@ -56,6 +56,14 @@ package Wrapping.Semantic.Structure is
    package T_Var_Vectors is new Ada.Containers.Vectors (Positive, T_Var);
    use T_Var_Vectors;
 
+   type T_Command_Sequence_Type;
+   type T_Command_Sequence is access all T_Command_Sequence_Type'Class;
+   package Command_Sequence_Vectors is new Ada.Containers.Vectors (Positive, T_Command_Sequence);
+   use Command_Sequence_Vectors;
+
+   type T_Template_Call_Type;
+   type T_Template_Call is access all T_Template_Call_Type'Class;
+
    type T_Weave_Or_Wrap_Type;
    type T_Weave_Or_Wrap is access all T_Weave_Or_Wrap_Type'Class;
    package T_Weave_Or_Wrap_Vectors is new Ada.Containers.Vectors (Positive, T_Weave_Or_Wrap);
@@ -180,11 +188,23 @@ package Wrapping.Semantic.Structure is
       Matcher_Expression : T_Expr;
    end record;
 
-   type T_Weave_Or_Wrap_Type is tagged record
-      Node           : Template_Section;
+   type T_Command_Sequence_Type is new T_Entity_Type with record
+      Current       : T_Command;
+      Next_Sequence : T_Command_Sequence;
+   end record;
+
+   type T_Template_Call_Type is new T_Entity_Type with record
       Is_Null        : Boolean := False;
-      Call_Reference : T_Entity;
-      Args           : T_Arg_Vectors.Vector;
+      Captured_Name : Unbounded_Text_Type;
+      Reference     : T_Entity;
+      Args          : T_Arg_Vectors.Vector;
+   end record;
+
+   overriding
+   procedure Resolve_References (An_Entity : access T_Template_Call_Type);
+
+   type T_Weave_Or_Wrap_Type is new T_Entity_Type with record
+      Call           : T_Template_Call;
       A_Visit_Action : Visit_Action := Unknown;
    end record;
 
@@ -206,7 +226,8 @@ package Wrapping.Semantic.Structure is
       Template_Section : T_Weave_Or_Wrap;
 
       Nested_Actions   : T_Entity;
-      Else_Actions     : T_Entity;
+      Command_Sequence : T_Command_Sequence;
+      Else_Actions     : T_Command;
    end Record;
 
    overriding
@@ -306,13 +327,8 @@ package Wrapping.Semantic.Structure is
    end record;
 
    type T_Create_Tree_Type is new T_Entity_Type with record
-      Capture_Name : Unbounded_Text_Type;
-      A_Template   : T_Template;
-      Args         : T_Arg_Vectors.Vector;
-      Subtree      : T_Create_Tree_Vectors.Vector;
+      Call    : T_Template_Call;
+      Subtree : T_Create_Tree_Vectors.Vector;
    end record;
-
-   overriding
-   procedure Resolve_References (An_Entity : access T_Create_Tree_Type);
 
 end Wrapping.Semantic.Structure;

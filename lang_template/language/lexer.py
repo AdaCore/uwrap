@@ -11,6 +11,9 @@ class Token(LexerToken):
 
     Match      = WithText()
     Else       = WithText()
+    Do         = WithText()
+    Then       = WithText()
+    End        = WithText()
     Weave      = WithText()
     Wrap       = WithText()    
     Pick       = WithText()
@@ -74,6 +77,9 @@ template_lexer.add_rules(
 
     (Literal("match"), Token.Match),
     (Literal("else"), Token.Else),
+    (Literal("do"), Token.Else),
+    (Literal("then"), Token.Then),
+    (Literal("end"), Token.End),
     (Literal("wrap"), Token.Wrap),
     (Literal("weave"), Token.Weave),
     (Literal("visitor"), Token.Visitor),

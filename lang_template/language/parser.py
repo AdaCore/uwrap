@@ -29,11 +29,11 @@ class Var(TemplateNode):
 
 class Command(TemplateNode):
    actions = Field()
-   alternate_actions = Field()
 
 class MatchSection(TemplateNode):
    expression = Field()
    actions = Field ()
+   alternate_actions = Field()
 
 class PickSection (TemplateNode):
    expression = Field ()
@@ -50,6 +50,7 @@ class WeaveSection(TemplateSection):
    pass
 
 class TemplateCall(TemplateNode):
+   captured = Field()
    name = Field()
    args = Field()
 
@@ -135,13 +136,16 @@ class AtRef (TemplateNode):
    token_node = True
 
 class CreateTemplateTree (TemplateNode):
-   captured=Field()
    root=Field()
    tree=Field()
 
 class QualifiedMatch (TemplateNode):
    op = Field()
    rhs = Field()
+
+class CommandSequence (TemplateNode):
+   current = Field()
+   then = Field ()
 
 template_grammar = Grammar('main_rule')
 G = template_grammar
@@ -158,14 +162,21 @@ template_grammar.add_rules(
     
    var=Var('var', G.identifier, ':', G.identifier, Opt ('(', G.arg_list, ')'), ';'), 
 
+   command_sequence=Pick ('do', G.command_sequence_element),
+   command_sequence_element=CommandSequence (
+      G.command, Or (
+         Pick ('then', G.command_sequence_element),
+         Pick ('end', Null (G.command_sequence_element)))),
+
    command=Command(
       Or(
          G.match_section,
          G.pick_section,
          G.wrap_section, 
-         G.weave_section
-      ),
-      Opt(Pick ('else', ElseSection(Or(G.command, G.nested_commands))))
+         G.weave_section,
+         G.command_sequence,
+         G.nested_commands,
+      )
    ),
    match_section=MatchSection (
       Pick ('match', G.expression),
@@ -173,28 +184,31 @@ template_grammar.add_rules(
          G.pick_section,
          G.wrap_section,
          G.weave_section,
+         G.command_sequence,
          G.nested_commands,
-         Pick (Null (G.nested_commands), ';'))
+         Pick (Null (G.nested_commands), ';')),
+      Opt(Pick ('else', ElseSection(G.command)))
    ),
    pick_section=PickSection (
       Pick ('pick', G.expression),
       Or (
          G.wrap_section,
          G.weave_section,
+         G.command_sequence,
          G.nested_commands,
          Pick (Null (G.nested_commands), ';'))
    ),
    weave_section=WeaveSection(
       'weave',
       Or (
-         TemplateCall(G.dotted_name, '(', G.arg_list, ')'),
-         TemplateCall(Null (G.dotted_name), '(', G.arg_list, ')'),
+         G.template_call,
+         TemplateCall(Null (G.identifier), Null (G.dotted_name), '(', G.arg_list, ')'),
          G.traverse_decision),
       ';'),
    wrap_section=WrapSection(
       'wrap', 
       Or (
-         TemplateCall(G.dotted_name, '(', G.arg_list, ')'),
+         G.template_call,
          G.traverse_decision), 
       ';'),
    nested_commands=NestedScope ('{', G.command_scope, '}'),
@@ -242,10 +256,10 @@ template_grammar.add_rules(
       G.name
    ),
    new_expr=NewExpr ('new', '(', G.create_template_tree, ')'),
-   template_call=TemplateCall(G.dotted_name, '(', G.arg_list, ')'),
+   template_call=TemplateCall(Opt (G.identifier, ':'), G.dotted_name, '(', G.arg_list, ')'),
    create_template_tree=Or(
-      CreateTemplateTree(Opt (G.identifier, ':'), G.template_call, Opt ('[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
-      CreateTemplateTree(Opt (G.identifier, ':'), Null (G.template_call), '[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
+      CreateTemplateTree(G.template_call, Opt ('[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
+      CreateTemplateTree(Null (G.template_call), '[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
    fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, ')'),
    all_expr=AllExpr ('all', '(', Opt (G.expression), ')'),
    at_ref=AtRef('@'),

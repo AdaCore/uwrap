@@ -290,9 +290,7 @@ package body Wrapping.Semantic.Structure is
    function Get_Template_Or_Visitor_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity is
       An_Entity : T_Entity;
    begin
-      An_Entity := Get_Static_Entity_By_Name
-        (Current_Scope,
-         Name);
+      An_Entity := Get_Static_Entity_By_Name (Current_Scope, Name);
 
       if An_Entity = null then
          Error ("can't find reference to '" & Name.Text & "'");
@@ -310,7 +308,9 @@ package body Wrapping.Semantic.Structure is
    procedure Resolve_References (An_Entity : access T_Entity_Type) is
    begin
       for C of An_Entity.Children_Ordered loop
+         Push_Error_Location (C.Node);
          C.Resolve_References;
+         Pop_Error_Location;
       end loop;
    end Resolve_References;
 
@@ -341,44 +341,46 @@ package body Wrapping.Semantic.Structure is
    end Resolve_References;
 
    overriding
+   procedure Resolve_References (An_Entity : access T_Template_Call_Type) is
+      Name : Text_Type :=
+        (if An_Entity.Node.As_Template_Call.F_Name.Is_Null then
+            ""
+         else An_Entity.Node.As_Template_Call.F_Name.Text);
+   begin
+      if Name = "" then
+         if An_Entity.Parent.Node.Kind /= Template_Weave_Section then
+            Error ("self-weaving requires can only be done in weave sections");
+         end if;
+      elsif Name = "null" then
+         --  In this case, we're creating a template cancellation
+         --  clause.
+
+         if An_Entity.Parent.Node.Kind /= Template_Wrap_Section then
+            Error
+              ("null template only allowed on wrap sections, not "
+               & An_Entity.Parent.Node.Kind'Wide_Wide_Image);
+         end if;
+
+         An_Entity.Is_Null := True;
+      else
+         An_Entity.Reference := Get_Template_Or_Visitor_By_Name
+           (An_Entity.Parent, An_Entity.Node.As_Template_Call.F_Name);
+
+         if An_Entity.Reference = null then
+            Error ("'" & Name & "' not found.");
+         end if;
+      end if;
+
+      T_Entity_Type (An_Entity.all).Resolve_References;
+   end Resolve_References;
+
+   overriding
    procedure Resolve_References (An_Entity : access T_Command_Type) is
    begin
       if An_Entity.Template_Section /= null then
-         case An_Entity.Template_Section.Node.F_Actions.Kind is
-            when Template_Template_Call =>
-               declare
-                  An_Operation : Template_Call :=
-                    An_Entity.Template_Section.Node.F_Actions.As_Template_Call;
-               begin
-                  if not An_Operation.F_Name.Is_Null then
-                     Push_Error_Location (An_Entity.Template_Section.Node);
-
-                     if An_Operation.F_Name.Is_Null then
-                        if An_Entity.Template_Section.Node.Kind = Template_Wrap_Section then
-                           Error ("template instances can only be weaved, not wrapped");
-                        end if;
-                     else
-                        if  An_Operation.F_Name.Text = "null" then
-                           --  In this case, we're creating a template cancellation
-                           --  clause.
-
-                           if An_Entity.Template_Section.Node.Kind = Template_Weave_Section then
-                              Error ("null template only allowed on wrap clauses");
-                           end if;
-
-                           An_Entity.Template_Section.Is_Null := True;
-                        else
-                           An_Entity.Template_Section.Call_Reference :=
-                             Get_Template_Or_Visitor_By_Name
-                               (An_Entity.Parent,
-                                An_Operation.F_Name);
-                        end if;
-                     end if;
-
-                     Pop_Error_Location;
-                  end if;
-               end;
-
+         case An_Entity.Template_Section.Node.
+           As_Template_Section.F_Actions.Kind
+         is
             when Template_Traverse_Into =>
                An_Entity.Template_Section.A_Visit_Action := Into;
 
@@ -386,8 +388,7 @@ package body Wrapping.Semantic.Structure is
                An_Entity.Template_Section.A_Visit_Action := Over;
 
             when others =>
-               Error ("unrecognized template action: "
-                      & An_Entity.Template_Section.Node.F_Actions.Kind'Wide_Wide_Image);
+               null;
 
          end case;
       end if;
@@ -429,28 +430,6 @@ package body Wrapping.Semantic.Structure is
 
       --  TODO: There are a few cases where names can be resolved statically,
       --  e.g. static references in identifiers
-
-      T_Entity_Type (An_Entity.all).Resolve_References;
-   end Resolve_References;
-
-   overriding
-   procedure Resolve_References (An_Entity : access T_Create_Tree_Type) is
-   begin
-      Push_Error_Location (An_Entity.Node);
-
-      if not An_Entity.Node.As_Create_Template_Tree.F_Root.Is_Null then
-         An_Entity.A_Template :=
-           T_Template
-             (Get_Static_Entity_By_Name
-                (T_Entity (An_Entity),
-                 An_Entity.Node.As_Create_Template_Tree.F_Root.F_Name));
-
-         if An_Entity.A_Template = null then
-            Error ("'" & An_Entity.Node.As_Create_Template_Tree.F_Root.Text & " not found.");
-         end if;
-      end if;
-
-      Pop_Error_Location;
 
       T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
