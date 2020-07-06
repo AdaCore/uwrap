@@ -7,7 +7,7 @@ match DefiningName ("(?<a>.*)_h")
 wrap w_DefiningName ("\e<a>_Wrapped");
 
 match ParamSpec("arr") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
-wrap w_ParamSpec (
+wrap w_ParamSpecCall (
    type_expr => "in out Integer_Array",
    pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<te.child (TypeExpr ())> with Address => \e<name>'Address, Import;""",
    actual_value => sb.tmp ("local") & "'Access"

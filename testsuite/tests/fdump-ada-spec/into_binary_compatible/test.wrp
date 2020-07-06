@@ -10,12 +10,10 @@ match DefiningName ("(?<a>.*)_h") {
       pick p weave (spec_content => "type Ptr is new System.Address;\n");
 
       match u: p.parent (w_Unit ()) {
-            match not u.child (w_WithClause (ref ("System")))
-            pick u.child (new (w_WithClause (ref => "System")));
+         match not u.child (w_WithClause (ref ("System")))
+         pick u.child (new (w_WithClause (ref => "System")));
       }
    } 
-
-
 }
 
 match SubpDecl ("return System.Address") or ParamSpec ("System.Address")

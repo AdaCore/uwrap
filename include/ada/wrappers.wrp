@@ -85,10 +85,10 @@ template w_SubpDecl extends w_NamedEntity {
    var return_stmt : text;
    var call_assoc_list : text;
    var call : text;
+   var call_name : text;
 
    var profile : pattern ("""
-   \e<function_or_procedure> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>
-   """); 
+   \e<function_or_procedure> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""); 
 
    var spec : pattern ("""
    \e<profile>;
@@ -114,6 +114,14 @@ template w_SubpDecl extends w_NamedEntity {
    """); 
 }
 
+template w_SubpDeclCall extends w_SubpDecl {
+
+}
+
+template w_SubpDeclCallback extends w_SubpDecl {
+   
+}
+
 template w_ParamSpec extends w_NamedEntity {
    var generate_formal : text;
 
@@ -133,6 +141,14 @@ template w_ParamSpec extends w_NamedEntity {
    var result_type_expr : text;
 
    var mode           : text;
+}
+
+template w_ParamSpecCall extends w_ParamSpec {
+
+}
+
+template w_ParamSpecCallback extends w_ParamSpec {
+
 }
 
 template w_DefiningName extends w_Ada {
@@ -248,6 +264,24 @@ visitor build_type_expr (type) {
    }
 }
 
+visitor build_subprogram (sb) {
+   match sb.child (f_subp_kind ("function")) and sb.child (te: TypeExpr()) 
+      weave (
+         function_or_procedure => "function",
+         result_type_expr => lambda (child (w_TypeExpr()).txt),
+         call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
+         post_call_decl => """
+            \e<self.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
+            with Address => \e<self.tmp ("result_orig")>'Address, Import;\n""",
+         call_stmt => "null;", 
+         return_stmt => """return \e<sb.tmp ("result_wrapped")>;""");
+   else
+      weave (
+         call_stmt => "\e<call>;", 
+         return_stmt => "null;",
+         function_or_procedure => "procedure");
+}
+
 visitor ada_to_wrappers () {
    match CompilationUnit () {
       wrap w_Unit ();
@@ -256,31 +290,39 @@ visitor ada_to_wrappers () {
    match PackageDecl () 
    wrap w_PackageDecl();
     
-   match SubpDecl() {
-      wrap w_SubpDecl (
-         call_stmt => "\e<call>;", 
-         return_stmt => "null;",
-         function_or_procedure => "procedure");
-
-      match child (f_subp_kind ("function")) and child (te: TypeExpr()) 
-      wrap w_SubpDecl (
-         function_or_procedure => "function",
-            result_type_expr => lambda (new.child (w_TypeExpr()).txt),
-            call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
-            post_call_decl => """
-               \e<self.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
-               with Address => \e<self.tmp ("result_orig")>'Address, Import;\n""",
-            call_stmt => "null;", 
-            return_stmt => """return \e<self.tmp ("result_wrapped")>;""");
+   match sb: (SubpDecl() or AccessToSubpDef ()) {
+      do
+         wrap w: w_SubpDeclCall ();
+      then
+         match w () pick w weave build_subprogram (sb);
+      end
+      
+      do 
+         wrap w: w_SubpDeclCallback();
+      then 
+         match w () pick w weave build_subprogram (sb);
+      end
    }
+   
+   match ParamSpec() {
+      wrap w_ParamSpecCall();
+      wrap w_ParamSpecCallback();
 
-   match ParamSpec() and parent (sb: SubpDecl ())
-   wrap w_ParamSpec(
-      type_expr => lambda (new.child (w_TypeExpr()).txt),
-      pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n""",
-      actual_value => sb.tmp ("local")
-   );
+      match parent (sb: (SubpDecl () or AccessToSubpDef ())) {
+         wrap w_ParamSpecCall (
+            type_expr => lambda (new.child (w_TypeExpr()).txt),
+            pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n""",
+            actual_value => sb.tmp ("local")
+         );
 
+         wrap w_ParamSpecCallback(
+            type_expr => p_type_expression,
+            pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<lambda (new.child (w_TypeExpr()).txt)> with Address => \e<name>'Address, Import;\n""",
+            actual_value => sb.tmp ("local")
+         );
+      }   
+   } 
+   
    match BaseTypeDecl () 
    wrap w_TypeDecl ();
 
@@ -324,33 +366,82 @@ visitor ada_to_wrappers () {
 }
 
 visitor wrappers_post_process () {
-   match sb: w_SubpDecl() and parent (p : w_PackageDecl ()) {
+   match sb: w_SubpDeclCall() 
+      and parent (p : w_PackageDecl ()) {
+      
       match function_or_procedure ("function")
       weave (return_spec => "return \e<result_type_expr>");
 
-      weave (
-         call => "\e<origin.p_fully_qualified_name> \e<lparenCall> \e<call_assoc_list> \e<rparenCall>"
-      );
+      match v: origin.p_fully_qualified_name ()
+      weave (call_name => v);
+      
+      weave (call => "\e<call_name> \e<lparenCall> \e<call_assoc_list> \e<rparenCall>");
 
-      match child (w_ParamSpec(not generate_formal ("NO")))
+      match child (w_ParamSpecCall(not generate_formal ("NO")))
       weave (lparenSpec => "(", rparenSpec => ")");
 
-      match child (c: w_ParamSpec())
+      match child (c: w_ParamSpecCall())
       weave (lparenCall => "(", rparenCall => ")");
 
+      match origin (SubpDecl ())
       pick p weave (spec_content => @ & sb.spec, body_content => @ & sb.body);
    }
 
-   match p: w_ParamSpec() and parent (s : w_SubpDecl()) {
+   match sb: w_SubpDeclCallback() 
+      and parent (p : w_PackageDecl ()) {
+      
+      match function_or_procedure ("function")
+      weave (return_spec => "return \e<result_type_expr>");
+
+      match v: origin.p_fully_qualified_name ()
+      weave (call_name => v);
+      
+      weave (call => "\e<call_name> \e<lparenCall> \e<call_assoc_list> \e<rparenCall>");
+
+      match child (w_ParamSpecCallback(not generate_formal ("NO")))
+      weave (lparenSpec => "(", rparenSpec => ")");
+
+      match child (c: w_ParamSpecCallback())
+      weave (lparenCall => "(", rparenCall => ")");
+   }
+
+   match p: w_ParamSpecCall() and parent (s: w_SubpDeclCall()) {
       match not generate_formal ("NO") {
-         match prev (w_ParamSpec (not generate_formal ("NO")))
+         match prev (w_ParamSpecCall (not generate_formal ("NO")))
          weave (
             formal_text => @ & "; \e<name> : \e<mode> \e<type_expr>");
          else weave (
             formal_text => @ & "\e<name> : \e<mode> \e<type_expr>");
       }
 
-      match prev (w_ParamSpec ())
+      match prev (w_ParamSpecCall ())
+      weave (actual_text => @ & ", \e<actual_value>");
+      else weave (actual_text => @ & "\e<actual_value>");
+
+      pick s weave (
+         param_spec_list  => @ & p.formal_text,
+         pre_call_decl    => @ & p.pre_call_decl,
+         pre_call_stmt    => @ & p.pre_call_stmt,
+         call_decl        => @ & p.call_decl,
+         call_stmt        => @ & p.call_stmt,
+         call_assoc_list  => @ & p.actual_text,
+         post_call_decl   => @ & p.post_call_decl,
+         post_call_stmt   => @ & p.post_call_stmt,
+         return_stmt      => @ & p.return_stmt,
+         result_type_expr => @ & p.result_type_expr
+      );
+   }
+
+   match p: w_ParamSpecCallback() and parent (s: w_SubpDeclCallback()) {
+      match not generate_formal ("NO") {
+         match prev (w_ParamSpecCallback (not generate_formal ("NO")))
+         weave (
+            formal_text => @ & "; \e<name> : \e<mode> \e<type_expr>");
+         else weave (
+            formal_text => @ & "\e<name> : \e<mode> \e<type_expr>");
+      }
+
+      match prev (w_ParamSpecCallback ())
       weave (actual_text => @ & ", \e<actual_value>");
       else weave (actual_text => @ & "\e<actual_value>");
 
@@ -399,7 +490,7 @@ visitor wrappers_post_process () {
          pick p weave (aspects_declaration => @ & "with \e<w.txt>\n");
    }
 
-   match w_TypeDecl () {
+   match top: w_TypeDecl () {
       match origin (t: child (TypeAccessDef ())) 
          weave (definition => @ & " access \e<child (w_TypeExpr ()).txt>");
       else match origin (t: child (DerivedTypeDef ())) 
@@ -407,6 +498,28 @@ visitor wrappers_post_process () {
       else match origin (t: child (ArrayTypeDef (i: child (UnconstrainedArrayIndex ())))) {
          match i.child (template (w1 : w_TypeExpr ()))
          weave (definition => @ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>");
+      } else match origin (child (AccessToSubpDef ())) {
+         match origin (child (t: TypeDef ())) 
+         weave (definition => @ & "\e<t>");
+
+         match child (cl: w_SubpDeclCall ()) and child (cb: w_SubpDeclCallback ()) 
+            and parent (p: w_PackageDecl()) 
+            and ncall: top.tmp ("Call") {
+            
+            pick cl weave (name => ncall);
+            pick cb weave (
+               name => top.name & "_Gen", 
+               call_name => ncall);
+
+            pick p weave (
+               spec_content => @ & """
+                  generic 
+                     with \e<cl.profile>;
+                  \e<cb.profile>;""",
+               body_content => @ & """
+               \e<cb.body>
+               """);
+         }
       } else match origin (child (RecordTypeDef ())) {
          match child (w_ComponentDecl())
             weave (definition => @ & """
@@ -458,20 +571,24 @@ visitor wrappers_post_process () {
       match origin (child (r: Name()))
         and (r.p_referenced_decl ().template (child (n: w_DefiningName ())))
             pick u weave (
-               spec_with_clauses => @ & "\e<c> \e<n.name>;\n",
-               body_with_clauses => @ & "\e<c> \e<w.ref>;\n"
+               spec_with_clauses => @ & "\e<c> \e<n.name>; \e<c> \e<w.ref>;\n"
             );
       else pick u weave (
-         spec_with_clauses => @ & "\e<c> \e<w.ref>;\n",
-         body_with_clauses => @ & "\e<c> \e<w.ref>;\n"
+         spec_with_clauses => @ & "\e<c> \e<w.ref>;\n"
       );
    }
 
-   match s: w_DefiningName () and parent (n: w_NamedEntity ())
-   pick n weave (name => @ & s.name, original_name => @ & n.origin.p_fully_qualified_name);
+   match n: w_NamedEntity () 
+      and child (s: w_DefiningName ()) 
+      and n.name ("^$") {
 
+      match v: n.origin.p_fully_qualified_name ()
+         weave (name => s.name, original_name => v);
+      else
+         weave (name => s.name);
+   }
+   
    match w_Unit () and child (p: w_PackageDecl ()) {
-      #TODO: we should be using labels instead of extending standard.file
       wrap spec_file
          (path => lambda (replace_text (to_lower (p.name), "\\.", "-")) & ".ads", content => self.spec_text);
 

@@ -2,7 +2,7 @@ import ada.wrappers;
 
 visitor access_into_out () {
    match ParamSpec("access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
-   wrap w_ParamSpec (
+   wrap w_ParamSpecCall (
       pre_call_decl => """\e<sb.tmp ("call")> : aliased \e<te.child (TypeExpr ())> with Address => \e<name>'Address, Import;""",
       actual_value => """\e<sb.tmp ("call")>'Unchecked_Access""",
       mode => "out",
@@ -12,12 +12,12 @@ visitor access_into_out () {
 
 visitor access_into_return (parameter) {
    match parameter.child (TypeExpr (child (te: TypeExpr ()))) {
-      wrap w_SubpDecl (
+      wrap w_SubpDeclCall (
          call_stmt => "\e<call>;", 
          return_stmt => "null;",
          function_or_procedure => "function");
 
-      pick parameter wrap w_ParamSpec (
+      pick parameter wrap w_ParamSpecCall (
          generate_formal => "NO",  # TODO: introduce boolean here instead
          actual_value => """\e<self.tmp("call")>'Unchecked_Access""",
          call_decl => """
@@ -43,7 +43,7 @@ visitor constant_into_enumeration (type_name, lit_name) {
 
 visitor chars_into_string () {
    match ParamSpec("Interfaces.C.Strings.chars_ptr") and parent (sb: SubpDecl())
-   wrap w_ParamSpec (
+   wrap w_ParamSpecCall (
       type_expr => "String",
       pre_call_decl => """\e<sb.tmp ("c_string")> : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (\e<name>);\n""",
       actual_value => """\e<sb.tmp ("c_string")>""",
@@ -51,7 +51,7 @@ visitor chars_into_string () {
    );
 
    match SubpDecl() and child (TypeExpr ("Interfaces.C.Strings.chars_ptr"))
-   wrap w_SubpDecl (
+   wrap w_SubpDeclCall (
       function_or_procedure => "function",
       result_type_expr => "String",
       call_decl => """\e<self.tmp ("c_string")> : aliased Interfaces.C.Strings.chars_ptr := \e<call>;\n""",
@@ -109,14 +109,14 @@ visitor error_code_into_exception (package_container, registry_name, exception_n
 
 visitor into_binary_compatible (type_name) {
    match ParamSpec() and parent (sb: SubpDecl ())
-   wrap w_ParamSpec(
+   wrap w_ParamSpecCall(
       type_expr => type_name,
       pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n""",
       actual_value => sb.tmp ("local")
    );
 
    match child (f_subp_kind ("function")) and child (te: TypeExpr()) 
-   wrap w_SubpDecl
+   wrap w_SubpDeclCall
       (function_or_procedure => "function",
        result_type_expr => type_name,
        call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
@@ -129,7 +129,7 @@ visitor into_binary_compatible (type_name) {
 
 visitor parameter_into_computed_expression (expr) {
    match ParamSpec()
-   wrap w_ParamSpec(
+   wrap w_ParamSpecCall(
       generate_formal => "NO",
       type_expr => "",
       actual_value => expr
@@ -148,7 +148,7 @@ visitor return_into_exception (registry_package, registry_name) {
          }
    }
 
-   wrap w_SubpDecl (
+   wrap w_SubpDeclCall (
       function_or_procedure => "procedure",
       call_decl => """\e<self.tmp ("res")> : Interfaces.C.int := \e<call>;\n""",
       call_stmt => "null;", 
