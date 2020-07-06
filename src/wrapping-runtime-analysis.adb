@@ -1708,6 +1708,7 @@ package body Wrapping.Runtime.Analysis is
       Initial_Context : Frame_Context := Top_Frame.Top_Context;
 
       procedure Expand_Action is
+         Last_Result : W_Object := Get_Implicit_Self.Dereference;
       begin
          --  Restore the context at this point of the call. This is important
          --  in particular if there was an expansion happening there,
@@ -1720,8 +1721,10 @@ package body Wrapping.Runtime.Analysis is
          Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
          for Suffix_Expression of Suffix loop
-            Evaluate_Expression (Suffix_Expression);
+            Last_Result := Evaluate_Expression (Suffix_Expression);
          end loop;
+
+         Push_Object (Last_Result);
 
          --  Execute the outer action once per run of the suffix, which may be
          --  a Outer_Expression_Pick call.

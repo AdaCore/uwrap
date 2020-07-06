@@ -221,23 +221,16 @@ visitor build_identifier (type) {
 visitor build_dotted_name (type) {
    match s: self () and c: child (DottedName ()) {
       pick c {
-         # TODO: it's a bit weak to rely on the reverse order of the weave 
-         # functions. We could have instead
-         #    weave [W1, W2, ...]
-         # or perhaps
-         #    [weave W1, wrap W2, weave W3]...
-      
-         pick s.child (Identifier()) wrap build_identifier (type);
-         pick type weave (txt => @ & ".");
-         weave build_dotted_name (type); 
+         do weave build_dotted_name (type);
+         then pick type weave (txt => @ & ".");
+         then pick s.child (Identifier()) wrap build_identifier (type); end;
       }
    } else {
       match child (i1: Identifier() and next (i2: Identifier())) {
-         # yet another one of these weird sequences...
-         pick i2 wrap build_identifier (type);
-         pick type weave (txt => @ & ".");
-         pick i1 wrap build_identifier (type);
-         pick type weave (txt => @ & " ");
+         do pick type weave (txt => @ & " ");
+         then pick i1 wrap build_identifier (type);
+         then pick type weave (txt => @ & ".");
+         then pick i2 wrap build_identifier (type); end;
       }
    }
 }
@@ -255,11 +248,10 @@ visitor build_type_expr (type) {
    else match s: self () and SingleTokNode()
       pick type weave (txt => @ & " \e<s>");
    else match s: IndexConstraint () {
-      # TODO: as before, the order of the evaluation of the weave is odd
-      # and forces to reverse the logical order when building the parenthesis
-      pick type weave (txt => @ & " )");
-      pick child ().all () wrap build_type_expr (type);
-      pick type weave (txt => @ & " (");
+      do pick type weave (txt => @ & " (");
+      then pick child ().all () weave build_type_expr (type);
+      then pick type weave (txt => @ & " )"); end;
+      
       wrap over;
    }
 }
@@ -295,13 +287,13 @@ visitor ada_to_wrappers () {
          wrap w: w_SubpDeclCall ();
       then
          match w () pick w weave build_subprogram (sb);
-      end
+      end;
       
       do 
          wrap w: w_SubpDeclCallback();
       then 
          match w () pick w weave build_subprogram (sb);
-      end
+      end;
    }
    
    match ParamSpec() {

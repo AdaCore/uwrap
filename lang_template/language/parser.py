@@ -166,7 +166,7 @@ template_grammar.add_rules(
    command_sequence_element=CommandSequence (
       G.command, Or (
          Pick ('then', G.command_sequence_element),
-         Pick ('end', Null (G.command_sequence_element)))),
+         Pick ('end', Null (G.command_sequence_element), ';'))),
 
    command=Command(
       Or(
