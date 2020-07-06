@@ -487,9 +487,13 @@ visitor wrappers_post_process () {
          weave (definition => @ & " access \e<child (w_TypeExpr ()).txt>");
       else match origin (t: child (DerivedTypeDef ())) 
          weave (definition => @ & "new \e<child (w_TypeExpr ()).txt>");
-      else match origin (t: child (ArrayTypeDef (i: child (UnconstrainedArrayIndex ())))) {
-         match i.child (template (w1 : w_TypeExpr ()))
+      else match origin (
+         t: child (ArrayTypeDef (
+            i: child (UnconstrainedArrayIndex () or ConstrainedArrayIndices)))) {
+
+         match i (UnconstrainedArrayIndex ()) and i.child (template (w1 : w_TypeExpr ()))
          weave (definition => @ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>");
+         else weave (definition => @ & "array (\e<t.child(ConstraintList ())>) of \e<child (w_TypeExpr ()).txt>");
       } else match origin (child (AccessToSubpDef ())) {
          match origin (child (t: TypeDef ())) 
          weave (definition => @ & "\e<t>");
