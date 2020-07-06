@@ -94,15 +94,22 @@ match w_ExceptionRegistry () {
 }
 
 visitor error_code_into_exception (package_container, registry_name, exception_name) {
-   match d: NumberDecl(child (n: DefiningName ())) {
+   match (dnum: NumberDecl (child (n: DefiningName ()) and expr: f_expr)
+       or dobj: ObjectDecl ((child (n: DefiningName ())) and expr: f_default_expr)) {
+
+      match dnum ()
       wrap null (w_NumberDecl);
+
+      match dobj ()
+      wrap null (w_ObjectDecl);
+
       pick n wrap null (w_DefiningName);
 
       match r: (w_ExceptionRegistry.find (package (package_container) and name (registry_name))
          or new (w_ExceptionRegistry (package => package_container, name => registry_name)))
       pick r weave (
          exceptions => @ & "\e<exception_name> : exception;\n",
-         init => @ & "\e<registry_name>.Insert (\e<d.f_expr>, \e<exception_name>'Identity);\n"
+         init => @ & "\e<registry_name>.Insert (\e<expr>, \e<exception_name>'Identity);\n"
       );
    }
 }
