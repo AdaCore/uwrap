@@ -1,6 +1,13 @@
+with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Wide_Wide_Text_IO;
 with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
+
+with GNATCOLL.OS.Constants; use GNATCOLL.OS.Constants;
+with GNATCOLL.Utils; use GNATCOLL.Utils;
+
+with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 
 with Libtestlang.Analysis;
 with Libtestlang.Common;
@@ -15,9 +22,6 @@ with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
 with Wrapping.Input.Kit;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
-with Ada.Text_IO; use Ada.Text_IO;
-with Ada.Wide_Wide_Text_IO;
-with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 
 package body Wrapping.Run is
 
@@ -141,6 +145,12 @@ package body Wrapping.Run is
          end;
 
       begin
+         Analyze_Directory
+           ("",
+            GNATCOLL.Utils.Executable_Location
+            & ".." & GNATCOLL.OS.Constants.Dir_Sep
+            & "include" & GNATCOLL.OS.Constants.Dir_Sep);
+
          for Dir_Path of Input_Directories loop
             Analyze_Directory ("", To_String (Dir_Path));
          end loop;

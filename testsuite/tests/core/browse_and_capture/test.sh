@@ -1,2 +1,2 @@
 cd out
-UWRAP "-l test -I$ROOT/include/ -w `pwd`/../test.wrp `pwd`/../src/input.txt"
+UWRAP "-l test -w `pwd`/../test.wrp `pwd`/../src/input.txt"
