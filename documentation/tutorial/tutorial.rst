@@ -33,7 +33,7 @@ The file tutorial.wrp looks like this:
 .. code-block:: text
 
    match DefiningName ()
-   wrap with standard.out (self & "'\n");
+   wrap standard.out (self & "'\n");
 
 The above represent a UWrap command. It's composed in three parts: a matching
 expression, the identificaton of a node to wrap, and then a wrapping operation.
@@ -41,8 +41,7 @@ expression, the identificaton of a node to wrap, and then a wrapping operation.
 .. code-block:: text
 
    [match <matching expression>]
-   [wrap [<node to wrap>]
-   with <wrapping operation>];
+   [wrap <wrapping operation>];
 
 Each section surrounded by [] in the description above can be omitted. Here, 
 we're ommiting the "node to wrap" section, which is automatically set to self.
@@ -59,10 +58,7 @@ by the libadalang library will match for that particular node. A good way
 to understand the structure of the Ada matcher is to use GPS and open the 
 libadalang view. It will display the tree of Ada nodes as well as their type.
 
-The node currently iterated over is referenced by ``self``. When not specified,
-this is the value taken automatically by the ``node to wrap`` expression.
-
-``with`` introduces the name of a template to use to wrap the node. In this
+``wrap`` introduces the name of a template to use to wrap the node. In this
 case, ``standard.out`` is a pre-existing template provided by the standard UWrap
 libray.
 
@@ -111,8 +107,8 @@ Let's open access.wrp and see how this is done:
          and not parent (DefiningName())
          and not parent (ExplicitDeref())
          and p_referenced_decl (param))
-      wrap with standard.out 
-        (":\e<self.child (DefiningName())>: access object should be out or in out\n");
+      wrap standard.out 
+         ("\e<sloc>\e<self.child (DefiningName())> access object should be out or in out\n");
    }
 
 Looks a lot more comprehensive that the previous one, right? Thankfully, it's 
@@ -179,7 +175,7 @@ A few notes here:
 * ``p_referenced_decl`` is a standard libadalang property query. It does not
   operate on declarations, which is the reason why we have to guard on 
   ``DefiningNames`` before.
-* Withing a browsing predicate such as ``child`` or ``parent``, the value of
+* Within a browsing predicate such as ``child`` or ``parent``, the value of
   ``self`` is switched to the sub-nodes being browsed. So in that second
   child query, p_referenced_decl operates on the child being analyzed, not the
   top level node which is a parameter specification. This is the reason why we
@@ -192,8 +188,8 @@ we will create a message wrapper:
 
 .. code-block:: text
 
-    wrap with standard.out 
-     ("\e<sloc>:\e<self.child (DefiningName())>: access object should be out or in out\n");
+   wrap standard.out 
+      ("\e<sloc>\e<self.child (DefiningName())> access object should be out or in out\n");
 
 The above demonstrates the usage of the "\e<>" expression in strings."\e<" 
 introduces a section of expression, which allows to include in long string
@@ -231,13 +227,13 @@ Let's open wrap_names.wrp and see how this is done:
 
    import ada.wrappers;
 
-   wrap with wrap_ada_specs ();
+   wrap wrap_ada_specs ();
 
    match DefiningName ("Some_(.*)"))
-   wrap with w_DefiningName ("My_\1");
+   wrap w_DefiningName ("My_\1");
 
    match DefiningName ("Some_(?<a>.*)")) and parent (ParamSpec ())
-   wrap with w_DefiningName ("A_Param_\e<a>");
+   wrap w_DefiningName ("A_Param_\e<a>");
 
 First, you'll notice ``import ada.wrappers`` which references a module from
 the standard UWrap library. As for languages such as Java, a UWrap scrip always
@@ -250,7 +246,7 @@ The next call is:
 
 .. code-block:: text
 
-   wrap with wrap_ada_specs ();
+   wrap wrap_ada_specs ();
 
 This is a conditionless wrapper. This means that every node will be potentially
 wrapped by this action. Here, wrap_ada_specs is actually not a template, it is 
@@ -269,14 +265,14 @@ line is instructing to alter the way the default wrapper works:
 .. code-block:: text
 
    match DefiningName ("Some_(.*)"))
-   wrap with w_DefiningName ("My_\1");
+   wrap w_DefiningName ("My_\1");
 
 The matcher here introduces regular expressions - we're matching any 
 DefiningName that has Some\_ in its name followed by zero or more characters. 
 This name is then captured as the first captured element, to be re-used later
 on with the "\1" string reference.
 
-We then wrap with w_DefiningName, providing a value "My\_\1", so essentially 
+We then wrap w_DefiningName, providing a value "My\_\1", so essentially 
 changing Some\_ by My\_, and ignoring any character before Some\_. 
 ``w_DefiningName`` is a template defined in ``ada.wrappers`` which gets analyzed
 at the end of the wrapping process to generate a new name for a given entity.
@@ -295,10 +291,10 @@ file:
 .. code-block:: text
 
    match DefiningName ("Some_(.*)"))
-   wrap with w_DefiningName ("My_\1");
+   wrap w_DefiningName ("My_\1");
 
    match DefiningName ("Some_(?<a>.*)")) and parent (ParamSpec ())
-   wrap with w_DefiningName ("A_Param_\e<a>");
+   wrap w_DefiningName ("A_Param_\e<a>");
 
 In this sequence, we will first evaluate wether we are on a defining name
 child of a parameter which matches Some\_. If that's the case, we'll wrap the
@@ -346,20 +342,20 @@ few places C strings with Ada strings. Let's look at the wrapper code:
    import ada.wrappers;
    import ada.transformations;
 
-   wrap with wrap_ada_specs ();
+   wrap wrap_ada_specs ();
 
    match DefiningName ("(?<n>.*)_h")
-   wrap with w_DefiningName (normalize_ada_name(n));
+   wrap w_DefiningName (normalize_ada_name(n));
 
    match ParamSpec() 
       and child (SubtypeIndication("Interfaces.C.Strings.chars_ptr")) 
       and not child (DefiningName ("^leaveMeAlone$"))
-   wrap with chars_into_string ();
+   wrap chars_into_string ();
 
    match SubpDecl() 
       and child (f_subp_kind ("function"))
       and child (SubtypeIndication("Interfaces.C.Strings.chars_ptr")) 
-   wrap with chars_into_string ();
+   wrap chars_into_string ();
 
 As before, we're going to use ``ada.wrappers`` to invoke ``wrap_ada_specs``. This
 time however, we're also going to use ``ada.transformations``. This module
@@ -382,7 +378,7 @@ The first command reads:
   match ParamSpec() 
       and child (SubtypeIndication("Interfaces.C.Strings.chars_ptr")) 
       and not child (DefiningName ("^leaveMeAlone$"))
-   wrap with chars_into_string ();
+   wrap chars_into_string ();
 
 This matches a parameter specification, then looks at a child of type
 ``SubtupeIndication``, which would be the type of the parameter. Here,
@@ -390,7 +386,7 @@ we're performing a textual check to the full name of the C char type, which
 corresponds to the pattern generated by fdump-ada-specs. We're also then 
 describing a condition where we don't want to apply this transformation, if the
 defining name of the parameter is exactly "leaveMeAlone". If all these conditions
-match, then ``wrap with chars_into_string ()`` will apply the preset 
+match, then ``wrap chars_into_string ()`` will apply the preset 
 transformation from C string to Ada string.
 
 To modify a returned type, a transformation needs to be applied directly on the
@@ -401,7 +397,7 @@ subprogram itself. This is the role of the code
    match SubpDecl() 
       and child (f_subp_kind ("function")) 
       and child (SubtypeIndication("Interfaces.C.Strings.chars_ptr")) 
-   wrap with chars_into_string ();
+   wrap chars_into_string ();
 
 We will here match for a subprogram declaration which is of a function kind
 and has a subtype indication (its return type) matching the name of a C string.
@@ -429,9 +425,10 @@ On top of these, a number of Ada transformations are already implemented,
 allowing to transform return integers into exception, access parameters into
 returned values or out modes or arrays, etc. A good way to get an idea on how
 these work is to look at the `fdump-ada-spec specific testuite
-<https://github.com/AdaCore/uwrap/tree/master/testsuite/tests/fdump-ada-spec>`_, or directly
-at the `runtime implementation <https://github.com/AdaCore/uwrap/tree/master/include/ada>`_
-of the transformations and ada wrappers.
+<https://github.com/AdaCore/uwrap/tree/master/testsuite/tests/fdump-ada-spec>`_, directly
+at the `runtime implementation <https://github.com/AdaCore/uwrap/tree/master/include/ada>`_ 
+of the transformations and ada wrappers or in the usage makde to `bind cuda 
+<https://github.com/AdaCore/cuda/blob/master/api/cuda.wrp>`_.
 
 At the time of writing, a lot for work is still necessary to stabilize the 
 language, its processing and error recovergy. Performances have not been 

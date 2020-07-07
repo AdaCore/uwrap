@@ -4,6 +4,6 @@ match param: ParamSpec (" access ") and parent (subp: SubpBody()) {
        and not parent (DefiningName())
        and not parent (ExplicitDeref())
        and p_referenced_decl (param))
-    wrap with standard.out 
-       (":\e<self.child (DefiningName())>: access object should be out or in out\n");
+    wrap standard.out 
+       ("\e<sloc>\e<self.child (DefiningName())> access object should be out or in out\n");
 }
