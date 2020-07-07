@@ -1,0 +1,2 @@
+match DefiningName ()
+wrap standard.out (self & "\n");

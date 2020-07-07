@@ -1,0 +1,9 @@
+import ada.wrappers;
+
+wrap wrap_ada_specs ();
+
+match DefiningName ("Some_(.*)")
+wrap w_DefiningName ("My_\1");
+
+match DefiningName ("Some_(?<a>.*)") and parent (ParamSpec ())
+wrap w_DefiningName ("A_Param_\e<a>");

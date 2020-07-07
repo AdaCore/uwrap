@@ -33,7 +33,7 @@ The file tutorial.wrp looks like this:
 .. code-block:: text
 
    match DefiningName ()
-   wrap standard.out (self & "'\n");
+   wrap standard.out (self & "\n");
 
 The above represent a UWrap command. It's composed in three parts: a matching
 expression, the identificaton of a node to wrap, and then a wrapping operation.
@@ -215,7 +215,7 @@ Open the code under tutorial/wrap_names, and run the test:
 
 .. code-block:: text
 
-    $ uwrap -l ada -P prj.gpr -w wrap_names.wrp src/test.ads
+    $ uwrap -l ada -P prj.gpr -w wrap_names.wrp src/some_package.ads
 
 This should generate Ada files in the local directory. This file contains 
 function wrappers - every function calling its counterpart declared in test.ads,
@@ -229,10 +229,10 @@ Let's open wrap_names.wrp and see how this is done:
 
    wrap wrap_ada_specs ();
 
-   match DefiningName ("Some_(.*)"))
+   match DefiningName ("Some_(.*)")
    wrap w_DefiningName ("My_\1");
 
-   match DefiningName ("Some_(?<a>.*)")) and parent (ParamSpec ())
+   match DefiningName ("Some_(?<a>.*)") and parent (ParamSpec ())
    wrap w_DefiningName ("A_Param_\e<a>");
 
 First, you'll notice ``import ada.wrappers`` which references a module from
