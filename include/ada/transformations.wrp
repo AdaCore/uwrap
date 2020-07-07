@@ -13,8 +13,7 @@ visitor access_into_out () {
 visitor access_into_return () {
    match child (TypeExpr (child (te: TypeExpr ()))) {
       match parent (template (w: w_SubpDeclCall ()))
-      pick w weave (
-         function_or_procedure => "function");
+      pick w weave (function_or_procedure => "function");
 
       wrap w_ParamSpecCall (
          generate_formal => "NO",  # TODO: introduce boolean here instead
@@ -26,6 +25,21 @@ visitor access_into_return () {
          return_stmt => """return \e<self.tmp("ret")>;""",
          result_type_expr => lambda (te.template (w_TypeExpr()).txt));
    }
+}
+
+visitor address_into_return (result_type) {
+   match parent (template (w: w_SubpDeclCall ()))
+   pick w weave (function_or_procedure => "function");
+
+   wrap w_ParamSpecCall (
+      generate_formal => "NO",  # TODO: introduce boolean here instead
+      actual_value => """\e<self.tmp("call")>""",
+      pre_call_decl => """
+         \e<self.tmp("ret")>  : aliased \e<result_type>;
+         \e<self.tmp("call")> : aliased System.Address := \e<self.tmp("ret")>'Address;
+         """,
+      return_stmt => """return \e<self.tmp("ret")>;""",
+      result_type_expr => result_type);
 }
 
 visitor constant_into_enumeration (type_name, lit_name) {
