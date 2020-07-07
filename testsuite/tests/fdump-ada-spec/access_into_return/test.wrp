@@ -9,5 +9,5 @@ wrap w_DefiningName ("\1_Wrapped");
 match DefiningName ("myStruct")
 wrap w_DefiningName ("My_Struct");
 
-match SubpDecl(".*Get.*") and child (p: ParamSpec("access *" and not prev ()))
-wrap access_into_return (p); 
+match ParamSpec("access *" and not prev ()) and parent (SubpDecl(".*Get.*"))
+wrap access_into_return (); 

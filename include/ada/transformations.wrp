@@ -10,17 +10,16 @@ visitor access_into_out () {
    );
 }
 
-visitor access_into_return (parameter) {
-   match parameter.child (TypeExpr (child (te: TypeExpr ()))) {
-      wrap w_SubpDeclCall (
-         call_stmt => "\e<call>;", 
-         return_stmt => "null;",
+visitor access_into_return () {
+   match child (TypeExpr (child (te: TypeExpr ()))) {
+      match parent (template (w: w_SubpDeclCall ()))
+      pick w weave (
          function_or_procedure => "function");
 
-      pick parameter wrap w_ParamSpecCall (
+      wrap w_ParamSpecCall (
          generate_formal => "NO",  # TODO: introduce boolean here instead
          actual_value => """\e<self.tmp("call")>'Unchecked_Access""",
-         call_decl => """
+         pre_call_decl => """
             \e<self.tmp("call")> : aliased \e<te>;
             \e<self.tmp("ret")>  : aliased \e<result_type_expr> with Address => \e<self.tmp("call")>'Address, Import;
             """,
