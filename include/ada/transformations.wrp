@@ -105,11 +105,11 @@ visitor error_code_into_exception (package_container, registry_name, exception_n
 
       pick n wrap null (w_DefiningName);
 
-      match r: (w_ExceptionRegistry.find (package (package_container) and name (registry_name))
-         or new (w_ExceptionRegistry (package => package_container, name => registry_name)))
+      match r: (w_ExceptionRegistry.find (package (text (package_container)) and name (text (registry_name)))
+         or new (w_ExceptionRegistry (package => text (package_container), name => text (registry_name))))
       pick r weave (
          exceptions => @ & "\e<exception_name> : exception;\n",
-         init => @ & "\e<registry_name>.Insert (\e<expr>, \e<exception_name>'Identity);\n"
+         init => @ & "\e<registry_name>.Insert (Integer (\e<expr>), \e<exception_name>'Identity);\n"
       );
    }
 }
@@ -157,10 +157,10 @@ visitor return_into_exception (registry_package, registry_name) {
 
    wrap w_SubpDeclCall (
       function_or_procedure => "procedure",
-      call_decl => """\e<self.tmp ("res")> : Interfaces.C.int := \e<call>;\n""",
+      call_decl => """\e<self.tmp ("res")> : Integer := Integer (\e<call>);\n""",
       call_stmt => "null;", 
       post_call_stmt => """
-         if not Interfaces.C."=" (\e<self.tmp ("res")>, 0) then
+         if \e<self.tmp ("res")> /= 0 then
             Ada.Exceptions.Raise_Exception
                (\e<registry_package>.\e<registry_name>.Element (Integer (\e<self.tmp ("res")>)));
          end if;
