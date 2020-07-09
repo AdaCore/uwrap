@@ -12,7 +12,7 @@ Documentation
 =============
 
 Full documentation is currently work in progress. However, a 
-[Tutorial](https://github.com/AdaCore/uwrap/tree/master/documentation/tutorial) is 
+[tutorial](https://github.com/AdaCore/uwrap/tree/master/documentation/tutorial) is 
 available to provide basic concepts from a user point of view.
 
 Build
@@ -33,3 +33,6 @@ cd ..
 . env.sh
 gprbuild
 ~~~
+
+This will create the uwrap executable under obj/. Note that this executable needs 
+to stay here, as it expects specific files under ../include.
