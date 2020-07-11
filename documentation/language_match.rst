@@ -37,7 +37,7 @@ following for example is always true:
 
 Predicates can apply to the ``self`` object or to the environment. They can
 also apply to a specific object by prefixing a reference with a dot notation.
- For example:
+For example:
 
 .. code-block:: text
 
