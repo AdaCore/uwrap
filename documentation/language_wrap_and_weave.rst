@@ -168,3 +168,53 @@ resulting standard.out node with another instance of standard.out, and so and
 so forth.
 
 TODO: There is a simple way to warn about the above, to implement.
+
+Controlling Iteration
+---------------------
+
+TODO: wrap stop needs to be implemented.
+
+A command is always run within the iteration of either a list or a tree 
+structure. In some situation, it's useful to be able to either interup this 
+iteration, or in the case of a tree, to skip over the elements. This can be 
+controlled with the ``wrap into;``, ``wrap over;`` and ``wrap stop;`` operation.
+
+- ``wrap into;`` is the default state. It means that the current iteration will 
+  look a leaves of the current node. 
+- ``wrap over`` will prevents leaves to be analyzed. It is the same as 
+  ``wrap into`` when iterating over a list.
+- ``wrap stop`` interups the current iteration.
+
+Only one wrap iteration decision can be taken for a given node in a given 
+interation. For example:
+
+.. code-block:: text
+
+   wrap into;
+   wrap over;
+
+Will always apply wrap over. 
+
+Wrap decisions are usually taken in conjunction with other commands, for 
+example:
+
+.. code-block:: text
+
+   match some_conditions {
+      wrap something;
+      wrap over; # OK, no need to look below.
+   }
+
+By default, the main iteration is controlled. However, in the case of a nested
+iteration introduced by an ``all ()`` extension suffix, the wrapping control
+will apply to that iteration instead, e.g.:
+
+
+.. code-block:: text
+
+   pick child ().all () {
+      match some_condition
+      wrap something;
+      wrap over; # OK, no need to look below.
+   }
+   
