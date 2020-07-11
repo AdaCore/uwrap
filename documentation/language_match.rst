@@ -23,7 +23,7 @@ effects that are executed under the above syntax.
 A match clause is an optional section of a command. If not present, actions of
 a command are executed uncondionally.
 
-Actions conditions by a match clause can be a nested block, a sequence, a pick
+Actions conditioned by a match clause can be a nested block, a sequence, a pick
 clause, a wrap clause or a weave clause.
 
 A match operates a comparison with the current element under iteration. This 
@@ -64,6 +64,23 @@ clarity, it can also be explicitely named:
 .. code-block:: text
 
    match some_predicate (match => <some expression>)
+
+match clauses can be followed by an else section:
+
+.. code-block:: text
+
+   match some_predicate
+   else <some command>
+
+The command introduce by the else can take any of the form that a command can
+take, and will only be evaluated if the match predicate is false. In particular,
+it can start itself by a match clause:
+
+.. code-block:: text
+
+   match some_predicate <some actions>
+   else match some_other_predicate <some actions>
+   else match yet_anoter_predicate <some actions>
 
 is-predicates and has-predicates
 --------------------------------
