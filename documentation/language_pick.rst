@@ -37,8 +37,8 @@ referend to as ``self``, so that:
 
 is equivalent to not having a pick clause.
 
-Actions targeted by a pick clause can be a nested block, a sequence, a wrap
-clause or a weave clause.
+Actions targeted by a pick clause can be a a sequence, a wrap clause or a weave 
+clause.
 
 Picking Expressions
 -------------------

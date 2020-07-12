@@ -23,8 +23,8 @@ effects that are executed under the above syntax.
 A match clause is an optional section of a command. If not present, actions of
 a command are executed uncondionally.
 
-Actions conditioned by a match clause can be a nested block, a sequence, a pick
-clause, a wrap clause or a weave clause.
+Actions conditioned by a match clause can be a sequence, a pick clause, a wrap
+clause or a weave clause.
 
 A match operates a comparison with the current element under iteration. This 
 element is available within the match as the standard ``self`` variable. The
