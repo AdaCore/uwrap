@@ -52,7 +52,7 @@ package body Wrapping.Runtime.Objects is
    procedure Call_Browse_Next is new Call_Gen_Browse (Next);
    procedure Call_Browse_Prev is new Call_Gen_Browse (Prev);
    procedure Call_Browse_Sibling is new Call_Gen_Browse (Sibling);
-   procedure Call_Browse_Template is new Call_Gen_Browse (Wrapping.Runtime.Structure.Template);
+   procedure Call_Browse_Wrapper is new Call_Gen_Browse (Wrapping.Runtime.Structure.Template);
 
    procedure Call_Browse_Self
      (Object : access W_Object_Type'Class;
@@ -627,8 +627,8 @@ package body Wrapping.Runtime.Objects is
          A_Call := Call_Browse_Prev'Access;
       elsif Name = "sibling" then
          A_Call := Call_Browse_Sibling'Access;
-      elsif Name = "template" then
-         A_Call := Call_Browse_Template'Access;
+      elsif Name = "wrapper" then
+         A_Call := Call_Browse_Wrapper'Access;
       elsif Name = "tmp" then
          A_Call := Call_Tmp'Access;
       elsif Name = "self" then

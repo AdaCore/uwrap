@@ -21,6 +21,11 @@ package Wrapping.Runtime.Structure is
    package W_Object_Vectors is new Ada.Containers.Vectors (Positive, W_Object);
    use W_Object_Vectors;
 
+   type Matched_Groups_Type;
+   type Matched_Groups is access all Matched_Groups_Type;
+   package Matched_Groups_Vectors is new Ada.Containers.Vectors (Positive, Matched_Groups);
+   use Matched_Groups_Vectors;
+
    type Data_Frame_Type;
    type Data_Frame is access all Data_Frame_Type;
    package Data_Frame_Vectors is new Ada.Containers.Vectors (Positive, Data_Frame);
@@ -60,6 +65,8 @@ package Wrapping.Runtime.Structure is
       Match_Has);
 
    type Expand_Action_Type is access procedure;
+
+   type Visit_Action_Ptr is access all Visit_Action;
 
    --  A Frame_Context is a type that is recording stack-based properties that
    --  vary within a given frame, typically through an expression, or various
@@ -112,20 +119,25 @@ package Wrapping.Runtime.Structure is
       --     match A (B.C, D);
       --  B.C and D match against A, A matches against self.
       Outer_Object : W_Object;
+
+
+      Visit_Decision : Visit_Action_Ptr;
+   end record;
+
+   type Matched_Groups_Type is record
+      Groups : W_Object_Vectors.Vector;
    end record;
 
    type Data_Frame_Type is record
       Parent_Frame   : Data_Frame;
 
       Symbols        : W_Object_Maps.Map;
-      Matched_Groups : W_Object_Vectors.Vector;
+      Group_Sections : Matched_Groups_Vectors.Vector;
       Data_Stack     : W_Object_Vectors.Vector;
       Top_Context    : Frame_Context;
       Lexical_Scope  : T_Entity;
 
       Temp_Names     : Text_Maps.Map;
-
-      Visit_Decision : Visit_Action := Unknown;
    end record;
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return W_Object;

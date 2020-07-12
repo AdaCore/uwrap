@@ -1,20 +1,20 @@
-template w_Something {
+template w_Something do
    var txt : text;
-}
+end;
 
 match Entity () and new (w_Something (txt => "MATCH \e<f_name>\n"));
 
-match Entity () {
+match Entity () do
    weave w_Something (@ & "MATCH + NESTED: \e<f_name>\n");
-}
+end;
 
 match Entity ()
 pick new (w_Something (txt => "MATCH + PICK \e<f_name>\n"));
 
 match i: Entity () and child (Entity ())
-pick child (Entity ()) {
+pick child (Entity ()) do
    weave w_Something (@ & "MATCH + PICK + NESTED \e<i.f_name>, \e<f_name>\n");
-}
+end;
 
 match i: Entity () and child (Entity ())
 pick child (Entity ())

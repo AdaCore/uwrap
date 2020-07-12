@@ -1,10 +1,10 @@
-template MyEntity {
+template MyEntity do
     var name : text;
-}
+end;
 
-template SubEntity {
+template SubEntity do
     var name : text;
-}
+end;
 
 match Entity ()
 pick new (MyEntity ("E1"));
@@ -41,5 +41,5 @@ weave standard.out (@ & "SubEntity: \e<name>\n");
 match s: SubEntity (parent (e: Entity ()))
 weave standard.out (@ & "SubEntity: \e<s.name>, parent Entity: \e<e.f_name>\n");
 
-match e: MyEntity (template (s: SubEntity ()))
+match e: MyEntity (wrapper (s: SubEntity ()))
 weave standard.out (@ & "MyEntity: \e<e.name>, template SubEntity: \e<s.name>\n");

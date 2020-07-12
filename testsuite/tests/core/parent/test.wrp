@@ -1,4 +1,4 @@
-match Entity () {
+match Entity () do
     match not parent (Entity ())
     wrap standard.out ("NO PARENT: \e<f_name>\n");
 
@@ -7,4 +7,4 @@ match Entity () {
 
     match parent (Entity () and parent (Entity ()))
     wrap standard.out ("AT LEAST TWO PARENTS: \e<f_name>\n");
-}
+end;

@@ -1,6 +1,6 @@
-template T {
+template T do
     var txt : text;
-}
+end;
 
 match Entity ()
 wrap T ();

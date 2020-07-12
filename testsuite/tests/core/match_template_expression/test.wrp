@@ -1,10 +1,10 @@
-template w_root {
+template w_root do
 
-}
+end;
 
-template w_entity {
+template w_entity do
 
-}
+end;
 
 match Entity () and f_Name ("A|D")
 wrap w_root ();

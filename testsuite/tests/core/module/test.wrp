@@ -1,10 +1,10 @@
 import a.x;
 
-template base_template {
+template base_template do
     var content : text;
-}
+end;
 
-match Entity () {
+match Entity () do
     match (f_name ("A"))
     wrap x.t_in_x ("x.t_in_x (\e<f_name>)\n");
 
@@ -16,7 +16,7 @@ match Entity () {
 
     match (f_name ("A"))
     wrap base_template ("base_template (\e<f_name>)\n");
-}
+end;
 
 match base_template ()
 weave standard.out (@ & "base_template = \e<self.content>");

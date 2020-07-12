@@ -94,7 +94,6 @@ package Wrapping.Runtime.Objects is
       Value : W_Object;
 
       Is_Implicit_Self : Boolean := False;
-      Is_Implicit_New: Boolean := False;
 
       --  When entities are created in the expressions through the new function,
       --  this flag is set to true, so that the entity can be capture by
@@ -141,7 +140,7 @@ package Wrapping.Runtime.Objects is
       Result : out W_Object) return Visit_Action;
 
    function Is_Implicit (Object : W_Reference_Type) return Boolean is
-     (Object.Is_Implicit_Self or else Object.Is_Implicit_New);
+     (Object.Is_Implicit_Self);
 
    overriding
    function Dereference

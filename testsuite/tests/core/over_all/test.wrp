@@ -1,10 +1,10 @@
 match Entity ("A")
-pick child (Entity ()).all () {
+pick child (Entity ()).all () do
     weave standard.out (@ & "SUB ITERATION:" & f_name & "\n");
 
     match Entity ("B")
     wrap over;
-}
+end;
 
 match Entity ()
 weave standard.out (@ & "MAIN ITERATION:" & f_name & "\n");

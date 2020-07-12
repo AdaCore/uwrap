@@ -1,4 +1,4 @@
-match Entity () {
+match Entity () do
     match f_name ("A") and c: child (Entity ("B"))
     weave standard.out (@ & "(1) FIRST CHILD IS: \e<c.f_name>\n");
 
@@ -13,4 +13,4 @@ match Entity () {
 
     match f_name ("A")
     weave standard.out (@ & """(5) FIRST CHILD IS: \e<self.child (Entity ("B"))>\n""");
-}
+end;

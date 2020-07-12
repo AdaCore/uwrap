@@ -113,9 +113,6 @@ class Selector(TemplateNode):
    left=Field()
    right=Field()
 
-class NestedScope (TemplateNode):
-   scope=Field()
-
 class TraverseInto (TemplateNode):
    pass
 
@@ -144,7 +141,7 @@ class QualifiedMatch (TemplateNode):
    rhs = Field()
 
 class CommandSequence (TemplateNode):
-   current = Field()
+   commands = Field()
    then = Field ()
 
 template_grammar = Grammar('main_rule')
@@ -154,19 +151,12 @@ template_grammar.add_rules(
    main_rule=Module (List (G.import_clause, empty_valid=True), G.module_scope),
    import_clause=Import('import', G.dotted_name, ';'),
     
-   module_scope=List(Or (G.template, G.command, G.visitor, G.var, NestedScope ('{', G.module_scope, '}')), empty_valid=True),
-   command_scope=List(Or (G.command, NestedScope ('{', G.command_scope, '}')), empty_valid=True),
+   module_scope=List(Or (G.template, G.command, G.visitor, G.var), empty_valid=True),
    template_scope=List(G.var, empty_valid=True),
 
-   template=Template('template', G.identifier, Opt ('extends', G.dotted_name), '{', G.template_scope, '}'),
+   template=Template('template', G.identifier, Opt ('extends', G.dotted_name), 'do', G.template_scope, 'end', ';'),
     
    var=Var('var', G.identifier, ':', G.identifier, Opt ('(', G.arg_list, ')'), ';'), 
-
-   command_sequence=Pick ('do', G.command_sequence_element),
-   command_sequence_element=CommandSequence (
-      G.command, Or (
-         Pick ('then', G.command_sequence_element),
-         Pick ('end', Null (G.command_sequence_element), ';'))),
 
    command=Command(
       Or(
@@ -174,8 +164,7 @@ template_grammar.add_rules(
          G.pick_section,
          G.wrap_section, 
          G.weave_section,
-         G.command_sequence,
-         G.nested_commands,
+         G.command_sequence
       )
    ),
    match_section=MatchSection (
@@ -185,8 +174,7 @@ template_grammar.add_rules(
          G.wrap_section,
          G.weave_section,
          G.command_sequence,
-         G.nested_commands,
-         Pick (Null (G.nested_commands), ';')),
+         Pick (Null (G.command_sequence), ';')),
       Opt(Pick ('else', ElseSection(G.command)))
    ),
    pick_section=PickSection (
@@ -195,8 +183,7 @@ template_grammar.add_rules(
          G.wrap_section,
          G.weave_section,
          G.command_sequence,
-         G.nested_commands,
-         Pick (Null (G.nested_commands), ';'))
+         Pick (Null (G.command_sequence), ';'))
    ),
    weave_section=WeaveSection(
       'weave',
@@ -211,11 +198,16 @@ template_grammar.add_rules(
          G.template_call,
          G.traverse_decision), 
       ';'),
-   nested_commands=NestedScope ('{', G.command_scope, '}'),
+
+   command_sequence=Pick ('do', G.command_sequence_element),
+   command_sequence_element=CommandSequence (
+      List (G.command, empty_valid = True), Or (
+         Pick ('then', G.command_sequence_element),
+         Pick ('end', Null (G.command_sequence_element), ';'))),
    
    traverse_decision=Or(TraverseInto ('into'), TraverseOver ('over')),
 
-   visitor=Visitor('visitor', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.nested_commands),
+   visitor=Visitor('visitor', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
     
    expression=Or (
       BinaryExpr (G.relation, Or (Operator.alt_and('and'), Operator.alt_or('or')), G.expression),
@@ -227,7 +219,7 @@ template_grammar.add_rules(
       MatchCapture(G.identifier, ':', G.factor),
       UnaryExpr (Operator.alt_not('not'), G.qualified_primary), 
       G.qualified_primary),
-   qualified_primary=Or (QualifiedMatch (Or (Operator.alt_is('is'), Operator.alt_has ('has')), '\'', G.primary), G.primary),
+   qualified_primary=Or (QualifiedMatch (Or (Operator.alt_is('is'), Operator.alt_has ('has')), '(', G.primary, ')'), G.primary),
    primary=Or(
       Pick ('(', G.expression, ')'),
       G.lambda_expr,
@@ -258,15 +250,15 @@ template_grammar.add_rules(
    new_expr=NewExpr ('new', '(', G.create_template_tree, ')'),
    template_call=TemplateCall(Opt (G.identifier, ':'), G.dotted_name, '(', G.arg_list, ')'),
    create_template_tree=Or(
-      CreateTemplateTree(G.template_call, Opt ('[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
-      CreateTemplateTree(Null (G.template_call), '[', List (G.create_template_tree, sep = ',', empty_valid = True), ']')),
+      CreateTemplateTree(G.template_call, Opt ('{', List (G.create_template_tree, sep = ',', empty_valid = True), '}')),
+      CreateTemplateTree(Null (G.template_call), '{', List (G.create_template_tree, sep = ',', empty_valid = True), '}')),
    fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, ')'),
    all_expr=AllExpr ('all', '(', Opt (G.expression), ')'),
    at_ref=AtRef('@'),
    call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
    lambda_expr=LambdaExpr ('lambda', '(', G.expression, ')'),
    arg_list=List(Argument(Opt (Or (G.identifier, TokenIdentifier ("match")), "=>"), G.expression), sep=',', empty_valid=True),
-   identifier=Or (TokenIdentifier ('template'), TokenIdentifier ('new'), Identifier(Token.Identifier)),
+   identifier=Identifier(Token.Identifier),
    dotted_name=Selector(Opt (G.dotted_name, '.'), G.identifier),
    integer=Number(Token.Integer),
    literal=Literal(Or ("true", "false")),

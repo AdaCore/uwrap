@@ -86,15 +86,6 @@ package body Wrapping.Runtime.Analysis is
             others => <>));
    end Push_Implicit_Self;
 
-   procedure Push_Implicit_New (An_Entity : access W_Object_Type'Class) is
-   begin
-      Top_Frame.Data_Stack.Append
-        (new W_Reference_Type'
-           (Value => W_Object (An_Entity),
-            Is_Implicit_New => True,
-            others => <>));
-   end Push_Implicit_New;
-
    procedure Push_Allocated_Entity (An_Entity : access W_Object_Type'Class) is
    begin
       Top_Frame.Data_Stack.Append
@@ -178,13 +169,24 @@ package body Wrapping.Runtime.Analysis is
          An_Allocate_Callback => Context.An_Allocate_Callback,
          Left_Value           => Context.Left_Value,
          Is_Root_Selection    => Context.Is_Root_Selection,
-         Outer_Object         => Context.Outer_Object);
+         Outer_Object         => Context.Outer_Object,
+         Visit_Decision       => Context.Visit_Decision);
    end Push_Frame_Context;
 
    procedure Pop_Frame_Context is
    begin
       Top_Frame.Top_Context := Top_Frame.Top_Context.Parent_Context;
    end Pop_Frame_Context;
+
+   procedure Push_Match_Groups_Section is
+   begin
+      Top_Frame.Group_Sections.Append (new Matched_Groups_Type);
+   end Push_Match_Groups_Section;
+
+   procedure Pop_Match_Groups_Section is
+   begin
+      Top_Frame.Group_Sections.Delete_Last;
+   end Pop_Match_Groups_Section;
 
    procedure Push_Frame (Lexical_Scope : access T_Entity_Type'Class) is
       New_Frame : Data_Frame := new Data_Frame_Type;
@@ -194,9 +196,8 @@ package body Wrapping.Runtime.Analysis is
       New_Frame.Top_Context := new Frame_Context_Type;
 
       if Top_Frame /= null then
-         --  TODO: Do we really need to carry allocate callback from frame to
-         --  frame?
          New_Frame.Top_Context.An_Allocate_Callback := Top_Frame.Top_Context.An_Allocate_Callback;
+         New_Frame.Top_Context.Visit_Decision := Top_Frame.Top_Context.Visit_Decision;
       end if;
 
       Top_Frame := New_Frame;
@@ -209,29 +210,6 @@ package body Wrapping.Runtime.Analysis is
    begin
       Old_Frame := Top_Frame;
       Top_Frame := Old_Frame.Parent_Frame;
-
-      if Top_Frame /= null
-        and then Old_Frame.Visit_Decision /= Unknown
-        and then Top_Frame.Visit_Decision = Unknown
-      then
-         --  Visit decisions are passed from frame down to their parents as to be
-         --  taken into account by caller contexts. If there's no visit
-         --  decision left on the child, it's either because there was none or
-         --  because it has already been taken into account. In that case,
-         --  potential decisions on the parent needs to be preserved as to allow
-         --  structures like:
-         --     pick child ().all () {
-         --        pick child().all () {
-         --           wrap over;
-         --        }
-         --     }
-         --     wrap over;
-         --   where the outer wrap needs to be preserved when popping from the
-         --   inner sequence.
-
-         Top_Frame.Visit_Decision := Old_Frame.Visit_Decision;
-      end if;
-
       Free (Old_Frame);
    end Pop_Frame;
 
@@ -247,34 +225,6 @@ package body Wrapping.Runtime.Analysis is
 
       return null;
    end Get_Implicit_Self;
-
-   function Get_Implicit_New return W_Object is
-   begin
-      for I in reverse Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index loop
-         if Top_Frame.Data_Stack.Element (I).all in W_Reference_Type'Class
-           and then W_Reference (Top_Frame.Data_Stack.Element (I)).Is_Implicit_New
-         then
-            return W_Reference (Top_Frame.Data_Stack.Element (I)).Value;
-         end if;
-      end loop;
-
-      return null;
-   end Get_Implicit_New;
-
-   function Pop_Frame_Visit_Decision
-     (Default_Decision : Visit_Action) return Visit_Action
-   is
-      Tmp : Visit_Action;
-   begin
-      if Top_Frame.Visit_Decision = Unknown then
-         return Default_Decision;
-      else
-         Tmp := Top_Frame.Visit_Decision;
-         Top_Frame.Visit_Decision := Unknown;
-
-         return Tmp;
-      end if;
-   end Pop_Frame_Visit_Decision;
 
    function Match (Pattern, Text : Text_Type) return Boolean is
       Text_Str : String := To_String (Text);
@@ -293,7 +243,7 @@ package body Wrapping.Runtime.Analysis is
                    (Matches.Matches.Element (I).First .. Matches.Matches.Element (I).Last));
             Name : Text_Type := To_Text (Get_Capture_Name (Matches, I));
          begin
-            Top_Frame.Matched_Groups.Append
+            Top_Frame.Group_Sections.Last_Element.Groups.Append
               (new W_String_Type'
                  (Value => To_Unbounded_Text (Matched_Text)));
 
@@ -394,15 +344,7 @@ package body Wrapping.Runtime.Analysis is
                   W_Object (A_Template_Instance));
             end if;
 
-            if not Self_Weave then
-               Push_Implicit_New (A_Template_Instance);
-            end if;
-
             Handle_Template_Call (A_Template_Instance, Template_Clause.Call.Args);
-
-            if not Self_Weave then
-               Pop_Object;
-            end if;
          end if;
       end if;
 
@@ -412,6 +354,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Command_Front (Command : T_Command);
    procedure Handle_Command_Back (Command : T_Command);
+   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence);
 
    procedure Handle_Command (Command : T_Command; Self : W_Node) is
    begin
@@ -446,6 +389,8 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Is_Root_Selection := True;
       Top_Frame.Top_Context.Outer_Object := Self;
 
+      Push_Match_Groups_Section;
+
       if Command.Match_Expression /= null then
          Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
 
@@ -479,6 +424,8 @@ package body Wrapping.Runtime.Analysis is
             Handle_Command_Front (T_Command (Command.Else_Actions));
          end if;
       end if;
+
+      Pop_Match_Groups_Section;
    end Handle_Command_Front;
 
    procedure Handle_Command_Back (Command : T_Command) is
@@ -495,27 +442,16 @@ package body Wrapping.Runtime.Analysis is
          Error ("can't pick selected object");
       end if;
 
-      if Command.Nested_Actions /= null then
-         Apply_Wrapping_Program
-           (Self,
-            Command.Nested_Actions);
-      elsif Command.Command_Sequence /= null then
-         declare
-            Seq : T_Command_Sequence := Command.Command_Sequence;
-         begin
-            while Seq /= null loop
-               Handle_Command_Front (Seq.Current);
-               Seq := Seq.Next_Sequence;
-            end loop;
-         end;
+      if Command.Command_Sequence /= null then
+         Handle_Command_Sequence (Command.Command_Sequence);
       elsif Command.Template_Section /= null then
          if Command.Template_Section.A_Visit_Action /= Unknown then
             -- TODO: consider differences between weave and wrap here
             --  TODO: This doesn't consider different visits, each
             --  should have its own decision
 
-            if Top_Frame.Visit_Decision = Unknown then
-               Top_Frame.Visit_Decision := Command.Template_Section.A_Visit_Action;
+            if Top_Frame.Top_Context.Visit_Decision.all = Unknown then
+               Top_Frame.Top_Context.Visit_Decision.all := Command.Template_Section.A_Visit_Action;
             end if;
          elsif Command.Template_Section.Call.Reference /= null
            or else Command.Template_Section.Call.Args.Length /= 0
@@ -536,6 +472,18 @@ package body Wrapping.Runtime.Analysis is
          end if;
       end if;
    end Handle_Command_Back;
+
+   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence) is
+      Seq : T_Command_Sequence := Sequence;
+   begin
+      while Seq /= null loop
+         for C of reverse Seq.Commands loop
+            Handle_Command_Front (C);
+         end loop;
+
+         Seq := Seq.Next_Sequence;
+      end loop;
+   end Handle_Command_Sequence;
 
    procedure Apply_Wrapping_Program
      (Self          : W_Node;
@@ -563,8 +511,11 @@ package body Wrapping.Runtime.Analysis is
    is
       A_Visit_Action : Visit_Action := Into;
       N : W_Node;
+      Visit_Result : aliased Visit_Action := Unknown;
    begin
       Push_Frame (Wrapping.Semantic.Analysis.Root);
+      Top_Frame.Top_Context.Visit_Decision := Visit_Result'Unchecked_Access;
+
       Result := null;
 
       --  Check if this entity has already been analyzed through this visitor
@@ -606,16 +557,13 @@ package body Wrapping.Runtime.Analysis is
            (N,
             Wrapping.Semantic.Analysis.Root);
 
-         --  In case a decision has been taken, return it and reset the value
-         --  for further iterations.
+         Pop_Frame;
 
-         declare
-            Res : Visit_Action :=  Pop_Frame_Visit_Decision (Into);
-         begin
-            Pop_Frame;
-
-            return Res;
-         end;
+         if Visit_Result = Unknown then
+            return Into;
+         else
+            return Visit_Result;
+         end if;
       end if;
    end Analyze_Visitor;
 
@@ -1061,9 +1009,22 @@ package body Wrapping.Runtime.Analysis is
                end if;
             when Group_Kind =>
                declare
-                  Value : W_Object :=
-                    Top_Frame.Matched_Groups.Element (Str.Group_Number);
+                  Position : Integer := Str.Group_Number;
+                  Value : W_Object;
                begin
+                  for C of Top_Frame.Group_Sections loop
+                     if Integer (C.Groups.Length) < Position then
+                        Position := Position - Integer (C.Groups.Length);
+                     else
+                        Value := C.Groups.Element (Position);
+                        exit;
+                     end if;
+                  end loop;
+
+                  if Value = null then
+                     Error ("cannot find group " & Integer'Wide_Wide_Image (Str.Group_Number));
+                  end if;
+
                   if On_Group /= null then
                      On_Group.all (Str.Group_Number, Value);
                   else
@@ -1082,21 +1043,11 @@ package body Wrapping.Runtime.Analysis is
       A_Module : T_Module;
       Tentative_Symbol : W_Object;
       A_Semantic_Entity : T_Entity;
-
-      Implicit_New  : W_Object;
    begin
       if Name = "self" then
          Push_Object (Get_Implicit_Self);
 
          return True;
-      elsif Name = "new" then
-         Implicit_New := Get_Implicit_New;
-
-         if Implicit_New /= null then
-            Push_Object (Get_Implicit_New);
-
-            return True;
-         end if;
       elsif Name = "text" then
          --  We're on an object to text conversion. Set the runtime object.
          --  When running the call, the link with the undlerlying expression
@@ -1228,12 +1179,7 @@ package body Wrapping.Runtime.Analysis is
          Name : Text_Type := Node.Text;
 
          Implicit_Self : W_Object;
-         Implicit_New  : W_Object;
-
          Found_Self_Entity : Boolean;
-         Found_New_Entity : Boolean;
-
-         Self_Object : W_Object;
          Prefix_Entity : W_Object;
       begin
          -- We're resolving a reference to an entity
@@ -1255,28 +1201,10 @@ package body Wrapping.Runtime.Analysis is
             --  or raise an error if both contain such name.
 
             Implicit_Self := Get_Implicit_Self;
-            Implicit_New := Get_Implicit_New;
 
             Found_Self_Entity := Implicit_Self.Push_Value (Name);
 
-            if Implicit_New /= null then
-               if not Found_Self_Entity then
-                  if Implicit_New.Push_Value (Name) then
-                     return;
-                  end if;
-               else
-                  Self_Object := Pop_Object;
-
-                  Found_New_Entity := Implicit_New.Push_Value (Name);
-
-                  if not Found_New_Entity then
-                     Push_Object (Self_Object);
-                     return;
-                  else
-                     Error ("ambiguous reference to '" & Name & "' between self and new objects");
-                  end if;
-               end if;
-            elsif Found_Self_Entity then
+            if Found_Self_Entity then
                return;
             end if;
 
@@ -1485,6 +1413,7 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
 
       Push_Frame (Visitor);
+      Push_Implicit_Self (Self);
 
       Top_Frame.Symbols.Move (Symbols);
 
@@ -1495,7 +1424,7 @@ package body Wrapping.Runtime.Analysis is
       if Visitor.Full_Name = "standard.root" then
          Apply_Wrapping_Program (Self, Wrapping.Semantic.Analysis.Root);
       else
-         Apply_Wrapping_Program (Self, Visitor);
+         Handle_Command_Sequence (Visitor.Program);
       end if;
 
       --  Reset the visitor id to the previous value, we're back to the
@@ -1709,11 +1638,17 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Expand_Action is
          Last_Result : W_Object := Get_Implicit_Self.Dereference;
+         Visit_Decision : Visit_Action_Ptr;
       begin
+         Visit_Decision := Top_Frame.Top_Context.Visit_Decision;
+
          --  Restore the context at this point of the call. This is important
          --  in particular if there was an expansion happening there,
          --  e.g. a.all().b.all().
          Push_Frame_Context (Initial_Context.all);
+
+         --  We still however need to keep control to the same visit iteration
+         Top_Frame.Top_Context.Visit_Decision := Visit_Decision;
 
          --  The outer callback has to be a match check here. If it's a
          --  Outer_Expression_Pick, this is only to be called on the returning
@@ -1761,9 +1696,7 @@ package body Wrapping.Runtime.Analysis is
               (Captured, W_Object (A_Template_Instance));
          end if;
 
-         Push_Implicit_New (A_Template_Instance);
          Handle_Template_Call (A_Template_Instance, New_Tree.Call.Args);
-         Pop_Object;
 
          return A_Template_Instance;
       end Handle_Create_Template;
@@ -1848,7 +1781,6 @@ package body Wrapping.Runtime.Analysis is
 
       A_Lambda.Expr := Expr.Lambda_Expr;
       A_Lambda.Implicit_Self := W_Node (Get_Implicit_Self);
-      A_Lambda.Implicit_New := W_Node (Get_Implicit_New);
       A_Lambda.Lexical_Scope := Top_Frame.Lexical_Scope;
    end Capture_Lambda_Environment;
 
@@ -1863,10 +1795,6 @@ package body Wrapping.Runtime.Analysis is
 
       if A_Lambda.Implicit_Self /= null then
          Push_Implicit_Self (A_Lambda.Implicit_Self);
-      end if;
-
-      if A_Lambda.Implicit_New /= null then
-         Push_Implicit_New (A_Lambda.Implicit_New);
       end if;
 
       Result := Evaluate_Expression (A_Lambda.Expr);

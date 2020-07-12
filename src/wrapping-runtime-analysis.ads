@@ -35,11 +35,13 @@ package Wrapping.Runtime.Analysis is
 
    procedure Pop_Frame_Context;
 
+   procedure Push_Match_Groups_Section;
+
+   procedure Pop_Match_Groups_Section;
+
    procedure Push_Object (An_Object : access W_Object_Type'Class);
 
    procedure Push_Implicit_Self (An_Entity : access W_Object_Type'Class);
-
-   procedure Push_Implicit_New (An_Entity : access W_Object_Type'Class);
 
    procedure Push_Allocated_Entity (An_Entity : access W_Object_Type'Class);
 
@@ -60,14 +62,6 @@ package Wrapping.Runtime.Analysis is
    function Top_Is_Implicit return Boolean;
 
    function Get_Implicit_Self return W_Object;
-
-   --  This function is supposed to be called when iterating over a structure
-   --  with programs. When a frame has a decision, it will be returned (instead
-   --  of the default_decision), and that decision will be reset. This supports
-   --  commands like:
-   --     wrap over;
-   function Pop_Frame_Visit_Decision
-     (Default_Decision : Visit_Action) return Visit_Action;
 
    procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expr : T_Expr);
 

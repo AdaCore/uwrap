@@ -1,14 +1,14 @@
-template main {
+template main do
     var txt : text;
-}
+end;
 
-match Entity () {
+match Entity () do
     match f_name ("A")
     wrap main ("FIRST");
 
     match f_name ("B")
     wrap main ("SECOND");
-}
+end;
 
 match txt ("FIRST")
 weave standard.out (@ & "(1) FIRST \e<self.origin.f_name>\n");

@@ -200,21 +200,19 @@ example:
 
 .. code-block:: text
 
-   match some_conditions {
+   match some_conditions do
       wrap something;
       wrap over; # OK, no need to look below.
-   }
+   end;
 
 By default, the main iteration is controlled. However, in the case of a nested
 iteration introduced by an ``all ()`` extension suffix, the wrapping control
 will apply to that iteration instead, e.g.:
 
-
 .. code-block:: text
 
-   pick child ().all () {
+   pick child ().all () do
       match some_condition
       wrap something;
       wrap over; # OK, no need to look below.
-   }
-   
+   end;

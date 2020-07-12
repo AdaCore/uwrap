@@ -1,21 +1,21 @@
-template w_Entity {
+template w_Entity do
    var a : text;
    var b : text;
    var c : text;
    var d : text;
    var txt : text;
-}
+end;
 
-visitor x (c) {
-   wrap w_Entity (
-     a => lambda (c.template (w_Entity ()).txt),
+visitor x (c) do
+   wrap w: w_Entity (
+     a => lambda (c.wrapper (w_Entity ()).txt),
      b => lambda ("\e<c.f_name>"),
      c => lambda (to_lower (c)),
      d => lambda (c)
    );
 
    # also check wrap c: w_Entity
-}
+end;
 
 match Entity () and child (c: Entity ())
 wrap x (c);

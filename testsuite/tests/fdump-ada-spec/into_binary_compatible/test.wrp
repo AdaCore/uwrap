@@ -3,18 +3,18 @@ import ada.transformations;
 
 wrap wrap_ada_specs ();
 
-match DefiningName ("(?<a>.*)_h") {
+match DefiningName ("(?<a>.*)_h") do
    wrap w_DefiningName ("\e<a>_Wrapped");
 
-   match p: parent (PackageDecl ()).template (w_PackageDecl ()) {
+   match p: parent (PackageDecl ()).wrapper (w_PackageDecl ()) do
       pick p weave (spec_content => "type Ptr is new System.Address;\n");
 
-      match u: p.parent (w_Unit ()) {
+      match u: p.parent (w_Unit ()) do
          match not u.child (w_WithClause (ref ("System")))
          pick u.child (new (w_WithClause (ref => "System")));
-      }
-   } 
-}
+      end;
+   end;
+end;
 
 match SubpDecl ("return System.Address") or ParamSpec ("System.Address")
 wrap into_binary_compatible ("Ptr");

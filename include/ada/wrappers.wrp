@@ -1,8 +1,8 @@
-template w_Ada {
-  
-}
+template w_Ada do
 
-template w_Unit extends w_Ada {
+end;
+
+template w_Unit extends w_Ada do
    var spec : text;
    var body : text;
 
@@ -24,22 +24,22 @@ template w_Unit extends w_Ada {
 
    \e<body>
    """);
-}
+end;
 
-template w_NamedEntity extends w_Ada {
+template w_NamedEntity extends w_Ada do
   var name : text;
   var original_name : text;
-}
+end;
 
-template w_WithClause extends w_Ada {
+template w_WithClause extends w_Ada do
   var ref : text;
-}
+end;
 
-template w_UseClause extends w_Ada {
+template w_UseClause extends w_Ada do
   var ref : text;
-}
+end;
 
-template w_PackageDecl extends w_NamedEntity {
+template w_PackageDecl extends w_NamedEntity do
    var spec_content : text;
    var body_content : text;
    var stmt : text;
@@ -60,9 +60,9 @@ template w_PackageDecl extends w_NamedEntity {
         \e<stmt>
       end \e<name>;
    """);
-}
+end;
 
-template w_SubpDecl extends w_NamedEntity {
+template w_SubpDecl extends w_NamedEntity do
    var function_or_procedure : text;
    var return_spec : text;
    var lparenSpec : text;
@@ -112,17 +112,17 @@ template w_SubpDecl extends w_NamedEntity {
       end;
    end \e<name>;
    """); 
-}
+end;
 
-template w_SubpDeclCall extends w_SubpDecl {
+template w_SubpDeclCall extends w_SubpDecl do
 
-}
+end;
 
-template w_SubpDeclCallback extends w_SubpDecl {
+template w_SubpDeclCallback extends w_SubpDecl do
    
-}
+end;
 
-template w_ParamSpec extends w_NamedEntity {
+template w_ParamSpec extends w_NamedEntity do
    var generate_formal : text;
 
    var formal_text : text;
@@ -141,70 +141,72 @@ template w_ParamSpec extends w_NamedEntity {
    var result_type_expr : text;
 
    var mode           : text;
-}
+end;
 
-template w_ParamSpecCall extends w_ParamSpec {
+template w_ParamSpecCall extends w_ParamSpec do
 
-}
+end;
 
-template w_ParamSpecCallback extends w_ParamSpec {
+template w_ParamSpecCallback extends w_ParamSpec do
 
-}
+end;
 
-template w_DefiningName extends w_Ada {
+template w_DefiningName extends w_Ada do
   var name : text;
-}
+end;
 
-template w_TypeExpr extends w_Ada {
+template w_TypeExpr extends w_Ada do
    var txt : text;
-}
+end;
 
-template w_TypeDecl extends w_NamedEntity {
+template w_TypeDecl extends w_NamedEntity do
    var definition : text;
    var content_definition : text;
    var rep_definition : text;
    var rep_declaration : text;
    var kind : text;
    var aspects_declaration : text;
-}
+end;
 
-template w_Aspect extends w_Ada {
+template w_Aspect extends w_Ada do
    var txt : text;
-}
+end;
 
-template w_EnumLiteralDecl extends w_NamedEntity {
+template w_EnumLiteralDecl extends w_NamedEntity do
   
-}
+end;
 
-template w_EnumRep extends w_Ada {
+template w_EnumRep extends w_Ada do
    var name : text;
    var value : text;
-}
+end;
 
-template w_ComponentDecl extends w_NamedEntity {
+template w_ComponentDecl extends w_NamedEntity do
   
-}
+end;
 
-template w_NumberDecl extends w_NamedEntity {
+template w_NumberDecl extends w_NamedEntity do
   
-}
+end;
 
-template w_ObjectDecl extends w_NamedEntity {
+template w_ObjectDecl extends w_NamedEntity do
   
-}
+end;
 
-template spec_file extends standard.file {}
+template spec_file extends standard.file do
+end;
 
-template body_file extends standard.file {}
+template body_file extends standard.file do
+end;
 
-visitor visit_EnumRepClause (enum_decl) {
-  match AggregateAssoc () and child (i: Identifier ()) and child (v: IntLiteral ()) {
+visitor visit_EnumRepClause (enum_decl) do
+  match AggregateAssoc () and child (i: Identifier ()) and child (v: IntLiteral ()) do
      match n: enum_decl.child (EnumLiteralDecl ("\e<i>")) # TODO, we should be able to write text (i) instead.
-     pick n wrap w_EnumRep (name => lambda (n.template (w_EnumLiteralDecl ()).name), value => v);
-  }
-}
+     pick n wrap w_EnumRep (name => lambda (n.wrapper (w_EnumLiteralDecl ()).name), value => v);
+  end;
+end;
 
-visitor build_identifier (type) {
+visitor build_identifier (type) do
    # not all identifiers are wrapped - in particular those coming from the
    # standard library are not. So differenciate here the cases where we
    # find a w_DefiningName (using the provided name) from the cases where we
@@ -212,51 +214,50 @@ visitor build_identifier (type) {
 
    match i: self() 
       and x: p_referenced_decl ()
-      and t: x.child (DefiningName ()).template (w_DefiningName ())
+      and t: x.child (DefiningName ()).wrapper (w_DefiningName ())
          pick type weave (txt => @ & " " & t.name);
       else
          pick type weave (txt => @ & " " & i);
-}
+end;
 
-visitor build_dotted_name (type) {
-   match s: self () and c: child (DottedName ()) {
-      pick c {
-         do weave build_dotted_name (type);
-         then pick type weave (txt => @ & ".");
-         then pick s.child (Identifier()) wrap build_identifier (type); end;
-      }
-   } else {
-      match child (i1: Identifier() and next (i2: Identifier())) {
+visitor build_dotted_name (type) do
+   match s: self () and c: child (DottedName ())
+   pick c do
+      weave build_dotted_name (type);
+      then pick type weave (txt => @ & ".");
+      then pick s.child (Identifier()) wrap build_identifier (type);
+      end;
+   else
+      match child (i1: Identifier() and next (i2: Identifier()))
          do pick type weave (txt => @ & " ");
          then pick i1 wrap build_identifier (type);
          then pick type weave (txt => @ & ".");
-         then pick i2 wrap build_identifier (type); end;
-      }
-   }
-}
+         then pick i2 wrap build_identifier (type);
+      end;
+end;
 
-visitor build_type_expr (type) {  
-   match d: DottedName () {
+visitor build_type_expr (type) do 
+   match d: DottedName () do
       pick d wrap build_dotted_name (type);
       wrap over;
-   } else match i: Identifier () {
+      end;
+   else match i: Identifier ()
       pick i weave build_identifier (type);     
-   } else match RangeSpec ()
+   else match RangeSpec ()
       pick type weave (txt => @ & " range");
    else match TypeAccessDef ()
       pick type weave (txt => @ & " access");
    else match s: self () and SingleTokNode()
       pick type weave (txt => @ & " \e<s>");
-   else match s: IndexConstraint () {
-      do pick type weave (txt => @ & " (");
+   else match s: IndexConstraint () do
+      pick type weave (txt => @ & " (");
       then pick child ().all () weave build_type_expr (type);
-      then pick type weave (txt => @ & " )"); end;
-      
-      wrap over;
-   }
-}
+      then pick type weave (txt => @ & " )");
+      then wrap over;
+   end;
+end;
 
-visitor build_subprogram (sb) {
+visitor build_subprogram (sb) do
    match sb.child (f_subp_kind ("function")) and sb.child (te: TypeExpr()) 
       weave (
          function_or_procedure => "function",
@@ -272,17 +273,17 @@ visitor build_subprogram (sb) {
          call_stmt => "\e<call>;", 
          return_stmt => "null;",
          function_or_procedure => "procedure");
-}
+end;
 
-visitor ada_to_wrappers () {
-   match CompilationUnit () {
+visitor ada_to_wrappers () do
+   match CompilationUnit () do
       wrap w_Unit ();
-   }
+   end;
 
    match PackageDecl () 
    wrap w_PackageDecl();
     
-   match sb: (SubpDecl() or AccessToSubpDef ()) {
+   match sb: (SubpDecl() or AccessToSubpDef ()) do
       do
          wrap w: w_SubpDeclCall ();
       then
@@ -294,38 +295,38 @@ visitor ada_to_wrappers () {
       then 
          match w () pick w weave build_subprogram (sb);
       end;
-   }
+   end;
    
-   match ParamSpec() {
+   match ParamSpec() do
       wrap w_ParamSpecCall();
       wrap w_ParamSpecCallback();
 
-      match parent (sb: (SubpDecl () or AccessToSubpDef ())) {
-         wrap w_ParamSpecCall (
-            type_expr => lambda (new.child (w_TypeExpr()).txt),
-            pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<name>'Address, Import;\n""",
+      match parent (sb: (SubpDecl () or AccessToSubpDef ())) do
+         wrap n: w_ParamSpecCall (
+            type_expr => lambda (n.child (w_TypeExpr()).txt),
+            pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<n.name>'Address, Import;\n""",
             actual_value => sb.tmp ("local")
          );
 
-         wrap w_ParamSpecCallback(
+         wrap n: w_ParamSpecCallback (
             type_expr => p_type_expression,
-            pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<lambda (new.child (w_TypeExpr()).txt)> with Address => \e<name>'Address, Import;\n""",
+            pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<lambda (n.child (w_TypeExpr()).txt)> with Address => \e<n.name>'Address, Import;\n""",
             actual_value => sb.tmp ("local")
          );
-      }   
-   } 
+      end;
+   end;
    
    match BaseTypeDecl () 
    wrap w_TypeDecl ();
 
-   match TypeDecl () and child (EnumTypeDef ()) {
+   match TypeDecl () and child (EnumTypeDef ()) do
       wrap w_TypeDecl (
          kind => "enumeration"
       );
 
       match s: self () and r: p_get_enum_representation_clause ()
       pick r.child().all () wrap visit_EnumRepClause (s);
-   }
+   end;
 
    match EnumLiteralDecl ()
    wrap w_EnumLiteralDecl();
@@ -348,19 +349,19 @@ visitor ada_to_wrappers () {
    match ObjectDecl ()
    wrap w_ObjectDecl();
 
-   match DefiningName () {
+   match DefiningName () do
       match parent (PackageDecl ())
       wrap w_DefiningName (name => @ & "\e<self>_Wrapped");
 
       match parent (BasicDecl () and parent (PackageDecl ()))
       wrap w_DefiningName (name => @ & "\e<self>");
-   }
-}
+   end;
+end;
 
-visitor wrappers_post_process () {
-   match sb: w_SubpDeclCall() 
-      and parent (p : w_PackageDecl ()) {
-      
+visitor wrappers_post_process () do
+   match sb: w_SubpDeclCall () 
+      and parent (p : w_PackageDecl ())
+   do   
       match function_or_procedure ("function")
       weave (return_spec => "return \e<result_type_expr>");
 
@@ -377,11 +378,11 @@ visitor wrappers_post_process () {
 
       match origin (SubpDecl ())
       pick p weave (spec_content => @ & sb.spec, body_content => @ & sb.body);
-   }
+   end;
 
    match sb: w_SubpDeclCallback() 
-      and parent (p : w_PackageDecl ()) {
-      
+      and parent (p : w_PackageDecl ()) 
+   do   
       match function_or_procedure ("function")
       weave (return_spec => "return \e<result_type_expr>");
 
@@ -395,16 +396,16 @@ visitor wrappers_post_process () {
 
       match child (c: w_ParamSpecCallback())
       weave (lparenCall => "(", rparenCall => ")");
-   }
+   end;
 
-   match p: w_ParamSpecCall() and parent (s: w_SubpDeclCall()) {
-      match not generate_formal ("NO") {
+   match p: w_ParamSpecCall() and parent (s: w_SubpDeclCall()) do
+      match not generate_formal ("NO") do
          match prev (w_ParamSpecCall (not generate_formal ("NO")))
          weave (
             formal_text => @ & "; \e<name> : \e<mode> \e<type_expr>");
          else weave (
             formal_text => @ & "\e<name> : \e<mode> \e<type_expr>");
-      }
+      end;
 
       match prev (w_ParamSpecCall ())
       weave (actual_text => @ & ", \e<actual_value>");
@@ -422,16 +423,16 @@ visitor wrappers_post_process () {
          return_stmt      => @ & p.return_stmt,
          result_type_expr => @ & p.result_type_expr
       );
-   }
+   end;
 
-   match p: w_ParamSpecCallback() and parent (s: w_SubpDeclCallback()) {
-      match not generate_formal ("NO") {
+   match p: w_ParamSpecCallback() and parent (s: w_SubpDeclCallback()) do
+      match not generate_formal ("NO") do
          match prev (w_ParamSpecCallback (not generate_formal ("NO")))
          weave (
             formal_text => @ & "; \e<name> : \e<mode> \e<type_expr>");
          else weave (
             formal_text => @ & "\e<name> : \e<mode> \e<type_expr>");
-      }
+      end;
 
       match prev (w_ParamSpecCallback ())
       weave (actual_text => @ & ", \e<actual_value>");
@@ -449,82 +450,85 @@ visitor wrappers_post_process () {
          return_stmt      => @ & p.return_stmt,
          result_type_expr => @ & p.result_type_expr
       );
-   }
+   end;
 
-   match s: w_ObjectDecl() and parent (p : w_PackageDecl()) and child (te: w_TypeExpr ()) {
-      pick p weave (spec_content => @ & "\e<s.name> : \e<te.txt>;\n");
-   }
+   match s: w_ObjectDecl() and parent (p : w_PackageDecl()) and child (te: w_TypeExpr ())
+   pick p weave (spec_content => @ & "\e<s.name> : \e<te.txt>;\n");
+   
 
-   match s: w_ComponentDecl () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ()) {
-      pick t weave (
-         content_definition => @ & "\e<s.name> : \e<te.txt>;\n"
-      );
-   }
+   match s: w_ComponentDecl () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ())
+   pick t weave (
+      content_definition => @ & "\e<s.name> : \e<te.txt>;\n"
+   );
 
-   match s: w_EnumLiteralDecl() and parent (p: w_TypeDecl ()) {
+   match s: w_EnumLiteralDecl() and parent (p: w_TypeDecl ()) do
       match prev (w_EnumLiteralDecl ())
          pick p weave (content_definition => @ & ", \e<s.name>");
       else
          pick p weave (content_definition => @ & "\e<s.name>");
-   }
+   end;
 
-   match e: w_EnumRep() and parent (p: w_TypeDecl ()) {
+   match e: w_EnumRep() and parent (p: w_TypeDecl ()) do
       match prev (w_EnumRep())
          pick p weave (rep_definition => @ & ", \e<e.name> => \e<e.value>\n"); 
       else 
          pick p weave (rep_definition => @ & "\e<e.name> => \e<e.value>\n");
-   }
+   end;
 
-   match w: w_Aspect() and parent (p: w_TypeDecl ()) {
+   match w: w_Aspect() and parent (p: w_TypeDecl ()) do
       match prev (w_Aspect ())
          pick p weave (aspects_declaration => @ & ", \e<w.txt>\n"); 
       else 
          pick p weave (aspects_declaration => @ & "with \e<w.txt>\n");
-   }
+   end;
 
-   match top: w_TypeDecl () {
+   match top: w_TypeDecl () do
       match origin (t: child (TypeAccessDef ())) 
          weave (definition => @ & " access \e<child (w_TypeExpr ()).txt>");
       else match origin (t: child (DerivedTypeDef ())) 
          weave (definition => @ & "new \e<child (w_TypeExpr ()).txt>");
-      else match origin (
-         t: child (ArrayTypeDef (
-            i: child (UnconstrainedArrayIndex () or ConstrainedArrayIndices)))) {
+      else 
+         match origin (
+            t: child (ArrayTypeDef (
+            i: child (UnconstrainedArrayIndex () or ConstrainedArrayIndices)))) 
+         do
+            match i (UnconstrainedArrayIndex ()) and i.child (wrapper (w1 : w_TypeExpr ()))
+            weave (definition => @ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>");
+            else weave (definition => @ & "array (\e<t.child(ConstraintList ())>) of \e<child (w_TypeExpr ()).txt>");
+         end;
+      else 
+         match origin (child (AccessToSubpDef ())) do
+            match origin (child (t: TypeDef ())) 
+            weave (definition => @ & "\e<t>");
 
-         match i (UnconstrainedArrayIndex ()) and i.child (template (w1 : w_TypeExpr ()))
-         weave (definition => @ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>");
-         else weave (definition => @ & "array (\e<t.child(ConstraintList ())>) of \e<child (w_TypeExpr ()).txt>");
-      } else match origin (child (AccessToSubpDef ())) {
-         match origin (child (t: TypeDef ())) 
-         weave (definition => @ & "\e<t>");
+            match child (cl: w_SubpDeclCall ()) and child (cb: w_SubpDeclCallback ()) 
+               and parent (p: w_PackageDecl()) 
+               and ncall: top.tmp ("Call")
+            do 
+               pick cl weave (name => ncall);
+               pick cb weave (
+                  name => top.name & "_Gen", 
+                  call_name => ncall);
 
-         match child (cl: w_SubpDeclCall ()) and child (cb: w_SubpDeclCallback ()) 
-            and parent (p: w_PackageDecl()) 
-            and ncall: top.tmp ("Call") {
-            
-            pick cl weave (name => ncall);
-            pick cb weave (
-               name => top.name & "_Gen", 
-               call_name => ncall);
-
-            pick p weave (
-               spec_content => @ & """
-                  generic 
-                     with \e<cl.profile>;
-                  \e<cb.profile>;""",
-               body_content => @ & """
-               \e<cb.body>
-               """);
-         }
-      } else match origin (child (RecordTypeDef ())) {
-         match child (w_ComponentDecl())
-            weave (definition => @ & """
-               record
-                  \e<content_definition>
-               end record""");
-         else
-            weave (definition => @ & "null record");
-      }
+               pick p weave (
+                  spec_content => @ & """
+                     generic 
+                        with \e<cl.profile>;
+                     \e<cb.profile>;""",
+                  body_content => @ & """
+                     \e<cb.body>""");
+            end;
+         end;
+      else 
+         match origin (child (RecordTypeDef ())) do
+            match child (w_ComponentDecl())
+               weave (definition => @ & """
+                  record
+                     \e<content_definition>
+                  end record""");
+            else
+               weave (definition => @ & "null record");
+         end;
       else match kind ("enumeration") # TODO: this whole test should be using enumeration instead
          weave (definition => @ & "(\e<content_definition>)");
       else match origin (child (t: TypeDef ())) 
@@ -532,24 +536,23 @@ visitor wrappers_post_process () {
       else match child (t: w_TypeExpr())
          weave (definition => @ & "\e<t.txt>");
 
-      match child (w_EnumRep ()) {
-         weave (rep_declaration => @ & "for \e<name> use (\n\e<rep_definition>\n);\n");
-      }
-
-      match s: self () and not parent (w_TypeExpr ()) and parent (p: w_PackageDecl()) {
+      match child (w_EnumRep ())
+      weave (rep_declaration => @ & "for \e<name> use (\n\e<rep_definition>\n);\n");
+      
+      match s: self () and not parent (w_TypeExpr ()) and parent (p: w_PackageDecl()) do
          match origin (IncompleteTypeDecl ())
             pick p weave (spec_content => @ & "type \e<s.name>;\n");
          else match origin (SubtypeDecl ())
             pick p weave (spec_content => @ & "subtype \e<s.name> is \e<s.definition>;\n");
          else
             pick p weave (spec_content => @ & "type \e<s.name> is \e<s.definition>\e<s.aspects_declaration>;\n\e<s.rep_declaration>");
-      }
-   }
+      end;
+   end;
 
    match s: w_TypeExpr (o: origin (child (Identifier ())))
    pick self.origin ().child ().all() weave build_type_expr (s);
     
-   match p: w_PackageDecl (parent (u: w_Unit ())) {
+   match p: w_PackageDecl (parent (u: w_Unit ())) do
       pick u weave (
          spec => @ & p.spec,
          body => @ & p.body
@@ -560,44 +563,44 @@ visitor wrappers_post_process () {
          body_with_clauses => @ & "with \e<p.original_name>;\n",
          body_use_clauses => @ & "use \e<p.original_name>;\n"
       );
-   }
+   end;
 
-   match ((w: w_WithClause () and c: has'"with") or (w: w_UseClause () and c: has'"use"))
-    and parent (u: w_Unit ()) {
+   match ((w: w_WithClause () and c: has ("with")) or (w: w_UseClause () and c: has ("use")))
+      and parent (u: w_Unit ())
+   do
       match origin (child (r: Name()))
-        and (r.p_referenced_decl ().template (child (n: w_DefiningName ())))
-            pick u weave (
-               spec_with_clauses => @ & "\e<c> \e<n.name>; \e<c> \e<w.ref>;\n"
-            );
+        and (r.p_referenced_decl ().wrapper (child (n: w_DefiningName ())))
+      pick u weave (
+         spec_with_clauses => @ & "\e<c> \e<n.name>; \e<c> \e<w.ref>;\n");
       else pick u weave (
          spec_with_clauses => @ & "\e<c> \e<w.ref>;\n"
       );
-   }
+   end;
 
    match n: w_NamedEntity () 
       and child (s: w_DefiningName ()) 
-      and n.name ("^$") {
-
+      and n.name ("^$")
+   do
       match v: n.origin.p_fully_qualified_name ()
          weave (name => s.name, original_name => v);
       else
          weave (name => s.name);
-   }
+   end;
    
-   match w_Unit () and child (p: w_PackageDecl ()) {
+   match w_Unit () and child (p: w_PackageDecl ()) do
       wrap spec_file
          (path => lambda (replace_text (to_lower (p.name), "\\.", "-")) & ".ads", content => self.spec_text);
 
       match child (w_SubpDecl ()) or p (elaborate_body (".+"))
       wrap body_file 
          (path => lambda (replace_text (to_lower (p.name), "\\.", "-")) & ".adb", content => self.body_text);
-   }
-}
+   end;
+end;
 
-visitor wrap_ada_specs () {
+visitor wrap_ada_specs () do
    match AdaNode ()
    wrap ada_to_wrappers ();
 
    match w_Ada ()
    wrap wrappers_post_process ();
-}
+end;

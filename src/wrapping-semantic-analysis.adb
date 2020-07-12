@@ -25,7 +25,6 @@ package body Wrapping.Semantic.Analysis is
    function Build_Command_Structure (Node : Template_Node'Class) return Structure.T_Command;
    function Build_Visitor_Structure (Node : Template_Node) return Structure.T_Visitor;
    function Build_Variable_Structure (Node : Libtemplatelang.Analysis.Var) return Structure.T_Var;
-   function Build_Command_Scope_Structure (Node : Template_Node'Class) return T_Entity;
    function Build_Expr (Node : Template_Node'Class) return T_Expr;
    function Build_Arg (Node : Template_Node'Class) return T_Arg;
    function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree;
@@ -80,6 +79,7 @@ package body Wrapping.Semantic.Analysis is
 
    procedure Push_Entity (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class) is
    begin
+      Push_Error_Location (Node);
       Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity));
 
       An_Entity.Node := Template_Node (Node);
@@ -91,6 +91,7 @@ package body Wrapping.Semantic.Analysis is
       Node      : Template_Node'Class;
       Name      : Text_Type) is
    begin
+      Push_Error_Location (Node);
       Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity), Name);
 
       An_Entity.Node := Template_Node (Node);
@@ -99,6 +100,7 @@ package body Wrapping.Semantic.Analysis is
 
    procedure Push_Named_Entity (An_Entity : access T_Named_Entity_Type'Class; Node : Template_Node'Class; Name_Node : Template_Node'Class) is
    begin
+      Push_Error_Location (Node);
       Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity), Name_Node);
       An_Entity.Node := Template_Node (Node);
       Entity_Stack.Append (T_Entity (An_Entity));
@@ -207,7 +209,9 @@ package body Wrapping.Semantic.Analysis is
    begin
       Push_Entity (Sequence, Node);
 
-      Sequence.Current := Build_Command_Structure (Node.F_Current);
+      for C of Node.F_Commands loop
+         Sequence.Commands.Append (Build_Command_Structure (C));
+      end loop;
 
       if not Node.F_Then.Is_Null then
          Sequence.Next_Sequence := Build_Command_Sequence (Node.F_Then);
@@ -278,11 +282,6 @@ package body Wrapping.Semantic.Analysis is
                Pop_Entity;
 
                return Over;
-            when Template_Nested_Scope =>
-               A_Command.Nested_Actions :=
-                 Build_Command_Scope_Structure (Node.As_Nested_Scope);
-
-               return Over;
 
             when Template_Template_Call =>
                A_Command.Template_Section.Call := Build_Template_Call
@@ -313,8 +312,6 @@ package body Wrapping.Semantic.Analysis is
 
    function Build_Visitor_Structure (Node : Template_Node) return T_Visitor is
       A_Visitor     : T_Visitor := new T_Visitor_Type;
-      Program_Node  : Template_Node;
-      Dummy_Command : T_Command;
    begin
       Push_Named_Entity (A_Visitor, Node, Node.As_Visitor.F_Name);
 
@@ -332,17 +329,7 @@ package body Wrapping.Semantic.Analysis is
          end;
       end loop;
 
-      Program_Node := Template_Node (Node.As_Visitor.F_Program.F_Scope);
-
-      for C of Program_Node.Children loop
-         case C.Kind is
-            when Template_Command =>
-               Dummy_Command := Build_Command_Structure (C);
-
-            when others =>
-               Error ("unsupported node for visitor: '" & C.Kind'Wide_Wide_Image & "'");
-         end case;
-      end loop;
+      A_Visitor.Program := Build_Command_Sequence (Node.As_Visitor.F_Program);
 
       Pop_Entity;
 
@@ -401,31 +388,6 @@ package body Wrapping.Semantic.Analysis is
 
       return A_Var;
    end Build_Variable_Structure;
-
-   function Build_Command_Scope_Structure (Node : Template_Node'Class) return T_Entity is
-      Container_Entity : T_Entity := new T_Entity_Type;
-
-      Dummy_Command : T_Command;
-   begin
-      Push_Entity (Container_Entity, Node);
-
-      for C of Node.As_Nested_Scope.F_Scope loop
-         case C.Kind is
-            when Template_Command =>
-               Dummy_Command := Build_Command_Structure (C);
-
-            when others =>
-               Error
-                 ("unexpected node kind for command scope: '"
-                  & Node.Kind'Wide_Wide_Image
-                  & "'");
-         end case;
-      end loop;
-
-      Pop_Entity;
-
-      return Container_Entity;
-   end Build_Command_Scope_Structure;
 
    function Build_Expr (Node : Template_Node'Class) return T_Expr is
       Expr : T_Expr;

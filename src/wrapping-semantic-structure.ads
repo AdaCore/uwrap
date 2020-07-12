@@ -189,7 +189,7 @@ package Wrapping.Semantic.Structure is
    end record;
 
    type T_Command_Sequence_Type is new T_Entity_Type with record
-      Current       : T_Command;
+      Commands      : T_Command_Vectors.Vector;
       Next_Sequence : T_Command_Sequence;
    end record;
 
@@ -225,7 +225,6 @@ package Wrapping.Semantic.Structure is
       Pick_Expression  : T_Expr;
       Template_Section : T_Weave_Or_Wrap;
 
-      Nested_Actions   : T_Entity;
       Command_Sequence : T_Command_Sequence;
       Else_Actions     : T_Command;
    end Record;
@@ -236,6 +235,8 @@ package Wrapping.Semantic.Structure is
    type T_Visitor_Type is new T_Named_Entity_Type with record
       Arguments_Ordered : T_Var_Vectors.Vector;
       Arguments_Indexed : T_Var_Maps.Map;
+
+      Program : T_Command_Sequence;
    end record;
 
    type String_Part_Kind is (Str_Kind, Expr_Kind, Group_Kind);

@@ -1,15 +1,15 @@
-template main {
+template main do
     var a1 : text;
     var a2 : text;
     var a3 : text;
     var a4 : text;
-}
+end;
 
 match Entity ()
-weave main (a2 => @ & "a1 value is '\e<a1>'");
+weave n: main (a2 => @ & "a1 value is '\e<n.a1>'");
 
 match Entity ()
-weave main (a4 => @ & "a3 value is '\e<new.a3>'");
+weave n: main (a4 => @ & "a3 value is '\e<n.a3>'");
 
 match main ()
 weave (a1 => @ & self.origin.f_name);

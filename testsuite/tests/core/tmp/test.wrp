@@ -1,14 +1,14 @@
-template main_1 {
+template main_1 do
     var a1 : text;
     var a2 : text;
     var a3 : text;
-}
+end;
 
-template main_2 {
+template main_2 do
     var a1 : text;
     var a2 : text;
     var a3 : text;
-}
+end;
 
 
 match Entity (f_name ("A"))

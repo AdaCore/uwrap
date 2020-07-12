@@ -1,19 +1,19 @@
-template w_Entity {
+template w_Entity do
     var name : text;
-}
+end;
 
 match Entity ("A")
 pick child (new (
-   w_Entity ("A_ROOT") [
+   w_Entity ("A_ROOT") {
       w_Entity ("A_CHILD 1"),
-      w_Entity ("A_CHILD 2") [
+      w_Entity ("A_CHILD 2") {
          w_Entity ("A_GRANDCHILD 1"),
          w_Entity ("A_GRANDCHILD 2")
-      ],
+      },
       w_Entity ("A_CHILD 3")
-   ]));
+   }));
 
-match Entity ("B") and child (new ([w_Entity ("B_ROOT 1"), w_Entity ("B_ROOT 2")])) {}
+match Entity ("B") and child (new ({w_Entity ("B_ROOT 1"), w_Entity ("B_ROOT 2")}));
 
 match w_Entity () and parent (p: Entity ())
 weave standard.out (@ & name & ", Entity parent: " & p.f_name & "\n");

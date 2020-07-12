@@ -45,9 +45,6 @@ Fields can be declared of the following types:
 Template Predicates
 -------------------
 
-TODO: template should be renamed wrapper, it is more precise on its role and
-would also avoid needed a reserved word for a predicate.
-
 Templates offer three kind of predicates:
 - type predicates, testing on the template type
 - field predicates, tested on the template fields
@@ -177,15 +174,12 @@ value. For example:
 
 .. code-block:: text
 
-   template w_Name {
+   template w_Name do
       name : text;
-   }
+   end;
 
    match DefiningName ("A_Name_(.*)") 
    wrap w_Name ("\1");
-
-TODO: the above needs to be implemented, right now we're using a very confusing
-new reference and are allowing to have implicit reference to self and this new.
 
 When instantiating a template through a wrap or weave clause, or updating a 
 template through a weave clause, it is possible to reference fields of that

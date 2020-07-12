@@ -1,14 +1,15 @@
-template w_Entity {
+template w_Entity do
     var name : text;
-}
+end;
 
 var entity_map : map (string, object);
 
-template my_out extends standard.out {}
+template my_out extends standard.out do
+end;
 
-match Entity ("A(?<a>.+)") {
-   match not test.entity_map.element ("\e<a>") {
+match Entity ("A(?<a>.+)") do
+   match not test.entity_map.element ("\e<a>") do
       pick test weave (entity_map => @.insert ("\e<a>", new (w_Entity (name => "[\e<a>]"))));
       pick test wrap my_out (@ & "RESULT: " & lambda (acc: test.entity_map(v: true).fold ("", acc & v.name & " ")));
-   }
-}
+   end;
+end;

@@ -1,4 +1,4 @@
-match Call () {
+match Call () do
    weave standard.out ("CALL TRAVERSED \e<f_name>\n");
 
    wrap over;
@@ -6,28 +6,28 @@ match Call () {
    match f_name ("^INTO$")
    wrap into;
 
-   match f_name ("^ARGS_THEN_OVER$") {
+   match f_name ("^ARGS_THEN_OVER$") do
       pick f_args.child().all() wrap standard.root ();
       wrap over;
-   }
+   end;
     
-   match f_name ("^NESTED_THEN_ARGS_THEN_OVER$") {
+   match f_name ("^NESTED_THEN_ARGS_THEN_OVER$") do
       pick f_args.child().all() wrap standard.root ();
       pick f_nested.child().all() wrap standard.root (); 
       wrap over;
-   }
+   end;
     
-   match f_name ("^ARGS_THEN_NESTED_THEN_OVER$") {
+   match f_name ("^ARGS_THEN_NESTED_THEN_OVER$") do
       pick f_nested.child().all() wrap standard.root ();
       pick f_args.child().all() wrap standard.root ();
       wrap over;
-  }
+   end;
     
-   match f_name ("^ARGS_THEN_INTO$") {
+   match f_name ("^ARGS_THEN_INTO$") do
       pick f_args.child().all() wrap standard.root ();
       wrap into;
-   }
-}
+   end;
+end;
 
 match Entity ()
 weave standard.out (@ & "ENTITY TRAVERSED: \e<f_name>\n");

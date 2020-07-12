@@ -1,7 +1,7 @@
-visitor V (test_name) {
+visitor V (test_name) do
    match Entity ()
    weave standard.out (@ & "\e<test_name> => \e<f_name>\n");
-}
+end;
 
 # Picks all entities but for the root A. W, X, Y, Z should be duplicate as they
 # are children of A as well as C1 and C2

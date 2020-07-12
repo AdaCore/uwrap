@@ -1,6 +1,6 @@
-template t_in_z {
+template t_in_z do
     var content : text;
-}
+end;
 
 match Entity ()
 weave t_in_z ("a.c.z.t_in_z (\e<f_name>)\n");

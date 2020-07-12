@@ -1,7 +1,7 @@
-visitor sub_analyze (p1, p2) {
+visitor sub_analyze (p1, p2) do
     match Entity () or Call ()
     wrap standard.out ("sub_analyze: \e<f_name>, \e<p1>, \e<p2>\n"); 
-}
+end;
 
 match Entity () or Call ()
 wrap standard.out ("default: \e<f_name>\n");
@@ -12,12 +12,12 @@ wrap sub_analyze ("A", "\1");
 match f_name ("B(.*)")
 wrap sub_analyze (p2 => "\1", p1 => "B");
 
-match f_name ("C(?<x>.*)") {
+match f_name ("C(?<x>.*)") do
     pick child ().all () wrap sub_analyze ("C", x);
     wrap over;
-}
+end;
 
-match f_name ("D(?<x>.*)") {
+match f_name ("D(?<x>.*)") do
     pick f_args.child ().all () wrap sub_analyze ("D", "\e<x>");
     wrap over;
-}
+end;

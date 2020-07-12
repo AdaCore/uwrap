@@ -2,19 +2,19 @@
 # wrapping process. Users can either use this template directly, or
 # derive it in multiple template (in particular if a given language entity
 # needs to be wrapped to files multiple times),
-template file {
+template file do
     var path : text;
     var content : text;
-}
+end;
 
 # instances of this template will be displayed on the output
 # at the end of the wrapping process
-template out {
+template out do
     var content : text;
-}
+end;
 
 # this visitor represents the root of the wrapping program. Commands can wrap
 # and weave into it in order to control the flow of the iteration.
-visitor root () {
+visitor root () do
     
-}
+end;

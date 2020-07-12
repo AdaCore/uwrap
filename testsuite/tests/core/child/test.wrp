@@ -1,4 +1,4 @@
-match Entity () {
+match Entity () do
     match not child (Entity ())
     weave standard.out (@ & "NO CHILDREN: \e<f_name>\n");
 
@@ -13,4 +13,4 @@ match Entity () {
 
     match child (c: Entity() and f_name ("[0-9]+"))
     weave standard.out (@ & "FIRST DESCENDANT OF \e<self.f_name> WITH NUMBER SUFFIX IS \e<c.f_name>\n");
-}
+end;

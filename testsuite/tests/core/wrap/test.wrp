@@ -1,12 +1,12 @@
-template main_1 {
+template main_1 do
     var txt : text;
-}
+end;
 
-template main_2 {
+template main_2 do
     var txt : text;
-}
+end;
 
-match Entity () {
+match Entity () do
     match f_name (".*A.*")
     wrap main_1 ("MATCHES A: \e<f_name>\n");
 
@@ -18,7 +18,7 @@ match Entity () {
 
     match f_name ("[0-9]+")
     wrap main_2 ("MATCHES NUMBER: \e<f_name>\n");
-}
+end;
 
 match main_1 ()
 wrap standard.out ("\e<txt>");

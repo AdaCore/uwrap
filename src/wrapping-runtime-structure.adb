@@ -58,6 +58,8 @@ package body Wrapping.Runtime.Structure is
       Match_Expression : T_Expr;
       Result : out W_Object) return Visit_Action
    is
+      Visit_Decision : aliased Visit_Action := Unknown;
+
       procedure Evaluate_Expand_Function is
       begin
          --  In certain cases, there's no expression to be evaluated upon
@@ -79,6 +81,7 @@ package body Wrapping.Runtime.Structure is
          Top_Frame.Top_Context.Match_Mode := Match_None;
          Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
          Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+         Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
 
          --  Then evaluate that folding expression
 
@@ -117,14 +120,22 @@ package body Wrapping.Runtime.Structure is
          --  child needs to be evaluated against the outer expression to
          --  be captured by the possible wrap or weave command.
 
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
+
          Push_Implicit_Self (Browsed);
          Top_Frame.Top_Context.Outer_Expr_Callback.all;
          Pop_Object;
+         Pop_Frame_Context;
 
          if Top_Frame.Top_Context.Is_Expanding_Context then
             Evaluate_Expand_Function;
 
-            return Pop_Frame_Visit_Decision (Into);
+            if Visit_Decision = Unknown then
+               return Into;
+            else
+               return Visit_Decision;
+            end if;
          else
             Result := new W_Reference_Type'
               (Value => W_Object (Browsed), others => <>);
@@ -165,6 +176,7 @@ package body Wrapping.Runtime.Structure is
       Top_Frame.Top_Context.Outer_Object := W_Object (Browsed);
       Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
       Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+      Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
 
       Evaluate_Expression (Match_Expression);
 
@@ -202,7 +214,11 @@ package body Wrapping.Runtime.Structure is
                --  and one of this wrap function may be a visit decision. If
                --  that's the case, take it into account and reset the flag.
 
-               return Pop_Frame_Visit_Decision (Into);
+               if Visit_Decision = Unknown then
+                  return Into;
+               else
+                  return Visit_Decision;
+               end if;
             else
                Result := W_Object (Browsed);
 

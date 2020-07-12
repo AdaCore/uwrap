@@ -1,9 +1,9 @@
-template main {
+template main do
     var title : text;
     var content : text;
-}
+end;
 
-match Entity () {
+match Entity () do
     match f_name ("A")
     pick self weave main (title => @ & "SELF TEMPLATE FOR A\n");
 
@@ -15,7 +15,7 @@ match Entity () {
 
     match e: self () and parent (Entity () and p: parent (f_name ("A")))
     pick p weave main (content => @ & "'A' HAS A GRAND CHILD NAMED '\e<e.f_name>'\n");
-}
+end;
 
 match main ()
 wrap standard.out ("\e<title>{\n\e<self.content>}");

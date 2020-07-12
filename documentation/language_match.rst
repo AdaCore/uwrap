@@ -115,7 +115,6 @@ has-predicate by explicitely converting them:
 
 .. code-block:: text
 
-   # TODO: convert current syntax to the one below
    match is (some_predicates ())
    match has (some_predicates)
 

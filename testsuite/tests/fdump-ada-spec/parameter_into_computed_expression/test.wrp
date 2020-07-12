@@ -7,19 +7,19 @@ match DefiningName ("(?<a>.*)_h")
 wrap w_DefiningName ("\e<a>_Wrapped");
 
 match ParamSpec("arr") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
-wrap w_ParamSpecCall (
+wrap w: w_ParamSpecCall (
    type_expr => "in out Integer_Array",
-   pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<te.child (TypeExpr ())> with Address => \e<name>'Address, Import;""",
+   pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<te.child (TypeExpr ())> with Address => \e<w.name>'Address, Import;""",
    actual_value => sb.tmp ("local") & "'Access"
 );
 
 
-match DefiningName ("(?<a>.*)_h") {
+match DefiningName ("(?<a>.*)_h") do
    wrap w_DefiningName ("\e<a>_Wrapped");
 
-   match p: parent (PackageDecl ()).template (w_PackageDecl ())
+   match p: parent (PackageDecl ()).wrapper (w_PackageDecl ())
    pick p weave (spec_content => "type Integer_Array is array (Integer range <>) of Integer;\n");
-}
+end;
 
 match ParamSpec("length")
 wrap parameter_into_computed_expression ("Arr'Length");

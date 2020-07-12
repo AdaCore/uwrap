@@ -1,12 +1,12 @@
-visitor v (x) {
+visitor v (x) do
     match x.f_name ("A")
     pick x weave standard.out (@ & "(3) FOUND ENTITY \e<x.f_name>\n");
 
     match x (f_name ("A"))
     pick x weave standard.out (@ & "(4) FOUND ENTITY \e<x.f_name>\n");   
-}
+end;
 
-match Entity (child (e: Entity ())) {
+match Entity (child (e: Entity ())) do
     match e.f_name ("A")
     pick e weave standard.out (@ & "(1) FOUND ENTITY \e<e.f_name>\n");
 
@@ -14,5 +14,5 @@ match Entity (child (e: Entity ())) {
     pick e weave standard.out (@ & "(2) FOUND ENTITY \e<e.f_name>\n");
 
     weave v (e);
-}
+end;
 

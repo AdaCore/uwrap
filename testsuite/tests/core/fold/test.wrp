@@ -1,6 +1,6 @@
-template w_Entity {
+template w_Entity do
     var name : text;
-}
+end;
 
 match Entity ()
 wrap w_Entity (name => f_name);
