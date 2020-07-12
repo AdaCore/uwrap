@@ -101,7 +101,7 @@ Let's open access.wrp and see how this is done:
 
 .. code-block:: text
 
-   match param: ParamSpec (" access ") and parent (subp: SubpBody()) {
+   match param: ParamSpec (" access ") and parent (subp: SubpBody()) do
       match not subp.child (
          Identifier () 
          and not parent (DefiningName())
@@ -109,7 +109,7 @@ Let's open access.wrp and see how this is done:
          and p_referenced_decl (param))
       wrap standard.out 
          ("\e<sloc>\e<self.child (DefiningName())> access object should be out or in out\n");
-   }
+   end;
 
 Looks a lot more comprehensive that the previous one, right? Thankfully, it's 
 not that complicated, and with a little bit of trial and error, with the help

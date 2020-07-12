@@ -10,20 +10,20 @@ process. It structure is:
 
 .. code-block:: text
 
-   template <some name> {
+   template <some name> do
       #TODO implement the default value syntax
       var <field name> : <field type> => <default value>;
       <other fields>
-   }
+   end;
 
 or if the template is inheriting from a parent:
 
 .. code-block:: text
 
-   template <some name> extends <some parent> {
+   template <some name> extends <some parent> do
       var <field name> : <field type>;
       <other fields>
-   }
+   end;
 
 Field Types
 -----------
@@ -59,9 +59,9 @@ nested match expressions. For example:
 
 .. code-block:: text
 
-   template A_Template {
+   template A_Template do
 
-   }
+   end;
 
    match A_Template ()
 
@@ -74,10 +74,10 @@ as opposed to the nodes coming from langkit. For example:
 
 .. code-block:: text
 
-   template A_Template {
+   template A_Template do
       var d1 : text;
       var d2 : text;
-   }
+   end;
 
    match A_Template (d1 ("something)) and d2 ("something else");
 
@@ -88,9 +88,9 @@ be used like fields or other references, for example:
 
 .. code-block:: text
 
-   template A_Template {
+   template A_Template do
 
-   }
+   end;
 
    match DefiningName ()
    wrap A_Template ();
@@ -102,9 +102,9 @@ been used to wrap this node so far. For example:
 
 .. code-block:: text
 
-   template A_Template {
+   template A_Template do
 
-   }
+   end;
 
    match BaseDecl ()
    wrap A_Template ();
@@ -126,18 +126,18 @@ example:
 
 .. code-block:: text
 
-   template A {
+   template A do
       V : text;
-   }
+   end;
 
-   template B extends A {
+   template B extends A do
       V2 : text;
-   }
+   end;
 
-   match some_condition {
+   match some_condition do
       wrap A;
       wrap B;
-   }
+   end;
 
 When matching on template predicate will match if a node is of the type or a 
 child of the type of the predicate. For example:
@@ -157,10 +157,10 @@ however cannot be re-introduced after switching to name notation. For example:
 
 .. code-block:: text
 
-   template A {
+   template A do
       V1 : text;
       V2 : text;
-   }
+   end;
 
    match some_predicate
    wrap A ("A", "B");
@@ -188,11 +188,11 @@ template under creation need to have its value captured. For example:
 
 .. code-block:: text
 
-   template A {
+   template A do
       V1 : text;
       V2 : text;
       V3 : text;
-   }
+   end;
 
    match some_other_predicate
    wrap a: A (
@@ -213,11 +213,11 @@ For example:
 
 .. code-block:: text
 
-   template A {
+   template A do
       V1 : text;
       V2 : text;
       V3 : text;
-   }
+   end;
 
    match some_other_predicate
    wrap a: A (
@@ -304,9 +304,9 @@ exist. For example:
 
 .. code-block:: text
 
-   template A {
+   template A do
       var V : text;
-   }
+   end;
 
    match new (A ("some text"));
 
@@ -343,9 +343,9 @@ matches the expression. For example:
    # creates a new child "A" if no child matches "A".
    match child ("A" or new ("A"));
 
-Allocator new also allows to create an tree structure at once, with square 
+Allocator new also allows to create an tree structure at once, with curly 
 brackets. Comma separated elements belong to the same level, each of them 
-being optionally followed by a square bracked pair to describe its children. 
+being optionally followed by a curly bracked pair to describe its children. 
 For example:
  
 #TODO: on the first example, which value is being picked? all 3 root ones
@@ -354,11 +354,11 @@ presumably? In a match, which value is returned? the last one?
 .. code-block:: text
 
    # creates three siblings "A", "B" and "C"
-   pick new ([A ("A"), A ("B"), A ("C")]).
+   pick new ({A ("A"), A ("B"), A ("C")}).
 
    # creates a root "A" and two children "CHILD A" and "CHILD B", with 
    # "CHILD B" captured on x. 
-   pick new (A ("A") [A ("CHILD A"), x: A ("CHILD B")])
+   pick new (A ("A") {A ("CHILD A"), x: A ("CHILD B")})
 
 Tree Browsing Predicates for Templates
 --------------------------------------
@@ -382,11 +382,11 @@ w_SubpDecl:
 
 .. code-block:: text
 
-   template w_PackageDecl {}
-   template w_SubpDecl {}
+   template w_PackageDecl do end;
+   template w_SubpDecl do end;
 
-   match PackageDecl ()
-   wrap w_PackageDecl ();
+   match PackageDecl do end;
+   wrap w_PackageDecl do end;
 
    match SubpDecl ()
    wrap w_SubpDecl();
@@ -409,9 +409,9 @@ iterate over its instances:
 
 .. code-block:: text
 
-   template A {
+   template A do
       var V : text;
-   }
+   end;
 
    match something and x: A.find (V ("A"))
 
