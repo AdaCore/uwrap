@@ -469,7 +469,7 @@ can accept a parameter min and a parameter max. For example:
 The above matches for a sequence of children where the first is "A", then 
 accepts as many nodes as possible then expects a "B".
 
-There's no optional operator available - instead ``many`` and ``some`` can
+There's no optional operator available - instead ``many`` and ``few`` can
 be used with proper min and max values, for example:
 
 .. code-block:: text
