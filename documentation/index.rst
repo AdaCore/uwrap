@@ -7,8 +7,8 @@ Contents:
    :numbered:
    :maxdepth: 3
 
-   language
    tutorial/tutorial.rst
+   language
 
 Indices and tables
 ==================

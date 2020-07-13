@@ -13,6 +13,8 @@
 obj/**
 lang_template/build/**
 lang_test/build/**
+venv/**
+build/**
 
 testsuite/tests/**/out/*
 

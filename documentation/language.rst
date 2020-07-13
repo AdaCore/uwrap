@@ -11,3 +11,4 @@ Contents:
    language_wrap_and_weave
    language_command_sequences
    language_template
+   language_standard_functions
