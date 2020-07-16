@@ -120,8 +120,9 @@ package Wrapping.Runtime.Structure is
       --  B.C and D match against A, A matches against self.
       Outer_Object : W_Object;
 
-
       Visit_Decision : Visit_Action_Ptr;
+
+      Regexpr_Anchored : Boolean := False;
    end record;
 
    type Matched_Groups_Type is record
@@ -169,7 +170,7 @@ package Wrapping.Runtime.Structure is
    function Match_With_Top_Object
      (An_Entity : access W_Object_Type) return Boolean;
 
-   type Browse_Mode is (Parent, Child_Depth, Child_Breadth, Next, Prev, Sibling, Template);
+   type Browse_Mode is (Parent, Child_Depth, Child_Breadth, Next, Prev, Sibling, Wrapper);
 
    --  TODO: This is probably actually needed only at the node level.
    function Traverse

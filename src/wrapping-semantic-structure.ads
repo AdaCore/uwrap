@@ -313,6 +313,18 @@ package Wrapping.Semantic.Structure is
             All_Prefix : T_Expr;
             All_Match  : T_Expr;
 
+         when Template_Reg_Expr =>
+            Reg_Expr_Left : T_Expr;
+            Reg_Expr_Right : T_Expr;
+
+         when Template_Reg_Expr_Anchor =>
+            null;
+
+         when Template_Reg_Expr_Quantifier =>
+            Quantifier_Expr : T_Expr;
+            Min : Integer;
+            Max : Integer;
+
          when others =>
             null;
       end case;

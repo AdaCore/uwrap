@@ -170,7 +170,8 @@ package body Wrapping.Runtime.Analysis is
          Left_Value           => Context.Left_Value,
          Is_Root_Selection    => Context.Is_Root_Selection,
          Outer_Object         => Context.Outer_Object,
-         Visit_Decision       => Context.Visit_Decision);
+         Visit_Decision       => Context.Visit_Decision,
+         Regexpr_Anchored     => Context.Regexpr_Anchored);
    end Push_Frame_Context;
 
    procedure Pop_Frame_Context is
@@ -575,8 +576,10 @@ package body Wrapping.Runtime.Analysis is
 
       Current_Visitor_Id := 0;
 
+      Push_Frame (Wrapping.Semantic.Analysis.Root);
       Dummy_Action := Root_Entity.Traverse
         (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
+      Pop_Frame;
    end Analyse_Input;
 
    procedure Analyze_Templates is

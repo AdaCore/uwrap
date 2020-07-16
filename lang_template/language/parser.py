@@ -82,7 +82,7 @@ class Str(Expr):
 
 class Operator(TemplateNode):
    enum_node = True
-   alternatives = ['and', 'or', 'not', 'amp', 'is', 'has']
+   alternatives = ['and', 'or', 'not', 'amp', 'is', 'has', 'many', 'few']
 
 class BinaryExpr(Expr):
    lhs = Field()
@@ -143,6 +143,19 @@ class QualifiedMatch (TemplateNode):
 class CommandSequence (TemplateNode):
    commands = Field()
    then = Field ()
+
+class RegExpr (TemplateNode):
+   left = Field()
+   right = Field()
+
+class RegExprAnchor (TemplateNode):
+   token_node = True
+
+class RegExprQuantifier (TemplateNode):
+   quantifier = Field ()
+   expr = Field ()
+   min = Field ()
+   max = Field ()
 
 template_grammar = Grammar('main_rule')
 G = template_grammar
@@ -209,6 +222,32 @@ template_grammar.add_rules(
 
    visitor=Visitor('visitor', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
     
+   root_expression=Or (      
+      RegExpr (
+         RegExprAnchor ('\\'), 
+         G.regular_expression),
+      G.regular_expression_with_suffix,
+      G.expression),
+   regular_expression_with_suffix=RegExpr (
+      Or (
+         G.regular_expression_quantifier,
+         G.expression),
+      Or (Pick ('\\', G.regular_expression),
+         RegExprAnchor ('\\'))),      
+   regular_expression=RegExpr (
+      Or (
+         G.regular_expression_quantifier,
+         G.expression),
+      Opt (
+         Or (Pick ('\\', G.regular_expression),
+             RegExprAnchor ('\\')))),
+   regular_expression_quantifier=RegExprQuantifier (
+      Or (Operator.alt_many('many'), Operator.alt_few('few')),
+      '(', 
+      G.expression, 
+      Opt (Pick (',', G.integer)),
+      Opt (Pick (',', G.integer)),
+      ')'), 
    expression=Or (
       BinaryExpr (G.relation, Or (Operator.alt_and('and'), Operator.alt_or('or')), G.expression),
       G.relation),
@@ -257,7 +296,7 @@ template_grammar.add_rules(
    at_ref=AtRef('@'),
    call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
    lambda_expr=LambdaExpr ('lambda', '(', G.expression, ')'),
-   arg_list=List(Argument(Opt (Or (G.identifier, TokenIdentifier ("match")), "=>"), G.expression), sep=',', empty_valid=True),
+   arg_list=List(Argument(Opt (Or (G.identifier, TokenIdentifier ("match")), "=>"), G.root_expression), sep=',', empty_valid=True),
    identifier=Identifier(Token.Identifier),
    dotted_name=Selector(Opt (G.dotted_name, '.'), G.identifier),
    integer=Number(Token.Integer),

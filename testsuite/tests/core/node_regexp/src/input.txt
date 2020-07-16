@@ -1,0 +1,8 @@
+N1 {A, B, C},
+N3 {A, B, C, D},
+N3 {A, D, B, C},
+N2 {A, D, B, C, E},
+A {B {C}},
+A {B {C {D}}},
+A {D {B {C}}},
+A {D {B {C {E}}}}

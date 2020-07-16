@@ -481,6 +481,28 @@ package body Wrapping.Semantic.Analysis is
          when Template_All_Expr =>
             Expr.All_Match := Build_Expr (Node.As_All_Expr.F_Expression);
 
+         when Template_Reg_Expr =>
+            Expr.Reg_Expr_Left := Build_Expr (Node.As_Reg_Expr.F_Left);
+            Expr.Reg_Expr_Right := Build_Expr (Node.As_Reg_Expr.F_Right);
+
+         when Template_Reg_Expr_Anchor =>
+            null;
+
+         when Template_Reg_Expr_Quantifier =>
+            Expr.Quantifier_Expr := Build_Expr
+              (Node.As_Reg_Expr_Quantifier.F_Expr);
+
+            if not Node.As_Reg_Expr_Quantifier.F_Min.Is_Null then
+               Expr.Min := Integer'Wide_Wide_Value (Node.As_Reg_Expr_Quantifier.F_Min.Text);
+            else
+               Expr.Min := 0;
+            end if;
+
+            if not Node.As_Reg_Expr_Quantifier.F_Max.Is_Null then
+               Expr.Max := Integer'Wide_Wide_Value (Node.As_Reg_Expr_Quantifier.F_Max.Text);
+            else
+               Expr.Max := 0;
+            end if;
          when others =>
             Error ("Unsupported expression node");
 

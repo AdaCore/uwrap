@@ -1,0 +1,16 @@
+next (\ B \ C \): input.txt:1:5: A
+next (B \ C \): input.txt:1:5: A
+next (\ B \ C): input.txt:1:5: A
+next (B \ C): input.txt:1:5: A
+next (\ B \ C): input.txt:2:5: A
+next (B \ C): input.txt:2:5: A
+next (B \ C \): input.txt:3:5: A
+next (B \ C): input.txt:3:5: A
+next (B \ C): input.txt:4:5: A
+child (\ B \ C): input.txt:5:1: A {B {C}}
+child (B \ C): input.txt:5:1: A {B {C}}
+child (\ B \ C): input.txt:6:1: A {B {C {D}}}
+child (B \ C): input.txt:6:1: A {B {C {D}}}
+child (B \ C): input.txt:7:1: A {D {B {C}}}
+child (B \ C): input.txt:8:1: A {D {B {C {E}}}}
+

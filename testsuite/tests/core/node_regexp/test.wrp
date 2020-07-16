@@ -1,0 +1,17 @@
+match f_name ("A") and next (f_name ("B") \ f_name ("C"))
+weave standard.out (@ & "next (B \\ C): " & sloc & self & "\n");
+
+match f_name ("A") and next (\ f_name ("B") \ f_name ("C"))
+weave standard.out (@ & "next (\\ B \\ C): " & sloc & self & "\n");
+
+match f_name ("A") and next (f_name ("B") \ f_name ("C") \)
+weave standard.out (@ & "next (B \\ C \\): " & sloc & self & "\n");
+
+match f_name ("A") and next (\ f_name ("B") \ f_name ("C") \)
+weave standard.out (@ & "next (\\ B \\ C \\): " & sloc & self & "\n");
+
+match f_name ("A") and child (f_name ("B") \ TestNodeBaseList() \ f_name ("C"))
+weave standard.out (@ & "child (B \\ C): " & sloc & self & "\n");
+
+match f_name ("A") and child (\ TestNodeBaseList() \ f_name ("B") \ TestNodeBaseList() \ f_name ("C"))
+weave standard.out (@ & "child (\\ B \\ C): " & sloc & self & "\n");

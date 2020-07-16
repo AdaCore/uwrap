@@ -33,6 +33,8 @@ class Token(LexerToken):
     All        = WithText()
     Is         = WithText()
     Has        = WithText()
+    Many       = WithText()
+    Few        = WithText()
 
     LPar       = WithText()
     RPar       = WithText()
@@ -48,7 +50,7 @@ class Token(LexerToken):
     Assign     = WithText()
     Amp        = WithText()
     At         = WithText()
-    Tick       = WithText()
+    Backslash  = WithText()
 
     String     = WithText()
     Comment    = WithTrivia()
@@ -96,7 +98,9 @@ template_lexer.add_rules(
     (Literal("all"), Token.All),
     (Literal("is"), Token.Is),
     (Literal("has"), Token.Has),
-
+    (Literal("many"), Token.Many),
+    (Literal("few"), Token.Few),
+    
     (Literal("pick"), Token.Pick),
     (Literal("("), Token.LPar),
     (Literal(")"), Token.RPar),
@@ -112,7 +116,7 @@ template_lexer.add_rules(
     (Literal(":="), Token.Assign),
     (Literal("&"), Token.Amp),
     (Literal("@"), Token.At),
-    (Literal("'"), Token.Tick),
+    (Literal("\\"), Token.Backslash),
 
     (Literal("true"), Token.LitTrue),
     (Literal("false"), Token.LitFalse),

@@ -37,10 +37,10 @@ package body Wrapping.Runtime.Objects is
    is
    begin
       if Params.Length = 0 then
-         W_Node_Type'Class (Object.all).Evaluate_Bowse_Functions
+         W_Node_Type'Class (Object.all).Evaluate_Generator_Regexp
            (A_Mode, null);
       elsif Params.Length = 1 then
-         W_Node_Type'Class (Object.all).Evaluate_Bowse_Functions
+         W_Node_Type'Class (Object.all).Evaluate_Generator_Regexp
            (A_Mode, Params.Element (1).Expr);
       elsif Params.Length > 1 then
          Error ("matcher takes only 1 argument");
@@ -52,7 +52,7 @@ package body Wrapping.Runtime.Objects is
    procedure Call_Browse_Next is new Call_Gen_Browse (Next);
    procedure Call_Browse_Prev is new Call_Gen_Browse (Prev);
    procedure Call_Browse_Sibling is new Call_Gen_Browse (Sibling);
-   procedure Call_Browse_Wrapper is new Call_Gen_Browse (Wrapping.Runtime.Structure.Template);
+   procedure Call_Browse_Wrapper is new Call_Gen_Browse (Wrapping.Runtime.Structure.Wrapper);
 
    procedure Call_Browse_Self
      (Object : access W_Object_Type'Class;
@@ -740,6 +740,8 @@ package body Wrapping.Runtime.Objects is
       end if;
 
       if A_Mode = Sibling then
+         -- TODO: Rewrite sibling as a next starting from the first element.
+         --  the current version doesn't handle properly regular expressions
          case W_Node_Type'Class (An_Entity.all).Traverse
            (Prev,
             False,
@@ -764,7 +766,7 @@ package body Wrapping.Runtime.Objects is
             False,
             Final_Result,
             Visitor);
-      elsif A_Mode = Wrapping.Runtime.Structure.Template then
+      elsif A_Mode = Wrapper then
          for T of An_Entity.Templates_Ordered loop
             W_Node_Type'Class (T.all).Pre_Visit;
 
@@ -806,7 +808,7 @@ package body Wrapping.Runtime.Objects is
                Current_Children_List.Append (C);
             end loop;
 
-         when Sibling | Wrapping.Runtime.Structure.Template =>
+         when Sibling | Wrapper =>
             null;
 
       end case;
@@ -824,9 +826,11 @@ package body Wrapping.Runtime.Objects is
                      null;
 
                   when Into =>
-                     for C2 of C.Children_Ordered loop
-                        Next_Children_List.Append (C2);
-                     end loop;
+                     if  not Top_Frame.Top_Context.Regexpr_Anchored then
+                        for C2 of C.Children_Ordered loop
+                           Next_Children_List.Append (C2);
+                        end loop;
+                     end if;
 
                   when Unknown =>
                      null;
@@ -867,6 +871,10 @@ package body Wrapping.Runtime.Objects is
                   null;
             end case;
 
+            if Top_Frame.Top_Context.Regexpr_Anchored then
+               return Stop;
+            end if;
+
             case A_Mode is
                when Parent =>
                   Current := Current.Parent;
@@ -880,7 +888,7 @@ package body Wrapping.Runtime.Objects is
                when Child_Breadth =>
                   null;
 
-               when Sibling | Wrapping.Runtime.Structure.Template =>
+               when Sibling | Wrapper =>
                   null;
 
             end case;
@@ -889,6 +897,151 @@ package body Wrapping.Runtime.Objects is
 
       return Into;
    end Traverse;
+
+   procedure Evaluate_Generator_Regexp
+     (An_Entity : access W_Node_Type;
+      A_Mode    : Browse_Mode;
+      Expr      : T_Expr)
+   is
+      Quantifiers_Hit : Integer := 0;
+      Self : W_Object := W_Object (An_Entity);
+
+      --  TODO: we need to generalize this concept of generator / yeild
+      --  instead of expand.
+      procedure Yield_Action is
+         Result : W_Object;
+      begin
+         Push_Frame_Context;
+
+         if Expr.Kind = Template_Reg_Expr_Anchor then
+            Top_Frame.Top_Context.Is_Expanding_Context := False;
+            --  If we're evaluating an anchor at this stage, this is a right
+            --  anchor. There should not be any more element available.
+
+            Evaluate_Bowse_Functions (Top_Object, A_Mode, null);
+
+            Self := Pop_Object;
+
+            if Self /= Match_False then
+               Push_Match_False;
+            else
+               Push_Object (An_Entity);
+            end if;
+         else
+            Top_Frame.Top_Context.Regexpr_Anchored := True;
+            Top_Frame.Top_Context.Expand_Action := Yield_Action'Unrestricted_Access;
+            Top_Frame.Top_Context.Is_Expanding_Context := True;
+
+            if Expr.Reg_Expr_Right /= null then
+               Evaluate_Generator_Regexp (W_Node (Top_Object.Dereference), A_Mode, Expr.Reg_Expr_Right);
+               Result := Top_Object.Dereference;
+
+               if Result = Match_False then
+                  Top_Frame.Top_Context.Visit_Decision.all := Into;
+               else
+                  Top_Frame.Top_Context.Visit_Decision.all := Stop;
+               end if;
+            else
+               Push_Object (Top_Object);
+               Top_Frame.Top_Context.Visit_Decision.all := Stop;
+            end if;
+         end if;
+
+         Pop_Frame_Context;
+      end Yield_Action;
+
+      Result : W_Object;
+
+   begin
+      if Expr = null
+        or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
+      then
+         An_Entity.Evaluate_Bowse_Functions
+           (A_Mode, Expr);
+
+         return;
+      end if;
+
+      Push_Frame_Context;
+
+      if Expr.Kind = Template_Reg_Expr_Anchor then
+         Top_Frame.Top_Context.Is_Expanding_Context := False;
+
+         Evaluate_Bowse_Functions (W_Node (Self), A_Mode, null);
+
+         Result := Pop_Object.Dereference;
+
+         if Result = Match_False then
+            Push_Object (An_Entity);
+         else
+            Push_Match_False;
+         end if;
+
+         Top_Frame.Top_Context.Visit_Decision.all := Stop;
+      else
+         Top_Frame.Top_Context.Expand_Action := Yield_Action'Unrestricted_Access;
+         Top_Frame.Top_Context.Is_Expanding_Context := True;
+
+         if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
+            Top_Frame.Top_Context.Regexpr_Anchored := True;
+            Evaluate_Generator_Regexp (W_Node (Self), A_Mode, Expr.Reg_Expr_Right);
+         elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
+            for I in 0 .. Expr.Min loop
+               Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left);
+               Top_Frame.Top_Context.Regexpr_Anchored := True;
+               Self := Pop_Object;
+
+               if Self = Match_False then
+                  Push_Match_False;
+                  Pop_Frame_Context;
+                  return;
+               end if;
+
+               Quantifiers_Hit := Quantifiers_Hit + 1;
+            end loop;
+
+            loop
+               if Expr.Max /= 0 and then Quantifiers_Hit = Expr.Max then
+                  Push_Match_True (Self);
+                  exit;
+               end if;
+
+               case Expr.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
+               when Template_Operator_Many =>
+                  Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Quantifier_Expr);
+                  Top_Frame.Top_Context.Regexpr_Anchored := True;
+                  Self := Pop_Object;
+
+                  if Self = Match_False then
+                     Evaluate_Generator_Regexp (W_Node (Self), A_Mode, Expr.Reg_Expr_Right);
+                     exit;
+                  end if;
+               when Template_Operator_Few =>
+                  Evaluate_Generator_Regexp (W_Node (Self), A_Mode, Expr.Reg_Expr_Right);
+                  Top_Frame.Top_Context.Regexpr_Anchored := True;
+                  Self := Pop_Object;
+
+                  if Self = Match_False then
+                     Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Quantifier_Expr);
+                     Self := Pop_Object;
+
+                     if Self = Match_False then
+                        Push_Match_True (Self);
+                        exit;
+                     end if;
+                  end if;
+
+               when others =>
+                  Error ("unexpected quantifier kind");
+               end case;
+            end loop;
+         else
+            Evaluate_Bowse_Functions (Self, A_Mode, Expr.Reg_Expr_Left);
+         end if;
+      end if;
+
+      Pop_Frame_Context;
+   end Evaluate_Generator_Regexp;
 
    procedure Evaluate_Bowse_Functions
      (An_Entity         : access W_Node_Type;
