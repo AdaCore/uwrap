@@ -1,0 +1,7 @@
+many next (Z, 0, 1): input.txt:1:8: B
+many next (B, 0, 1): input.txt:1:11: B
+few next (B, 2): input.txt:1:14: B
+few next (B): input.txt:1:8: B
+many next (B): input.txt:1:17: C
+many child (A): input.txt:2:7: C, input.txt:2:13: F
+

@@ -904,12 +904,28 @@ package body Wrapping.Runtime.Objects is
       Expr      : T_Expr)
    is
       Quantifiers_Hit : Integer := 0;
-      Self : W_Object := W_Object (An_Entity);
 
-      --  TODO: we need to generalize this concept of generator / yeild
+      procedure Process_Right_Action is
+         Result : W_Object;
+      begin
+         if Expr.Reg_Expr_Right /= null then
+            Evaluate_Generator_Regexp (W_Node (Top_Object.Dereference), A_Mode, Expr.Reg_Expr_Right);
+            Result := Top_Object.Dereference;
+
+            if Result = Match_False then
+               Top_Frame.Top_Context.Visit_Decision.all := Into;
+            else
+               Top_Frame.Top_Context.Visit_Decision.all := Stop;
+            end if;
+         else
+            Push_Object (Top_Object);
+            Top_Frame.Top_Context.Visit_Decision.all := Stop;
+         end if;
+      end Process_Right_Action;
+
+      --  TODO: we need to generalize this concept of generator / yield
       --  instead of expand.
       procedure Yield_Action is
-         Result : W_Object;
       begin
          Push_Frame_Context;
 
@@ -920,9 +936,7 @@ package body Wrapping.Runtime.Objects is
 
             Evaluate_Bowse_Functions (Top_Object, A_Mode, null);
 
-            Self := Pop_Object;
-
-            if Self /= Match_False then
+            if Pop_Object /= Match_False then
                Push_Match_False;
             else
                Push_Object (An_Entity);
@@ -932,18 +946,52 @@ package body Wrapping.Runtime.Objects is
             Top_Frame.Top_Context.Expand_Action := Yield_Action'Unrestricted_Access;
             Top_Frame.Top_Context.Is_Expanding_Context := True;
 
-            if Expr.Reg_Expr_Right /= null then
-               Evaluate_Generator_Regexp (W_Node (Top_Object.Dereference), A_Mode, Expr.Reg_Expr_Right);
-               Result := Top_Object.Dereference;
+            if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
+               Quantifiers_Hit := Quantifiers_Hit + 1;
 
-               if Result = Match_False then
-                  Top_Frame.Top_Context.Visit_Decision.all := Into;
+               if Quantifiers_Hit < Expr.Reg_Expr_Left.Min then
+                  --  First, no matter the quantifier, try to reach the minimum
+                  --  value
+                  Evaluate_Bowse_Functions
+                    (Top_Object,
+                     A_Mode,
+                     Expr.Reg_Expr_Left.Quantifier_Expr);
+               elsif Quantifiers_Hit = Expr.Reg_Expr_Left.Max then
+                  -- Second, if we hit the max, move on to the right action
+                  Process_Right_Action;
                else
-                  Top_Frame.Top_Context.Visit_Decision.all := Stop;
+                  --  Then if the quantifier is many, try to reach as many
+                  --  as possible. If few, see if one is necessary.
+
+                  case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
+                     when Template_Operator_Many =>
+                        Evaluate_Bowse_Functions
+                          (Top_Object,
+                           A_Mode,
+                           Expr.Reg_Expr_Left.Quantifier_Expr);
+
+                        if Top_Object = Match_False then
+                           Pop_Object;
+                           Process_Right_Action;
+                        end if;
+
+                     when Template_Operator_Few =>
+                        Process_Right_Action;
+
+                        if Top_Object = Match_False then
+                           Pop_Object;
+                           Evaluate_Bowse_Functions
+                             (Top_Object,
+                              A_Mode,
+                              Expr.Reg_Expr_Left.Quantifier_Expr);
+                        end if;
+
+                     when others =>
+                        Error ("unexpected quantifier kind");
+                  end case;
                end if;
             else
-               Push_Object (Top_Object);
-               Top_Frame.Top_Context.Visit_Decision.all := Stop;
+               Process_Right_Action;
             end if;
          end if;
 
@@ -967,7 +1015,7 @@ package body Wrapping.Runtime.Objects is
       if Expr.Kind = Template_Reg_Expr_Anchor then
          Top_Frame.Top_Context.Is_Expanding_Context := False;
 
-         Evaluate_Bowse_Functions (W_Node (Self), A_Mode, null);
+         Evaluate_Bowse_Functions (An_Entity, A_Mode, null);
 
          Result := Pop_Object.Dereference;
 
@@ -984,59 +1032,42 @@ package body Wrapping.Runtime.Objects is
 
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
             Top_Frame.Top_Context.Regexpr_Anchored := True;
-            Evaluate_Generator_Regexp (W_Node (Self), A_Mode, Expr.Reg_Expr_Right);
+            Evaluate_Generator_Regexp (An_Entity, A_Mode, Expr.Reg_Expr_Right);
          elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
-            for I in 0 .. Expr.Min loop
-               Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left);
-               Top_Frame.Top_Context.Regexpr_Anchored := True;
-               Self := Pop_Object;
-
-               if Self = Match_False then
-                  Push_Match_False;
-                  Pop_Frame_Context;
-                  return;
-               end if;
-
-               Quantifiers_Hit := Quantifiers_Hit + 1;
-            end loop;
-
-            loop
-               if Expr.Max /= 0 and then Quantifiers_Hit = Expr.Max then
-                  Push_Match_True (Self);
-                  exit;
-               end if;
-
-               case Expr.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
+            case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                when Template_Operator_Many =>
-                  Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Quantifier_Expr);
-                  Top_Frame.Top_Context.Regexpr_Anchored := True;
-                  Self := Pop_Object;
+                  Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
 
-                  if Self = Match_False then
-                     Evaluate_Generator_Regexp (W_Node (Self), A_Mode, Expr.Reg_Expr_Right);
-                     exit;
-                  end if;
-               when Template_Operator_Few =>
-                  Evaluate_Generator_Regexp (W_Node (Self), A_Mode, Expr.Reg_Expr_Right);
-                  Top_Frame.Top_Context.Regexpr_Anchored := True;
-                  Self := Pop_Object;
+                  if Top_Object = Match_False then
+                     --  If we didn't find a match but the minimum requested is 0,
+                     --  try to evaluate the result bypassing the quantifier.
 
-                  if Self = Match_False then
-                     Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Quantifier_Expr);
-                     Self := Pop_Object;
-
-                     if Self = Match_False then
-                        Push_Match_True (Self);
-                        exit;
+                     if Expr.Reg_Expr_Left.Min = 0 then
+                        Pop_Object;
+                        Evaluate_Generator_Regexp (An_Entity, A_Mode, Expr.Reg_Expr_Right);
                      end if;
+                  end if;
+
+               when Template_Operator_Few =>
+                  if Expr.Reg_Expr_Left.Min = 0 then
+                     --  We are on a lazy quantifier and are accepting no matches.
+                     --  First see if we can avoid the quantifier altogether
+
+                     Evaluate_Generator_Regexp (An_Entity, A_Mode, Expr.Reg_Expr_Right);
+
+                     if Top_Object = Match_False then
+                        Pop_Object;
+                        Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
+                     end if;
+                  else
+                     Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
                   end if;
 
                when others =>
                   Error ("unexpected quantifier kind");
-               end case;
-            end loop;
+            end case;
          else
-            Evaluate_Bowse_Functions (Self, A_Mode, Expr.Reg_Expr_Left);
+            Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left);
          end if;
       end if;
 

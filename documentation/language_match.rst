@@ -437,8 +437,6 @@ and that also has a previous node called "B".
 Pattern Sequence Expressions
 ----------------------------
 
-TODO: the description below is to be implemented and may vary
-
 Tree browsing predicates can check for a sequence of nodes instead of a unique
 node. Elements of this sequence are separated by \. For example:
 
@@ -486,6 +484,7 @@ sequence is the last element being matched. For example:
 
 .. code-block:: text
 
+   TODO: this kind of capture needs to be implemented
    match r: child (\ "A" \ last: many (true) \ "B" \)
 
 In the above, is matched, r is the value of the grandchild. last is the value
