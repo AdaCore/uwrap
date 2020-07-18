@@ -21,6 +21,7 @@ with Wrapping.Semantic; use Wrapping.Semantic;
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
 with Wrapping.Input.Kit;
+with Wrapping.Input.JSON; use Wrapping.Input.JSON;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 
 package body Wrapping.Run is
@@ -174,8 +175,12 @@ package body Wrapping.Run is
             end loop;
 
             Analyze_Templates;
-         elsif Language = "proxy" then
-            null;
+         elsif Language = "json" then
+            for File of App.Args.Files.Get loop
+               Wrapping.Input.JSON.Analyze_File (To_String (File));
+            end loop;
+
+            Analyze_Templates;
          elsif Language = "test" then
             for File of App.Args.Files.Get loop
                Testlang.Input.Analyze_File (To_String (File));

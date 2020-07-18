@@ -1,0 +1,19 @@
+: (object)
+glossary: (object)
+title: example glossary
+GlossDiv: (object)
+title: S
+GlossList: (object)
+GlossEntry: (object)
+ID: SGML
+SortAs: SGML
+GlossTerm: Standard Generalized Markup Language
+Acronym: SGML
+Abbrev: ISO 8879:1986
+GlossDef: (object)
+para: A meta-markup language, used to create markup languages such as DocBook.
+GlossSeeAlso: (array)
+: GML
+: XML
+GlossSee: markup
+
