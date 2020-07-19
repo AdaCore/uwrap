@@ -9,6 +9,7 @@ Contents:
 
    tutorial/tutorial.rst
    language
+   input
 
 Indices and tables
 ==================
