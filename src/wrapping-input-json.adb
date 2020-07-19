@@ -109,14 +109,13 @@ package body Wrapping.Input.JSON is
 
          if Value.Kind = JSON_Object_Type then
             Map_JSON_Object (Value, Iterate_On_Value'Access);
-            Current_Node := Parent;
          elsif Value.Kind = JSON_Array_Type then
             for O of JSON_Array'(Value.Get) loop
                Iterate_On_Value ("", O);
             end loop;
-
-            Current_Node := Parent;
          end if;
+
+         Current_Node := Parent;
       end Iterate_On_Value;
 
    begin
