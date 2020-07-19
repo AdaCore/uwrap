@@ -90,6 +90,9 @@ package Wrapping.Runtime.Structure is
       Current_Command : T_Command;
 
       Match_Mode : Match_Kind := Match_None;
+
+      --- TODO: We may not need this, just use the value of the function
+      --  instead
       Is_Expanding_Context : Boolean := False;
 
       --  When hitting a capture expression, the name is being stored here so

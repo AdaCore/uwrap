@@ -905,21 +905,56 @@ package body Wrapping.Runtime.Objects is
    is
       Quantifiers_Hit : Integer := 0;
 
+      Is_Original_Expansion : Boolean := Top_Frame.Top_Context.Is_Expanding_Context;
+      Original_Expand_Function : Expand_Action_Type := Top_Frame.Top_Context.Expand_Action;
+
+      procedure Yield_Action
+        with Post => Top_Frame.Data_Stack.Length
+          = Top_Frame.Data_Stack.Length'Old + 1;
+
+      procedure Install_Yield_Capture is
+      begin
+         Top_Frame.Top_Context.Is_Expanding_Context := True;
+         Top_Frame.Top_Context.Expand_Action := Yield_Action'Unrestricted_Access;
+      end Install_Yield_Capture;
+
+      procedure Restore_Yield_Capture is
+      begin
+         Top_Frame.Top_Context.Is_Expanding_Context := Is_Original_Expansion;
+         Top_Frame.Top_Context.Expand_Action := Original_Expand_Function;
+      end Restore_Yield_Capture;
+
       procedure Process_Right_Action is
          Result : W_Object;
       begin
          if Expr.Reg_Expr_Right /= null then
+            Push_Frame_Context;
+
+            Restore_Yield_Capture;
             Evaluate_Generator_Regexp (W_Node (Top_Object.Dereference), A_Mode, Expr.Reg_Expr_Right);
             Result := Top_Object.Dereference;
+
+            Pop_Frame_Context;
 
             if Result = Match_False then
                Top_Frame.Top_Context.Visit_Decision.all := Into;
             else
-               Top_Frame.Top_Context.Visit_Decision.all := Stop;
+               if Is_Original_Expansion then
+                  Top_Frame.Top_Context.Visit_Decision.all := Into;
+               else
+                  Top_Frame.Top_Context.Visit_Decision.all := Stop;
+               end if;
             end if;
          else
             Push_Object (Top_Object);
-            Top_Frame.Top_Context.Visit_Decision.all := Stop;
+
+            if Is_Original_Expansion then
+               Original_Expand_Function.all;
+               Pop_Object;
+               Top_Frame.Top_Context.Visit_Decision.all := Into;
+            else
+               Top_Frame.Top_Context.Visit_Decision.all := Stop;
+            end if;
          end if;
       end Process_Right_Action;
 
@@ -943,8 +978,7 @@ package body Wrapping.Runtime.Objects is
             end if;
          else
             Top_Frame.Top_Context.Regexpr_Anchored := True;
-            Top_Frame.Top_Context.Expand_Action := Yield_Action'Unrestricted_Access;
-            Top_Frame.Top_Context.Is_Expanding_Context := True;
+            Install_Yield_Capture;
 
             if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
                Quantifiers_Hit := Quantifiers_Hit + 1;
@@ -1027,16 +1061,15 @@ package body Wrapping.Runtime.Objects is
 
          Top_Frame.Top_Context.Visit_Decision.all := Stop;
       else
-         Top_Frame.Top_Context.Expand_Action := Yield_Action'Unrestricted_Access;
-         Top_Frame.Top_Context.Is_Expanding_Context := True;
-
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
             Top_Frame.Top_Context.Regexpr_Anchored := True;
             Evaluate_Generator_Regexp (An_Entity, A_Mode, Expr.Reg_Expr_Right);
          elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
             case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                when Template_Operator_Many =>
+                  Install_Yield_Capture;
                   Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
+                  Restore_Yield_Capture;
 
                   if Top_Object = Match_False then
                      --  If we didn't find a match but the minimum requested is 0,
@@ -1057,17 +1090,24 @@ package body Wrapping.Runtime.Objects is
 
                      if Top_Object = Match_False then
                         Pop_Object;
+
+                        Install_Yield_Capture;
                         Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
+                        Restore_Yield_Capture;
                      end if;
                   else
+                     Install_Yield_Capture;
                      Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
+                     Restore_Yield_Capture;
                   end if;
 
                when others =>
                   Error ("unexpected quantifier kind");
             end case;
          else
+            Install_Yield_Capture;
             Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left);
+            Restore_Yield_Capture;
          end if;
       end if;
 

@@ -1,0 +1,7 @@
+match root: Entity () and child (\ true \ Entity () \ true \ Entity ())
+pick child (\ true \ Entity () \ true \ Entity ()).all ()
+weave standard.out (@ & "grandchild: " & root.sloc & root.f_name & ": "  & sloc & f_name & "\n");
+
+match Entity () and child ( Entity () \ true \ Entity ())
+pick child ( a: Entity () \ true \ b: Entity ()).all ()
+weave standard.out (@ & "a \\ b: " & a.sloc & a.f_name & ": "  & b.sloc & b.f_name & "\n");

@@ -13,7 +13,7 @@ project UWrap is
    end Binder;
 
    package Compiler is
-      for Switches ("ada") use ("-g");
+      for Switches ("ada") use ("-g", "-gnata");
    end Compiler;
 
 end UWrap;

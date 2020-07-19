@@ -1,0 +1,9 @@
+a \ b: input.txt:1:4: B: input.txt:1:7: C
+grandchild: input.txt:1:1: A: input.txt:1:7: C
+a \ b: input.txt:1:4: B: input.txt:1:10: D
+grandchild: input.txt:1:1: A: input.txt:1:10: D
+a \ b: input.txt:1:14: E: input.txt:1:17: F
+grandchild: input.txt:1:1: A: input.txt:1:17: F
+a \ b: input.txt:1:14: E: input.txt:1:20: G
+grandchild: input.txt:1:1: A: input.txt:1:20: G
+
