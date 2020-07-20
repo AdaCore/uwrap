@@ -482,7 +482,9 @@ package body Wrapping.Semantic.Structure is
                | Template_Identifier
                | Template_Literal
                | Template_Number
-               | Template_At_Ref =>
+               | Template_At_Ref
+               | Template_Reg_Expr_Anchor =>
+
                null;
 
             when Template_Match_Capture =>
@@ -528,7 +530,9 @@ package body Wrapping.Semantic.Structure is
                | Template_Fold_Expr
                | Template_Lambda_Expr
                | Template_Call_Expr
-               | Template_New_Expr =>
+               | Template_New_Expr
+               | Template_Reg_Expr
+               | Template_Reg_Expr_Quantifier =>
 
                for C of Expr.Children_Ordered loop
                   if C.all in T_Expr_Type'Class then
