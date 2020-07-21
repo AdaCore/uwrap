@@ -131,6 +131,16 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
    end Pop_Object;
 
+   procedure Delete_Object_At_Position (Position : Integer) is
+   begin
+      if Position > 0 then
+         Top_Frame.Data_Stack.Delete (Position);
+      else
+         Top_Frame.Data_Stack.Delete
+           (Integer (Top_Frame.Data_Stack.Length) + Position + 1);
+      end if;
+   end Delete_Object_At_Position;
+
    function Pop_Object return W_Object is
       Result : W_Object;
    begin
@@ -1439,7 +1449,6 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Call (Expr : T_Expr) is
       Called : W_Object;
-      Result : W_Object;
    begin
       Push_Frame_Context;
 
@@ -1490,9 +1499,7 @@ package body Wrapping.Runtime.Analysis is
 
       Called.Push_Call_Result (Expr.Args);
 
-      Result := Pop_Object;
-      Pop_Object; -- Pop call symbol
-      Push_Object (Result);
+      Delete_Object_At_Position (-2); -- Remove call symbol
 
       Pop_Frame_Context;
    end Handle_Call;

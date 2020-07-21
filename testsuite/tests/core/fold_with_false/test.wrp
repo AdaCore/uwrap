@@ -1,0 +1,2 @@
+match Entity (f_name ("A"))
+wrap standard.out (child (v: Entity (f_name ("C"))).fold (c: "", c : (c & v.f_name & ", ")));

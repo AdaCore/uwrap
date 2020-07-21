@@ -718,13 +718,52 @@ package body Wrapping.Runtime.Objects is
       Current : W_Node;
       Current_Children_List : W_Node_Vectors.Vector;
       Next_Children_List : W_Node_Vectors.Vector;
+
+      -- Wraps the default traverse function, capturing the result if not
+      -- null or false.
+      function Traverse_Wrapper
+        (Entity : access W_Object_Type'Class; A_Mode : Browse_Mode)
+         return Visit_Action
+      is
+         Temp_Result : W_Object;
+         R : Visit_Action;
+      begin
+         R := Entity.Traverse (A_Mode, False, Temp_Result, Visitor);
+
+         if Temp_Result /= Match_False and then Temp_Result /= null then
+            Final_Result := Temp_Result;
+         end if;
+
+         return R;
+      end Traverse_Wrapper;
+
+
+      -- Wraps the default visit function, capturing the result if not
+      -- null or false.
+      function Visit_Wrapper
+        (Entity : access W_Object_Type'Class) return Visit_Action
+      is
+         Temp_Result : W_Object;
+         R : Visit_Action;
+      begin
+         R := Visitor (Entity, Temp_Result);
+
+         if Temp_Result /= Match_False and then Temp_Result /= null then
+            Final_Result := Temp_Result;
+         end if;
+
+         return R;
+      end Visit_Wrapper;
+
    begin
+      Final_Result := Match_False;
+
       W_Node_Type'Class (An_Entity.all).Pre_Visit;
 
       if Include_Self then
          W_Node_Type'Class (An_Entity.all).Pre_Visit;
 
-         case Visitor (An_Entity, Final_Result) is
+         case Visit_Wrapper (An_Entity) is
             when Stop =>
                return Stop;
 
@@ -742,12 +781,7 @@ package body Wrapping.Runtime.Objects is
       if A_Mode = Sibling then
          -- TODO: Rewrite sibling as a next starting from the first element.
          --  the current version doesn't handle properly regular expressions
-         case W_Node_Type'Class (An_Entity.all).Traverse
-           (Prev,
-            False,
-            Final_Result,
-            Visitor)
-         is
+         case Traverse_Wrapper (An_Entity, Prev) is
             when Stop =>
                return Stop;
 
@@ -761,16 +795,12 @@ package body Wrapping.Runtime.Objects is
                null;
          end case;
 
-         return W_Node_Type'Class (An_Entity.all).Traverse
-           (Next,
-            False,
-            Final_Result,
-            Visitor);
+         return Traverse_Wrapper (An_Entity, Next);
       elsif A_Mode = Wrapper then
          for T of An_Entity.Templates_Ordered loop
             W_Node_Type'Class (T.all).Pre_Visit;
 
-            case Visitor (T, Final_Result) is
+            case Visit_Wrapper (T) is
                when Over =>
                   null;
 
@@ -818,7 +848,7 @@ package body Wrapping.Runtime.Objects is
             for C of Current_Children_List loop
                W_Node_Type'Class (C.all).Pre_Visit;
 
-               case Visitor (C, Final_Result) is
+               case Visit_Wrapper (C) is
                   when Stop =>
                      return Stop;
 
@@ -847,7 +877,7 @@ package body Wrapping.Runtime.Objects is
          while Current /= null loop
             W_Node_Type'Class (Current.all).Pre_Visit;
 
-            case Visitor (Current, Final_Result) is
+            case Visit_Wrapper (Current) is
                when Stop =>
                   return Stop;
 
@@ -856,9 +886,7 @@ package body Wrapping.Runtime.Objects is
 
                when Into =>
                   if A_Mode = Child_Depth then
-                     case W_Node_Type'Class
-                       (Current.all).Traverse (A_Mode, False, Final_Result, Visitor)
-                     is
+                     case Traverse_Wrapper (Current, A_Mode) is
                         when Stop =>
                            return Stop;
 
@@ -1005,19 +1033,41 @@ package body Wrapping.Runtime.Objects is
                            Expr.Reg_Expr_Left.Quantifier_Expr);
 
                         if Top_Object = Match_False then
+                           --  If the result is false, we went one element too
+                           --  far. Pop it and process the right action.
+
                            Pop_Object;
                            Process_Right_Action;
+                        elsif Is_Original_Expansion then
+                           --  If we're doing an expansion, then we need to
+                           --  consider all cases of potential children
+
+                           Process_Right_Action;
+                           Delete_Object_At_Position (-2);
                         end if;
 
                      when Template_Operator_Few =>
                         Process_Right_Action;
 
                         if Top_Object = Match_False then
+                           --  If the result is false, the right action didn't
+                           --  work, try to process another node under the
+                           --  current condition
+
                            Pop_Object;
                            Evaluate_Bowse_Functions
                              (Top_Object,
                               A_Mode,
                               Expr.Reg_Expr_Left.Quantifier_Expr);
+                        elsif Is_Original_Expansion then
+                           --  If we're doing an expansion, then we need to
+                           --  consider all cases of potential children
+
+                           Evaluate_Bowse_Functions
+                             (Top_Object,
+                              A_Mode,
+                              Expr.Reg_Expr_Left.Quantifier_Expr);
+                           Delete_Object_At_Position (-2);
                         end if;
 
                      when others =>
@@ -1272,10 +1322,7 @@ package body Wrapping.Runtime.Objects is
 
                      Evaluate_Expression (A_Var.Args.Element (1).Expr);
 
-                     Result := Pop_Object;
-                     Pop_Object;
-
-                     Push_Object (Result);
+                     Delete_Object_At_Position (-2);
 
                      return True;
                   end if;

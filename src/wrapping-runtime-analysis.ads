@@ -53,6 +53,11 @@ package Wrapping.Runtime.Analysis is
    --  stack
    procedure Pop_Object (Number : Positive := 1);
 
+   --  Deletes a specific object. Negative deletes from end, positives delete
+   --  from start
+   procedure Delete_Object_At_Position (Position : Integer)
+     with Pre => Position /= 0;
+
    function Pop_Object return W_Object;
 
    function Top_Object return W_Object;
