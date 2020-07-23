@@ -788,59 +788,101 @@ package body Wrapping.Runtime.Analysis is
             begin
                Left := Evaluate_Expression (Expr.Binary_Left);
 
-               if Expr.Node.As_Binary_Expr.F_Op.Kind = Template_Operator_And then
-                  if Left /= Match_False then
-                     Right := Evaluate_Expression (Expr.Binary_Right);
+               case Expr.Node.As_Binary_Expr.F_Op.Kind is
+                  when Template_Operator_And =>
+                     if Left /= Match_False then
+                        Right := Evaluate_Expression (Expr.Binary_Right);
 
-                     if Right /= Match_False then
-                        Push_Object (Right);
+                        if Right /= Match_False then
+                           Push_Object (Right);
+                        else
+                           Push_Match_False;
+                        end if;
                      else
                         Push_Match_False;
                      end if;
-                  else
-                     Push_Match_False;
-                  end if;
 
-                  Run_Outer_Callback := False;
-               elsif Expr.Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Or then
-                  if Left /= Match_False then
-                     Push_Object (Left);
-                  else
+                     Run_Outer_Callback := False;
+                  when Template_Operator_Or =>
+                     if Left /= Match_False then
+                        Push_Object (Left);
+                     else
+                        Right := Evaluate_Expression (Expr.Binary_Right);
+
+                        if Right /= Match_False then
+                           Push_Object (Right);
+                        else
+                           Push_Match_False;
+                        end if;
+                     end if;
+
+                     Run_Outer_Callback := False;
+                  when Template_Operator_Amp =>
                      Right := Evaluate_Expression (Expr.Binary_Right);
 
-                     if Right /= Match_False then
-                        Push_Object (Right);
+                     if Left.Dereference.all in W_Text_Expression_Type'Class
+                       and then Right.Dereference.all in W_Text_Expression_Type'Class
+                     then
+                        declare
+                           Container : W_Text_Vector := new W_Text_Vector_Type;
+                        begin
+                           Container.A_Vector.Append (Left);
+                           Container.A_Vector.Append (Right);
+
+                           Push_Object (Container);
+                        end;
                      else
-                        Push_Match_False;
+                        declare
+                           Container : W_Vector := new W_Vector_Type;
+                        begin
+                           Container.A_Vector.Append (Left);
+                           Container.A_Vector.Append (Right);
+
+                           Push_Object (Container);
+                        end;
                      end if;
-                  end if;
+                  when Template_Operator_Plus | Template_Operator_Minus |
+                       Template_Operator_Multiply | Template_Operator_Divide =>
 
-                  Run_Outer_Callback := False;
-               elsif Expr.Node.As_Binary_Expr.F_Op.Kind = Template_Operator_Amp then
-                  Right := Evaluate_Expression (Expr.Binary_Right);
-
-                  if Left.Dereference.all in W_Text_Expression_Type'Class
-                    and then Right.Dereference.all in W_Text_Expression_Type'Class
-                  then
                      declare
-                        Container : W_Text_Vector := new W_Text_Vector_Type;
+                        Left_I, Right_I : Integer;
                      begin
-                        Container.A_Vector.Append (Left);
-                        Container.A_Vector.Append (Right);
 
-                        Push_Object (Container);
-                     end;
-                  else
-                     declare
-                        Container : W_Vector := new W_Vector_Type;
-                     begin
-                        Container.A_Vector.Append (Left);
-                        Container.A_Vector.Append (Right);
+                        if Left.Dereference.all not in W_Integer_Type'Class then
+                           Error ("Expected integer for left operand");
+                        else
+                           Left_I := W_Integer (Left.Dereference).Value;
+                        end if;
 
-                        Push_Object (Container);
+                        Right := Evaluate_Expression (Expr.Binary_Right);
+
+                        if Right.Dereference.all not in W_Integer_Type'Class then
+                           Error ("Expected integer for right operand");
+                        else
+                           Right_I := W_Integer (Right.Dereference).Value;
+                        end if;
+
+                        Push_Object
+                          (W_Object'
+                             (new W_Integer_Type'
+                                  (Value =>
+                                       (case Expr.Node.As_Binary_Expr.F_Op.Kind is
+                                           when Template_Operator_Plus     =>
+                                              Left_I + Right_I,
+                                           when Template_Operator_Minus    =>
+                                              Left_I - Right_I,
+                                           when Template_Operator_Multiply =>
+                                              Left_I * Right_I,
+                                           when Template_Operator_Divide   =>
+                                              Left_I / Right_I,
+                                           when others                     =>
+                                              0))));
                      end;
-                  end if;
-               end if;
+
+                  when others =>
+                     Error ("unexpected operator");
+
+               end case;
             end;
 
          when Template_Unary_Expr =>

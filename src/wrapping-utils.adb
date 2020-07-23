@@ -1,3 +1,4 @@
+with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
 with Ada.Wide_Wide_Characters.Unicode; use Ada.Wide_Wide_Characters.Unicode;
 with Ada.Characters.Conversions; use Ada.Characters.Conversions;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
@@ -19,12 +20,12 @@ package body Wrapping.Utils is
       end if;
    end Remove_Quotes;
 
-   function Unindent (Text : Text_Type) return Text_Type is
-      Space_Count : Integer := 0;
-      Max_Space_Count : Integer := 0;
-      Result : Text_Type (Text'Range);
-      Result_Index : Integer := Result'First - 1;
+   function Reindent (New_Indent : Integer; Text : Text_Type) return Text_Type is      Space_Count : Integer := 0;
+      Min_Space_Count : Integer := Integer'Last;
       Skip_To_Terminator : Boolean := False;
+
+      Indent : Wide_Wide_String (1 .. New_Indent) := (others => ' ');
+      Line_Count : Integer := 1;
    begin
       for C of Text loop
          if C = ' ' then
@@ -34,30 +35,50 @@ package body Wrapping.Utils is
          elsif Is_Line_Terminator (C) then
             Space_Count := 0;
             Skip_To_Terminator := False;
+            Line_Count := Line_Count + 1;
          else
-            if Space_Count > Max_Space_Count then
-               Max_Space_Count := Space_Count;
+            if Space_Count < Min_Space_Count and then Space_Count /= 0 then
+               Min_Space_Count := Space_Count;
             end if;
 
             Skip_To_Terminator := True;
          end if;
       end loop;
 
-      for C of Text loop
-         if C = ' ' then
-            Space_Count := Space_Count + 1;
-         elsif Is_Line_Terminator (C) then
-            Space_Count := 0;
-         end if;
+      declare
+         Result : Text_Type (1 .. Text'Length + Line_Count * New_Indent);
+         Result_Index : Integer := Result'First - 1;
+      begin
+         for C of Text loop
+            if C = ' ' then
+               Space_Count := Space_Count + 1;
 
-         if C /= ' ' or else Space_Count > Max_Space_Count then
-            Result_Index := Result_Index + 1;
-            Result (Result_Index) := C;
-         end if;
-      end loop;
+               if Space_Count > Min_Space_Count then
+                  Result_Index := Result_Index + 1;
+                  Result (Result_Index) := C;
+               end if;
+            elsif Is_Line_Terminator (C) then
+               Space_Count := 0;
+               Result_Index := Result_Index + 1;
+               Result (Result_Index) := C;
 
-      return Result (Result'First .. Result_Index);
-   end Unindent;
+               Result_Index := Result_Index + 1;
+               Result (Result_Index .. Result_Index + Indent'Length - 1) := Indent;
+               Result_Index := Result_Index + Indent'Length - 1;
+            elsif C /= ' ' then
+               Result_Index := Result_Index + 1;
+               Result (Result_Index) := C;
+            end if;
+         end loop;
+
+         Put_Line ("INDENT " & New_Indent'Wide_Wide_Image & ", MIN SPACES " & Min_Space_Count'Wide_Wide_Image);
+         Put_Line (Text);
+         Put_Line ("TO");
+         Put_Line (Result (Result'First .. Result_Index));
+
+         return Result (Result'First .. Result_Index);
+      end;
+   end Reindent;
 
    function Suffix (Text : Text_Type) return Text_Type is
    begin

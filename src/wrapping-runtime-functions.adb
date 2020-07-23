@@ -126,28 +126,38 @@ package body Wrapping.Runtime.Functions is
 
 
    P_Unindent : Parameter_Profile :=
-      (Make_Parameter ("str", False),
-       Make_Parameter ("match", True));
+     (Make_Parameter ("ident", False),
+      Make_Parameter ("str", False),
+      Make_Parameter ("match", True));
 
-   procedure Call_Unindent
+   procedure Call_Reindent
     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       Result : W_Object;
 
       Actuals          : Actuals_Type :=
         Process_Parameters (P_Unindent, Params);
+      Indentation : W_Object;
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.Match_Mode := Match_None;
 
+      Indentation := Evaluate_Expression (Actuals (1)).Dereference;
+
+      if Indentation.all not in W_Integer_Type'Class then
+         Error ("expected integer object");
+      end if;
+
       Result :=
         new W_String_Type'
           (Value => To_Unbounded_Text
-             (Unindent (Evaluate_Expression (Actuals (1)).To_String)));
+             (Reindent
+                (W_Integer (Indentation).Value,
+                 Evaluate_Expression (Actuals (2)).To_String)));
 
-      Push_Match_Result (Result, Actuals (2));
+      Push_Match_Result (Result, Actuals (3));
 
       Pop_Frame_Context;
-   end Call_Unindent;
+   end Call_Reindent;
 
 end Wrapping.Runtime.Functions;

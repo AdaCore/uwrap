@@ -18,7 +18,7 @@ package Wrapping.Runtime.Functions is
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector);
 
-   procedure Call_Unindent
+   procedure Call_Reindent
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector);
 
