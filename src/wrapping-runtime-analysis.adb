@@ -1086,8 +1086,8 @@ package body Wrapping.Runtime.Analysis is
       elsif Name = "to_lower" then
          Push_Function (null, Call_To_Lower'Access);
          return True;
-      elsif Name = "unindent" then
-         Push_Function (null, Call_Unindent'Access);
+      elsif Name = "reindent" then
+         Push_Function (null, Call_Reindent'Access);
          return True;
       end if;
 

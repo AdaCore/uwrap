@@ -338,22 +338,29 @@ package body Wrapping.Semantic.Analysis is
 
    function Build_Variable_Structure (Node : Libtemplatelang.Analysis.Var) return Structure.T_Var is
       A_Var : Structure.T_Var := new T_Var_Type;
+      Typ : Text_Type := Node.F_Typ.Text;
    begin
       Push_Named_Entity (A_Var, Node, Node.As_Var.F_Name);
 
-      if Node.F_Typ.Text = "text" then
+      if Typ = "integer" then
+         A_Var.Kind := Integer_Kind;
+
+         if Node.F_Args.Children_Count /= 0 then
+            Error ("no argument expected for integer var");
+         end if;
+      elsif Typ = "text" then
          A_Var.Kind := Text_Kind;
 
          if Node.F_Args.Children_Count /= 0 then
             Error ("no argument expected for text var");
          end if;
-      elsif Node.F_Typ.Text = "pattern" then
+      elsif Typ = "pattern" then
          A_Var.Kind := Pattern_Kind;
 
          if Node.F_Args.Children_Count /= 1 then
             Error ("missing parameter for pattern");
          end if;
-      elsif Node.F_Typ.Text = "set" then
+      elsif Typ = "set" then
          A_Var.Kind := Set_Kind;
 
          if Node.F_Args.Children_Count /= 1 then
@@ -363,7 +370,7 @@ package body Wrapping.Semantic.Analysis is
          if Node.F_Args.Child (1).Text /= "string" then
             Error ("only sets of strings are currently supported");
          end if;
-      elsif Node.F_Typ.Text = "map" then
+      elsif Typ = "map" then
          A_Var.Kind := Map_Kind;
 
          if Node.F_Args.Children_Count /= 2 then

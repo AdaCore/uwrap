@@ -51,6 +51,10 @@ class Token(LexerToken):
     Amp        = WithText()
     At         = WithText()
     Backslash  = WithText()
+    Plus       = WithText()
+    Minus      = WithText()
+    Multiply   = WithText()
+    Divide     = WithText()
 
     String     = WithText()
     Comment    = WithTrivia()
@@ -117,6 +121,11 @@ template_lexer.add_rules(
     (Literal("&"), Token.Amp),
     (Literal("@"), Token.At),
     (Literal("\\"), Token.Backslash),
+
+    (Literal("+"), Token.Plus),
+    (Literal("-"), Token.Minus),
+    (Literal("*"), Token.Multiply),
+    (Literal("/"), Token.Divide),
 
     (Literal("true"), Token.LitTrue),
     (Literal("false"), Token.LitFalse),

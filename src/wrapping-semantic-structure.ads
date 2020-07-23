@@ -177,7 +177,8 @@ package Wrapping.Semantic.Structure is
    overriding
    procedure Resolve_References (An_Entity : access T_Template_Type);
 
-   type Var_Type_Kind is (Text_Kind, Set_Kind, Map_Kind, Pattern_Kind);
+   type Var_Type_Kind is
+     (Integer_Kind, Text_Kind, Set_Kind, Map_Kind, Pattern_Kind);
 
    type T_Var_Type is new T_Named_Entity_Type with record
       Kind : Var_Type_Kind;

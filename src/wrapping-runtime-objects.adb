@@ -737,7 +737,6 @@ package body Wrapping.Runtime.Objects is
          return R;
       end Traverse_Wrapper;
 
-
       -- Wraps the default visit function, capturing the result if not
       -- null or false.
       function Visit_Wrapper
@@ -1270,7 +1269,6 @@ package body Wrapping.Runtime.Objects is
       use Wrapping.Semantic.Structure;
 
       Named_Entity : T_Entity;
-      Result : W_Object;
    begin
       if W_Node_Type (An_Entity.all).Push_Value (Name) then
          return True;
