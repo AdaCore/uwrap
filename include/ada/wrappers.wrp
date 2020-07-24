@@ -11,19 +11,17 @@ template w_Unit extends w_Ada do
    var body_with_clauses : text;
    var body_use_clauses : text;
 
-   var spec_text : pattern ("""
-   \e<spec_with_clauses>
-   \e<spec_use_clauses>
+   var spec_text : pattern ("""\i<
+   \i<\e<spec_with_clauses>\i>
+   \i<\e<spec_use_clauses>\i>
 
-   \e<spec>
-   """);
+   \i<\e<spec>\i>\i>""");
 
-   var body_text : pattern ("""
-   \e<body_with_clauses>
-   \e<body_use_clauses>
+   var body_text : pattern ("""\i<
+   \i<\e<body_with_clauses>\i>
+   \i<\e<body_use_clauses>\i>
 
-   \e<body>
-   """);
+   \i<\e<body>\i>\i>""");
 end;
 
 template w_NamedEntity extends w_Ada do
@@ -45,21 +43,19 @@ template w_PackageDecl extends w_NamedEntity do
    var stmt : text;
    var elaborate_body : text;
 
-   var spec : pattern ("""
+   var spec : pattern ("""\i<
       package \e<name> is
-        \e<elaborate_body>
-        \e<spec_content>
-      end \e<name>; 
-      """);
+        \i<\e<elaborate_body>\i>
+        \i<\e<spec_content>\i>
+      end \e<name>;\i>""");
 
-   var body : pattern ("""
+   var body : pattern ("""\i<
       package body \e<name> is
-        \e<body_content>
+        \i<\e<body_content>\i>
       begin
         null;
-        \e<stmt>
-      end \e<name>;
-   """);
+        \i<\e<stmt>\i>
+      end \e<name>;\i>""");
 end;
 
 template w_SubpDecl extends w_NamedEntity do
@@ -87,31 +83,27 @@ template w_SubpDecl extends w_NamedEntity do
    var call : text;
    var call_name : text;
 
-   var profile : pattern ("""
-   \e<function_or_procedure> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""); 
+   var profile : pattern ("""\e<function_or_procedure> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""); 
 
-   var spec : pattern ("""
-   \e<profile>;
-   """); 
+   var spec : pattern ("""\e<profile>;"""); 
 
-   var body : pattern ("""
+   var body : pattern ("""\i<
    \e<profile> is
-      \e<pre_call_decl>
+      \i<\e<pre_call_decl>\i>
    begin
-      \e<pre_call_stmt>
+      \i<\e<pre_call_stmt>\i>
       declare
-         \e<call_decl>
+         \i<\e<call_decl>\i>
       begin
-         \e<call_stmt>
+         \i<\e<call_stmt>\i>
          declare
-            \e<post_call_decl>
+            \i<\e<post_call_decl>\i>
          begin
-            \e<post_call_stmt>
-            \e<return_stmt>
+            \i<\e<post_call_stmt>\i>
+            \i<\e<return_stmt>\i>
          end;
       end;
-   end \e<name>;
-   """); 
+   end \e<name>;\i>"""); 
 end;
 
 template w_SubpDeclCall extends w_SubpDecl do
@@ -263,9 +255,9 @@ visitor build_subprogram (sb) do
          function_or_procedure => "function",
          result_type_expr => lambda (child (w_TypeExpr()).txt),
          call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
-         post_call_decl => """
+         post_call_decl => """\i<
             \e<self.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
-            with Address => \e<self.tmp ("result_orig")>'Address, Import;\n""",
+            with Address => \e<self.tmp ("result_orig")>'Address, Import;\n\i>""",
          call_stmt => "null;", 
          return_stmt => """return \e<sb.tmp ("result_wrapped")>;""");
    else
@@ -511,21 +503,20 @@ visitor wrappers_post_process () do
                   call_name => ncall);
 
                pick p weave (
-                  spec_content => @ & """
+                  spec_content => @ & """\i<
                      generic 
                         with \e<cl.profile>;
-                     \e<cb.profile>;""",
-                  body_content => @ & """
-                     \e<cb.body>""");
+                     \e<cb.profile>;\i>""",
+                  body_content => @ & """\e<cb.body>""");
             end;
          end;
       else 
          match origin (child (RecordTypeDef ())) do
             match child (w_ComponentDecl())
-               weave (definition => @ & """
+               weave (definition => @ & """\i<
                   record
-                     \e<content_definition>
-                  end record""");
+                     \i<\e<content_definition>\i>
+                  end record\i>""");
             else
                weave (definition => @ & "null record");
          end;
