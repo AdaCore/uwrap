@@ -363,9 +363,17 @@ package body Wrapping.Runtime.Analysis is
       Pop_Error_Location;
    end Apply_Template_Action;
 
-   procedure Handle_Command_Front (Command : T_Command);
-   procedure Handle_Command_Back (Command : T_Command);
-   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence);
+   procedure Handle_Command_Front (Command : T_Command)
+     with Post => Top_Frame.Data_Stack.Length =
+       Top_Frame.Data_Stack.Length'Old;
+
+   procedure Handle_Command_Back (Command : T_Command)
+     with Post => Top_Frame.Data_Stack.Length =
+       Top_Frame.Data_Stack.Length'Old;
+
+   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence)
+     with Post => Top_Frame.Data_Stack.Length =
+       Top_Frame.Data_Stack.Length'Old;
 
    procedure Handle_Command (Command : T_Command; Self : W_Node) is
    begin
@@ -1657,7 +1665,7 @@ package body Wrapping.Runtime.Analysis is
       begin
          if Is_First then
             Is_First := False;
-         else
+         elsif Fold_Expr.Separator /= null then
             Evaluate_Expression (Fold_Expr.Separator);
             Pop_Object;
          end if;
