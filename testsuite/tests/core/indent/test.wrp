@@ -1,0 +1,42 @@
+template w_A do
+   var contents : text;
+end;
+
+template w_B do
+   var contents : text;
+end;
+
+template w_C do
+   var contents : text;
+end;
+
+match f_name ("A")
+wrap w_A ();
+
+match f_name ("B") 
+wrap w_B ();
+
+match f_name ("C")
+wrap w_C ();
+
+match w_A ()
+weave (
+   contents => """\i<
+   \e<origin.f_name>:
+      \i<\e<child (v: w_B ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>\i>\i>""");
+
+match w_B ()
+weave (
+   contents => """\i<
+   \e<origin.f_name>:
+      \i<\e<child (v: w_C ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>\i>\i>""");
+
+match w_C ()
+weave (
+   contents => """\i<
+   \e<origin.f_name> LEVEL 1
+      LEVEL 2
+   BACK TO LEVEL 1\i>""");
+
+match w_A ()
+wrap standard.out (contents & "\n");

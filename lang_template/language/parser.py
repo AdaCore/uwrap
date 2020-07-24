@@ -125,6 +125,7 @@ class NewExpr(TemplateNode):
 class FoldExpr(TemplateNode):
    default=Field()
    combine=Field()
+   separator=Field()
 
 class AllExpr(TemplateNode):
    expression=Field()
@@ -291,7 +292,7 @@ template_grammar.add_rules(
    create_template_tree=Or(
       CreateTemplateTree(G.template_call, Opt ('{', List (G.create_template_tree, sep = ',', empty_valid = True), '}')),
       CreateTemplateTree(Null (G.template_call), '{', List (G.create_template_tree, sep = ',', empty_valid = True), '}')),
-   fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, ')'),
+   fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, Opt (',', G.expression), ')'),
    all_expr=AllExpr ('all', '(', Opt (G.expression), ')'),
    at_ref=AtRef('@'),
    call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),

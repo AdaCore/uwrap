@@ -416,6 +416,12 @@ package body Wrapping.Runtime.Objects is
    end To_String;
 
    overriding
+   function To_String (Object : W_Text_Reindent_Type) return Text_Type is
+   begin
+      return Reindent (Object.Indent, Object.Content.To_String);
+   end To_String;
+
+   overriding
    procedure Push_Call_Result
      (An_Entity : access W_Function_Type;
       Params    : T_Arg_Vectors.Vector) is

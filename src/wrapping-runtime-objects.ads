@@ -57,6 +57,11 @@ package Wrapping.Runtime.Objects is
 
    type W_Text_Vector_Type;
    type W_Text_Vector is access all W_Text_Vector_Type'Class;
+   package W_Text_Vector_Vectors is new Ada.Containers.Vectors (Positive, W_Text_Vector);
+   use W_Text_Vector_Vectors;
+
+   type W_Text_Reindent_Type;
+   type W_Text_Reindent is access all W_Text_Reindent_Type'Class;
 
    type W_Function_Type;
    type W_Function is access all W_Function_Type'Class;
@@ -245,6 +250,14 @@ package Wrapping.Runtime.Objects is
    type Call_Access is access procedure
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector);
+
+   type W_Text_Reindent_Type is new W_Text_Expression_Type with record
+      Indent : Integer;
+      Content : W_Object;
+   end record;
+
+   overriding
+   function To_String (Object : W_Text_Reindent_Type) return Text_Type;
 
    type W_Function_Type is new W_Object_Type with record
       Prefix : W_Object;

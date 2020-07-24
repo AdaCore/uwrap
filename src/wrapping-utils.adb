@@ -20,8 +20,10 @@ package body Wrapping.Utils is
       end if;
    end Remove_Quotes;
 
-   function Reindent (New_Indent : Integer; Text : Text_Type) return Text_Type is      Space_Count : Integer := 0;
-      Min_Space_Count : Integer := Integer'Last;
+   function Reindent (New_Indent : Integer; Text  : Text_Type) return Text_Type
+   is
+      Space_Count : Integer := 0;
+      Spaces_To_Remove : Integer := Integer'Last;
       Skip_To_Terminator : Boolean := False;
 
       Indent : Wide_Wide_String (1 .. New_Indent) := (others => ' ');
@@ -37,8 +39,8 @@ package body Wrapping.Utils is
             Skip_To_Terminator := False;
             Line_Count := Line_Count + 1;
          else
-            if Space_Count < Min_Space_Count and then Space_Count /= 0 then
-               Min_Space_Count := Space_Count;
+            if Space_Count < Spaces_To_Remove then
+               Spaces_To_Remove := Space_Count;
             end if;
 
             Skip_To_Terminator := True;
@@ -48,12 +50,22 @@ package body Wrapping.Utils is
       declare
          Result : Text_Type (1 .. Text'Length + Line_Count * New_Indent);
          Result_Index : Integer := Result'First - 1;
+         Characters_Before : Boolean := False;
+         C : Wide_Wide_Character;
       begin
-         for C of Text loop
+         Result_Index := Result_Index + 1;
+         Result (Result_Index .. Result_Index + Indent'Length - 1) := Indent;
+         Result_Index := Result_Index + Indent'Length - 1;
+
+         Space_Count := 0;
+
+         for I in Text'Range loop
+            C := Text (I);
+
             if C = ' ' then
                Space_Count := Space_Count + 1;
 
-               if Space_Count > Min_Space_Count then
+               if Space_Count > Spaces_To_Remove then
                   Result_Index := Result_Index + 1;
                   Result (Result_Index) := C;
                end if;
@@ -62,19 +74,23 @@ package body Wrapping.Utils is
                Result_Index := Result_Index + 1;
                Result (Result_Index) := C;
 
-               Result_Index := Result_Index + 1;
-               Result (Result_Index .. Result_Index + Indent'Length - 1) := Indent;
-               Result_Index := Result_Index + Indent'Length - 1;
+               if I < Text'Last then
+                  Result_Index := Result_Index + 1;
+                  Result (Result_Index .. Result_Index + Indent'Length - 1) := Indent;
+                  Result_Index := Result_Index + Indent'Length - 1;
+               end if;
             elsif C /= ' ' then
                Result_Index := Result_Index + 1;
                Result (Result_Index) := C;
             end if;
          end loop;
 
-         Put_Line ("INDENT " & New_Indent'Wide_Wide_Image & ", MIN SPACES " & Min_Space_Count'Wide_Wide_Image);
-         Put_Line (Text);
-         Put_Line ("TO");
-         Put_Line (Result (Result'First .. Result_Index));
+         --  Put_Line ("----------------------------------------");
+         --  Put_Line ("INDENT " & New_Indent'Wide_Wide_Image & ", SPACES TO REMOVE " & Spaces_To_Remove'Wide_Wide_Image);
+         --  Put_Line (Text);
+         --  Put_Line ("TO");
+         --  Put_Line (Result (Result'First .. Result_Index));
+         --  Put_Line ("----------------------------------------");
 
          return Result (Result'First .. Result_Index);
       end;

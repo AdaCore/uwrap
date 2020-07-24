@@ -2,6 +2,7 @@ with Ada.Containers.Vectors;
 with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Wide_Wide_Text_IO;
+with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Characters.Conversions; use Ada.Characters.Conversions;
 with Ada.Containers; use Ada.Containers;
 
@@ -484,6 +485,7 @@ package body Wrapping.Semantic.Analysis is
          when Template_Fold_Expr =>
             Expr.Default := Build_Expr (Node.As_Fold_Expr.F_Default);
             Expr.Combine := Build_Expr (Node.As_Fold_Expr.F_Combine);
+            Expr.Separator := Build_Expr (Node.As_Fold_Expr.F_Separator);
 
          when Template_All_Expr =>
             Expr.All_Match := Build_Expr (Node.As_All_Expr.F_Expression);
@@ -584,7 +586,15 @@ package body Wrapping.Semantic.Analysis is
       end if;
 
       while Current <= Str'Last loop
-         if Str (Current) = '\' then
+         if Is_Line_Terminator (Str (Current)) then
+            --  Create one entry per line of text. This will help analyzing
+            --  empty lines later on.
+
+            Result.Append
+              ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Current))));
+            Current := Current + 1;
+            Next_Index := Current;
+         elsif Str (Current) = '\' then
             if Current /= Str'First then
                Result.Append
                  ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Current - 1))));
@@ -630,6 +640,62 @@ package body Wrapping.Semantic.Analysis is
                Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
                Current := Current + 1;
                Next_Index := Current;
+            elsif Str (Current) = 'i' then
+               declare
+                  Spaces : Integer := 0;
+                  To_Add : String_Part;
+                  Characters_Before : Boolean := False;
+               begin
+                  for J in reverse Str'First .. Current - 2 loop
+                     if not Is_Line_Terminator (Str (J)) then
+                        Characters_Before := True;
+                     end if;
+
+                     exit when Str (J) /= ' ';
+
+                     Spaces := Spaces + 1;
+                  end loop;
+
+                  if Current = Str'Last then
+                     Error ("expected < or > after \i");
+                  elsif Str (Current + 1) = '<' then
+                     To_Add := (Open_Reindent_Kind, 0, 0, Spaces);
+                  elsif Str (Current + 1) = '>' then
+                     To_Add := (Close_Reindent_Kind, 0, 0);
+                  else
+                     Error ("expected < or > after \i");
+                  end if;
+
+                  if Result.Length > 0
+                    and then Result.Last_Element.Kind = Str_Kind
+                  then
+                     declare
+                        Prev : Text_Type := To_Text (Result.Last_Element.Value);
+                        Last : Integer := Prev'Last - Spaces;
+                     begin
+                        Result.Replace_Element
+                          (Result.Last_Index,
+                           (Str_Kind, 0, 0,
+                            To_Unbounded_Text
+                              (Prev (Prev'First .. Last))));
+                     end;
+                  end if;
+
+                  Result.Append (To_Add);
+
+                  Current := Current + 2;
+                  Next_Index := Current;
+
+                  if Current in Str'Range
+                    and then Is_Line_Terminator (Str (Current))
+                    and then not Characters_Before
+                    and then To_Add.Kind = Open_Reindent_Kind
+                  then
+                     Current := Current + 1;
+                     Next_Index := Current;
+                  end if;
+               end;
+
             elsif Str (Current) in '0' .. '9' then
                Next_Index := Current;
 

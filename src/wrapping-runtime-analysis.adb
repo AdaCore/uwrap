@@ -1014,7 +1014,8 @@ package body Wrapping.Runtime.Analysis is
       On_Group      : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expr : T_Expr) := null)
    is
-      Result : W_Text_Vector := new W_Text_Vector_Type;
+      Result : W_Text_Vector_Vectors.Vector;
+
       New_Text : W_String;
 
       procedure Append_Text (Text : Text_Type) is
@@ -1022,7 +1023,7 @@ package body Wrapping.Runtime.Analysis is
          New_Text := new W_String_Type;
          New_Text.Value := To_Unbounded_Text (Text);
 
-         Result.A_Vector.Append (W_Object (New_Text));
+         Result.Last_Element.A_Vector.Append (W_Object (New_Text));
       end Append_Text;
 
       procedure On_Error
@@ -1043,6 +1044,8 @@ package body Wrapping.Runtime.Analysis is
 
       Prev_Error : Error_Callback_Type;
    begin
+      Result.Append (new W_Text_Vector_Type);
+
       Prev_Error := Error_Callback;
       Error_Callback := On_Error'Unrestricted_Access;
 
@@ -1053,14 +1056,14 @@ package body Wrapping.Runtime.Analysis is
       for Str of Expr.Str loop
          case Str.Kind is
             when Str_Kind =>
-               Result.A_Vector.Append
+               Result.Last_Element.A_Vector.Append
                  (new W_String_Type'(Value => Str.Value));
             when Expr_Kind =>
                if On_Expression /= null then
                   On_Expression.All (Str.Expr);
                else
                   Evaluate_Expression (Str.Expr);
-                  Result.A_Vector.Append (W_Object (Pop_Object));
+                  Result.Last_Element.A_Vector.Append (W_Object (Pop_Object));
                end if;
             when Group_Kind =>
                declare
@@ -1086,10 +1089,27 @@ package body Wrapping.Runtime.Analysis is
                      Append_Text (Value.To_String);
                   end if;
                end;
+
+            when Open_Reindent_Kind =>
+               declare
+                  Indent : W_Text_Reindent := new W_Text_Reindent_Type'
+                    (Indent =>  Str.Indent,
+                     Content =>  new W_Text_Vector_Type);
+               begin
+                  Result.Last_Element.A_Vector.Append (W_Object (Indent));
+                  Result.Append (W_Text_Vector (Indent.Content));
+               end;
+
+            when Close_Reindent_Kind =>
+               Result.Delete_Last;
          end case;
       end loop;
 
-      Push_Object (Result);
+      if Result.Length /= 1 then
+         Error ("unbalanced string");
+      end if;
+
+      Push_Object (Result.Last_Element);
       Error_Callback := Prev_Error;
       Pop_Frame_Context;
    end Analyze_Replace_String;
@@ -1631,8 +1651,17 @@ package body Wrapping.Runtime.Analysis is
       Fold_Expr : T_Expr := Selector.Selector_Right;
       Init_Value : W_Object;
 
+      Is_First : Boolean := True;
+
       procedure Expand_Action is
       begin
+         if Is_First then
+            Is_First := False;
+         else
+            Evaluate_Expression (Fold_Expr.Separator);
+            Pop_Object;
+         end if;
+
          Evaluate_Expression (Fold_Expr.Combine);
       end Expand_Action;
 

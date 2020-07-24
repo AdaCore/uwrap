@@ -240,7 +240,12 @@ package Wrapping.Semantic.Structure is
       Program : T_Command_Sequence;
    end record;
 
-   type String_Part_Kind is (Str_Kind, Expr_Kind, Group_Kind);
+   type String_Part_Kind is
+     (Str_Kind,
+      Expr_Kind,
+      Group_Kind,
+      Open_Reindent_Kind,
+      Close_Reindent_Kind);
 
    type String_Part (Kind : String_Part_Kind := Str_Kind) is record
       Offset_Line, Offset_Column : Integer;
@@ -254,6 +259,12 @@ package Wrapping.Semantic.Structure is
 
          when Group_Kind =>
             Group_Number : Integer;
+
+         when Open_Reindent_Kind =>
+            Indent : Integer;
+
+         when Close_Reindent_Kind =>
+            null;
 
       end case;
    end record;
@@ -309,6 +320,7 @@ package Wrapping.Semantic.Structure is
          when Template_Fold_Expr =>
             Default     : T_Expr;
             Combine     : T_Expr;
+            Separator   : T_Expr;
 
          when Template_All_Expr =>
             All_Prefix : T_Expr;
