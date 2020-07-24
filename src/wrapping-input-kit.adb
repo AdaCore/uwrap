@@ -168,6 +168,14 @@ package body Wrapping.Input.Kit is
                   else
                      return W_Object (Get_Entity_For_Node (As_Node (Value)));
                   end if;
+               elsif Kind (Value) = Boolean_Value then
+                  if As_Boolean (Value) then
+                     --  TODO: We should probably have a proper true boolean
+                     --  here instead.
+                     return new W_Integer_Type'(Value => 1);
+                  else
+                     return Match_False;
+                  end if;
                else
                   Error ("unsupported property kind: " & Any_Value_Kind'Wide_Wide_Image (Kind (Value)));
                end if;

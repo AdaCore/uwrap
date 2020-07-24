@@ -54,6 +54,7 @@ package body Wrapping.Run is
          Root                       => Libtestlang.Analysis.Root,
          Text_Type_Value            => Libtestlang.Common.Text_Type_Value,
          Node_Value                 => Libtestlang.Common.Node_Value,
+         Boolean_Value              => Libtestlang.Common.Boolean_Value,
          Value_Constraint           => Libtestlang.Common.Value_Constraint,
          Value_Constraint_Array     => Libtestlang.Common.Value_Constraint_Array);
    end Testlang;
@@ -86,6 +87,7 @@ package body Wrapping.Run is
          Root                       => Libadalang.Analysis.Root,
          Text_Type_Value            => Libadalang.Common.Text_Type_Value,
          Node_Value                 => Libadalang.Common.Node_Value,
+         Boolean_Value              => Libadalang.Common.Boolean_Value,
          Value_Constraint           => Libadalang.Common.Value_Constraint,
          Value_Constraint_Array     => Libadalang.Common.Value_Constraint_Array);
    end Adalang;
@@ -122,7 +124,6 @@ package body Wrapping.Run is
                declare
                   Full_Path : String := Dir_Path & File (File'First .. Name_Len);
                begin
-
                   if File_Extension (File (File'First .. Name_Len)) = ".wrp" then
                      declare
                         Module_Name : String :=

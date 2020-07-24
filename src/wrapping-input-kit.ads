@@ -34,6 +34,7 @@ generic
 
    Text_Type_Value : Any_Value_Kind;
    Node_Value : Any_Value_Kind;
+   Boolean_Value : Any_Value_Kind;
 
    with function Children (Node : Kit_Node'Class) return Kit_Node_Array is <>;
    with function Parent (Node : Kit_Node'Class) return Kit_Node is <>;
@@ -67,6 +68,7 @@ generic
    with function Kind (Self : Value_Type) return Any_Value_Kind is <>;
    with function As_Text_Type (Self : Value_Type) return Text_Type is <>;
    with function As_Node (Self : Value_Type) return Kit_Node is <>;
+   with function As_Boolean (Self : Value_Type) return Boolean is <>;
    with function Property_Argument_Types
      (Property : Any_Node_Data_Reference) return Value_Constraint_Array is <>;
    with function Property_Argument_Default_Value
