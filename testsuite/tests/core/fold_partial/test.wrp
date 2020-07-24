@@ -1,0 +1,23 @@
+template w_1 do
+   var content : text;
+end;
+
+template w_2 do
+   var content : text;
+end;
+
+template w_Root do
+   var content : text;
+end;
+
+match f_name ("A")
+wrap w_Root ();
+
+match f_name ("B")
+wrap w_2 ("2:" & f_name);
+
+match f_name ("B")
+wrap w_1 ("1:" & f_name);
+
+match w_Root ()
+wrap standard.out (child (x: (w_1 ())).fold (c: "", c: (c & x.content & "\n")));

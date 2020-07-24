@@ -1388,19 +1388,28 @@ package body Wrapping.Runtime.Objects is
          Result : out W_Object)
          return Visit_Action
       is
-         Last_Result : Visit_Action := Into;
+         Current_Result : W_Object;
+         Last_Decision : Visit_Action := Into;
       begin
+         Result := Match_False;
+
          if E.all in W_Node_Type'Class then
             for T of W_Node (E).Templates_Ordered loop
-               Last_Result := Visitor (T, Result);
+               Last_Decision := Visitor (T, Current_Result);
 
-               if Last_Result = Stop then
+               if Current_Result /= Match_False
+                 and then Current_Result /= null
+               then
+                  Result := Current_Result;
+               end if;
+
+               if Last_Decision = Stop then
                   return Stop;
                end if;
             end loop;
          end if;
 
-         return Last_Result;
+         return Last_Decision;
       end Template_Visitor;
 
       Last_Result : Visit_Action := Into;
