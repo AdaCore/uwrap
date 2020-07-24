@@ -209,6 +209,14 @@ package body Wrapping.Input.Kit is
               (new W_String_Type'
                    (Value => To_Unbounded_Text (Full_Sloc_Image (An_Entity.Node)))));
          return True;
+      elsif Name = "kind" then
+         Push_Object
+           (W_Object'
+              (new W_String_Type'
+                   (Value => To_Unbounded_Text
+                        (To_Wide_Wide_String
+                           (An_Entity.Node.Kind_Name)))));
+         return True;
       end if;
 
       Id := Lookup_DSL_Name (To_String (Name));
@@ -239,6 +247,10 @@ package body Wrapping.Input.Kit is
          end if;
 
          if Result /= null then
+            --  At this point, we may have not computed children yet. Do it if
+            --  it's not the case.
+            An_Entity.Pre_Visit;
+
             if Result.all in W_Source_Node_Type'Class then
                Push_Object
                  (An_Entity.Children_By_Node.Element (W_Source_Node_Type (Result.all).A_Node));
