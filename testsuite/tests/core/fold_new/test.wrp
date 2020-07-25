@@ -1,0 +1,16 @@
+template w_Child do
+   var content : text;
+end;
+
+template w_Root do
+
+end;
+
+match f_name ("A") do
+   wrap w: w_Root ();
+then
+   pick w.child (new ({w_Child ("C1"), w_Child ("C2"), w_Child ("C3")}));
+end;
+
+match w_Root ()
+wrap standard.out (child (x: (w_Child ())).fold (c: "", c: (c & x.content & "\n")));

@@ -1412,25 +1412,34 @@ package body Wrapping.Runtime.Objects is
          return Last_Decision;
       end Template_Visitor;
 
-      Last_Result : Visit_Action := Into;
+      Last_Decision : Visit_Action := Into;
+      Result : W_Object;
    begin
+      Result := Match_False;
+
       --  First, traverse through the actual structure of the template.
 
-      if Last_Result /= Stop then
-         --  Call to the super traverse function
-         Last_Result := W_Node_Type (An_Entity.all).Traverse
-           (A_Mode, Include_Self, Final_Result, Visitor);
+      --  Call to the super traverse function
+      Last_Decision := W_Node_Type (An_Entity.all).Traverse
+        (A_Mode, Include_Self, Result, Visitor);
+
+      if Result /=  null and then Result /= Match_False then
+         Final_Result := Result;
       end if;
 
       --  Then, try to traverse the template implicit structure held by the
       --  original node.
 
-      if Last_Result /= Stop and then An_Entity.Origin /= null then
-         Last_Result := An_Entity.Origin.Traverse
-           (A_Mode, False, Final_Result, Template_Visitor'Access);
+      if Last_Decision /= Stop and then An_Entity.Origin /= null then
+         Last_Decision := An_Entity.Origin.Traverse
+           (A_Mode, False, Result, Template_Visitor'Access);
       end if;
-      --
-      return Last_Result;
+
+      if Result /= null and then Result /= Match_False then
+         Final_Result := Result;
+      end if;
+
+      return Last_Decision;
    end Traverse;
 
 end Wrapping.Runtime.Objects;
