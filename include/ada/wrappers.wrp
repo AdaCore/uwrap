@@ -85,7 +85,7 @@ template w_SubpDecl extends w_NamedEntity do
 
    var profile : pattern ("""\e<function_or_procedure> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""); 
 
-   var spec : pattern ("""\e<profile>;"""); 
+   var spec : text; 
 
    var body : pattern ("""\i<
    \e<profile> is
@@ -370,6 +370,13 @@ visitor wrappers_post_process () do
 
       match origin (SubpDecl ())
       pick p weave (spec_content => @ & sb.spec, body_content => @ & sb.body);
+
+      match child (w_Aspect ())
+         weave (spec => """\i<
+            \e<profile> with 
+               \i<\e<child (a: w_Aspect ()).fold (c: "", c: (c & a.txt), c: (c & ",\n"))>;\i>\i>""");
+      else
+         weave (spec => profile & ";");
    end;
 
    match sb: w_SubpDeclCallback() 
