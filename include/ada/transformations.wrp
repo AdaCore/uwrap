@@ -147,6 +147,14 @@ visitor into_binary_compatible (type_name) do
        return_stmt => """return \e<self.tmp ("result_wrapped")>;""");
 end;
 
+visitor into_explicit_conversion (type_name) do
+   match ParamSpec() and parent (sb: SubpDecl ())
+   wrap w: w_ParamSpecCall(
+      type_expr => type_name,
+      actual_value => "\e<p_type_expression> (\e<w.name>)"
+   );
+end;
+
 visitor parameter_into_computed_expression (expr) do
    match ParamSpec()
    wrap w_ParamSpecCall(

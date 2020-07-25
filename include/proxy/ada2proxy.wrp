@@ -1,0 +1,52 @@
+import proxy.proxy;
+import ada.wrappers;
+import ada.transformations;
+
+visitor ada2proxy_type (w_param) do
+   match p_type_expression.p_designated_type_decl.f_type_def (SignedIntTypeDef ()) 
+      do
+         pick w_param weave (type => "int32");
+         
+         wrap into_explicit_conversion ("Interfaces.C.int");
+      end;
+   else match s: self ()
+      pick w_param weave (type => "proxy_address");
+end;
+
+visitor generate_ada2proxy () do
+   wrap wrap_ada_specs ();
+
+   match DefiningName ("(.*)")
+   wrap w_DefiningName ("Proxy_\1");
+
+   match d: PackageDecl ()
+   pick p: parent (CompilationUnit ()) do
+      wrap wp_Unit (name => d.p_defining_name);
+
+      # TODO: self should be p, for some reason it's not. To fix
+      # match wrapper (x: w_Unit ()) 
+      match p.wrapper (x: w_Unit ())
+      pick x.child (new (w_WithClause ("Interfaces.C")));
+   end;
+
+   match s: SubpDecl () do
+      match parent (u: wrapper (w_Unit ()))
+      wrap wp: wp_Function (
+         name => p_defining_name,
+         symbol => u.tmp (s.p_defining_name)
+      );
+
+      weave w: w_SubpDeclCall ();
+   then
+      pick w.child (new ({
+         w_Aspect ("Export => True"),
+         w_Aspect ("Convention => C"),
+         w_Aspect ("""External_Name => "\e<wp.symbol>" """)}));
+   end;
+
+   match ParamSpec () do
+      wrap w: wp_Parameter (name => p_defining_name);
+   then
+      wrap ada2proxy_type (w);
+   end;
+end;

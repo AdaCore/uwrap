@@ -1,0 +1,15 @@
+library project Proxy is
+
+    for Object_Dir use "obj";
+    for Library_Dir use "lib";
+    for Library_Name use "proxy";
+    for Source_Dirs use ("../../out", "../../src");
+    for Library_Standalone use "encapsulated";
+    for Library_Interface use ("Proxy_P");
+    for Library_Kind use "dynamic";
+
+    package Compiler is
+      for Switches ("ada") use ("-g");
+    end Compiler;
+
+end Proxy;

@@ -1,0 +1,53 @@
+template wp_Proxy do
+   var contents : text;
+end;
+
+template wp_NamedProxy extends wp_Proxy do
+   var name : text;
+   var symbol : text;
+end;
+
+template wp_Unit extends wp_NamedProxy do
+
+end;
+
+template wp_Function extends wp_NamedProxy do
+   var type : text;
+end;
+
+template wp_Parameter extends wp_NamedProxy do
+   var type : text;
+end;
+
+visitor generate_proxy2json () do
+   match wp_Parameter ()
+   weave (
+      contents => lambda("""\i<
+         "parameter": {
+            "name": "\e<name>",
+            "type": "\e<type>"
+         }\i>"""));
+      
+   match wp_Function () 
+   weave (
+      contents => lambda("""\i<
+            "function": {
+               "name": "\e<name>",
+               "symbol": "\e<symbol>",
+               "type": "\e<type>",
+               "parameters": {
+                  \i<\e<child (v: wp_Parameter ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>\i>
+               }
+            }\i>"""));
+
+   match wp_Unit () 
+   weave (
+      contents => lambda ("""\i<
+         {
+            "name":"\e<name>",
+            \i<\e<child (v: wp_Function ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>\i>
+         }\i>"""));
+
+   match wp_Unit ()
+   wrap standard.file (name & ".json", contents);
+end;

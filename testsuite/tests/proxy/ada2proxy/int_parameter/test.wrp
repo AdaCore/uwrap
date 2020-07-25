@@ -1,0 +1,6 @@
+import proxy.proxy;
+import proxy.ada2proxy;
+
+wrap generate_ada2proxy ();
+
+wrap generate_proxy2json ();
