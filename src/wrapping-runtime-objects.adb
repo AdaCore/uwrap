@@ -983,7 +983,7 @@ package body Wrapping.Runtime.Objects is
 
             if Is_Original_Expansion then
                Original_Expand_Function.all;
-               Pop_Object;
+               Delete_Object_At_Position (-2);
                Top_Frame.Top_Context.Visit_Decision.all := Into;
             else
                Top_Frame.Top_Context.Visit_Decision.all := Stop;
