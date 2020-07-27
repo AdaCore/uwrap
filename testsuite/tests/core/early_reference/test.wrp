@@ -1,2 +1,2 @@
-match Entity () and x: child (Entity () and y: child (f_name ("\e<x.f_name>")))
+match Entity () and x: child (Entity () and y: child (f_name (x"\e<x.f_name>")))
 weave standard.out ("\e<f_name> has child and grandchild of the same name (\e<x.f_name>, \e<y.f_name>) \n");

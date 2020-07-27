@@ -5,16 +5,16 @@ template base_template do
 end;
 
 match Entity () do
-    match (f_name ("A"))
+    match (f_name (x"A"))
     wrap x.t_in_x ("x.t_in_x (\e<f_name>)\n");
 
-    match (f_name ("B"))
+    match (f_name (x"B"))
     wrap t_in_x ("a.x.t_in_x (\e<f_name>)\n");
 
-    match (f_name ("B"))
+    match (f_name (x"B"))
     wrap a.b.y.t_in_y ("a.b.y.t_in_y (\e<f_name>)\n");
 
-    match (f_name ("A"))
+    match (f_name (x"A"))
     wrap base_template ("base_template (\e<f_name>)\n");
 end;
 

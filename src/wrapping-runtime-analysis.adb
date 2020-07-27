@@ -34,10 +34,12 @@ package body Wrapping.Runtime.Analysis is
    procedure Handle_All (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector);
    procedure Handle_Selector (Expr : T_Expr;  Suffix : in out T_Expr_Vectors.Vector);
 
-   procedure Analyze_Replace_String
+   procedure Evaluate_String
      (Expr          : T_Expr;
       On_Group      : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expr : T_Expr) := null);
+      On_Expression : access procedure (Expr : T_Expr) := null)
+       with Post => Top_Frame.Data_Stack.Length =
+         Top_Frame.Data_Stack.Length'Old + 1;
 
    procedure Apply_Wrapping_Program
      (Self           : W_Node;
@@ -923,9 +925,13 @@ package body Wrapping.Runtime.Analysis is
             Push_Object (W_Object'(new W_Integer_Type'(Value => Expr.Number)));
 
          when Template_Str =>
-            Analyze_Replace_String (Expr);
+            Evaluate_String (Expr);
 
-            Push_Object (W_Object'(new W_Regexp_Type'(Value => Pop_Object)));
+            if Expr.Str_Kind = String_Regexp then
+               --  If we wanted a regexp, pop the object on the stack and
+               --  replace is with a regexp wrapper.
+               Push_Object (W_Object'(new W_Regexp_Type'(Value => Pop_Object)));
+            end if;
 
          when Template_Call_Expr =>
             Handle_Call (Expr);
@@ -1017,12 +1023,12 @@ package body Wrapping.Runtime.Analysis is
 
    Expression_Unit_Number : Integer := 1;
 
-   procedure Analyze_Replace_String
+   procedure Evaluate_String
      (Expr          : T_Expr;
       On_Group      : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expr : T_Expr) := null)
    is
-      Result : W_Text_Vector_Vectors.Vector;
+      Result : W_Text_Vector := new W_Text_Vector_Type;
 
       New_Text : W_String;
 
@@ -1031,7 +1037,7 @@ package body Wrapping.Runtime.Analysis is
          New_Text := new W_String_Type;
          New_Text.Value := To_Unbounded_Text (Text);
 
-         Result.Last_Element.A_Vector.Append (W_Object (New_Text));
+         Result.A_Vector.Append (W_Object (New_Text));
       end Append_Text;
 
       procedure On_Error
@@ -1052,8 +1058,6 @@ package body Wrapping.Runtime.Analysis is
 
       Prev_Error : Error_Callback_Type;
    begin
-      Result.Append (new W_Text_Vector_Type);
-
       Prev_Error := Error_Callback;
       Error_Callback := On_Error'Unrestricted_Access;
 
@@ -1064,14 +1068,31 @@ package body Wrapping.Runtime.Analysis is
       for Str of Expr.Str loop
          case Str.Kind is
             when Str_Kind =>
-               Result.Last_Element.A_Vector.Append
+               Result.A_Vector.Append
                  (new W_String_Type'(Value => Str.Value));
             when Expr_Kind =>
+               --  if Expr.Str_Kind = String_Indent then
+               --     Indent : W_Text_Reindent := new W_Text_Reindent_Type'
+               --       (Indent =>  Str.Indent,
+               --        Content =>  new W_Text_Vector_Type);
+               --  begin
+               --     Result.Last_Element.A_Vector.Append (W_Object (Indent));
+               --     Result.Append (W_Text_Vector (Indent.Content));
+               --  end;
+
                if On_Expression /= null then
                   On_Expression.All (Str.Expr);
                else
                   Evaluate_Expression (Str.Expr);
-                  Result.Last_Element.A_Vector.Append (W_Object (Pop_Object));
+
+                  if Expr.Str_Kind = String_Indent then
+                     Result.A_Vector.Append
+                       (new W_Text_Reindent_Type'
+                          (Indent => Str.Indent,
+                           Content => Pop_Object));
+                  else
+                     Result.A_Vector.Append (W_Object (Pop_Object));
+                  end if;
                end if;
             when Group_Kind =>
                declare
@@ -1097,30 +1118,21 @@ package body Wrapping.Runtime.Analysis is
                      Append_Text (Value.To_String);
                   end if;
                end;
-
-            when Open_Reindent_Kind =>
-               declare
-                  Indent : W_Text_Reindent := new W_Text_Reindent_Type'
-                    (Indent =>  Str.Indent,
-                     Content =>  new W_Text_Vector_Type);
-               begin
-                  Result.Last_Element.A_Vector.Append (W_Object (Indent));
-                  Result.Append (W_Text_Vector (Indent.Content));
-               end;
-
-            when Close_Reindent_Kind =>
-               Result.Delete_Last;
          end case;
       end loop;
 
-      if Result.Length /= 1 then
-         Error ("unbalanced string");
+      if Expr.Str_Kind = String_Indent then
+         Push_Object
+           (W_Object'(new W_Text_Reindent_Type'
+                (Indent  => 0,
+                 Content => W_Object (Result))));
+      else
+         Push_Object (Result);
       end if;
 
-      Push_Object (Result.Last_Element);
       Error_Callback := Prev_Error;
       Pop_Frame_Context;
-   end Analyze_Replace_String;
+   end Evaluate_String;
 
    function Push_Global_Identifier (Name : Text_Type) return Boolean is
       A_Module : T_Module;

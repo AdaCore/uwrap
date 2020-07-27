@@ -243,9 +243,13 @@ package Wrapping.Semantic.Structure is
    type String_Part_Kind is
      (Str_Kind,
       Expr_Kind,
-      Group_Kind,
-      Open_Reindent_Kind,
-      Close_Reindent_Kind);
+      Group_Kind);
+
+   type String_Kind is
+     (String_Simple,
+      String_Raw,
+      String_Indent,
+      String_Regexp);
 
    type String_Part (Kind : String_Part_Kind := Str_Kind) is record
       Offset_Line, Offset_Column : Integer;
@@ -255,16 +259,11 @@ package Wrapping.Semantic.Structure is
             Value : Unbounded_Text_Type;
 
          when Expr_Kind =>
-            Expr : T_Expr;
+            Indent    : Integer;
+            Expr      : T_Expr;
 
          when Group_Kind =>
             Group_Number : Integer;
-
-         when Open_Reindent_Kind =>
-            Indent : Integer;
-
-         when Close_Reindent_Kind =>
-            null;
 
       end case;
    end record;
@@ -298,6 +297,7 @@ package Wrapping.Semantic.Structure is
             Number : Integer;
 
          when Template_Str =>
+            Str_Kind : String_Kind;
             Str : Processed_String_Vector.Vector;
 
          when Template_Call_Expr =>

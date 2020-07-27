@@ -6,7 +6,7 @@ template w_Child do
    var content : text;
 end;
 
-match f_name ("A") do
+match f_name (x"A") do
     wrap w: w_Root ();
 then
     pick w.child (new ({w_Child ("C1"), w_Child ("C2") {w_Child ("GC1")}, w_Child ("C3")}));

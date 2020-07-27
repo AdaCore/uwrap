@@ -32,9 +32,9 @@ package body Wrapping.Semantic.Analysis is
    function Build_Command_Sequence (Node : Command_Sequence'Class) return T_Command_Sequence;
    function Build_Template_Call (Node : Template_Call'Class) return T_Template_Call;
 
-   procedure Analyze_Replace_String
+   procedure Analyze_String
      (Node   : Template_Node'Class;
-      Result : in out Processed_String_Vector.Vector);
+      Result : T_Expr);
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String);
 
@@ -460,7 +460,7 @@ package body Wrapping.Semantic.Analysis is
             Expr.Number := Integer'Wide_Wide_Value (Node.Text);
 
          when Template_Str =>
-            Analyze_Replace_String (Node, Expr.Str);
+            Analyze_String (Node, Expr);
 
          when Template_Call_Expr =>
             Expr.Called := Build_Expr (Node.As_Call_Expr.F_Called);
@@ -546,16 +546,15 @@ package body Wrapping.Semantic.Analysis is
 
    Expression_Unit_Number : Integer := 1;
 
-   procedure Analyze_Replace_String
+   procedure Analyze_String
      (Node   : Template_Node'Class;
-      Result : in out Processed_String_Vector.Vector)
+      Result : T_Expr)
    is
-      Str : constant Text_Type := Remove_Quotes (Node.Text);
+      Str : constant Text_Type := Node.Text;
       Context : constant Analysis_Context := Node.Unit.Context;
 
-      Next_Index : Integer := Str'First;
-
-      Current : Integer := Str'First;
+      Next_Index : Integer;
+      Current : Integer;
 
       procedure On_Error
         (Message : Text_Type;
@@ -575,28 +574,93 @@ package body Wrapping.Semantic.Analysis is
       end On_Error;
 
       Prev_Error : Error_Callback_Type;
-   begin
-      Prev_Error := Error_Callback;
-      Error_Callback := On_Error'Unrestricted_Access;
 
-      if Str = "" then
-         Error_Callback := Prev_Error;
+      Str_First, Str_Last : Integer;
+      Left_Spaces : Integer := 0;
+      Found_Characters_On_Line : Boolean := False;
+      Line_Number : Integer := 1;
+   begin
+      Str_First := Str'First;
+      Str_Last := Str'Last;
+
+      if Str'Length = 0 then
+         return;
+      end if;
+
+      case Str (Str_First) is
+         when 'i' =>
+            Result.Str_Kind := String_Indent;
+            Str_First := Str_First + 1;
+
+         when 'r' =>
+            Result.Str_Kind := String_Raw;
+            Str_First := Str_First + 1;
+
+         when 's' =>
+            Result.Str_Kind := String_Simple;
+            Str_First := Str_First + 1;
+
+         when 'x' =>
+            Result.Str_Kind := String_Regexp;
+            Str_First := Str_First + 1;
+
+         when others =>
+            Result.Str_Kind := String_Simple;
+
+      end case;
+
+      if Str_First + 3 in Str'Range
+        and then Str (Str_First .. Str_First + 2) = """"""""
+        and then Str_Last - 3 in Str'Range
+      then
+         Str_First := Str_First + 3;
+         Str_Last := Str_Last - 3;
+      else
+         Str_First := Str_First + 1;
+         Str_Last := Str_Last - 1;
+      end if;
+
+      if Result.Str_Kind = String_Raw then
+         Result.Str.Append
+           ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Str_First .. Str_Last))));
 
          return;
       end if;
 
-      while Current <= Str'Last loop
+      if Str (Str_First .. Str_Last) = "" then
+         return;
+      end if;
+
+      Prev_Error := Error_Callback;
+      Error_Callback := On_Error'Unrestricted_Access;
+
+      Current := Str_First;
+      Next_Index := Str_First;
+
+      while Current <= Str_Last loop
          if Is_Line_Terminator (Str (Current)) then
             --  Create one entry per line of text. This will help analyzing
             --  empty lines later on.
 
-            Result.Append
-              ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Current))));
+            if Line_Number = 1
+              and then not Found_Characters_On_Line
+              and then Result.Str_Kind = String_Indent
+            then
+               --  Do not add the initial empty line when dealing with string
+               --  indent
+               null;
+            else
+               Result.Str.Append
+                 ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Current))));
+            end if;
+
             Current := Current + 1;
             Next_Index := Current;
+            Found_Characters_On_Line := False;
+            Left_Spaces := 0;
          elsif Str (Current) = '\' then
             if Current /= Str'First then
-               Result.Append
+               Result.Str.Append
                  ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Current - 1))));
             end if;
 
@@ -608,7 +672,7 @@ package body Wrapping.Semantic.Analysis is
                if Str (Current) = '<' then
                   Next_Index := Current;
 
-                  while Next_Index < Str'Last and then Str (Next_Index) /= '>' loop
+                  while Next_Index < Str_Last and then Str (Next_Index) /= '>' loop
                      Next_Index := Next_Index + 1;
                   end loop;
 
@@ -626,80 +690,24 @@ package body Wrapping.Semantic.Analysis is
                         Error (To_Text (Libtemplatelang.Analysis.Diagnostics (Expression_Unit)(1).Message));
                      end if;
 
-                     Result.Append ((Expr_Kind, 0, 0, Build_Expr (Expression_Unit.Root)));
+                     Result.Str.Append ((Expr_Kind, 0, 0, Left_Spaces, Build_Expr (Expression_Unit.Root)));
                   end;
 
                   Current := Next_Index + 1;
                   Next_Index := Current;
                else
-                  Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Current - 1 .. Current))));
+                  Result.Str.Append ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Current - 1 .. Current))));
                   Next_Index := Current;
                   Current := Current + 1;
                end if;
             elsif Str (Current) = 'n' then
-               Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
+               Result.Str.Append ((Str_Kind, 0, 0, To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
                Current := Current + 1;
                Next_Index := Current;
-            elsif Str (Current) = 'i' then
-               declare
-                  Spaces : Integer := 0;
-                  To_Add : String_Part;
-                  Characters_Before : Boolean := False;
-               begin
-                  for J in reverse Str'First .. Current - 2 loop
-                     if not Is_Line_Terminator (Str (J)) then
-                        Characters_Before := True;
-                     end if;
-
-                     exit when Str (J) /= ' ';
-
-                     Spaces := Spaces + 1;
-                  end loop;
-
-                  if Current = Str'Last then
-                     Error ("expected < or > after \i");
-                  elsif Str (Current + 1) = '<' then
-                     To_Add := (Open_Reindent_Kind, 0, 0, Spaces);
-                  elsif Str (Current + 1) = '>' then
-                     To_Add := (Close_Reindent_Kind, 0, 0);
-                  else
-                     Error ("expected < or > after \i");
-                  end if;
-
-                  if Result.Length > 0
-                    and then Result.Last_Element.Kind = Str_Kind
-                  then
-                     declare
-                        Prev : Text_Type := To_Text (Result.Last_Element.Value);
-                        Last : Integer := Prev'Last - Spaces;
-                     begin
-                        Result.Replace_Element
-                          (Result.Last_Index,
-                           (Str_Kind, 0, 0,
-                            To_Unbounded_Text
-                              (Prev (Prev'First .. Last))));
-                     end;
-                  end if;
-
-                  Result.Append (To_Add);
-
-                  Current := Current + 2;
-                  Next_Index := Current;
-
-                  if Current in Str'Range
-                    and then Is_Line_Terminator (Str (Current))
-                    and then not Characters_Before
-                    and then To_Add.Kind = Open_Reindent_Kind
-                  then
-                     Current := Current + 1;
-                     Next_Index := Current;
-                  end if;
-               end;
-
             elsif Str (Current) in '0' .. '9' then
                Next_Index := Current;
 
-               while Next_Index < Str'Last and then Str (Next_Index) in '0' .. '9' loop
+               while Next_Index < Str_Last and then Str (Next_Index) in '0' .. '9' loop
                   Next_Index := Next_Index + 1;
                end loop;
 
@@ -711,13 +719,13 @@ package body Wrapping.Semantic.Analysis is
                   Group_Value : Natural :=
                     Natural'Wide_Wide_Value (Str (Current .. Next_Index));
                begin
-                  Result.Append ((Group_Kind, 0, 0, Group_Value));
+                  Result.Str.Append ((Group_Kind, 0, 0, Group_Value));
                end;
 
                Current := Next_Index + 1;
                Next_Index := Current;
             elsif Str (Current) = '\' then
-               Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text ("\")));
+               Result.Str.Append ((Str_Kind, 0, 0, To_Unbounded_Text ("\")));
                Next_Index := Current + 1;
                Current := Current + 1;
             else
@@ -725,18 +733,24 @@ package body Wrapping.Semantic.Analysis is
                Current := Current + 1;
             end if;
          else
+            if Str (Current) = ' ' and not Found_Characters_On_Line then
+               Left_Spaces := Left_Spaces + 1;
+            else
+               Found_Characters_On_Line := True;
+            end if;
+
             Current := Current + 1;
          end if;
       end loop;
 
-      if Next_Index <= Str'Last then
+      if Next_Index <= Str_Last then
          -- Add the end of the text to the result
 
-         Result.Append ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Str'Last))));
+         Result.Str.Append ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Str_Last))));
       end if;
 
       Error_Callback := Prev_Error;
-   end Analyze_Replace_String;
+   end Analyze_String;
 
    function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree is
       New_Tree : T_Create_Tree := new T_Create_Tree_Type;

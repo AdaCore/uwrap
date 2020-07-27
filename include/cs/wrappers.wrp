@@ -68,55 +68,55 @@ end;
 
 visitor wrappers2cs () do
    match w_DllImportFunction () do
-      weave (contents => """\i<
+      weave (contents => i"""
          [DllImport("libproxy")]
-         private \e<static> extern \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold (c: "", c: (c & w.type & " "  & w.name), c: (c & ", "))>);\i>""");
+         private \e<static> extern \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold (c: "", c: (c & w.type & " "  & w.name), c: (c & ", "))>);""");
    end;
 
    match w_FunctionCall () do
-      weave (contents => """\i<
+      weave (contents => i"""
          public \e<static> \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold (c: "", c: (c & w.type & " "  & w.name), c: (c & ", "))>) {
-            \i<\e<pre_call_decl>\i>
-            \i<\e<pre_call_stmt>\i>
-            \i<\e<call_decl_exp>\i>
-            \i<\e<call_decl>\i>
-            \i<\e<call_stmt>\i>
-            \i<\e<post_call_decl>\i>
-            \i<\e<post_call_stmt>\i>
-         }\i>""");
+            \e<pre_call_decl>
+            \e<pre_call_stmt>
+            \e<call_decl_exp>
+            \e<call_decl>
+            \e<call_stmt>
+            \e<post_call_decl>
+            \e<post_call_stmt>
+         }""");
    end;
 
    match w_Class () do
-      weave (contents => """\i<
+      weave (contents => i"""
          class \e<name> {
-            \i<\e<child (\ w: w_NamedEntity ()).fold (c : "", c: (c & w.contents), c: (c & "\n\n"))>\i>
-         }\i>""");
+            \e<child (\ w: w_NamedEntity ()).fold (c : "", c: (c & w.contents), c: (c & "\n\n"))>
+         }""");
    end;
 
    match w_Namespace () do
-      weave (contents => """\i<
+      weave (contents => i"""
          namespace \e<name> {
             public static class \e<name>Module {
-               \i<\e<child (\ w: w_Function ()).fold (c : "", c: (c & w.contents & "\n"))>\i>
+               \e<child (\ w: w_Function ()).fold (c : "", c: (c & w.contents & "\n"))>
             }
 
-            \i<\e<child (\ w: w_Class ()).fold (c : "", c: (c & w.contents & "\n"))>\i>
-         }\i>""");
+            \e<child (\ w: w_Class ()).fold (c : "", c: (c & w.contents & "\n"))>
+         }""");
    end;
 
    match w_Unit () do
       wrap standard.file (name & ".cs", contents);
       
-      weave (contents => """\i<
+      weave (contents => i"""
          using System.Runtime.InteropServices;
 
-         \i<\e<child (w: w_Using ()).fold (c : "", c: (c & "using " & w.ref & ";\n"))>\i>
+         \e<child (w: w_Using ()).fold (c : "", c: (c & "using " & w.ref & ";\n"))>
          namespace \e<name> {
             public static class \e<name>Unit {
-               \i<\e<child (\ w: w_Function ()).fold (c : "", c: (c & w.contents & "\n"))>\i>
+               \e<child (\ w: w_Function ()).fold (c : "", c: (c & w.contents & "\n"))>
             }
 
-            \i<\e<child (\ w: w_Class ()).fold (c : "", c: (c & w.contents & "\n"))>\i>
-         }\i>""");
+            \e<child (\ w: w_Class ()).fold (c : "", c: (c & w.contents & "\n"))>
+         }""");
    end;
 end;

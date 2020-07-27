@@ -4,10 +4,10 @@ template main do
 end;
 
 match Entity () do
-    match f_name ("A")
+    match f_name (x"A")
     pick self weave main (title => @ & "SELF TEMPLATE FOR A\n");
 
-    match f_name ("A")
+    match f_name (x"A")
     weave main (title => @ & "IMPLICIT TEMPLATE FOR A\n");
 
     match e: self () and p: parent (f_name ("A"))

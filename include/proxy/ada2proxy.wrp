@@ -16,7 +16,7 @@ end;
 visitor generate_ada2proxy () do
    wrap wrap_ada_specs ();
 
-   match DefiningName ("(.*)")
+   match DefiningName (x"(.*)")
    wrap w_DefiningName ("Proxy_\1");
 
    match d: PackageDecl ()

@@ -5,7 +5,7 @@ end;
 match Entity ()
 wrap T ();
 
-match Entity ("[0-9]+")
+match Entity (x"[0-9]+")
 wrap null (T);
 
 match T ()

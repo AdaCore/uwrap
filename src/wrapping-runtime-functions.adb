@@ -153,7 +153,8 @@ package body Wrapping.Runtime.Functions is
           (Value => To_Unbounded_Text
              (Reindent
                 (W_Integer (Indentation).Value,
-                 Evaluate_Expression (Actuals (2)).To_String)));
+                 Evaluate_Expression (Actuals (2)).To_String,
+                 True)));
 
       Push_Match_Result (Result, Actuals (3));
 

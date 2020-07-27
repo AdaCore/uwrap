@@ -3,16 +3,16 @@ import ada.transformations;
 
 wrap wrap_ada_specs ();
 
-match DefiningName ("(.*)_h")
+match DefiningName (x"(.*)_h")
 wrap w_DefiningName ("\1_Wrapped");
 
-match d: NumberDecl(child (n: DefiningName ("FLAG_(?<flag_name>.*)")))
+match d: NumberDecl(child (n: DefiningName (x"FLAG_(?<flag_name>.*)")))
 wrap constant_into_enumeration ("Flag_Type", flag_name);
 
 match w_TypeDecl (name ("Flag_Type"))
 pick child (new (w_Aspect ("Convention => C")));
 
-match ParamSpec ("x : int") and parent (sb: SubpDecl())
+match ParamSpec (x"x : int") and parent (sb: SubpDecl())
 wrap n: w_ParamSpecCall (
    type_expr => "Flag_Type",
    pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<n.name>'Address, Import;\n""",

@@ -1,4 +1,4 @@
-match kind ("^string$") or kind ("^integer")
+match kind ("string") or kind ("integer")
 weave standard.out (@ & "\e<name>: \e<value>\n");
-else match kind (".*")
+else match kind (x".*")
 weave standard.out (@ & "\e<name>: (\e<kind>)\n");

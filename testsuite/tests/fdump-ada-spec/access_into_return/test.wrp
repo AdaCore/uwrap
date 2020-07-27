@@ -3,11 +3,11 @@ import ada.transformations;
 
 wrap wrap_ada_specs ();
 
-match DefiningName ("(.*)_h")
+match DefiningName (x"(.*)_h")
 wrap w_DefiningName ("\1_Wrapped");
 
 match DefiningName ("myStruct")
 wrap w_DefiningName ("My_Struct");
 
-match ParamSpec("access *" and not prev ()) and parent (SubpDecl(".*Get.*"))
+match ParamSpec(x"access *" and not prev ()) and parent (SubpDecl(x".*Get.*"))
 wrap access_into_return (); 

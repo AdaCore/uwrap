@@ -1,8 +1,8 @@
-match Entity ("A")
+match Entity (x"A")
 pick child (Entity ()).all () do
     weave standard.out (@ & "SUB ITERATION:" & f_name & "\n");
 
-    match Entity ("B")
+    match Entity (x"B")
     wrap over;
 end;
 

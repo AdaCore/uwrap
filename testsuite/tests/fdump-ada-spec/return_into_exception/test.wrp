@@ -3,14 +3,14 @@ import ada.transformations;
 
 wrap wrap_ada_specs ();
 
-match DefiningName ("(.*)_h")
+match DefiningName (x"(.*)_h")
 wrap w_DefiningName ("\1_Wrapped");
 
-match d: NumberDecl(child (n: DefiningName ("(.*)Error")))
+match d: NumberDecl(child (n: DefiningName (x"(.*)Error")))
 wrap error_code_into_exception ("Test_Exceptions", "My_Registry", "\1"); 
 
 match SubpDecl ()
    and child (f_subp_kind ("function")) 
-   and child (TypeExpr ("int")) 
+   and child (TypeExpr (x"int")) 
    and not child (DefiningName ("lastError"))
 wrap return_into_exception ("Test_Exceptions", "My_Registry"); 

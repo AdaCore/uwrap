@@ -3,11 +3,11 @@ import ada.transformations;
 
 wrap wrap_ada_specs ();
 
-match DefiningName ("(.*)_h")
+match DefiningName (x"(.*)_h")
 wrap w_DefiningName ("\1_Wrapped");
 
 match DefiningName ("myStruct")
 wrap w_DefiningName ("My_Struct");
 
-match ParamSpec("System.Address")
+match ParamSpec(x"System.Address")
 wrap address_into_return ("My_Struct"); 

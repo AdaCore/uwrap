@@ -3,10 +3,10 @@ import ada.transformations;
 
 wrap wrap_ada_specs ();
 
-match DefiningName ("(.*)_h")
+match DefiningName (x"(.*)_h")
 wrap w_DefiningName ("\1_Wrapped");
 
-match ParamSpec() and parent (SubpDecl (".*Get.*"))
+match ParamSpec() and parent (SubpDecl (x".*Get.*"))
 wrap access_into_out (); 
 
 match DefiningName ("myStruct")

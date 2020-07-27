@@ -20,7 +20,10 @@ package body Wrapping.Utils is
       end if;
    end Remove_Quotes;
 
-   function Reindent (New_Indent : Integer; Text  : Text_Type) return Text_Type
+   function Reindent
+     (New_Indent        : Integer;
+      Text              : Text_Type;
+      Indent_First_Line : Boolean) return Text_Type
    is
       Space_Count : Integer := 0;
       Spaces_To_Remove : Integer := Integer'Last;
@@ -53,9 +56,11 @@ package body Wrapping.Utils is
          Characters_Before : Boolean := False;
          C : Wide_Wide_Character;
       begin
-         Result_Index := Result_Index + 1;
-         Result (Result_Index .. Result_Index + Indent'Length - 1) := Indent;
-         Result_Index := Result_Index + Indent'Length - 1;
+         if Indent_First_Line then
+            Result_Index := Result_Index + 1;
+            Result (Result_Index .. Result_Index + Indent'Length - 1) := Indent;
+            Result_Index := Result_Index + Indent'Length - 1;
+         end if;
 
          Space_Count := 0;
 

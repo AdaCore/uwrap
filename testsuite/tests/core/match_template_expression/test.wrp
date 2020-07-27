@@ -6,11 +6,11 @@ template w_entity do
 
 end;
 
-match Entity () and f_Name ("A|D")
+match Entity () and f_Name (x"A|D")
 wrap w_root ();
 
-match Entity () and f_Name ("B|C|I")
+match Entity () and f_Name (x"B|C|I")
 wrap w_entity ();
 
-match w_root () and child (c : w_entity (origin (f_Name ("I"))))
+match w_root () and child (c : w_entity (origin (f_Name (x"I"))))
 weave standard.out ("\e<self.origin.f_name> as a child weaved under \e<c.origin.f_name>\n");

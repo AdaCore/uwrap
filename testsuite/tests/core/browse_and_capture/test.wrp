@@ -1,16 +1,16 @@
 match Entity () do
-    match f_name ("A") and c: child (Entity ("B"))
+    match f_name (x"A") and c: child (Entity (x"B"))
     weave standard.out (@ & "(1) FIRST CHILD IS: \e<c.f_name>\n");
 
-    match f_name ("A") and child (c: Entity ("B"))
+    match f_name (x"A") and child (c: Entity (x"B"))
     weave standard.out (@ & "(2) FIRST CHILD IS: \e<c.f_name>\n");
 
-    match f_name ("A") and c: self (child (Entity ("B")))
+    match f_name (x"A") and c: self (child (Entity (x"B")))
     weave standard.out (@ & "(3) SELF IS: \e<c.f_name>\n");
 
-    match c: self (f_name ("A") and child (Entity ("B")))
+    match c: self (f_name (x"A") and child (Entity (x"B")))
     weave standard.out (@ & "(4) SELF IS: \e<c.f_name>\n");
 
-    match f_name ("A")
-    weave standard.out (@ & """(5) FIRST CHILD IS: \e<self.child (Entity ("B"))>\n""");
+    match f_name (x"A")
+    weave standard.out (@ & """(5) FIRST CHILD IS: \e<self.child (Entity (x"B"))>\n""");
 end;

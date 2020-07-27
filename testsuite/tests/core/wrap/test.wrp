@@ -7,16 +7,16 @@ template main_2 do
 end;
 
 match Entity () do
-    match f_name (".*A.*")
+    match f_name (x".*A.*")
     wrap main_1 ("MATCHES A: \e<f_name>\n");
 
-    match f_name ("AB.*")
+    match f_name (x"AB.*")
     wrap main_1 ("MATCHES AB: \e<f_name>\n");
 
-    match f_name (".*F.*")
+    match f_name (x".*F.*")
     wrap main_1 ("MATCHES F: \e<f_name>\n");
 
-    match f_name ("[0-9]+")
+    match f_name (x"[0-9]+")
     wrap main_2 ("MATCHES NUMBER: \e<f_name>\n");
 end;
 

@@ -67,8 +67,8 @@ class Token(LexerToken):
 template_lexer = Lexer(Token)
 
 template_lexer.add_patterns(
-    ("STRING_DBQ", r'\"(\\\"|[^\n\"])*\"'),
-    ("MLSTRING_DBQ", r'\"\"\"([^"]|("[^"])|(""[^"])|\n)*\"\"\"')
+    ("STRING_DBQ", r'(i|s|x|r|)\"(\\\"|[^\n\"])*\"'),
+    ("MLSTRING_DBQ", r'(i|s|x|r|)\"\"\"([^"]|("[^"])|(""[^"])|\n)*\"\"\"')
 )
 
 template_lexer.add_rules(

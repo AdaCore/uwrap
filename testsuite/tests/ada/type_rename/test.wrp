@@ -2,5 +2,5 @@ import ada.wrappers;
 
 wrap wrap_ada_specs ();
 
-match DefiningName ("^A_(.*)")
+match DefiningName (x"^A_(.*)")
 wrap w_DefiningName ("The_\1");

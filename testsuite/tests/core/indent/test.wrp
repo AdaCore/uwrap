@@ -10,33 +10,33 @@ template w_C do
    var contents : text;
 end;
 
-match f_name ("A")
+match f_name (x"A")
 wrap w_A ();
 
-match f_name ("B") 
+match f_name (x"B") 
 wrap w_B ();
 
-match f_name ("C")
+match f_name (x"C")
 wrap w_C ();
 
 match w_A ()
 weave (
-   contents => """\i<
+   contents => i"""
    \e<origin.f_name>:
-      \i<\e<child (v: w_B ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>\i>\i>""");
+      \e<child (v: w_B ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>""");
 
 match w_B ()
 weave (
-   contents => """\i<
+   contents => i"""
    \e<origin.f_name>:
-      \i<\e<child (v: w_C ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>\i>\i>""");
+      \e<child (v: w_C ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>""");
 
 match w_C ()
 weave (
-   contents => """\i<
+   contents => i"""
    \e<origin.f_name> LEVEL 1
       LEVEL 2
-   BACK TO LEVEL 1\i>""");
+   BACK TO LEVEL 1""");
 
 match w_A ()
 wrap standard.out (contents & "\n");

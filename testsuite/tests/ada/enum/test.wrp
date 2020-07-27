@@ -2,8 +2,8 @@ import ada.wrappers;
 
 wrap wrap_ada_specs ();
 
-match DefiningName ("^Lit(.+)")
+match DefiningName (x"^Lit(.+)")
 wrap w_DefiningName ("Literal_\1");
 
-match DefiningName ("^A_(.+)")
+match DefiningName (x"^A_(.+)")
 wrap w_DefiningName ("The_\1");

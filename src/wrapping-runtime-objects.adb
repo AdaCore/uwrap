@@ -418,7 +418,7 @@ package body Wrapping.Runtime.Objects is
    overriding
    function To_String (Object : W_Text_Reindent_Type) return Text_Type is
    begin
-      return Reindent (Object.Indent, Object.Content.To_String);
+      return Reindent (Object.Indent, Object.Content.To_String, False);
    end To_String;
 
    overriding

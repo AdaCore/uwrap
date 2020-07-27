@@ -3,33 +3,33 @@ template main do
 end;
 
 match Entity () do
-    match f_name ("A")
+    match f_name (x"A")
     wrap main ("FIRST");
 
-    match f_name ("B")
+    match f_name (x"B")
     wrap main ("SECOND");
 end;
 
-match txt ("FIRST")
+match txt (x"FIRST")
 weave standard.out (@ & "(1) FIRST \e<self.origin.f_name>\n");
 
-match main () and not txt ("FIRST")
+match main () and not txt (x"FIRST")
 weave standard.out (@ & "(1) NOT FIRST \e<self.origin.f_name>\n");
 
-match txt ("SECOND")
+match txt (x"SECOND")
 weave standard.out (@ & "(1) SECOND \e<self.origin.f_name>\n");
 
-match main () and not txt ("SECOND")
+match main () and not txt (x"SECOND")
 weave standard.out (@ & "(1) NOT SECOND \e<self.origin.f_name>\n");
 
-match main (txt ("FIRST"))
+match main (txt (x"FIRST"))
 weave standard.out (@ & "(2) FIRST \e<self.origin.f_name>\n");
 
-match main (not txt ("FIRST"))
+match main (not txt (x"FIRST"))
 weave standard.out (@ & "(2) NOT FIRST \e<self.origin.f_name>\n");
 
-match main (txt ("SECOND"))
+match main (txt (x"SECOND"))
 weave standard.out (@ & "(2) SECOND \e<self.origin.f_name>\n");
 
-match main (not txt ("SECOND"))
+match main (not txt (x"SECOND"))
 weave standard.out (@ & "(2) NOT SECOND \e<self.origin.f_name>\n");

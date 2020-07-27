@@ -19,7 +19,7 @@ visitor generate_proxy2cs () do
          static => "static");
    end;
 
-   match name ("^parameter$") do
+   match name ("parameter") do
       wrap w_ParamCall (
          name => child (\ name ("name")).value,
          type => "int"

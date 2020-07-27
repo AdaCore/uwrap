@@ -18,7 +18,10 @@ package Wrapping.Utils is
 
    package Text_Vectors is new Ada.Containers.Indefinite_Vectors (Positive, Text_Type);
 
-   function Reindent (New_Indent : Integer; Text  : Text_Type) return Text_Type;
+   function Reindent
+     (New_Indent        : Integer;
+      Text              : Text_Type;
+      Indent_First_Line : Boolean) return Text_Type;
    --  Remove as many spaces in front of each lines as possible while keeping
    --  the current indentation, then append the number of spaces in parameter.
 

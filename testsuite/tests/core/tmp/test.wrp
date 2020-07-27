@@ -11,13 +11,13 @@ template main_2 do
 end;
 
 
-match Entity (f_name ("A"))
+match Entity (f_name (x"A"))
 weave main_1 (a1 => self.tmp ("local"), a2 => self.tmp ("local"));
 
-match Entity (f_name ("A"))
+match Entity (f_name (x"A"))
 weave main_1 (a3 => self.tmp ("local"));
 
-match Entity (f_name ("B"))
+match Entity (f_name (x"B"))
 weave main_2 (a1 => self.tmp ("global"), a2 => self.tmp ("local"), a3 => self.tmp());
 
 match main_1 ()

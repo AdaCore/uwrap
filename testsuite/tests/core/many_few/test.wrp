@@ -1,17 +1,17 @@
-match f_name ("A") and next (\ many (f_name ("B")) \ c: true)
+match f_name (x"A") and next (\ many (f_name (x"B")) \ c: true)
 weave standard.out (@ & "many next (B): " & c.sloc & c.f_name & "\n");
 
-match f_name ("A") and next (\ few (f_name ("B")) \ c: true)
+match f_name (x"A") and next (\ few (f_name (x"B")) \ c: true)
 weave standard.out (@ & "few next (B): " & c.sloc & c.f_name & "\n");
 
-match f_name ("A") and next (\ few (f_name ("B"), 2) \ c: true)
+match f_name (x"A") and next (\ few (f_name (x"B"), 2) \ c: true)
 weave standard.out (@ & "few next (B, 2): " & c.sloc & c.f_name & "\n");
 
-match f_name ("A") and next (\ many (f_name ("B"), 0, 1) \ c: true)
+match f_name (x"A") and next (\ many (f_name (x"B"), 0, 1) \ c: true)
 weave standard.out (@ & "many next (B, 0, 1): " & c.sloc & c.f_name & "\n");
 
-match f_name ("A") and next (\ many (f_name ("Z"), 0, 1) \ c: true)
+match f_name (x"A") and next (\ many (f_name (x"Z"), 0, 1) \ c: true)
 weave standard.out (@ & "many next (Z, 0, 1): " & c.sloc & c.f_name & "\n");
 
-match f_name ("A") and child (c1: Entity () \ many (true) \ c2: Entity (f_name ("F")))
+match f_name (x"A") and child (c1: Entity () \ many (true) \ c2: Entity (f_name (x"F")))
 weave standard.out (@ & "many child (A): " & c1.sloc & c1.f_name & ", " & c2.sloc & c2.f_name & "\n");

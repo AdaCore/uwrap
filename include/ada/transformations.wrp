@@ -1,7 +1,7 @@
 import ada.wrappers;
 
 visitor access_into_out () do
-   match ParamSpec("access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
+   match ParamSpec(x"access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
    wrap w: w_ParamSpecCall (
       pre_call_decl => """\e<sb.tmp ("call")> : aliased \e<te.child (TypeExpr ())> with Address => \e<w.name>'Address, Import;""",
       actual_value => """\e<sb.tmp ("call")>'Unchecked_Access""",
@@ -55,7 +55,7 @@ visitor constant_into_enumeration (type_name, lit_name) do
 end;
 
 visitor chars_into_string () do
-   match ParamSpec("Interfaces.C.Strings.chars_ptr") and parent (sb: SubpDecl())
+   match ParamSpec(x"Interfaces.C.Strings.chars_ptr") and parent (sb: SubpDecl())
    wrap w: w_ParamSpecCall (
       type_expr => "String",
       pre_call_decl => """\e<sb.tmp ("c_string")> : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (\e<w.name>);\n""",
@@ -63,7 +63,7 @@ visitor chars_into_string () do
       post_call_stmt => """Interfaces.C.Strings.Free (\e<sb.tmp ("c_string")>);\n"""
    );
 
-   match SubpDecl() and child (TypeExpr ("Interfaces.C.Strings.chars_ptr"))
+   match SubpDecl() and child (TypeExpr (x"Interfaces.C.Strings.chars_ptr"))
    wrap w: w_SubpDeclCall (
       function_or_procedure => "function",
       result_type_expr => "String",

@@ -1,6 +1,6 @@
 do
    do
-      match Entity ("A")
+      match Entity (x"A")
       weave s1: standard.out (@ & "A NAME: \e<f_name>\n");
       else match Entity () weave s1: standard.out (@ & "!A NAME: \e<f_name>\n");
    then
@@ -8,7 +8,7 @@ do
       pick s1 weave (@ & "A or !A THEN NAME: \e<self.origin.f_name>\n"); 
    end;
 then
-   match Entity ("B")
+   match Entity (x"B")
    do 
       weave standard.out (@ & "B NAME (1): \e<f_name>\n"); 
    then

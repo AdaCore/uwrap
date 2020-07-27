@@ -22,31 +22,31 @@ end;
 visitor generate_proxy2json () do
    match wp_Parameter ()
    weave (
-      contents => lambda("""\i<
+      contents => lambda(i"""
          "parameter": {
             "name": "\e<name>",
             "type": "\e<type>"
-         }\i>"""));
+         }"""));
       
    match wp_Function () 
    weave (
-      contents => lambda("""\i<
+      contents => lambda(i"""
             "function": {
                "name": "\e<name>",
                "symbol": "\e<symbol>",
                "type": "\e<type>",
                "parameters": {
-                  \i<\e<child (v: wp_Parameter ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>\i>
+                  \e<child (v: wp_Parameter ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>
                }
-            }\i>"""));
+            }"""));
 
    match wp_Unit () 
    weave (
-      contents => lambda ("""\i<
+      contents => lambda (i"""
          {
             "name":"\e<name>",
-            \i<\e<child (v: wp_Function ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>\i>
-         }\i>"""));
+            \e<child (v: wp_Function ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>
+         }"""));
 
    match wp_Unit ()
    wrap standard.file (name & ".json", contents);

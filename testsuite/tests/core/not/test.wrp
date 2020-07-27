@@ -1,2 +1,2 @@
-match not f_name ("A") and f_name ("B")
+match not f_name (x"A") and f_name (x"B")
 weave standard.out ("NAME: \e<f_name>");
