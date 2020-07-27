@@ -654,6 +654,7 @@ package body Wrapping.Semantic.Analysis is
                  ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Current))));
             end if;
 
+            Line_Number := Line_Number + 1;
             Current := Current + 1;
             Next_Index := Current;
             Found_Characters_On_Line := False;
