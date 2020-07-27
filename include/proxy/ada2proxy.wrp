@@ -33,6 +33,7 @@ visitor generate_ada2proxy () do
       match parent (u: wrapper (w_Unit ()))
       wrap wp: wp_Function (
          name => p_defining_name,
+         type => "void",
          symbol => u.tmp (s.p_defining_name)
       );
 

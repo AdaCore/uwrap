@@ -1,0 +1,122 @@
+template w_CS do
+   var contents : text;
+end;
+
+template w_NamedEntity extends w_CS do
+  var name : text;
+end;
+
+template w_Unit extends w_NamedEntity do
+
+end;
+
+template w_Using extends w_CS do
+   var ref : text;
+end;
+
+template w_Namespace extends w_NamedEntity do
+
+end;
+
+template w_Function extends w_NamedEntity do
+   var returned_type : text;
+   var static : text;
+end;
+
+template w_FunctionCall extends w_Function do
+   var pre_call_decl : text;
+   var pre_call_stmt : text;
+   var call_decl_exp : text;
+   var call_decl : text;
+   var call_stmt : text;
+   var post_call_decl : text;
+   var post_call_stmt : text;
+
+   var return_stmt : text;
+   var call_assoc_list : text;
+   var call : text;
+   var call_name : text;
+end;
+
+template w_FunctionCallback extends w_Function do
+   
+end;
+
+template w_DllImportFunction extends w_Function do
+   var dll : text;
+end;
+
+template w_Param extends w_NamedEntity do
+   var type : text;
+end;
+
+template w_ParamCall extends w_Param do
+
+end;
+
+template w_ParamCallback extends w_Param do
+
+end;
+
+template w_TypeExpr extends w_CS do
+   var txt : text;
+end;
+
+template w_Class extends w_NamedEntity do
+   
+end;
+
+visitor wrappers2cs () do
+   match w_DllImportFunction () do
+      weave (contents => """\i<
+         [DllImport("libproxy")]
+         private \e<static> extern \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold (c: "", c: (c & w.type & " "  & w.name), c: (c & ", "))>);\i>""");
+   end;
+
+   match w_FunctionCall () do
+      weave (contents => """\i<
+         public \e<static> \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold (c: "", c: (c & w.type & " "  & w.name), c: (c & ", "))>) {
+            \i<\e<pre_call_decl>\i>
+            \i<\e<pre_call_stmt>\i>
+            \i<\e<call_decl_exp>\i>
+            \i<\e<call_decl>\i>
+            \i<\e<call_stmt>\i>
+            \i<\e<post_call_decl>\i>
+            \i<\e<post_call_stmt>\i>
+         }\i>""");
+   end;
+
+   match w_Class () do
+      weave (contents => """\i<
+         class \e<name> {
+            \i<\e<child (\ w: w_NamedEntity ()).fold (c : "", c: (c & w.contents), c: (c & "\n\n"))>\i>
+         }\i>""");
+   end;
+
+   match w_Namespace () do
+      weave (contents => """\i<
+         namespace \e<name> {
+            public static class \e<name>Module {
+               \i<\e<child (\ w: w_Function ()).fold (c : "", c: (c & w.contents & "\n"))>\i>
+            }
+
+            \i<\e<child (\ w: w_Class ()).fold (c : "", c: (c & w.contents & "\n"))>\i>
+         }\i>""");
+   end;
+
+   match w_Unit () do
+      wrap standard.file (name & ".cs", contents);
+      
+      weave (contents => """\i<
+         using System.Runtime.InteropServices;
+
+         \i<\e<child (w: w_Using ()).fold (c : "", c: (c & "using " & w.ref & ";\n"))>\i>
+         namespace \e<name> {
+            public static class \e<name>Unit {
+               \i<\e<child (\ w: w_Function ()).fold (c : "", c: (c & w.contents & "\n"))>\i>
+            }
+
+            \i<\e<child (\ w: w_Class ()).fold (c : "", c: (c & w.contents & "\n"))>\i>
+         }\i>""");
+   end;
+end;

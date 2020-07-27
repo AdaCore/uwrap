@@ -1,0 +1,28 @@
+import proxy.proxy;
+import cs.wrappers;
+
+visitor generate_proxy2cs () do
+   match kind () and not parent () #TODO: this is a rather weak way to check we're on a JSON node, to improve
+   wrap w: w_Unit (name => child (name ("name")).value);
+
+   match name ("function") do
+      wrap n: w_FunctionCall (
+         name => child (\ name ("name")).value,
+         returned_type => child (\ name ("type")).value,
+         call_stmt => lambda (child (\ name ("symbol")).value & "(" 
+            & n.child (w: w_ParamCall ()).fold (c : "", c: (c & w.name), c: (c & ", ")) & ");"),
+         static => "static");
+
+      wrap w_DllImportFunction (
+         name => child (\ name ("symbol")).value,
+         returned_type => child (\ name ("type")).value,
+         static => "static");
+   end;
+
+   match name ("^parameter$") do
+      wrap w_ParamCall (
+         name => child (\ name ("name")).value,
+         type => "int"
+      );
+   end;
+end;
