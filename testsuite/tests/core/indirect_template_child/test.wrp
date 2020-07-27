@@ -1,0 +1,12 @@
+template w_Node do
+   var content : text;
+end;
+
+match f_name ("A")
+wrap w: w_Node (f_name);
+
+match f_name (x"C")
+wrap w: w_Node (f_name);
+
+match w_Node (content ("A"))
+wrap standard.out (child (\ w: w_Node ()).fold (c: "", c: (c & w.content & " ")));

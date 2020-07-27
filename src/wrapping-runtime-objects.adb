@@ -760,6 +760,8 @@ package body Wrapping.Runtime.Objects is
          return R;
       end Visit_Wrapper;
 
+      Decision : Visit_Action := Unknown;
+
    begin
       Final_Result := Match_False;
 
@@ -775,7 +777,7 @@ package body Wrapping.Runtime.Objects is
             when Over =>
                return Over;
 
-            when Into =>
+            when Into | Into_Override_Anchor =>
                null;
 
             when Unknown =>
@@ -793,7 +795,7 @@ package body Wrapping.Runtime.Objects is
             when Over =>
                return Over;
 
-            when Into =>
+            when Into | Into_Override_Anchor =>
                null;
 
             when Unknown =>
@@ -812,7 +814,7 @@ package body Wrapping.Runtime.Objects is
                when Stop =>
                   return Stop;
 
-               when Into =>
+               when Into | Into_Override_Anchor =>
                   null;
 
                when Unknown =>
@@ -853,15 +855,19 @@ package body Wrapping.Runtime.Objects is
             for C of Current_Children_List loop
                W_Node_Type'Class (C.all).Pre_Visit;
 
-               case Visit_Wrapper (C) is
+               Decision := Visit_Wrapper (C);
+
+               case Decision is
                   when Stop =>
                      return Stop;
 
                   when Over =>
                      null;
 
-                  when Into =>
-                     if  not Top_Frame.Top_Context.Regexpr_Anchored then
+                  when Into | Into_Override_Anchor =>
+                     if Decision = Into_Override_Anchor
+                       or else not Top_Frame.Top_Context.Regexpr_Anchored
+                     then
                         for C2 of C.Children_Ordered loop
                            Next_Children_List.Append (C2);
                         end loop;
@@ -882,16 +888,20 @@ package body Wrapping.Runtime.Objects is
          while Current /= null loop
             W_Node_Type'Class (Current.all).Pre_Visit;
 
-            case Visit_Wrapper (Current) is
+            Decision := Visit_Wrapper (Current);
+
+            case Decision is
                when Stop =>
                   return Stop;
 
                when Over =>
                   null;
 
-               when Into =>
+               when Into | Into_Override_Anchor =>
                   if A_Mode = Child_Depth then
-                     case Traverse_Wrapper (Current, A_Mode) is
+                     Decision := Traverse_Wrapper (Current, A_Mode);
+
+                     case Decision is
                         when Stop =>
                            return Stop;
 
@@ -904,7 +914,9 @@ package body Wrapping.Runtime.Objects is
                   null;
             end case;
 
-            if Top_Frame.Top_Context.Regexpr_Anchored then
+            if Top_Frame.Top_Context.Regexpr_Anchored
+              and then Decision /= Into_Override_Anchor
+            then
                return Stop;
             end if;
 
@@ -1390,19 +1402,29 @@ package body Wrapping.Runtime.Objects is
          Result := Match_False;
 
          if E.all in W_Node_Type'Class then
-            for T of W_Node (E).Templates_Ordered loop
-               Last_Decision := Visitor (T, Current_Result);
+            if W_Node (E).Templates_Ordered.Length = 0 then
+               --  When there's no template for a given node, we consider
+               --  this note to be non-existent from the template browsing
+               --  point of view. As a result, anchored browsing should be
+               --  allowed to look at the next level of nodes as if it was
+               --  directly adjacent.
 
-               if Current_Result /= Match_False
-                 and then Current_Result /= null
-               then
-                  Result := Current_Result;
-               end if;
+               return Into_Override_Anchor;
+            else
+               for T of W_Node (E).Templates_Ordered loop
+                  Last_Decision := Visitor (T, Current_Result);
 
-               if Last_Decision = Stop then
-                  return Stop;
-               end if;
-            end loop;
+                  if Current_Result /= Match_False
+                    and then Current_Result /= null
+                  then
+                     Result := Current_Result;
+                  end if;
+
+                  if Last_Decision = Stop then
+                     return Stop;
+                  end if;
+               end loop;
+            end if;
          end if;
 
          return Last_Decision;
