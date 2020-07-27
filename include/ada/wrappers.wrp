@@ -11,17 +11,17 @@ template w_Unit extends w_Ada do
    var body_with_clauses : text;
    var body_use_clauses : text;
 
-   var spec_text : pattern (i"""
+   var spec_text : text => i"""
    \e<spec_with_clauses>
    \e<spec_use_clauses>
 
-   \e<spec>""");
+   \e<spec>""";
 
-   var body_text : pattern (i"""
+   var body_text : text => i"""
    \e<body_with_clauses>
    \e<body_use_clauses>
 
-   \e<body>""");
+   \e<body>""";
 end;
 
 template w_NamedEntity extends w_Ada do
@@ -43,19 +43,19 @@ template w_PackageDecl extends w_NamedEntity do
    var stmt : text;
    var elaborate_body : text;
 
-   var spec : pattern (i"""
+   var spec : text => i"""
       package \e<name> is
         \e<elaborate_body>
         \e<spec_content>
-      end \e<name>;""");
+      end \e<name>;""";
 
-   var body : pattern (i"""
+   var body : text => i"""
       package body \e<name> is
         \e<body_content>
       begin
         null;
         \e<stmt>
-      end \e<name>;""");
+      end \e<name>;""";
 end;
 
 template w_SubpDecl extends w_NamedEntity do
@@ -83,11 +83,11 @@ template w_SubpDecl extends w_NamedEntity do
    var call : text;
    var call_name : text;
 
-   var profile : pattern ("""\e<function_or_procedure> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""); 
+   var profile : text => """\e<function_or_procedure> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""; 
 
    var spec : text; 
 
-   var body : pattern (i"""
+   var body : text => i"""
    \e<profile> is
       \e<pre_call_decl>
    begin
@@ -103,7 +103,7 @@ template w_SubpDecl extends w_NamedEntity do
             \e<return_stmt>
          end;
       end;
-   end \e<name>;"""); 
+   end \e<name>;"""; 
 end;
 
 template w_SubpDeclCall extends w_SubpDecl do

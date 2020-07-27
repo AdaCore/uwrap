@@ -7,7 +7,7 @@ end;
 template w_entity do
     var name : text;
     var level : text;
-    var output : pattern ("'\e<name>' [\e<level>]\n");
+    var output : text => "'\e<name>' [\e<level>]\n";
 end;
 
 template w_option do

@@ -26,6 +26,7 @@ class Var(TemplateNode):
    name = Field()
    typ = Field()
    args = Field()
+   init = Field()
 
 class Command(TemplateNode):
    actions = Field()
@@ -170,7 +171,7 @@ template_grammar.add_rules(
 
    template=Template('template', G.identifier, Opt ('extends', G.dotted_name), 'do', G.template_scope, 'end', ';'),
     
-   var=Var('var', G.identifier, ':', G.identifier, Opt ('(', G.arg_list, ')'), ';'), 
+   var=Var('var', G.identifier, ':', G.identifier, Opt ('(', G.arg_list, ')'), Opt ('=>', G.expression), ';'), 
 
    command=Command(
       Or(

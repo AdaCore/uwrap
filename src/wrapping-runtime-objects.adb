@@ -1312,21 +1312,17 @@ package body Wrapping.Runtime.Objects is
                      New_Ref := new W_Reference_Type;
                      New_Ref.Value := new W_Text_Vector_Type;
 
+                     if A_Var.Init_Expr /= null then
+                        Push_Implicit_Self (An_Entity);
+                        Evaluate_Expression (A_Var.Init_Expr);
+                        W_Text_Vector (New_Ref.Value).A_Vector.Append
+                          (Pop_Object);
+                        Pop_Object;
+                     end if;
+
                      An_Entity.Symbols.Insert (Name, New_Ref);
 
                      Push_Object (An_Entity.Symbols.Element (Name));
-
-                     return True;
-                  elsif A_Var.Kind = Pattern_Kind then
-                     --  If it's a pattern, just return the current value of the result
-                     --  as a text expression. This will need to be evaluated, push
-                     --  self on the stack
-
-                     Push_Implicit_Self (An_Entity);
-
-                     Evaluate_Expression (A_Var.Args.Element (1).Expr);
-
-                     Delete_Object_At_Position (-2);
 
                      return True;
                   end if;

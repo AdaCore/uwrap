@@ -355,12 +355,6 @@ package body Wrapping.Semantic.Analysis is
          if Node.F_Args.Children_Count /= 0 then
             Error ("no argument expected for text var");
          end if;
-      elsif Typ = "pattern" then
-         A_Var.Kind := Pattern_Kind;
-
-         if Node.F_Args.Children_Count /= 1 then
-            Error ("missing parameter for pattern");
-         end if;
       elsif Typ = "set" then
          A_Var.Kind := Set_Kind;
 
@@ -391,6 +385,10 @@ package body Wrapping.Semantic.Analysis is
       for A of Node.As_Var.F_Args loop
          A_Var.Args.Append (Build_Arg (A));
       end loop;
+
+      if not Node.F_Init.Is_Null then
+         A_Var.Init_Expr := Build_Expr (Node.F_Init);
+      end if;
 
       Pop_Entity;
 
