@@ -98,14 +98,24 @@ package body Wrapping.Runtime.Objects is
    is
       P1, P2 : W_Object;
    begin
-      if Params.Length /= 2 then
-         Error ("two parameters expected for insert");
+      if Object.all in W_Map_Type then
+         if Params.Length /= 2 then
+            Error ("two parameters expected for insert");
+         end if;
+
+         P1 := Evaluate_Expression (Params.Element (1).Expr);
+         P2 := Evaluate_Expression (Params.Element (2).Expr);
+
+         W_Map (Object).A_Map.Insert (P1, P2);
+      elsif Object.all in W_Set_Type'Class then
+         if Params.Length /= 1 then
+            Error ("one parameters expected for include");
+         end if;
+
+         P1 := Evaluate_Expression (Params.Element (1).Expr);
+
+         W_Set (Object).A_Set.Insert (P1);
       end if;
-
-      P1 := Evaluate_Expression (Params.Element (1).Expr);
-      P2 := Evaluate_Expression (Params.Element (2).Expr);
-
-      W_Map (Object).A_Map.Insert (P1.To_String, P2);
 
       Push_Object (W_Object (Object));
    end Call_Insert;
@@ -116,39 +126,175 @@ package body Wrapping.Runtime.Objects is
    is
       P1, P2 : W_Object;
    begin
-      if Params.Length /= 2 then
-         Error ("two parameters expected for insert");
+
+      if Object.all in W_Map_Type'Class then
+         if Params.Length /= 2 then
+            Error ("two parameters expected for include");
+         end if;
+
+         P1 := Evaluate_Expression (Params.Element (1).Expr);
+         P2 := Evaluate_Expression (Params.Element (2).Expr);
+
+         W_Map (Object).A_Map.Include (P1, P2);
+      elsif Object.all in W_Set_Type'Class then
+         if Params.Length /= 1 then
+            Error ("one parameters expected for include");
+         end if;
+
+         P1 := Evaluate_Expression (Params.Element (1).Expr);
+
+         W_Set (Object).A_Set.Include (P1);
       end if;
-
-      P1 := Evaluate_Expression (Params.Element (1).Expr);
-      P2 := Evaluate_Expression (Params.Element (2).Expr);
-
-      W_Map (Object).A_Map.Include (P1.To_String, P2);
 
       Push_Object (W_Object (Object));
    end Call_Include;
+
+   procedure Call_Append
+     (Object : access W_Object_Type'Class;
+      Params : T_Arg_Vectors.Vector)
+   is
+      Val : W_Object;
+   begin
+      if Object.all in W_Vector_Type then
+         if Params.Length /= 1 then
+            Error ("one parameters expected for append");
+         end if;
+
+         Val := Evaluate_Expression (Params.Element (1).Expr);
+
+         W_Vector (Object).A_Vector.Append (Val);
+      end if;
+
+      Push_Object (W_Object (Object));
+   end Call_Append;
+
+   procedure Call_Get
+     (Object : access W_Object_Type'Class;
+      Params : T_Arg_Vectors.Vector)
+   is
+      Key : W_Object;
+      Index : Integer;
+   begin
+      if Params.Length /= 1 then
+         Error ("get expects one parameter");
+      end if;
+
+      Key := Evaluate_Expression
+        (Params.Element (1).Expr);
+
+      if Object.all in W_Map_Type'Class then
+         if W_Map (Object).A_Map.Contains (Key) then
+            Push_Object (W_Map (Object).A_Map.Element (Key));
+         elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
+            Push_Match_False;
+         else
+            Error ("map doesn't contain element " & Key.To_String);
+         end if;
+      elsif Object.all in W_Set_Type'Class then
+         if W_Set (Object).A_Set.Contains (Key) then
+            Push_Object (Key);
+         elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
+            Push_Match_False;
+         else
+            Error ("set doesn't contain element " & Key.To_String);
+         end if;
+      elsif Object.all in W_Vector_Type'Class then
+         if Key.Dereference.all not in W_Integer_Type'Class then
+            Error ("expected integer index");
+         end if;
+
+         Index := W_Integer (Key).Value;
+
+         if Index in
+           W_Vector (Object).A_Vector.First_Index .. W_Vector (Object).A_Vector.Last_Index
+         then
+            Push_Object (W_Vector (Object).A_Vector.Element (Index));
+         elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
+            Push_Match_False;
+         else
+            Error ("vector doesn't contain index " & Index'Wide_Wide_Image);
+         end if;
+      else
+         Error ("object doesn't provide get function");
+      end if;
+   end Call_Get;
 
    procedure Call_Element
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
    is
+      Last_Action : Visit_Action;
+      Result : W_Object;
+      Last_Result : W_Object;
+      Expr : T_Expr;
+
+      procedure Update_Result is
+      begin
+         if Last_Result /= null and then Last_Result /= Match_False then
+            Result := Last_Result;
+         end if;
+      end Update_Result;
    begin
-      if Params.Length /= 1 then
-         Error ("element expects one parameter");
+      if Params.Length > 1 then
+         Error ("element expects at most one parameter");
       end if;
 
-      declare
-         Name : Text_Type := Evaluate_Expression
-           (Params.Element (1).Expr).To_String;
-      begin
-         if W_Map (Object).A_Map.Contains (Name) then
-            Push_Object (W_Map (Object).A_Map.Element (Name));
-         elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
-            Push_Match_False;
-         else
-            Error ("map doesn't contain element of name " & Name);
-         end if;
-      end;
+      if Params.Length = 1 then
+         Expr := Params.Element (1).Expr;
+      end if;
+
+      if Object.all in W_Map_Type'Class then
+         declare
+            Map : W_Map := W_Map (Object);
+         begin
+            if Map.A_Map.Length = 0 then
+               Push_Match_False;
+            else
+               for E of Map.A_Map loop
+                  Last_Action := Object.Browse_Entity (E, Expr, Last_Result);
+                  Update_Result;
+
+                  exit when Last_Action = Stop;
+               end loop;
+            end if;
+         end;
+      elsif Object.all in W_Set_Type'Class then
+         declare
+            Set : W_Set := W_Set (Object);
+         begin
+            if Set.A_Set.Length = 0 then
+               Push_Match_False;
+            else
+               for E of Set.A_Set loop
+                  Last_Action := Object.Browse_Entity (E, Expr, Last_Result);
+                  Update_Result;
+
+                  exit when Last_Action = Stop;
+               end loop;
+            end if;
+         end;
+      elsif Object.all in W_Vector_Type'Class then
+         declare
+            Map : W_Vector := W_Vector (Object);
+         begin
+            if Map.A_Vector.Length = 0 then
+               Push_Match_False;
+            else
+               for E of Map.A_Vector loop
+                  Last_Action := Object.Browse_Entity (E, Expr, Last_Result);
+                  Update_Result;
+
+                  exit when Last_Action = Stop;
+               end loop;
+            end if;
+         end;
+      end if;
+
+      if Result /= null then
+         Push_Object (Result);
+      else
+         Push_Match_False;
+      end if;
    end Call_Element;
 
    procedure Call_Find
@@ -264,6 +410,32 @@ package body Wrapping.Runtime.Objects is
    end Is_Text_Container;
 
    overriding
+   function Push_Value
+     (An_Entity : access W_Vector_Type;
+      Name      : Text_Type) return Boolean
+   is
+       Call : Call_Access;
+   begin
+      if Name = "element" then
+         Call := Call_Element'Access;
+      elsif Name = "get" then
+         Call := Call_Get'Access;
+      elsif Name = "append" then
+         Call := Call_Append'Access;
+      end if;
+
+      if Call /= null then
+         Push_Object
+           (W_Object'(new W_Function_Type'
+              (Prefix => W_Object (An_Entity),
+               Call => Call)));
+         return True;
+      else
+         return False;
+      end if;
+   end Push_Value;
+
+   overriding
    procedure Push_Call_Result
      (An_Entity : access W_Vector_Type;
       Params    : T_Arg_Vectors.Vector)
@@ -303,6 +475,34 @@ package body Wrapping.Runtime.Objects is
 
    overriding
    function Push_Value
+     (An_Entity : access W_Set_Type;
+      Name      : Text_Type) return Boolean
+   is
+      Call : Call_Access;
+   begin
+      if Name = "insert" then
+         Call := Call_Insert'Access;
+      elsif Name = "include" then
+         Call := Call_Include'Access;
+      elsif Name = "element" then
+         Call := Call_Element'Access;
+      elsif Name = "get" then
+         Call := Call_Get'Access;
+      end if;
+
+      if Call /= null then
+         Push_Object
+           (W_Object'(new W_Function_Type'
+              (Prefix => W_Object (An_Entity),
+               Call => Call)));
+         return True;
+      else
+         return False;
+      end if;
+   end Push_Value;
+
+   overriding
+   function Push_Value
      (An_Entity : access W_Map_Type;
       Name      : Text_Type) return Boolean
    is
@@ -314,6 +514,8 @@ package body Wrapping.Runtime.Objects is
          Call := Call_Include'Access;
       elsif Name = "element" then
          Call := Call_Element'Access;
+      elsif Name = "get" then
+         Call := Call_Get'Access;
       end if;
 
       if Call /= null then
@@ -371,6 +573,36 @@ package body Wrapping.Runtime.Objects is
    begin
       return To_Text (Object.Value);
    end To_String;
+
+   overriding
+   function Lt
+     (Left : access W_String_Type; Right : access W_Object_Type'Class)
+      return Boolean
+   is
+   begin
+      if Left = Right then
+         return False;
+      elsif Right.all not in W_String_Type'Class then
+         return W_Text_Expression_Type (Left.all).Lt (Right);
+      else
+         return Left.To_String < Right.To_String;
+      end if;
+   end Lt;
+
+   overriding
+   function Eq
+     (Left : access W_String_Type; Right : access W_Object_Type'Class)
+      return Boolean
+   is
+   begin
+      if Left = Right then
+         return True;
+      elsif Right.all not in W_String_Type'Class then
+         return W_Text_Expression_Type (Left.all).Eq (Right);
+      else
+         return Left.To_String = Right.To_String;
+      end if;
+   end Eq;
 
    overriding
    procedure Push_Call_Result
@@ -1309,37 +1541,54 @@ package body Wrapping.Runtime.Objects is
 
          Named_Entity := An_Entity.Defining_Entity.Get_Component (Name);
 
-         if Named_Entity /= null then
-            if Named_Entity.all in T_Var_Type then
-               declare
-                  A_Var : T_Var :=  T_Var (Named_Entity);
-                  New_Ref : W_Reference;
-               begin
-                  if A_Var.Kind = Text_Kind then
+         if Named_Entity /= null and then Named_Entity.all in T_Var_Type then
+            declare
+               A_Var : T_Var :=  T_Var (Named_Entity);
+               New_Ref : W_Reference;
+               Init_Value : W_Object;
+            begin
+               if A_Var.Init_Expr /= null then
+                  Push_Implicit_Self (An_Entity);
+                  Evaluate_Expression (A_Var.Init_Expr);
+                  Init_Value := Pop_Object;
+                  Pop_Object;
+               end if;
+
+               New_Ref := new W_Reference_Type;
+
+               case A_Var.Kind is
+                  when Text_Kind =>
 
                      --  Symbols contained in templates are references to
                      --  values. Create the reference and the referenced
                      --  empty value here.
 
-                     New_Ref := new W_Reference_Type;
                      New_Ref.Value := new W_Text_Vector_Type;
 
                      if A_Var.Init_Expr /= null then
-                        Push_Implicit_Self (An_Entity);
-                        Evaluate_Expression (A_Var.Init_Expr);
                         W_Text_Vector (New_Ref.Value).A_Vector.Append
-                          (Pop_Object);
-                        Pop_Object;
+                          (Init_Value);
                      end if;
 
-                     An_Entity.Symbols.Insert (Name, New_Ref);
+                  when Set_Kind =>
+                     New_Ref.Value := new W_Set_Type;
 
-                     Push_Object (An_Entity.Symbols.Element (Name));
+                  when Map_Kind =>
+                     New_Ref.Value := new W_Map_Type;
 
-                     return True;
-                  end if;
-               end;
-            end if;
+                  when Vector_Kind =>
+                     New_Ref.Value := new W_Vector_Type;
+
+                  when others =>
+                     Error ("variable kind not supported for templates");
+
+               end case;
+
+               An_Entity.Symbols.Insert (Name, New_Ref);
+               Push_Object (New_Ref);
+
+               return True;
+            end;
          end if;
       end if;
 

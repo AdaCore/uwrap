@@ -362,9 +362,8 @@ package body Wrapping.Semantic.Analysis is
             Error ("missing parameter for set");
          end if;
 
-         if Node.F_Args.Child (1).Text /= "string" then
-            Error ("only sets of strings are currently supported");
-         end if;
+         --  TODO: implement some kind of type checking and conversions
+         --  if needed depending on the type of the set.
       elsif Typ = "map" then
          A_Var.Kind := Map_Kind;
 
@@ -376,6 +375,12 @@ package body Wrapping.Semantic.Analysis is
            or else Node.F_Args.Child (2).Text /= "object"
          then
             Error ("only (string, object) is currently supported for maps");
+         end if;
+      elsif Typ = "vector" then
+          A_Var.Kind := Vector_Kind;
+
+         if Node.F_Args.Children_Count /= 1 then
+            Error ("missing parameter for set");
          end if;
       else
          Error ("unknown var type: '"

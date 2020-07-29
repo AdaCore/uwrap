@@ -1,5 +1,8 @@
 with Ada.Containers; use Ada.Containers;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
+with Ada.Tags; use Ada.Tags;
+with Ada.Unchecked_Conversion;
+with System; use System;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
@@ -13,6 +16,16 @@ with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
 package body Wrapping.Runtime.Structure is
 
    Root_Language_Entities : W_Node_Maps.Map;
+
+   function Lt_Wrapper (Left, Right : W_Object) return Boolean is
+   begin
+      return Left.Lt (Right);
+   end Lt_Wrapper;
+
+   function Eq_Wrapper (Left, Right : W_Object) return Boolean is
+   begin
+      return Left.Eq (Right);
+   end Eq_Wrapper;
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return W_Object is
    begin
@@ -281,6 +294,27 @@ package body Wrapping.Runtime.Structure is
 
       return False;
    end Match_With_Top_Object;
+
+   function Lt
+     (Left : access W_Object_Type; Right : access W_Object_Type'Class)
+      return Boolean
+   is
+      Left_Tag : Tag := W_Object (Left).all'Tag;
+      Right_Tag : Tag := Right.all'Tag;
+
+      function To_Address is new Ada.Unchecked_Conversion (Tag, System.Address);
+   begin
+      if Left_Tag = Right_Tag then
+         return Left.all'Address < Right.all'Address;
+      else
+         return To_Address (Left_Tag) < To_Address (Right_Tag);
+      end if;
+   end Lt;
+
+   function Eq (Left : access W_Object_Type; Right : access W_Object_Type'Class) return Boolean is
+   begin
+      return Left = Right;
+   end Eq;
 
    Object_For_Entity_Registry : W_Object_Maps.Map;
 

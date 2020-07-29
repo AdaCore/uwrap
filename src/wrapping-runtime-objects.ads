@@ -44,10 +44,6 @@ package Wrapping.Runtime.Objects is
 
    type W_String_Type;
    type W_String is access all W_String_Type'Class;
-   function "<" (Left, Right : W_String) return Boolean;
-   function "=" (Left, Right : W_String) return Boolean;
-   package W_String_Sets is new Ada.Containers.Indefinite_Ordered_Sets (W_String);
-   use W_String_Sets;
 
    type W_Regexp_Type;
    type W_Regexp is access all W_Regexp_Type'Class;
@@ -168,6 +164,11 @@ package Wrapping.Runtime.Objects is
    function Is_Text_Container (Container : W_Vector_Type) return Boolean;
 
    overriding
+   function Push_Value
+     (An_Entity : access W_Vector_Type;
+      Name      : Text_Type) return Boolean;
+
+   overriding
    procedure Push_Call_Result
      (An_Entity : access W_Vector_Type;
       Params    : T_Arg_Vectors.Vector);
@@ -176,12 +177,16 @@ package Wrapping.Runtime.Objects is
    function To_String (Object : W_Vector_Type) return Text_Type;
 
    type W_Set_Type is new W_Object_Type with record
-      --  For now, we only support string sets.
-      A_Set : W_String_Sets.Set;
+      A_Set : W_Object_Sets.Set;
    end record;
 
+   overriding
+   function Push_Value
+     (An_Entity : access W_Set_Type;
+      Name      : Text_Type) return Boolean;
+
    type W_Map_Type is new W_Object_Type with record
-      A_Map : W_Object_Maps.Map;
+      A_Map : W_Object_Any_Maps.Map;
    end record;
 
    overriding
@@ -217,11 +222,15 @@ package Wrapping.Runtime.Objects is
    overriding
    function To_String (Object : W_String_Type) return Text_Type;
 
-   function "<" (Left, Right : W_String) return Boolean is
-     (Left.Value < Right.Value);
+   overriding
+   function Lt
+     (Left : access W_String_Type; Right : access W_Object_Type'Class)
+      return Boolean;
 
-   function "=" (Left, Right : W_String) return Boolean is
-     (Left.Value = Right.Value);
+   overriding
+   function Eq
+     (Left : access W_String_Type; Right : access W_Object_Type'Class)
+      return Boolean;
 
    type W_Regexp_Type is new W_Text_Expression_Type with record
       Value : W_Object;

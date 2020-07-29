@@ -1,5 +1,6 @@
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Indefinite_Ordered_Sets;
+with Ada.Containers.Ordered_Sets;
 with Ada.Containers.Vectors;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 
@@ -16,10 +17,18 @@ package Wrapping.Runtime.Structure is
 
    type W_Object_Type;
    type W_Object is access all W_Object_Type'Class;
+
+   function Lt_Wrapper (Left, Right : W_Object) return Boolean;
+   function Eq_Wrapper (Left, Right : W_Object) return Boolean;
+
    package W_Object_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, W_Object);
    use W_Object_Maps;
    package W_Object_Vectors is new Ada.Containers.Vectors (Positive, W_Object);
    use W_Object_Vectors;
+   package W_Object_Sets is new Ada.Containers.Ordered_Sets (W_Object, Lt_Wrapper, Eq_Wrapper);
+   use W_Object_Sets;
+   package W_Object_Any_Maps is new Ada.Containers.Indefinite_Ordered_Maps (W_Object, W_Object, Lt_Wrapper, Eq_Wrapper);
+   use W_Object_Any_Maps;
 
    type Matched_Groups_Type;
    type Matched_Groups is access all Matched_Groups_Type;
@@ -220,6 +229,14 @@ package Wrapping.Runtime.Structure is
    function Dereference
      (Object : access W_Object_Type)
       return W_Object is (W_Object (Object));
+
+   function Lt
+     (Left : access W_Object_Type; Right : access W_Object_Type'Class)
+      return Boolean;
+
+   function Eq
+     (Left : access W_Object_Type; Right : access W_Object_Type'Class)
+      return Boolean;
 
    Null_Object : constant W_Object := new W_Object_Type;
 

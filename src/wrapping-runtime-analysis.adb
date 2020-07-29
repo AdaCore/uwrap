@@ -1392,24 +1392,15 @@ package body Wrapping.Runtime.Analysis is
       Args : T_Arg_Vectors.Vector)
    is
       procedure Perpare_Param_Evaluation (Name_Node : Template_Node; Position : Integer) is
-         New_Value : W_Object;
       begin
          Push_Frame_Context;
 
-         if A_Template_Instance.Symbols.Contains (Name_Node.Text) then
-            --  A variable is an indirection to a value. Return that value.
-
-            Top_Frame.Top_Context.Left_Value :=
-              A_Template_Instance.Symbols.Element (Name_Node.Text).Value;
-         else
-            --  Text are modeled as a container of texts. So by default, this is
-            --  an empty container.
-            --  TODO: we're only handling text types for now, but will need to
-            --  handle new ones at some point.
-            New_Value := new W_Text_Vector_Type;
-            Top_Frame.Top_Context.Left_Value := New_Value;
+         if not A_Template_Instance.Push_Value (Name_Node.Text) then
+            Error ("value not found for: " & Name_Node.Text);
          end if;
-      end;
+
+         Top_Frame.Top_Context.Left_Value := W_Reference (Pop_Object).Value;
+      end Perpare_Param_Evaluation;
 
       function Name_For_Position (Position : Integer) return Template_Node is
       begin
@@ -1424,12 +1415,11 @@ package body Wrapping.Runtime.Analysis is
       begin
          A_Var := T_Var (A_Template_Instance.Defining_Entity.Get_Component (Name));
 
-         if A_Template_Instance.Symbols.Contains (Name) then
-            Ref := A_Template_Instance.Symbols.Element (Name);
-         else
-            Ref := new W_Reference_Type;
-            A_Template_Instance.Symbols.Insert (Name, Ref);
+         if not A_Template_Instance.Push_Value (Name) then
+            Error ("value not found for: " & Name);
          end if;
+
+         Ref := W_Reference (Pop_Object);
 
          --  The container is an indirection to a value. Remove the previous one
          --  and add the new one instead.
