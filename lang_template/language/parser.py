@@ -94,10 +94,20 @@ class UnaryExpr(Expr):
    op = Field()
    rhs = Field()
 
+class Function(Expr):
+   name = Field()
+   args = Field()
+   program = Field()
+
 class Visitor(Expr):
    name = Field()
    args = Field()
    program = Field()
+
+class MatchExpr (Expr):
+   match_exp = Field ()
+   pick_exp = Field ()
+   else_exp = Field ()
 
 class CallExpr (TemplateNode):
    called = Field()
@@ -166,7 +176,7 @@ template_grammar.add_rules(
    main_rule=Module (List (G.import_clause, empty_valid=True), G.module_scope),
    import_clause=Import('import', G.dotted_name, ';'),
     
-   module_scope=List(Or (G.template, G.command, G.visitor, G.var), empty_valid=True),
+   module_scope=List(Or (G.template, G.command, G.visitor, G.function, G.var), empty_valid=True),
    template_scope=List(G.var, empty_valid=True),
 
    template=Template('template', G.identifier, Opt ('extends', G.dotted_name), 'do', G.template_scope, 'end', ';'),
@@ -223,7 +233,8 @@ template_grammar.add_rules(
    traverse_decision=Or(TraverseInto ('into'), TraverseOver ('over')),
 
    visitor=Visitor('visitor', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
-    
+   function=Function('function', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
+   
    root_expression=Or (      
       RegExpr (
          RegExprAnchor ('\\'), 
@@ -263,6 +274,7 @@ template_grammar.add_rules(
    qualified_primary=Or (QualifiedMatch (Or (Operator.alt_is('is'), Operator.alt_has ('has')), '(', G.primary, ')'), G.primary),
    primary=Or(
       Pick ('(', G.expression, ')'),
+      G.match_expr,
       G.lambda_expr,
       G.literal,
       G.integer,
@@ -270,6 +282,12 @@ template_grammar.add_rules(
       G.selected_component,
       G.name
    ),
+   match_expr=Pick ('(', G.match_expr_element, ')'),
+   match_expr_element=MatchExpr (
+      'match', G.expression, 'pick', G.expression,
+      Opt ('else', Or (
+         Pick ('pick', G.expression),
+         G.match_expr_element))),
    name=Or(
       G.single_name
    ),

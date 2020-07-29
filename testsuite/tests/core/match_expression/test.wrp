@@ -1,0 +1,11 @@
+template w_Node do
+   var content : text;
+end;
+
+match Entity () and v: (match f_name (x"A") pick "CHOICE 1" 
+       else match f_name (x"B") pick "CHOICE 2"
+       else pick "CHOICE 3")
+wrap w: w_Node (v);
+
+match w_Node ()
+wrap standard.out (origin.f_name & " => " & content & "\n");

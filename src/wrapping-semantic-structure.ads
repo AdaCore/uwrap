@@ -81,6 +81,13 @@ package Wrapping.Semantic.Structure is
    package T_Visitor_Vectors is new Ada.Containers.Vectors (Positive, T_Visitor);
    use T_Visitor_Vectors;
 
+   type T_Function_Type;
+   type T_Function is access all T_Function_Type'Class;
+   package T_Function_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Function);
+   use T_Function_Maps;
+   package T_Function_Vectors is new Ada.Containers.Vectors (Positive, T_Function);
+   use T_Function_Vectors;
+
    type T_Expr_Type (Kind : Template_Node_Kind_Type);
    type T_Expr is access all T_Expr_Type'Class;
    package T_Expr_Vectors is new Ada.Containers.Vectors (Positive, T_Expr);
@@ -241,6 +248,13 @@ package Wrapping.Semantic.Structure is
       Program : T_Command_Sequence;
    end record;
 
+   type T_Function_Type is new T_Named_Entity_Type with record
+      Arguments_Ordered : T_Var_Vectors.Vector;
+      Arguments_Indexed : T_Var_Maps.Map;
+
+      Program : T_Command_Sequence;
+   end record;
+
    type String_Part_Kind is
      (Str_Kind,
       Expr_Kind,
@@ -338,6 +352,11 @@ package Wrapping.Semantic.Structure is
             Quantifier_Expr : T_Expr;
             Min : Integer;
             Max : Integer;
+
+         when Template_Match_Expr =>
+            Match_Match_Expr : T_Expr;
+            Match_Pick_Expr : T_Expr;
+            Match_Else_Expr : T_Expr;
 
          when others =>
             null;

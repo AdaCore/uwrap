@@ -998,6 +998,17 @@ package body Wrapping.Runtime.Analysis is
 
             Run_Outer_Callback := False;
 
+         when Template_Match_Expr =>
+            Evaluate_Expression (Expr.Match_Match_Expr);
+
+            if Pop_Object /= Match_False then
+               Evaluate_Expression (Expr.Match_Pick_Expr);
+            elsif Expr.Match_Else_Expr /= null then
+               Evaluate_Expression (Expr.Match_Else_Expr);
+            else
+               Push_Match_False;
+            end if;
+
          when others =>
             Error
               ("unexpected expression node kind: '"

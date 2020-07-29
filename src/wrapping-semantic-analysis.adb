@@ -21,11 +21,12 @@ package body Wrapping.Semantic.Analysis is
 
    Entity_Stack : T_Entity_Vectors.Vector;
 
-   function Build_Template_Structure (Node : Template_Node) return Structure.T_Template;
-   function Build_Module_Structure (Node : Template_Node; Module_Name : Text_Type) return Structure.T_Module;
-   function Build_Command_Structure (Node : Template_Node'Class) return Structure.T_Command;
-   function Build_Visitor_Structure (Node : Template_Node) return Structure.T_Visitor;
-   function Build_Variable_Structure (Node : Libtemplatelang.Analysis.Var) return Structure.T_Var;
+   function Build_Template (Node : Template_Node) return T_Template;
+   function Build_Module (Node : Template_Node; Module_Name : Text_Type) return T_Module;
+   function Build_Command (Node : Template_Node'Class) return T_Command;
+   function Build_Visitor (Node : Template_Node) return T_Visitor;
+   function Build_Function (Node : Template_Node) return T_Function;
+   function Build_Variable (Node : Libtemplatelang.Analysis.Var) return T_Var;
    function Build_Expr (Node : Template_Node'Class) return T_Expr;
    function Build_Arg (Node : Template_Node'Class) return T_Arg;
    function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree;
@@ -63,7 +64,7 @@ package body Wrapping.Semantic.Analysis is
       File_Module : Structure.T_Module;
    begin
       Entity_Stack.Append (T_Entity (Root));
-      File_Module := Build_Module_Structure (Unit.Root, To_Text (Name));
+      File_Module := Build_Module (Unit.Root, To_Text (Name));
       Entity_Stack.Delete_Last;
    end Load_Module;
 
@@ -120,7 +121,7 @@ package body Wrapping.Semantic.Analysis is
       Lexical_Scope_Stack.Delete_Last;
    end Pop_Lexical_Scope_Entity;
 
-   function Build_Module_Structure
+   function Build_Module
      (Node        : Template_Node;
       Module_Name : Text_Type)
       return T_Module
@@ -147,22 +148,22 @@ package body Wrapping.Semantic.Analysis is
          case C.Kind is
             when Template_Template =>
                A_Module.Templates_Ordered.Append
-                 (Build_Template_Structure (C));
+                 (Build_Template (C));
                A_Module.Templates_Indexed.Insert
                  (C.As_Template.F_Name.Text,
                   A_Module.Templates_Ordered.Last_Element);
 
             when Template_Command =>
-               Dummy_Command := Build_Command_Structure (C);
+               Dummy_Command := Build_Command (C);
 
             when Template_Visitor =>
                A_Module.Visitors_Indexed.Insert
                  (C.As_Visitor.F_Name.Text,
-                  Build_Visitor_Structure (C));
+                  Build_Visitor (C));
 
             when Template_Var =>
                A_Module.Variables_Ordered.Append
-                 (Build_Variable_Structure (C.As_Var));
+                 (Build_Variable (C.As_Var));
                A_Module.Variables_Indexed.Insert
                  (C.As_Var.F_Name.Text,
                   A_Module.Variables_Ordered.Last_Element);
@@ -179,9 +180,9 @@ package body Wrapping.Semantic.Analysis is
       Pop_Entity;
 
       return A_Module;
-   end Build_Module_Structure;
+   end Build_Module;
 
-   function Build_Template_Structure (Node : Template_Node) return Structure.T_Template is
+   function Build_Template (Node : Template_Node) return Structure.T_Template is
       A_Template : T_Template := new T_Template_Type;
    begin
       Push_Named_Entity (A_Template, Node, Node.As_Template.F_Name);
@@ -190,7 +191,7 @@ package body Wrapping.Semantic.Analysis is
          case C.Kind is
             when Template_Var =>
                A_Template.Variables_Ordered.Append
-                 (Build_Variable_Structure (Template_Node (C).As_Var));
+                 (Build_Variable (Template_Node (C).As_Var));
                A_Template.Variables_Indexed.Insert
                  (C.As_Var.F_Name.Text,
                   A_Template.Variables_Ordered.Last_Element);
@@ -203,7 +204,7 @@ package body Wrapping.Semantic.Analysis is
       Pop_Entity;
 
       return A_Template;
-   end Build_Template_Structure;
+   end Build_Template;
 
    function Build_Command_Sequence (Node : Command_Sequence'Class) return T_Command_Sequence is
       Sequence : T_Command_Sequence := new T_Command_Sequence_Type;
@@ -211,7 +212,7 @@ package body Wrapping.Semantic.Analysis is
       Push_Entity (Sequence, Node);
 
       for C of Node.F_Commands loop
-         Sequence.Commands.Append (Build_Command_Structure (C));
+         Sequence.Commands.Append (Build_Command (C));
       end loop;
 
       if not Node.F_Then.Is_Null then
@@ -242,7 +243,7 @@ package body Wrapping.Semantic.Analysis is
       return A_Template_Call;
    end Build_Template_Call;
 
-   function Build_Command_Structure (Node : Template_Node'Class) return T_Command is
+   function Build_Command (Node : Template_Node'Class) return T_Command is
       A_Command : T_Command := new T_Command_Type;
 
       function Visit (Node : Template_Node'Class) return Visit_Status is
@@ -256,7 +257,7 @@ package body Wrapping.Semantic.Analysis is
 
                if not Node.As_Match_Section.F_Alternate_Actions.Is_Null then
                   A_Command.Else_Actions :=
-                    Build_Command_Structure (Node.As_Match_Section.F_Alternate_Actions.F_Actions);
+                    Build_Command (Node.As_Match_Section.F_Alternate_Actions.F_Actions);
                end if;
 
                return Over;
@@ -309,9 +310,9 @@ package body Wrapping.Semantic.Analysis is
       Pop_Entity;
 
       return A_Command;
-   end Build_Command_Structure;
+   end Build_Command;
 
-   function Build_Visitor_Structure (Node : Template_Node) return T_Visitor is
+   function Build_Visitor (Node : Template_Node) return T_Visitor is
       A_Visitor     : T_Visitor := new T_Visitor_Type;
    begin
       Push_Named_Entity (A_Visitor, Node, Node.As_Visitor.F_Name);
@@ -335,9 +336,35 @@ package body Wrapping.Semantic.Analysis is
       Pop_Entity;
 
       return A_Visitor;
-   end Build_Visitor_Structure;
+   end Build_Visitor;
 
-   function Build_Variable_Structure (Node : Libtemplatelang.Analysis.Var) return Structure.T_Var is
+   function Build_Function (Node : Template_Node) return T_Function is
+      A_Function : T_Function := new T_Function_Type;
+   begin
+      Push_Named_Entity (A_Function, Node, Node.As_Function_Node.F_Name);
+
+      for A of Node.As_Function_Node.F_Args loop
+         declare
+            A_Var : T_Var := new T_Var_Type;
+         begin
+            Push_Named_Entity (A_Var, A, A);
+
+            A_Var.Kind := Text_Kind;
+            A_Function.Arguments_Ordered.Append (A_Var);
+            A_Function.Arguments_Indexed.Insert (A.Text, A_Var);
+
+            Pop_Entity;
+         end;
+      end loop;
+
+      A_Function.Program := Build_Command_Sequence (Node.As_Function_Node.F_Program);
+
+      Pop_Entity;
+
+      return A_Function;
+   end Build_Function;
+
+   function Build_Variable (Node : Libtemplatelang.Analysis.Var) return Structure.T_Var is
       A_Var : Structure.T_Var := new T_Var_Type;
       Typ : Text_Type := Node.F_Typ.Text;
    begin
@@ -398,7 +425,7 @@ package body Wrapping.Semantic.Analysis is
       Pop_Entity;
 
       return A_Var;
-   end Build_Variable_Structure;
+   end Build_Variable;
 
    function Build_Expr (Node : Template_Node'Class) return T_Expr is
       Expr : T_Expr;
@@ -515,6 +542,18 @@ package body Wrapping.Semantic.Analysis is
             else
                Expr.Max := 0;
             end if;
+
+         when Template_Match_Expr =>
+            Expr.Match_Match_Expr := Build_Expr
+              (Node.As_Match_Expr.F_Match_Exp);
+            Expr.Match_Pick_Expr := Build_Expr
+              (Node.As_Match_Expr.F_Pick_Exp);
+
+            if not Node.As_Match_Expr.F_Else_Exp.Is_Null then
+               Expr.Match_Else_Expr := Build_Expr
+                 (Node.As_Match_Expr.F_Else_Exp);
+            end if;
+
          when others =>
             Error ("Unsupported expression node");
 
