@@ -6,4 +6,5 @@
 *.wrp text eol=lf
 *.json text eol=lf
 *.cs text eol=lf
+*.py text eol=lf
 testsuite/**/*.out text eol=lf

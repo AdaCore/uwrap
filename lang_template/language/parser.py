@@ -235,18 +235,19 @@ template_grammar.add_rules(
    visitor=Visitor('visitor', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
    function=Function('function', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
    
-   root_expression=Or (      
+    root_expression=Or (      
+      G.regular_expression_with_suffix,
       RegExpr (
          RegExprAnchor ('\\'), 
          G.regular_expression),
-      G.regular_expression_with_suffix,
       G.expression),
    regular_expression_with_suffix=RegExpr (
       Or (
          G.regular_expression_quantifier,
          G.expression),
       Or (Pick ('\\', G.regular_expression),
-         RegExprAnchor ('\\'))),      
+         RegExprAnchor ('\\'))),  
+
    regular_expression=RegExpr (
       Or (
          G.regular_expression_quantifier,
