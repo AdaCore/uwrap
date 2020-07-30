@@ -59,6 +59,9 @@ package Wrapping.Runtime.Objects is
    type W_Text_Reindent_Type;
    type W_Text_Reindent is access all W_Text_Reindent_Type'Class;
 
+   type W_Intrinsic_Function_Type;
+   type W_Intrinsic_Function is access all W_Intrinsic_Function_Type'Class;
+
    type W_Function_Type;
    type W_Function is access all W_Function_Type'Class;
 
@@ -268,9 +271,18 @@ package Wrapping.Runtime.Objects is
    overriding
    function To_String (Object : W_Text_Reindent_Type) return Text_Type;
 
-   type W_Function_Type is new W_Object_Type with record
+   type W_Intrinsic_Function_Type is new W_Object_Type with record
       Prefix : W_Object;
       Call   : Call_Access;
+   end record;
+
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Intrinsic_Function_Type;
+      Params    : T_Arg_Vectors.Vector);
+
+   type W_Function_Type is new W_Object_Type with record
+      A_Function : T_Function;
    end record;
 
    overriding

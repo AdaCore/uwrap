@@ -77,6 +77,8 @@ package Wrapping.Runtime.Structure is
 
    type Visit_Action_Ptr is access all Visit_Action;
 
+   type Pick_Callback_Type is access procedure (Object : W_Object);
+
    --  A Frame_Context is a type that is recording stack-based properties that
    --  vary within a given frame, typically through an expression, or various
    --  parts of a command. Each Frame is supposed to start with a fresh frame
@@ -135,6 +137,10 @@ package Wrapping.Runtime.Structure is
       Visit_Decision : Visit_Action_Ptr;
 
       Regexpr_Anchored : Boolean := False;
+
+      --  When set, this designates the callback to call upon pick. If the result
+      --  is Stop, then stop the analysis, otherwise continues.
+      Pick_Callback : Pick_Callback_Type;
    end record;
 
    type Matched_Groups_Type is record
@@ -151,6 +157,8 @@ package Wrapping.Runtime.Structure is
       Lexical_Scope  : T_Entity;
 
       Temp_Names     : Text_Maps.Map;
+
+      Interrupt_Program : Boolean := False;
    end record;
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return W_Object;
@@ -266,5 +274,11 @@ package Wrapping.Runtime.Structure is
    procedure Push_Match_Self_Result
      (Self                : W_Object;
       Matching_Expression : T_Expr);
+
+   procedure Handle_Call_Parameters
+     (Args : T_Arg_Vectors.Vector;
+      Name_For_Position : access function (Position : Integer) return Template_Node;
+      Store_Param_Value : access procedure (Name_Node : Template_Node; Value : W_Object);
+      Perpare_Param_Evaluation : access procedure (Name_Node : Template_Node; Position : Integer) := null);
 
 end Wrapping.Runtime.Structure;

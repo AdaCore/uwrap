@@ -119,14 +119,14 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Push_Temporary_Name;
 
-   procedure Push_Function (Prefix : W_Object; A_Call : Call_Access) is
+   procedure Push_Intrinsic_Function (Prefix : W_Object; A_Call : Call_Access) is
    begin
       Push_Object
         (W_Object'
-           (new W_Function_Type'
+           (new W_Intrinsic_Function_Type'
                 (Prefix => Prefix,
                  Call   => A_Call)));
-   end Push_Function;
+   end Push_Intrinsic_Function;
 
    procedure Pop_Object (Number : Positive := 1) is
    begin
@@ -183,7 +183,8 @@ package body Wrapping.Runtime.Analysis is
          Is_Root_Selection    => Context.Is_Root_Selection,
          Outer_Object         => Context.Outer_Object,
          Visit_Decision       => Context.Visit_Decision,
-         Regexpr_Anchored     => Context.Regexpr_Anchored);
+         Regexpr_Anchored     => Context.Regexpr_Anchored,
+         Pick_Callback        => Context.Pick_Callback);
    end Push_Frame_Context;
 
    procedure Pop_Frame_Context is
@@ -211,6 +212,8 @@ package body Wrapping.Runtime.Analysis is
       if Top_Frame /= null then
          New_Frame.Top_Context.An_Allocate_Callback := Top_Frame.Top_Context.An_Allocate_Callback;
          New_Frame.Top_Context.Visit_Decision := Top_Frame.Top_Context.Visit_Decision;
+         New_Frame.Top_Context.Is_Expanding_Context := Top_Frame.Top_Context.Is_Expanding_Context;
+         New_Frame.Top_Context.Expand_Action := Top_Frame.Top_Context.Expand_Action;
       end if;
 
       Top_Frame := New_Frame;
@@ -373,10 +376,6 @@ package body Wrapping.Runtime.Analysis is
      with Post => Top_Frame.Data_Stack.Length =
        Top_Frame.Data_Stack.Length'Old;
 
-   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence)
-     with Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old;
-
    procedure Handle_Command (Command : T_Command; Self : W_Node) is
    begin
       --  The command is the enclosing scope for all of its clauses. It
@@ -404,6 +403,10 @@ package body Wrapping.Runtime.Analysis is
       Result  : W_Object;
       Self    : W_Object := Top_Object;
    begin
+      if Top_Frame.Interrupt_Program then
+         return;
+      end if;
+
       Top_Frame.Top_Context.An_Allocate_Callback := Allocate'Unrestricted_Access;
       Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
       Top_Frame.Top_Context.Current_Command := Command;
@@ -453,6 +456,10 @@ package body Wrapping.Runtime.Analysis is
       Top : W_Object := Top_Object.Dereference;
       Self : W_Node;
    begin
+      if Top_Frame.Interrupt_Program then
+         return;
+      end if;
+
       if Top = Match_False then
          return;
       elsif Top.all in W_Node_Type'Class then
@@ -499,8 +506,12 @@ package body Wrapping.Runtime.Analysis is
    begin
       while Seq /= null loop
          for C of reverse Seq.Commands loop
+            exit when Top_Frame.Interrupt_Program;
+
             Handle_Command_Front (C);
          end loop;
+
+         exit when Top_Frame.Interrupt_Program;
 
          Seq := Seq.Next_Sequence;
       end loop;
@@ -754,7 +765,7 @@ package body Wrapping.Runtime.Analysis is
                   Previous_Value := Top_Frame.Symbols.Element (Captured_Name);
                end if;
 
-               Evaluate_Expression (Expr.Match_Expr);
+               Evaluate_Expression (Expr.Match_Capture_Expr);
 
                if Top_Frame.Data_Stack.Last_Element /= Match_False then
                   Top_Frame.Symbols.Include (Captured_Name, Top_Object);
@@ -1158,7 +1169,7 @@ package body Wrapping.Runtime.Analysis is
          --  We're on an object to text conversion. Set the runtime object.
          --  When running the call, the link with the undlerlying expression
          --  will be made.
-         Push_Function (null, Call_Convert_To_Text'Access);
+         Push_Intrinsic_Function (null, Call_Convert_To_Text'Access);
 
          return True;
       elsif Name = "string" then
@@ -1171,16 +1182,16 @@ package body Wrapping.Runtime.Analysis is
 
          return True;
       elsif Name = "normalize_ada_name" then
-         Push_Function (null, Call_Normalize_Ada_Name'Access);
+         Push_Intrinsic_Function (null, Call_Normalize_Ada_Name'Access);
          return True;
       elsif Name = "replace_text" then
-         Push_Function (null, Call_Replace_Text'Access);
+         Push_Intrinsic_Function (null, Call_Replace_Text'Access);
          return True;
       elsif Name = "to_lower" then
-         Push_Function (null, Call_To_Lower'Access);
+         Push_Intrinsic_Function (null, Call_To_Lower'Access);
          return True;
       elsif Name = "reindent" then
-         Push_Function (null, Call_Reindent'Access);
+         Push_Intrinsic_Function (null, Call_Reindent'Access);
          return True;
       end if;
 
@@ -1208,6 +1219,9 @@ package body Wrapping.Runtime.Analysis is
             if A_Semantic_Entity.all in T_Template_Type'Class then
                Tentative_Symbol := new W_Static_Entity_Type'
                  (An_Entity => A_Semantic_Entity);
+            elsif A_Semantic_Entity.all in T_Function_Type'Class then
+                Tentative_Symbol := new W_Function_Type'
+                 (A_Function => T_Function (A_Semantic_Entity));
             end if;
          else
             Error ("can't reference " & Name & ", multiple definitions hiding");
@@ -1224,6 +1238,9 @@ package body Wrapping.Runtime.Analysis is
                if A_Semantic_Entity.all in T_Template_Type'Class then
                   Tentative_Symbol := new W_Static_Entity_Type'
                     (An_Entity => A_Semantic_Entity);
+               elsif A_Semantic_Entity.all in T_Function_Type'Class then
+                  Tentative_Symbol := new W_Function_Type'
+                    (A_Function => T_Function (A_Semantic_Entity));
                end if;
             else
                Error ("can't reference " & Name & ", multiple definitions hiding");
@@ -1352,51 +1369,6 @@ package body Wrapping.Runtime.Analysis is
          Handle_Global_Identifier (Node.Text);
       end if;
    end Handle_Identifier;
-
-   procedure Handle_Call_Parameters
-     (Args : T_Arg_Vectors.Vector;
-      Name_For_Position : access function (Position : Integer) return Template_Node;
-      Store_Param_Value : access procedure (Name_Node : Template_Node; Value : W_Object);
-      Perpare_Param_Evaluation : access procedure (Name_Node : Template_Node; Position : Integer) := null)
-   is
-      Parameter_Index : Integer;
-      Parameter_Value : W_Object;
-      In_Named_Section : Boolean := False;
-      Name_Node : Template_Node;
-   begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Is_Root_Selection := True;
-      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-
-      Parameter_Index := 1;
-
-      for Param of Args loop
-         if Param.Name /= "" then
-            In_Named_Section := True;
-            Name_Node := Param.Name_Node;
-         else
-            if In_Named_Section then
-               Error ("can't have positional arguments after named ones");
-            end if;
-
-            Name_Node := Name_For_Position.all (Parameter_Index);
-         end if;
-
-         if Perpare_Param_Evaluation /= null then
-            Perpare_Param_Evaluation (Name_Node, Parameter_Index);
-         end if;
-
-         Evaluate_Expression (Param.Expr);
-
-         Parameter_Value := Pop_Object;
-
-         Store_Param_Value (Name_Node, Parameter_Value);
-
-         Parameter_Index := Parameter_Index + 1;
-      end loop;
-
-      Pop_Frame_Context;
-   end Handle_Call_Parameters;
 
    procedure Handle_Template_Call
      (A_Template_Instance : W_Template_Instance;
@@ -1919,6 +1891,10 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Outer_Expression_Pick is
    begin
+      if Top_Frame.Top_Context.Pick_Callback /= null then
+         Top_Frame.Top_Context.Pick_Callback (Top_Object);
+      end if;
+
       Handle_Command_Back (Top_Frame.Top_Context.Current_Command);
    end Outer_Expression_Pick;
 

@@ -286,7 +286,7 @@ package body Wrapping.Runtime.Structure is
          end if;
 
          return True;
-      elsif Other_Entity.all in W_Function_Type'Class then
+      elsif Other_Entity.all in W_Intrinsic_Function_Type'Class then
          --  Functions always match, their result is evaluated later.
 
          return True;
@@ -479,5 +479,51 @@ package body Wrapping.Runtime.Structure is
          Pop_Frame_Context;
       end if;
    end Push_Match_Self_Result;
+
+   procedure Handle_Call_Parameters
+     (Args : T_Arg_Vectors.Vector;
+      Name_For_Position : access function (Position : Integer) return Template_Node;
+      Store_Param_Value : access procedure (Name_Node : Template_Node; Value : W_Object);
+      Perpare_Param_Evaluation : access procedure (Name_Node : Template_Node; Position : Integer) := null)
+   is
+      Parameter_Index : Integer;
+      Parameter_Value : W_Object;
+      In_Named_Section : Boolean := False;
+      Name_Node : Template_Node;
+   begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Is_Root_Selection := True;
+      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+
+      Parameter_Index := 1;
+
+      for Param of Args loop
+         if Param.Name /= "" then
+            In_Named_Section := True;
+            Name_Node := Param.Name_Node;
+         else
+            if In_Named_Section then
+               Error ("can't have positional arguments after named ones");
+            end if;
+
+            Name_Node := Name_For_Position.all (Parameter_Index);
+         end if;
+
+         if Perpare_Param_Evaluation /= null then
+            Perpare_Param_Evaluation (Name_Node, Parameter_Index);
+         end if;
+
+         Evaluate_Expression (Param.Expr);
+
+         Parameter_Value := Pop_Object;
+
+         Store_Param_Value (Name_Node, Parameter_Value);
+
+         Parameter_Index := Parameter_Index + 1;
+      end loop;
+
+      Pop_Frame_Context;
+   end Handle_Call_Parameters;
+
 
 end Wrapping.Runtime.Structure;

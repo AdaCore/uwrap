@@ -89,7 +89,7 @@ template_lexer.add_rules(
     (Literal("end"), Token.End),
     (Literal("wrap"), Token.Wrap),
     (Literal("weave"), Token.Weave),
-    (Literal("function"), Token.Visitor),
+    (Literal("function"), Token.Function),
     (Literal("visitor"), Token.Visitor),
     (Literal("lambda"), Token.Lambda),
     (Literal("and"), Token.And),

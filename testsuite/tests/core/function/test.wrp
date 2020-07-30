@@ -1,0 +1,23 @@
+function is_A_entity (e) do
+   match e (Entity (f_name ("A")))
+      pick e;
+   else
+      pick false;
+end;
+
+function get_two_children (e) do
+   pick e.child (f_name (x"B"));
+   pick e.child (f_name (x"C"));
+end;
+
+function get_B_children (e) do
+   pick e.child (f_name (x"B")).all();
+end;
+
+match is_A_entity (self) do
+   pick get_two_children (self) weave standard.out (@ & "TWO CHILDREN (ONLY FIRST): " & f_name & "\n");
+then
+   pick get_two_children (self).all () weave standard.out (@ & "TWO CHILDREN (ALL): " & f_name & "\n");
+then
+   pick get_B_children (self).all () weave standard.out (@ & "B CHILDREN (ALL): " & f_name & "\n");
+end;

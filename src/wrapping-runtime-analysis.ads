@@ -29,6 +29,10 @@ package Wrapping.Runtime.Analysis is
    --  Match a pattern with a text, adding group and captured variables on the
    --  top frame
 
+   procedure Push_Frame (Lexical_Scope : access T_Entity_Type'Class);
+
+   procedure Pop_Frame;
+
    procedure Push_Frame_Context;
 
    procedure Push_Frame_Context (Context : Frame_Context_Type);
@@ -86,5 +90,9 @@ package Wrapping.Runtime.Analysis is
    procedure Outer_Expression_Match;
 
    procedure Outer_Expression_Pick;
+
+   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence)
+     with Post => Top_Frame.Data_Stack.Length =
+       Top_Frame.Data_Stack.Length'Old;
 
 end Wrapping.Runtime.Analysis;

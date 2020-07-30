@@ -497,11 +497,11 @@ package body Wrapping.Semantic.Structure is
 
                   if not Local_Symbols.Contains (Name) then
                      Local_Symbols.Insert (Name);
-                     Capture_Identifiers (Expr.Match_Expr);
+                     Capture_Identifiers (Expr.Match_Capture_Expr);
                      Local_Symbols.Delete (Name);
                      return;
                   else
-                     Capture_Identifiers (Expr.Match_Expr);
+                     Capture_Identifiers (Expr.Match_Capture_Expr);
                   end if;
                end;
             when Template_Str =>
@@ -532,7 +532,8 @@ package body Wrapping.Semantic.Structure is
                | Template_Call_Expr
                | Template_New_Expr
                | Template_Reg_Expr
-               | Template_Reg_Expr_Quantifier =>
+               | Template_Reg_Expr_Quantifier
+               | Template_Match_Expr =>
 
                for C of Expr.Children_Ordered loop
                   if C.all in T_Expr_Type'Class then

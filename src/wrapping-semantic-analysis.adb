@@ -130,6 +130,7 @@ package body Wrapping.Semantic.Analysis is
       A_Namespace : T_Namespace;
 
       Dummy_Command : T_Command;
+      Dummy_Function : T_Function;
 
       Program_Node : Template_Node;
    begin
@@ -171,6 +172,9 @@ package body Wrapping.Semantic.Analysis is
             when Template_Import | Template_Import_List =>
                null;
                -- To be analyzed when resolving names
+
+            when Template_Function_Node =>
+               Dummy_Function := Build_Function (C);
 
             when others =>
                Error ("unsupported node for modules: '" & C.Kind'Wide_Wide_Image & "'");
@@ -445,7 +449,7 @@ package body Wrapping.Semantic.Analysis is
 
       case Node.Kind is
          when Template_Match_Capture =>
-            Expr.Match_Expr := Build_Expr (Node.As_Match_Capture.F_Expression);
+            Expr.Match_Capture_Expr := Build_Expr (Node.As_Match_Capture.F_Expression);
 
          when Template_Selector =>
             Expr.Selector_Left := Build_Expr (Node.As_Selector.F_Left);

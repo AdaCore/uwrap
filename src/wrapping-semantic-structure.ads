@@ -291,7 +291,7 @@ package Wrapping.Semantic.Structure is
 
       case Kind is
          when Template_Match_Capture =>
-            Match_Expr : T_Expr;
+            Match_Capture_Expr : T_Expr;
 
          when Template_Selector =>
             Selector_Left, Selector_Right : T_Expr;

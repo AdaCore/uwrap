@@ -426,7 +426,7 @@ package body Wrapping.Runtime.Objects is
 
       if Call /= null then
          Push_Object
-           (W_Object'(new W_Function_Type'
+           (W_Object'(new W_Intrinsic_Function_Type'
               (Prefix => W_Object (An_Entity),
                Call => Call)));
          return True;
@@ -492,7 +492,7 @@ package body Wrapping.Runtime.Objects is
 
       if Call /= null then
          Push_Object
-           (W_Object'(new W_Function_Type'
+           (W_Object'(new W_Intrinsic_Function_Type'
               (Prefix => W_Object (An_Entity),
                Call => Call)));
          return True;
@@ -520,7 +520,7 @@ package body Wrapping.Runtime.Objects is
 
       if Call /= null then
          Push_Object
-           (W_Object'(new W_Function_Type'
+           (W_Object'(new W_Intrinsic_Function_Type'
               (Prefix => W_Object (An_Entity),
                Call => Call)));
          return True;
@@ -655,10 +655,73 @@ package body Wrapping.Runtime.Objects is
 
    overriding
    procedure Push_Call_Result
-     (An_Entity : access W_Function_Type;
+     (An_Entity : access W_Intrinsic_Function_Type;
       Params    : T_Arg_Vectors.Vector) is
    begin
       An_Entity.Call (An_Entity.Prefix, Params);
+   end Push_Call_Result;
+
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Function_Type;
+      Params    : T_Arg_Vectors.Vector)
+   is
+      Temp_Symbols : W_Object_Maps.Map;
+      Initial_Context : Frame_Context := Top_Frame.Top_Context;
+
+      function Name_For_Position (Position : Integer) return Template_Node is
+      begin
+         return An_Entity.A_Function.Arguments_Ordered.Element (Position).Name_Node;
+      end Name_For_Position;
+
+      procedure Store_Param_Value (Name_Node : Template_Node; Value : W_Object) is
+      begin
+         if not An_Entity.A_Function.Arguments_Indexed.Contains (Name_Node.Text) then
+            Error ("unknown parameter " & Name_Node.Text);
+         end if;
+
+         Temp_Symbols.Insert (Name_Node.Text, Value);
+      end Store_Param_Value;
+
+      Last_Picked : W_Object;
+
+      procedure Pick_Callback (Object : W_Object)
+      is
+      begin
+         if Initial_Context.Is_Expanding_Context = False then
+            Last_Picked := Object;
+            Top_Frame.Interrupt_Program := True;
+         else
+            Push_Implicit_Self (Object);
+            Initial_Context.Expand_Action.all;
+            Last_Picked := Pop_Object;
+            Pop_Object;
+         end if;
+      end Pick_Callback;
+
+      Prev_Self : W_Object := Get_Implicit_Self;
+   begin
+      Handle_Call_Parameters
+        (Args              => Params,
+         Name_For_Position => Name_For_Position'Access,
+         Store_Param_Value => Store_Param_Value'Access);
+
+      Push_Frame (An_Entity.A_Function);
+      Push_Implicit_Self (Prev_Self);
+      Top_Frame.Symbols.Move (Temp_Symbols);
+      Top_Frame.Top_Context.Pick_Callback := Pick_Callback'Unrestricted_Access;
+      Top_Frame.Top_Context.Is_Expanding_Context := False;
+      Top_Frame.Top_Context.Expand_Action := null;
+
+      Handle_Command_Sequence (An_Entity.A_Function.Program);
+
+      Pop_Frame;
+
+      if Last_Picked /= null then
+         Push_Object (Last_Picked);
+      else
+         Push_Match_False;
+      end if;
    end Push_Call_Result;
 
    overriding
@@ -672,7 +735,7 @@ package body Wrapping.Runtime.Objects is
          if Name = "find" then
             Push_Object
               (W_Object'
-                 (new W_Function_Type'
+                 (new W_Intrinsic_Function_Type'
                       (Prefix => Get_Object_For_Entity (An_Entity.An_Entity),
                        Call => Call_Find'Access)));
             return True;
@@ -875,7 +938,7 @@ package body Wrapping.Runtime.Objects is
 
       if A_Call /= null then
          Push_Object
-           (W_Object'(new W_Function_Type'
+           (W_Object'(new W_Intrinsic_Function_Type'
                 (Prefix => W_Object (An_Entity),
                  Call => A_Call)));
 
