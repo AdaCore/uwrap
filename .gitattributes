@@ -7,4 +7,5 @@
 *.json text eol=lf
 *.cs text eol=lf
 *.py text eol=lf
+*.sh text eol=lf
 testsuite/**/*.out text eol=lf
