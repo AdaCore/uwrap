@@ -369,7 +369,7 @@ visitor wrappers_post_process () do
       weave (lparenCall => "(", rparenCall => ")");
 
       match origin (SubpDecl ())
-      pick p weave (spec_content => @ & sb.spec, body_content => @ & sb.body);
+      pick p weave (spec_content => @ & sb.spec & "\n\n", body_content => @ & sb.body);
 
       match child (w_Aspect ())
          weave (spec => i"""
@@ -390,7 +390,7 @@ visitor wrappers_post_process () do
       
       weave (call => "\e<call_name> \e<lparenCall> \e<call_assoc_list> \e<rparenCall>");
 
-      match child (w_ParamSpecCallback(not generate_formal ("NO")))
+      match child (w_ParamSpecCallback (not generate_formal ("NO")))
       weave (lparenSpec => "(", rparenSpec => ")");
 
       match child (c: w_ParamSpecCallback())
