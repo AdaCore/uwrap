@@ -82,7 +82,10 @@ package body Wrapping.Runtime.Objects is
            ("",
             W_Node (Object).Tmp_Counter);
       elsif Params.Length = 1 then
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Match_Mode := Match_None;
          Evaluate_Expression (Params.Element (1).Expr);
+         Pop_Frame_Context;
 
          Push_Temporary_Name
            (Pop_Object.To_String,

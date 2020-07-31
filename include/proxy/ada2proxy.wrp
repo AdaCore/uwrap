@@ -2,8 +2,42 @@ import proxy.proxy;
 import ada.wrappers;
 import ada.transformations;
 
+function wrapped_type () do
+   pick child (TypeExpr ()).wrapper (te: wp_TypeExpr ());
+end;
+
+visitor to_proxy_struct () do
+   match parent (sb: SubpDecl()) and t: sb.tmp ("Value")
+   wrap w: w_ParamSpecCall (
+      type_expr => "System.Address",
+      pre_call_decl => lambda (i"""
+         \e<sb.tmp ("Proxy")> : \e<wrapped_type().name> with Address => \e<w.name>, Import;
+         \e<t> : aliased \e<child (TypeExpr ())> with Address => \e<sb.tmp ("Proxy")>.Address;"""),
+      actual_value => t
+   );
+
+   match sb: SubpDecl() 
+      and t1: sb.tmp ("Res")
+      and t2: sb.tmp ("Proxy_Res")
+   wrap w: w_SubpDeclCall (
+      function_or_procedure => "function",
+      result_type_expr => "System.Address",
+      call_decl => """\e<t1> : aliased \e<child (TypeExpr ())> := \e<w.call>;\n""",
+      call_stmt => "null;", 
+   
+      post_call_decl => lambda (i"""
+         \e<t2> : \e<wrapped_type().name>_Access := new \e<wrapped_type().name>'
+            (Is_Proxy_Owned => True,
+             Is_Automatic   => False,
+             Address        => Allocate_Byte_Copy (\e<t1>'Address, \e<t1>'Size));"""
+      ),
+             
+      return_stmt => """return \e<t2>.all'Address;"""
+   );
+end;
+
 visitor ada2proxy_type (w_param) do
-   match p_type_expression.p_designated_type_decl.f_type_def (SignedIntTypeDef ()) 
+   match p_type_expression.p_designated_type_decl().f_type_def (SignedIntTypeDef ()) 
       do
          pick w_param weave (type => "int32");
          
@@ -19,14 +53,36 @@ visitor generate_ada2proxy () do
    match DefiningName (x"(.*)")
    wrap w_DefiningName ("Proxy_\1");
 
-   match d: PackageDecl ()
-   pick p: parent (CompilationUnit ()) do
-      wrap wp_Unit (name => d.p_defining_name);
+   match d: PackageDecl () do
+      pick p: parent (CompilationUnit ()) do
+         wrap wp_Unit (name => d.p_defining_name);
 
-      # TODO: self should be p, for some reason it's not. To fix
-      # match wrapper (x: w_Unit ()) 
-      match p.wrapper (x: w_Unit ())
-      pick x.child (new (w_WithClause ("Interfaces.C")));
+         # TODO: self should be p, for some reason it's not. To fix
+         # match wrapper (x: w_Unit ()) 
+         match p.wrapper (x: w_Unit ())
+         pick x.child (new ({
+            w_WithClause ("Interfaces.C"),
+            w_WithClause ("System")
+         }));
+      end;
+
+      weave w_PackageDecl (
+         spec_content => @ & i"""
+            function Allocate_Byte_Copy (Address : System.Address; Size : Integer) return System.Address;
+         """,
+
+         body_content => @ & i"""
+            function Allocate_Byte_Copy (Address : System.Address; Size : Integer) return System.Address is
+               type Byte_Array is array (Integer range 1 .. Size) of Boolean with Pack;
+               type Byte_Array_Access is access all Byte_Array;
+
+               Src : aliased Byte_Array with Address => Address;
+               Dst : Byte_Array_Access := new Byte_Array'(Src);
+            begin
+               return Dst.all'Address;
+            end Allocate_Byte_Copy;
+         """
+      );
    end;
 
    match s: SubpDecl () do
@@ -36,6 +92,10 @@ visitor generate_ada2proxy () do
          type => "void",
          symbol => u.tmp (s.p_defining_name)
       );
+
+      match child (f_subp_kind ("function")) and 
+         child (TypeExpr ()).child (Identifier ()).p_referenced_decl (child (RecordTypeDef ()))
+      wrap to_proxy_struct ();
 
       weave w: w_SubpDeclCall ();
    then
@@ -47,7 +107,33 @@ visitor generate_ada2proxy () do
 
    match ParamSpec () do
       wrap w: wp_Parameter (name => p_defining_name);
+
+      match child (TypeExpr ()).child (Identifier ()).p_referenced_decl (child (RecordTypeDef ()))
+      wrap to_proxy_struct ();
    then
       wrap ada2proxy_type (w);
    end;
+
+   match TypeDecl () and child (RecordTypeDef ()) do
+         wrap w: w_TypeDecl (
+         declaration => i"""
+            type \e<w.name> is record
+               Address        : System.Address;
+               Is_Proxy_Owned : Boolean;
+               Is_Automatic   : Boolean;
+            end record;
+
+            type \e<w.name>_Access is access all \e<w.name>;
+         """
+      );
+   then
+      wrap wp_TypeDecl (
+         name => "\e<w.name>"
+      );
+   end;
+
+   match TypeExpr ()
+   wrap wp_TypeExpr (name => lambda (
+      p_designated_type_decl().wrapper (wp_TypeDecl ()).name
+   ));
 end;

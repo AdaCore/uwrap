@@ -103,7 +103,8 @@ template w_SubpDecl extends w_NamedEntity do
             \e<return_stmt>
          end;
       end;
-   end \e<name>;"""; 
+   end \e<name>;
+   """; 
 end;
 
 template w_SubpDeclCall extends w_SubpDecl do
@@ -158,6 +159,14 @@ template w_TypeDecl extends w_NamedEntity do
    var rep_declaration : text;
    var kind : text;
    var aspects_declaration : text;
+
+   var declaration : text => lambda (
+      (match origin (IncompleteTypeDecl ())
+         pick "type \e<name>;"
+      else match origin (SubtypeDecl ())
+         pick "subtype \e<name> is \e<definition>;"
+      else
+         pick "type \e<name> is \e<definition>\e<aspects_declaration>;\n\e<rep_declaration>"));
 end;
 
 template w_Aspect extends w_Ada do
@@ -537,14 +546,8 @@ visitor wrappers_post_process () do
       match child (w_EnumRep ())
       weave (rep_declaration => @ & "for \e<name> use (\n\e<rep_definition>\n);\n");
       
-      match s: self () and not parent (w_TypeExpr ()) and parent (p: w_PackageDecl()) do
-         match origin (IncompleteTypeDecl ())
-            pick p weave (spec_content => @ & "type \e<s.name>;\n");
-         else match origin (SubtypeDecl ())
-            pick p weave (spec_content => @ & "subtype \e<s.name> is \e<s.definition>;\n");
-         else
-            pick p weave (spec_content => @ & "type \e<s.name> is \e<s.definition>\e<s.aspects_declaration>;\n\e<s.rep_declaration>");
-      end;
+      match s: self () and not parent (w_TypeExpr ()) and parent (p: w_PackageDecl())
+      pick p weave (spec_content => @ & s.declaration & "\n");
    end;
 
    match s: w_TypeExpr (o: origin (child (Identifier ())))

@@ -1010,7 +1010,11 @@ package body Wrapping.Runtime.Analysis is
             Run_Outer_Callback := False;
 
          when Template_Match_Expr =>
+            Push_Frame_Context;
+            Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+            Top_Frame.Top_Context.Outer_Object := Top_Object;
             Evaluate_Expression (Expr.Match_Match_Expr);
+            Pop_Frame_Context;
 
             if Pop_Object /= Match_False then
                Evaluate_Expression (Expr.Match_Pick_Expr);
@@ -1837,7 +1841,9 @@ package body Wrapping.Runtime.Analysis is
             --  or new. We don't want to carry this property over to the lambda
             --  call, so remove it.
 
-            if Top_Object.Dereference.all in W_Static_Entity_Type then
+            if Top_Object.Dereference.all in W_Static_Entity_Type'Class
+              or else Top_Object.Dereference.all in W_Function_Type'Class
+            then
                --  We don't capture static references, they can later be
                --  retreived from context. Genreating symbols for them would
                --  also confused name resolution as we would have a symbol

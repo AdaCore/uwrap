@@ -39,6 +39,14 @@ template wp_Parameter extends wp_NamedProxy do
       }""");
 end;
 
+template wp_TypeExpr extends wp_Proxy do
+   var name : text;
+end;
+
+template wp_TypeDecl extends wp_NamedProxy do
+   
+end;
+
 visitor generate_proxy2json () do
    match wp_Unit ()
    wrap standard.file (name & ".json", contents);
