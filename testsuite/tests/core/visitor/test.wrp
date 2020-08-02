@@ -1,4 +1,7 @@
-visitor sub_analyze (p1, p2) do
+template sub_analyze pick origin do
+    var p1: text;
+    var p2: text;
+
     match Entity () or Call ()
     wrap standard.out ("sub_analyze: \e<f_name>, \e<p1>, \e<p2>\n"); 
 end;

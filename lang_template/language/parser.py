@@ -20,7 +20,7 @@ class Module(TemplateNode):
 class Template(TemplateNode):
    name = Field()
    extending = Field()
-   definition = Field()
+   command = Field()
 
 class Var(TemplateNode):
    name = Field()
@@ -99,11 +99,6 @@ class Function(Expr):
    args = Field()
    program = Field()
 
-class Visitor(Expr):
-   name = Field()
-   args = Field()
-   program = Field()
-
 class MatchExpr (Expr):
    match_exp = Field ()
    pick_exp = Field ()
@@ -153,8 +148,9 @@ class QualifiedMatch (TemplateNode):
    rhs = Field()
 
 class CommandSequence (TemplateNode):
+   vars = Field()
    commands = Field()
-   then = Field ()
+   then = Field()
 
 class RegExpr (TemplateNode):
    left = Field()
@@ -176,10 +172,9 @@ template_grammar.add_rules(
    main_rule=Module (List (G.import_clause, empty_valid=True), G.module_scope),
    import_clause=Import('import', G.dotted_name, ';'),
     
-   module_scope=List(Or (G.template, G.command, G.visitor, G.function, G.var), empty_valid=True),
-   template_scope=List(G.var, empty_valid=True),
+   module_scope=List(Or (G.template, G.command, G.function, G.var), empty_valid=True),
 
-   template=Template('template', G.identifier, Opt ('extends', G.dotted_name), 'do', G.template_scope, 'end', ';'),
+   template=Template('template', G.identifier, Opt ('extends', G.dotted_name), G.command),
     
    var=Var('var', G.identifier, ':', G.identifier, Opt ('(', G.arg_list, ')'), Opt ('=>', G.expression), ';'), 
 
@@ -189,7 +184,7 @@ template_grammar.add_rules(
          G.pick_section,
          G.wrap_section, 
          G.weave_section,
-         G.command_sequence
+         G.command_sequence,
       )
    ),
    match_section=MatchSection (
@@ -226,16 +221,18 @@ template_grammar.add_rules(
 
    command_sequence=Pick ('do', G.command_sequence_element),
    command_sequence_element=CommandSequence (
-      List (G.command, empty_valid = True), Or (
+      List (G.var, empty_valid = True), 
+      List (G.command, empty_valid = True), 
+      Or (
          Pick ('then', G.command_sequence_element),
-         Pick ('end', Null (G.command_sequence_element), ';'))),
+         Pick ('end', Null (G.command_sequence_element), ';'))
+      ),
    
    traverse_decision=Or(TraverseInto ('into'), TraverseOver ('over')),
 
-   visitor=Visitor('visitor', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
    function=Function('function', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
    
-    root_expression=Or (      
+   root_expression=Or (      
       G.regular_expression_with_suffix,
       RegExpr (
          RegExprAnchor ('\\'), 

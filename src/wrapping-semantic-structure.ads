@@ -74,13 +74,6 @@ package Wrapping.Semantic.Structure is
    package T_Command_Vectors is new Ada.Containers.Vectors (Positive, T_Command);
    use T_Command_Vectors;
 
-   type T_Visitor_Type;
-   type T_Visitor is access all T_Visitor_Type'Class;
-   package T_Visitor_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Visitor);
-   use T_Visitor_Maps;
-   package T_Visitor_Vectors is new Ada.Containers.Vectors (Positive, T_Visitor);
-   use T_Visitor_Vectors;
-
    type T_Function_Type;
    type T_Function is access all T_Function_Type'Class;
    package T_Function_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Function);
@@ -91,6 +84,9 @@ package Wrapping.Semantic.Structure is
    type T_Expr_Type (Kind : Template_Node_Kind_Type);
    type T_Expr is access all T_Expr_Type'Class;
    package T_Expr_Vectors is new Ada.Containers.Vectors (Positive, T_Expr);
+   use T_Expr_Vectors;
+   package T_Expr_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Expr);
+   use T_Expr_Maps;
 
    type T_Arg_Type;
    type T_Arg is access all T_Arg_Type'Class;
@@ -121,9 +117,6 @@ package Wrapping.Semantic.Structure is
 
    function Find_Visible_Entity (An_Entity : T_Entity_Type'Class; Name : Text_Type) return T_Entity;
 
-   function Get_Variable_For_Index (An_Entity : T_Entity_Type; Index : Positive) return T_Var
-   is (null);
-
    function Get_Component (An_Entity : T_Entity_Type; Name : Text_Type) return T_Entity
    is (null);
 
@@ -148,7 +141,6 @@ package Wrapping.Semantic.Structure is
       Variables_Ordered : T_Var_Vectors.Vector;
       Variables_Indexed : T_Var_Maps.Map;
 
-      Visitors_Indexed : T_Visitor_Maps.Map;
       Imported_Modules : T_Module_Maps.Map;
    end record;
 
@@ -157,8 +149,6 @@ package Wrapping.Semantic.Structure is
    overriding
    function Full_Name (An_Entity : T_Module_Type) return Text_Type;
 
-   function Get_Variable_For_Index (An_Entity : T_Module_Type; Index : Positive) return T_Var;
-
    function Get_Component (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity;
 
    overriding
@@ -166,16 +156,10 @@ package Wrapping.Semantic.Structure is
 
    type T_Template_Type is new T_Named_Entity_Type with record
       Extends : T_Template;
-
-      Variables_Ordered : T_Var_Vectors.Vector;
-      Variables_Indexed : T_Var_Maps.Map;
+      Program : T_Command;
    end record;
 
    function Instance_Of (Child, Parent : T_Template) return Boolean;
-
-   function Has_Variable (A_Template : T_Template_Type; Name : Text_Type) return Boolean;
-
-   function Get_Variable_For_Index (A_Template : T_Template_Type; Index : Positive) return T_Var;
 
    function Get_Component (A_Template : T_Template_Type; Name : Text_Type) return T_Entity;
 
@@ -185,7 +169,7 @@ package Wrapping.Semantic.Structure is
    procedure Resolve_References (An_Entity : access T_Template_Type);
 
    type Var_Type_Kind is
-     (Integer_Kind, Text_Kind, Set_Kind, Map_Kind, Vector_Kind);
+     (Object_Kind, Integer_Kind, Text_Kind, Set_Kind, Map_Kind, Vector_Kind);
 
    type T_Var_Type is new T_Named_Entity_Type with record
       Kind : Var_Type_Kind;
@@ -198,6 +182,7 @@ package Wrapping.Semantic.Structure is
    end record;
 
    type T_Command_Sequence_Type is new T_Entity_Type with record
+      Vars          : T_Var_Vectors.Vector;
       Commands      : T_Command_Vectors.Vector;
       Next_Sequence : T_Command_Sequence;
    end record;
@@ -240,13 +225,6 @@ package Wrapping.Semantic.Structure is
 
    overriding
    procedure Resolve_References (An_Entity : access T_Command_Type);
-
-   type T_Visitor_Type is new T_Named_Entity_Type with record
-      Arguments_Ordered : T_Var_Vectors.Vector;
-      Arguments_Indexed : T_Var_Maps.Map;
-
-      Program : T_Command_Sequence;
-   end record;
 
    type T_Function_Type is new T_Named_Entity_Type with record
       Arguments_Ordered : T_Var_Vectors.Vector;

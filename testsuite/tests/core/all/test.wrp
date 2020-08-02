@@ -1,4 +1,6 @@
-visitor V (test_name) do
+template V pick origin do
+   var test_name : text;
+
    match Entity ()
    weave standard.out (@ & "\e<test_name> => \e<f_name>\n");
 end;

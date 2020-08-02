@@ -18,7 +18,6 @@ class Token(LexerToken):
     Wrap       = WithText()    
     Pick       = WithText()
     
-    Visitor    = WithText()
     Function   = WithText()
     Lambda     = WithText()
     
@@ -90,7 +89,6 @@ template_lexer.add_rules(
     (Literal("wrap"), Token.Wrap),
     (Literal("weave"), Token.Weave),
     (Literal("function"), Token.Function),
-    (Literal("visitor"), Token.Visitor),
     (Literal("lambda"), Token.Lambda),
     (Literal("and"), Token.And),
     (Literal("or"), Token.Or),

@@ -315,7 +315,7 @@ package body Wrapping.Runtime.Objects is
 
       Registry := W_Vector
         (W_Reference
-           (A_Template.Symbols.Element ("_registry")).Value);
+           (A_Template.Indexed_Variables.Element ("_registry")).Value);
 
       if Registry.A_Vector.Length = 0 then
          Push_Match_False;
@@ -672,19 +672,17 @@ package body Wrapping.Runtime.Objects is
       Temp_Symbols : W_Object_Maps.Map;
       Initial_Context : Frame_Context := Top_Frame.Top_Context;
 
-      function Name_For_Position (Position : Integer) return Template_Node is
+      procedure Evaluate_Parameter
+        (Name : Text_Type; Position : Integer; Value : T_Expr)
+      is
+         Computed_Name : Text_Type :=
+           (if Name = "" then
+               An_Entity.A_Function.Arguments_Ordered.Element (Position).Name_Node.Text
+            else
+               Name);
       begin
-         return An_Entity.A_Function.Arguments_Ordered.Element (Position).Name_Node;
-      end Name_For_Position;
-
-      procedure Store_Param_Value (Name_Node : Template_Node; Value : W_Object) is
-      begin
-         if not An_Entity.A_Function.Arguments_Indexed.Contains (Name_Node.Text) then
-            Error ("unknown parameter " & Name_Node.Text);
-         end if;
-
-         Temp_Symbols.Insert (Name_Node.Text, Value);
-      end Store_Param_Value;
+         Temp_Symbols.Insert (Name, Evaluate_Expression (Value));
+      end Evaluate_Parameter;
 
       Last_Picked : W_Object;
 
@@ -705,9 +703,7 @@ package body Wrapping.Runtime.Objects is
       Prev_Self : W_Object := Get_Implicit_Self;
    begin
       Handle_Call_Parameters
-        (Args              => Params,
-         Name_For_Position => Name_For_Position'Access,
-         Store_Param_Value => Store_Param_Value'Access);
+        (Params, Evaluate_Parameter'Access);
 
       Push_Frame (An_Entity.A_Function);
       Push_Implicit_Self (Prev_Self);
@@ -874,7 +870,7 @@ package body Wrapping.Runtime.Objects is
 
          W_Vector
            (W_Reference
-              (Template_Class.Symbols.Element ("_registry")).Value).
+              (Template_Class.Indexed_Variables.Element ("_registry")).Value).
              A_Vector.Append (W_Object (New_Template));
 
          Current_Template := Current_Template.Extends;
@@ -1583,8 +1579,6 @@ package body Wrapping.Runtime.Objects is
       Name      : Text_Type) return Boolean
    is
       use Wrapping.Semantic.Structure;
-
-      Named_Entity : T_Entity;
    begin
       if W_Node_Type (An_Entity.all).Push_Value (Name) then
          return True;
@@ -1598,64 +1592,9 @@ package body Wrapping.Runtime.Objects is
 
             return True;
          end if;
-      elsif An_Entity.Symbols.Contains (Name) then
-         Push_Object (An_Entity.Symbols.Element (Name));
+      elsif An_Entity.Indexed_Variables.Contains (Name) then
+         Push_Object (An_Entity.Indexed_Variables.Element (Name));
          return True;
-      elsif An_Entity.Defining_Entity /= null then
-         --  If we did not find the symbol, see if it corresponds to a variable
-         --  and create it.
-
-         Named_Entity := An_Entity.Defining_Entity.Get_Component (Name);
-
-         if Named_Entity /= null and then Named_Entity.all in T_Var_Type then
-            declare
-               A_Var : T_Var :=  T_Var (Named_Entity);
-               New_Ref : W_Reference;
-               Init_Value : W_Object;
-            begin
-               if A_Var.Init_Expr /= null then
-                  Push_Implicit_Self (An_Entity);
-                  Evaluate_Expression (A_Var.Init_Expr);
-                  Init_Value := Pop_Object;
-                  Pop_Object;
-               end if;
-
-               New_Ref := new W_Reference_Type;
-
-               case A_Var.Kind is
-                  when Text_Kind =>
-
-                     --  Symbols contained in templates are references to
-                     --  values. Create the reference and the referenced
-                     --  empty value here.
-
-                     New_Ref.Value := new W_Text_Vector_Type;
-
-                     if A_Var.Init_Expr /= null then
-                        W_Text_Vector (New_Ref.Value).A_Vector.Append
-                          (Init_Value);
-                     end if;
-
-                  when Set_Kind =>
-                     New_Ref.Value := new W_Set_Type;
-
-                  when Map_Kind =>
-                     New_Ref.Value := new W_Map_Type;
-
-                  when Vector_Kind =>
-                     New_Ref.Value := new W_Vector_Type;
-
-                  when others =>
-                     Error ("variable kind not supported for templates");
-
-               end case;
-
-               An_Entity.Symbols.Insert (Name, New_Ref);
-               Push_Object (New_Ref);
-
-               return True;
-            end;
-         end if;
       end if;
 
       return False;

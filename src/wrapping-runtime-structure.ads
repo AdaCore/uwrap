@@ -151,6 +151,8 @@ package Wrapping.Runtime.Structure is
       Parent_Frame   : Data_Frame;
 
       Symbols        : W_Object_Maps.Map;
+      Ordered_Vars   : T_Var_Vectors.Vector;
+
       Group_Sections : Matched_Groups_Vectors.Vector;
       Data_Stack     : W_Object_Vectors.Vector;
       Top_Context    : Frame_Context;
@@ -159,6 +161,13 @@ package Wrapping.Runtime.Structure is
       Temp_Names     : Text_Maps.Map;
 
       Interrupt_Program : Boolean := False;
+
+      --  When the frame is stacked for a template, it's accessible through
+      --  this variable
+      Current_Template : W_Object;
+
+      Template_Parameters_Position : T_Expr_Vectors.Vector;
+      Template_Parameters_Names : T_Expr_Maps.Map;
    end record;
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return W_Object;
@@ -277,8 +286,7 @@ package Wrapping.Runtime.Structure is
 
    procedure Handle_Call_Parameters
      (Args : T_Arg_Vectors.Vector;
-      Name_For_Position : access function (Position : Integer) return Template_Node;
-      Store_Param_Value : access procedure (Name_Node : Template_Node; Value : W_Object);
-      Perpare_Param_Evaluation : access procedure (Name_Node : Template_Node; Position : Integer) := null);
+      Evaluate_Parameter : access procedure
+        (Name : Text_Type; Position : Integer; Value : T_Expr));
 
 end Wrapping.Runtime.Structure;

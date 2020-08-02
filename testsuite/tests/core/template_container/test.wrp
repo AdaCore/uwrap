@@ -3,14 +3,14 @@ template w_Node do
    var my_vector : vector (object);
 end;
 
-visitor visit1 () do
+template visit1 pick origin do
    match s: self() and f_name (x"B(.*)") and parent (wrapper (w: w_Node ()))
    pick w weave (
       my_set => @.include (s.f_name),
       my_vector => @.append (s.f_name));
 end;
 
-visitor visit2 () do
+template visit2 pick origin do
    match s: self() and f_name (x"B(.*)") and parent (wrapper (w: w_Node ()))
    pick w weave (
       my_set => @.include (s.f_name),

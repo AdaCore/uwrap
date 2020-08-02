@@ -22,6 +22,8 @@ package Wrapping.Runtime.Objects is
    type W_Reference is access all W_Reference_Type;
    package W_Reference_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, W_Reference);
    use W_Reference_Maps;
+   package W_Reference_Vectors is new Ada.Containers.Vectors (Positive, W_Reference);
+   use W_Reference_Vectors;
 
    type W_Vector_Type;
    type W_Vector is access all W_Vector_Type'Class;
@@ -421,11 +423,15 @@ package Wrapping.Runtime.Objects is
       --  such as:
       --      weave with (X => @ & "somethign");
       --  which would otherwise create cycles and defeat the intended semantic.
-      Symbols : W_Reference_Maps.Map;
+      Indexed_Variables : W_Reference_Maps.Map;
+      Ordered_Variables : W_Reference_Vectors.Vector;
 
       Origin : W_Node;
 
       Is_Wrapping : Boolean := False;
+
+      --  This is true after the first time the template has been evaluated.
+      Is_Evaluated : Boolean := False;
    end record;
 
    overriding

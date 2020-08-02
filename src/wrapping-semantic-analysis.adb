@@ -24,9 +24,8 @@ package body Wrapping.Semantic.Analysis is
    function Build_Template (Node : Template_Node) return T_Template;
    function Build_Module (Node : Template_Node; Module_Name : Text_Type) return T_Module;
    function Build_Command (Node : Template_Node'Class) return T_Command;
-   function Build_Visitor (Node : Template_Node) return T_Visitor;
    function Build_Function (Node : Template_Node) return T_Function;
-   function Build_Variable (Node : Libtemplatelang.Analysis.Var) return T_Var;
+   function Build_Variable (Node : Var'Class) return T_Var;
    function Build_Expr (Node : Template_Node'Class) return T_Expr;
    function Build_Arg (Node : Template_Node'Class) return T_Arg;
    function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree;
@@ -157,11 +156,6 @@ package body Wrapping.Semantic.Analysis is
             when Template_Command =>
                Dummy_Command := Build_Command (C);
 
-            when Template_Visitor =>
-               A_Module.Visitors_Indexed.Insert
-                 (C.As_Visitor.F_Name.Text,
-                  Build_Visitor (C));
-
             when Template_Var =>
                A_Module.Variables_Ordered.Append
                  (Build_Variable (C.As_Var));
@@ -190,21 +184,7 @@ package body Wrapping.Semantic.Analysis is
       A_Template : T_Template := new T_Template_Type;
    begin
       Push_Named_Entity (A_Template, Node, Node.As_Template.F_Name);
-
-      for C of Node.As_Template.F_Definition loop
-         case C.Kind is
-            when Template_Var =>
-               A_Template.Variables_Ordered.Append
-                 (Build_Variable (Template_Node (C).As_Var));
-               A_Template.Variables_Indexed.Insert
-                 (C.As_Var.F_Name.Text,
-                  A_Template.Variables_Ordered.Last_Element);
-
-            when others =>
-               Error ("unsupported node for templates: '" & C.Kind'Wide_Wide_Image & "'");
-         end case;
-      end loop;
-
+      A_Template.Program := Build_Command (Node.As_Template.F_Command);
       Pop_Entity;
 
       return A_Template;
@@ -214,6 +194,10 @@ package body Wrapping.Semantic.Analysis is
       Sequence : T_Command_Sequence := new T_Command_Sequence_Type;
    begin
       Push_Entity (Sequence, Node);
+
+      for V of Node.F_Vars loop
+         Sequence.Vars.Append (Build_Variable (V));
+      end loop;
 
       for C of Node.F_Commands loop
          Sequence.Commands.Append (Build_Command (C));
@@ -316,32 +300,6 @@ package body Wrapping.Semantic.Analysis is
       return A_Command;
    end Build_Command;
 
-   function Build_Visitor (Node : Template_Node) return T_Visitor is
-      A_Visitor     : T_Visitor := new T_Visitor_Type;
-   begin
-      Push_Named_Entity (A_Visitor, Node, Node.As_Visitor.F_Name);
-
-      for A of Node.As_Visitor.F_Args loop
-         declare
-            A_Var : T_Var := new T_Var_Type;
-         begin
-            Push_Named_Entity (A_Var, A, A);
-
-            A_Var.Kind := Text_Kind;
-            A_Visitor.Arguments_Ordered.Append (A_Var);
-            A_Visitor.Arguments_Indexed.Insert (A.Text, A_Var);
-
-            Pop_Entity;
-         end;
-      end loop;
-
-      A_Visitor.Program := Build_Command_Sequence (Node.As_Visitor.F_Program);
-
-      Pop_Entity;
-
-      return A_Visitor;
-   end Build_Visitor;
-
    function Build_Function (Node : Template_Node) return T_Function is
       A_Function : T_Function := new T_Function_Type;
    begin
@@ -368,13 +326,19 @@ package body Wrapping.Semantic.Analysis is
       return A_Function;
    end Build_Function;
 
-   function Build_Variable (Node : Libtemplatelang.Analysis.Var) return Structure.T_Var is
+   function Build_Variable (Node : Var'Class) return T_Var is
       A_Var : Structure.T_Var := new T_Var_Type;
       Typ : Text_Type := Node.F_Typ.Text;
    begin
       Push_Named_Entity (A_Var, Node, Node.As_Var.F_Name);
 
-      if Typ = "integer" then
+      if Typ = "object" then
+         A_Var.Kind := Object_Kind;
+
+         if Node.F_Args.Children_Count /= 0 then
+            Error ("no argument expected for object var");
+         end if;
+      elsif Typ = "integer" then
          A_Var.Kind := Integer_Kind;
 
          if Node.F_Args.Children_Count /= 0 then

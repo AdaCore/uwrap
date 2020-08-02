@@ -24,11 +24,13 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Identifier (Node : Template_Node'Class);
    procedure Handle_Call (Expr : T_Expr);
-   procedure Handle_Template_Call
+
+   function Handle_Template_Call
      (A_Template_Instance : W_Template_Instance;
-      Args : T_Arg_Vectors.Vector);
-   procedure Handle_Visitor_Call
-     (Self : W_Node; Visitor : T_Visitor; Args : T_Arg_Vectors.Vector);
+      Args : T_Arg_Vectors.Vector) return Visit_Action
+     with Post => Top_Frame.Data_Stack.Length
+       = Top_Frame.Data_Stack.Length'Old;
+
    procedure Handle_Fold (Selector : T_Expr;  Suffix : in out T_Expr_Vectors.Vector);
    procedure Handle_New (Create_Tree : T_Create_Tree);
    procedure Handle_All (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector);
@@ -281,6 +283,9 @@ package body Wrapping.Runtime.Analysis is
       A_Template_Instance : W_Template_Instance;
       Self_Weave : Boolean := False;
       Result : W_Object;
+
+      --  TODO: is this still necessary?
+      Dummy_Action : Visit_Action;
    begin
       Push_Error_Location (Template_Clause.Node);
       Push_Implicit_Self (Self);
@@ -360,7 +365,7 @@ package body Wrapping.Runtime.Analysis is
                   W_Object (A_Template_Instance));
             end if;
 
-            Handle_Template_Call (A_Template_Instance, Template_Clause.Call.Args);
+            Dummy_Action := Handle_Template_Call (A_Template_Instance, Template_Clause.Call.Args);
          end if;
       end if;
 
@@ -487,28 +492,101 @@ package body Wrapping.Runtime.Analysis is
             -- There is an explicit template call. Pass this on either the
             -- current template or the whole tree
 
-            if Command.Template_Section.Call.Reference/= null
-              and then Command.Template_Section.Call.Reference.all in T_Visitor_Type'Class
-            then
-               Handle_Visitor_Call
-                 (Self,
-                  T_Visitor (Command.Template_Section.Call.Reference),
-                  Command.Template_Section.Call.Args);
-            else
-               Apply_Template_Action (Self, Command.Template_Section);
-            end if;
+            Apply_Template_Action (Self, Command.Template_Section);
          end if;
       end if;
    end Handle_Command_Back;
 
    procedure Handle_Command_Sequence (Sequence : T_Command_Sequence) is
-      Seq : T_Command_Sequence := Sequence;
+      Seq  : T_Command_Sequence := Sequence;
    begin
       while Seq /= null loop
+         --  First analyze variables
+
+         for A_Var of Seq.Vars loop
+            declare
+               New_Ref : W_Reference;
+               Saved_Frame : Data_Frame;
+               Name : Text_Type := A_Var.Name_Node.Text;
+            begin
+               --  See Handle_Tempalte_Call for details on the evaluation of
+               --  template parameters.
+
+               New_Ref := new W_Reference_Type;
+
+               case A_Var.Kind is
+                  when Text_Kind =>
+
+                     --  Symbols contained in templates are references to
+                     --  values. Create the reference and the referenced
+                     --  empty value here.
+
+                     New_Ref.Value := new W_Text_Vector_Type;
+
+                  when Set_Kind =>
+                     New_Ref.Value := new W_Set_Type;
+
+                  when Map_Kind =>
+                     New_Ref.Value := new W_Map_Type;
+
+                  when Vector_Kind =>
+                     New_Ref.Value := new W_Vector_Type;
+
+                  when Object_Kind =>
+                     --  No initialization needed for object vars
+                     null;
+
+                  when others =>
+                     Error ("variable kind not supported for templates");
+
+               end case;
+
+               if A_Var.Init_Expr /= null then
+                  Evaluate_Expression (A_Var.Init_Expr);
+
+                  New_Ref.Value := Pop_Object;
+               end if;
+
+               if Top_Frame.Parent_Frame.Template_Parameters_Position.Length > 0
+                 or else Top_Frame.Parent_Frame.Template_Parameters_Names.Contains (Name)
+               then
+                  Saved_Frame := Top_Frame;
+                  Top_Frame := Top_Frame.Parent_Frame;
+                  Push_Frame_Context;
+                  Top_Frame.Top_Context.Left_Value := New_Ref.Value;
+                  Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+                  Top_Frame.Top_Context.Match_Mode := Match_None;
+
+                  if Top_Frame.Template_Parameters_Position.Length > 0 then
+                     Evaluate_Expression (Top_Frame.Template_Parameters_Position.First_Element);
+                     Top_Frame.Template_Parameters_Position.Delete_First;
+                  else
+                     Evaluate_Expression (Top_Frame.Template_Parameters_Names.Element (Name));
+                     Top_Frame.Template_Parameters_Names.Delete (Name);
+                  end if;
+
+                  New_Ref.Value := Pop_Object;
+                  Pop_Frame_Context;
+                  Top_Frame := Saved_Frame;
+               end if;
+
+               Top_Frame.Symbols.Insert (Name, W_Object (New_Ref));
+
+               if Top_Frame.Current_Template /= null then
+                  W_Template_Instance (Top_Frame.Current_Template).Indexed_Variables.Insert
+                    (Name, New_Ref);
+                  W_Template_Instance (Top_Frame.Current_Template).Ordered_Variables.Append
+                    (New_Ref);
+               end if;
+            end;
+         end loop;
+
+         --  The execute command in reverse
+
          for C of reverse Seq.Commands loop
             exit when Top_Frame.Interrupt_Program;
 
-            Handle_Command_Front (C);
+            Handle_Command_Front (T_Command (C));
          end loop;
 
          exit when Top_Frame.Interrupt_Program;
@@ -1374,137 +1452,117 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Identifier;
 
-   procedure Handle_Template_Call
+   function Handle_Template_Call
      (A_Template_Instance : W_Template_Instance;
-      Args : T_Arg_Vectors.Vector)
+      Args : T_Arg_Vectors.Vector) return Visit_Action
    is
-      procedure Perpare_Param_Evaluation (Name_Node : Template_Node; Position : Integer) is
+      --  If not already evaluated, parameter evaluation for templates goes as
+      --  follows:
+      --  (1) actual expressions for parameters on a template call are stored
+      --      in the current frame.
+      --  (2) when variables are encountered in the following sequences, they
+      --      are first evaluated, then
+      --      (a) if there's an expression available the ordered expression list,
+      --          it will be evaluated
+      --      (b) otherwise, if there's an experssion of that name in the list,
+      --          it will be evaluated
+      --      This evaluation is done in the context of the parent frame, the
+      --      one where the expression is written, not the top frame which is
+      --      the current frame of the template.
+      --  (3) At the end of the template call, if there are still parameters
+      --      not evaluated, an error is thrown.
+      --  The following allows this to work:
+      --
+      --     template T do
+      --        var V : text => "something";
+      --     end;
+      --
+      --     wrap T (V => @ & " and something else");
+      --
+      --   Wrapping T this way would evaluate V as "something and something else".
+      --
+      --   If the template has already been evaluated, then we only update its
+      --   variables.
+
+      procedure Store_Parameter
+        (Name : Text_Type; Position : Integer; Value : T_Expr)
+      is
       begin
-         Push_Frame_Context;
-
-         if not A_Template_Instance.Push_Value (Name_Node.Text) then
-            Error ("value not found for: " & Name_Node.Text);
-         end if;
-
-         Top_Frame.Top_Context.Left_Value := W_Reference (Pop_Object).Value;
-      end Perpare_Param_Evaluation;
-
-      function Name_For_Position (Position : Integer) return Template_Node is
-      begin
-         return A_Template_Instance.Defining_Entity.Get_Variable_For_Index
-           (Position).Name_Node;
-      end Name_For_Position;
-
-      procedure Store_Param_Value (Name_Node : Template_Node; Value : W_Object) is
-         Ref : W_Reference;
-         A_Var : T_Var;
-         Name : Text_Type := Name_Node.Text;
-      begin
-         A_Var := T_Var (A_Template_Instance.Defining_Entity.Get_Component (Name));
-
-         if not A_Template_Instance.Push_Value (Name) then
-            Error ("value not found for: " & Name);
-         end if;
-
-         Ref := W_Reference (Pop_Object);
-
-         --  The container is an indirection to a value. Remove the previous one
-         --  and add the new one instead.
-
-         if A_Var = null then
-            --  In that case, there's no type to refer to. Just associate the value.
-            --  This is the case for intrinsic variables created for types.
-            --  TODO: It'd be better to have a Get_Type_For primitive on the
-            --  defining entity, or something like that.
-            Ref.Value := Value;
-         elsif A_Var.Kind = Text_Kind then
-            -- If we were provided with a text,
-            --  reference it, otherwise add a conversion to text node. We can't
-            --  resolve the value just yet as it may depend on dynamically computed
-            --  data, such as lambda.
-            --  TODO: This is effectively an implicit conversion to text. Document
-            --  it, and make sure that it's only done in the case of text kind, not
-            --  object kind.
-
-            if Value.Dereference.all in W_Text_Expression_Type'Class then
-               Ref.Value := Value;
-            else
-               Ref.Value := new W_Text_Conversion_Type'(An_Object => Value);
-            end if;
+         if Name = "" then
+            Top_Frame.Template_Parameters_Position.Append (Value);
          else
-            Ref.Value := Value;
+            Top_Frame.Template_Parameters_Names.Insert (Name, Value);
          end if;
+      end Store_Parameter;
+
+      procedure Update_Parameter
+        (Name : Text_Type; Position : Integer; Value : T_Expr)
+      is
+         Ref : W_Reference;
+      begin
+         if Name = "" then
+            Ref := A_Template_Instance.Ordered_Variables.Element (Position);
+         else
+            Ref := A_Template_Instance.Indexed_Variables.Element (Name);
+         end if;
+
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Left_Value := Ref.Value;
+         Evaluate_Expression (Value);
+         Ref.Value := Pop_Object;
 
          Pop_Frame_Context;
-      end Store_Param_Value;
-   begin
-      Handle_Call_Parameters
-        (Args,
-         Name_For_Position'Access,
-         Store_Param_Value'Access,
-         Perpare_Param_Evaluation'Access);
-   end Handle_Template_Call;
+      end Update_Parameter;
 
-   procedure Handle_Visitor_Call
-     (Self : W_Node; Visitor : T_Visitor; Args : T_Arg_Vectors.Vector)
-   is
-      Symbols : W_Object_Maps.Map;
-
-      function Name_For_Position (Position : Integer) return Template_Node is
+      procedure Handle_Template_Call_Recursive (A_Template : T_Template) is
       begin
-         return Visitor.Arguments_Ordered.Element (Position).Name_Node;
-      end Name_For_Position;
+         if A_Template.Extends /= null then
+            Handle_Template_Call_Recursive (A_Template.Extends);
+         end if;
 
-      procedure Store_Param_Value (Name_Node : Template_Node; Value : W_Object) is
-      begin
-         Symbols.Insert (Name_Node.Text, Value);
-      end Store_Param_Value;
+         Handle_Command_Front (A_Template.Program);
+      end Handle_Template_Call_Recursive;
 
-      Prev_Visit_Id : Integer;
-      A_Visit_Action : Visit_Action := Unknown;
-      --Traverse_Result : W_Object;
+      Visit_Result : aliased Visit_Action := Unknown;
    begin
-      --  Increment the visitor counter and set the current visitor id, as to
-      --  track entities that are being visited by this iteration.
-      Prev_Visit_Id := Current_Visitor_Id;
-      Visitor_Counter := Visitor_Counter + 1;
-      Current_Visitor_Id := Visitor_Counter;
+      if A_Template_Instance.Is_Evaluated then
+         Handle_Call_Parameters (Args, Update_Parameter'Access);
 
-      -- The analysis needs to be done within the previous frame (in particular
-      -- to get capture groups) then all valuated symbols needs to be allocated
-      -- to the next frame (in particular to be destroyed when popping).
-
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
-
-      Handle_Call_Parameters
-        (Args,
-         Name_For_Position'Access,
-         Store_Param_Value'Access);
-
-      Pop_Frame_Context;
-
-      Push_Frame (Visitor);
-      Push_Implicit_Self (Self);
-
-      Top_Frame.Symbols.Move (Symbols);
-
-      -- Apply_Wrapping_Program will push its own frame, which is local to the
-      -- actual entity to be analyzed. The one pushed above is global to all
-      -- calls and contains parameter evaluation, to be done only once.
-
-      if Visitor.Full_Name = "standard.root" then
-         Apply_Wrapping_Program (Self, Wrapping.Semantic.Analysis.Root);
+         return Into;
       else
-         Handle_Command_Sequence (Visitor.Program);
+         A_Template_Instance.Is_Evaluated := True;
+
+         Handle_Call_Parameters (Args, Store_Parameter'Access);
+
+         Push_Frame (A_Template_Instance.Defining_Entity);
+         Push_Implicit_Self (A_Template_Instance);
+         Top_Frame.Top_Context.Visit_Decision := Visit_Result'Unchecked_Access;
+         Top_Frame.Current_Template := W_Object (A_Template_Instance);
+
+         if A_Template_Instance.Defining_Entity.Full_Name = "standard.root" then
+            Apply_Wrapping_Program (A_Template_Instance.Origin, Wrapping.Semantic.Analysis.Root);
+         else
+            Handle_Template_Call_Recursive (T_Template (A_Template_Instance.Defining_Entity));
+         end if;
+
+         if Top_Frame.Parent_Frame.Template_Parameters_Position.Length > 0 then
+            Error ("too many parameters");
+         elsif Top_Frame.Parent_Frame.Template_Parameters_Names.Length > 0 then
+            Error
+              ("no parameter '"
+               & Top_Frame.Parent_Frame.Template_Parameters_Names.First_Key
+               & "' found for template");
+         end if;
+
+         Pop_Frame;
+
+         if Visit_Result = Unknown then
+            return Into;
+         else
+            return Visit_Result;
+         end if;
       end if;
-
-      --  Reset the visitor id to the previous value, we're back to the
-      --  enclosing visitor invocation.
-      Current_Visitor_Id := Prev_Visit_Id;
-
-      Pop_Frame;
-   end Handle_Visitor_Call;
+   end Handle_Template_Call;
 
    procedure Handle_Call (Expr : T_Expr) is
       Called : W_Object;
@@ -1765,6 +1823,9 @@ package body Wrapping.Runtime.Analysis is
       is
          A_Template_Instance : W_Template_Instance;
          Captured : Text_Type := To_Text (New_Tree.Call.Captured_Name);
+
+         -- TODO: Is this necessary?
+         Dummy_Action : Visit_Action;
       begin
          A_Template_Instance := Create_Template_Instance
            (null, T_Template (New_Tree.Call.Reference));
@@ -1774,7 +1835,7 @@ package body Wrapping.Runtime.Analysis is
               (Captured, W_Object (A_Template_Instance));
          end if;
 
-         Handle_Template_Call (A_Template_Instance, New_Tree.Call.Args);
+         Dummy_Action := Handle_Template_Call (A_Template_Instance, New_Tree.Call.Args);
 
          return A_Template_Instance;
       end Handle_Create_Template;

@@ -6,7 +6,9 @@ template w_Entity do
    var txt : text;
 end;
 
-visitor x (c) do
+template x pick origin do
+   var c: object;
+
    wrap w: w_Entity (
      a => lambda (c.wrapper (w_Entity ()).txt),
      b => lambda ("\e<c.f_name>"),

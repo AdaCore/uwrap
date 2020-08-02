@@ -1,4 +1,6 @@
-visitor v (x) do
+template v do
+    var x : object;
+
     match x.f_name (x"A")
     pick x weave standard.out (@ & "(3) FOUND ENTITY \e<x.f_name>\n");
 

@@ -113,12 +113,6 @@ package body Wrapping.Semantic.Structure is
       end if;
    end Full_Name;
 
-   function Get_Variable_For_Index (An_Entity : T_Module_Type; Index : Positive) return T_Var
-   is
-   begin
-      return An_Entity.Variables_Ordered (Index);
-   end Get_Variable_For_Index;
-
    function Get_Component (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity is
    begin
       return An_Entity.Children_Indexed (Name);
@@ -134,48 +128,6 @@ package body Wrapping.Semantic.Structure is
          return Instance_Of (Child.Extends, Parent);
       end if;
    end Instance_Of;
-
-   function Has_Variable (A_Template : T_Template_Type; Name : Text_Type) return Boolean is
-   begin
-      if A_Template.Variables_Indexed.Contains (Name) then
-         return True;
-      elsif A_Template.Extends /= null then
-         return Has_Variable (A_Template.Extends.all, Name);
-      else
-         return False;
-      end if;
-   end Has_Variable;
-
-   function Get_Variable_For_Index (A_Template : T_Template_Type; Index : Positive) return T_Var
-   is
-      Result : T_Var;
-
-      procedure Recursive_Search (A_Template : T_Template_Type'Class; Start_Offset : in out Integer) is
-      begin
-         if A_Template.Extends /= null then
-            Recursive_Search (A_Template.Extends.all, Start_Offset);
-         end if;
-
-         if Result /= null then
-            return;
-         end if;
-
-         if A_Template.Variables_Ordered.Length > 0
-           and then Index in Start_Offset + 1 .. Start_Offset + Integer (A_Template.Variables_Ordered.Length)
-         then
-            Result := A_Template.Variables_Ordered.Element (Index - Start_Offset);
-         else
-            Start_Offset := Start_Offset + Integer (A_Template.Variables_Ordered.Length);
-         end if;
-
-      end Recursive_Search;
-
-      Start : Integer := 0;
-   begin
-      Recursive_Search (A_Template, Start);
-
-      return Result;
-   end Get_Variable_For_Index;
 
    function Get_Component (A_Template : T_Template_Type; Name : Text_Type) return T_Entity is
    begin
@@ -287,7 +239,7 @@ package body Wrapping.Semantic.Structure is
       return Result;
    end Get_Static_Entity_By_Name;
 
-   function Get_Template_Or_Visitor_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity is
+   function Get_Template_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity is
       An_Entity : T_Entity;
    begin
       An_Entity := Get_Static_Entity_By_Name (Current_Scope, Name);
@@ -296,14 +248,12 @@ package body Wrapping.Semantic.Structure is
          Error ("can't find reference to '" & Name.Text & "'");
       end if;
 
-      if An_Entity.all not in T_Template_Type'Class
-        and then An_Entity.all not in T_Visitor_Type'Class
-      then
+      if An_Entity.all not in T_Template_Type'Class then
          Error ("expected visitor or template name");
       end if;
 
       return An_Entity;
-   end Get_Template_Or_Visitor_By_Name;
+   end Get_Template_By_Name;
 
    procedure Resolve_References (An_Entity : access T_Entity_Type) is
    begin
@@ -363,7 +313,7 @@ package body Wrapping.Semantic.Structure is
 
          An_Entity.Is_Null := True;
       else
-         An_Entity.Reference := Get_Template_Or_Visitor_By_Name
+         An_Entity.Reference := Get_Template_By_Name
            (An_Entity.Parent, An_Entity.Node.As_Template_Call.F_Name);
 
          if An_Entity.Reference = null then

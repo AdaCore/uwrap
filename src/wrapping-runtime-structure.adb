@@ -328,14 +328,14 @@ package body Wrapping.Runtime.Structure is
       begin
          case Var.Kind is
             when Map_Kind =>
-               Result.Symbols.Insert
+               Result.Indexed_Variables.Insert
                  (Var.Name_Node.Text, new W_Reference_Type'
                     (Value => new W_Map_Type, others => <>));
 
             when Text_Kind =>
                --  Text is currently modelled as a reference to a text
                --  container.
-               Result.Symbols.Insert
+               Result.Indexed_Variables.Insert
                  (Var.Name_Node.Text, new W_Reference_Type'
                     (Value => new W_Text_Vector_Type, others => <>));
 
@@ -360,7 +360,7 @@ package body Wrapping.Runtime.Structure is
             --  Templates are associated with a special vector of object, the
             --  registry, that contains all instances of the type.
 
-            Result.Symbols.Insert
+            Result.Indexed_Variables.Insert
               ("_registry",
                new W_Reference_Type'(Value => new W_Vector_Type, others => <>));
          else
@@ -482,14 +482,11 @@ package body Wrapping.Runtime.Structure is
 
    procedure Handle_Call_Parameters
      (Args : T_Arg_Vectors.Vector;
-      Name_For_Position : access function (Position : Integer) return Template_Node;
-      Store_Param_Value : access procedure (Name_Node : Template_Node; Value : W_Object);
-      Perpare_Param_Evaluation : access procedure (Name_Node : Template_Node; Position : Integer) := null)
+      Evaluate_Parameter : access procedure
+        (Name : Text_Type; Position : Integer; Value : T_Expr))
    is
       Parameter_Index : Integer;
-      Parameter_Value : W_Object;
       In_Named_Section : Boolean := False;
-      Name_Node : Template_Node;
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.Is_Root_Selection := True;
@@ -500,24 +497,16 @@ package body Wrapping.Runtime.Structure is
       for Param of Args loop
          if Param.Name /= "" then
             In_Named_Section := True;
-            Name_Node := Param.Name_Node;
+            Evaluate_Parameter (Param.Name_Node.Text, Parameter_Index, Param.Expr);
          else
             if In_Named_Section then
                Error ("can't have positional arguments after named ones");
             end if;
 
-            Name_Node := Name_For_Position.all (Parameter_Index);
+            Evaluate_Parameter ("", Parameter_Index, Param.Expr);
          end if;
 
-         if Perpare_Param_Evaluation /= null then
-            Perpare_Param_Evaluation (Name_Node, Parameter_Index);
-         end if;
 
-         Evaluate_Expression (Param.Expr);
-
-         Parameter_Value := Pop_Object;
-
-         Store_Param_Value (Name_Node, Parameter_Value);
 
          Parameter_Index := Parameter_Index + 1;
       end loop;
