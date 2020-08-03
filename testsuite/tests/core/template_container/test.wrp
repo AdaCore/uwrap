@@ -6,15 +6,15 @@ end;
 template visit1 pick origin do
    match s: self() and f_name (x"B(.*)") and parent (wrapper (w: w_Node ()))
    pick w weave (
-      my_set => @.include (s.f_name),
-      my_vector => @.append (s.f_name));
+      my_set => @.include (string (s.f_name)),
+      my_vector => @.append (string (s.f_name)));
 end;
 
 template visit2 pick origin do
    match s: self() and f_name (x"B(.*)") and parent (wrapper (w: w_Node ()))
    pick w weave (
-      my_set => @.include (s.f_name),
-      my_vector => @.append (s.f_name));
+      my_set => @.include (string (s.f_name)),
+      my_vector => @.append (string (s.f_name)));
 end;
 
 match Entity ()

@@ -1,50 +1,77 @@
-template V pick origin do
+template T pick origin do
    var test_name : text;
 
    match Entity ()
    weave standard.out (@ & "\e<test_name> => \e<f_name>\n");
 end;
 
+template V1 extends T;
+template V1bis extends T;
+template V2 extends T;
+template V2bis extends T;
+template V3 extends T;
+template V3bis extends T;
+template V3ter extends T;
+template V4 extends T;
+template V5 extends T;
+template V6 extends T;
+template V7 extends T;
+template V8 extends T;
+
 # Picks all entities but for the root A. W, X, Y, Z should be duplicate as they
 # are children of A as well as C1 and C2
 match e: Entity ()
-pick child (Entity ()).all () 
-weave V (test_name => "TEST 1 (\e<e.f_name>)");
+pick child (Entity ()).all () do
+   match wrapper (V1 ()) 
+      weave V1bis (test_name => "TEST 1 (\e<e.f_name>)");
+   else
+      weave V1 (test_name => "TEST 1 (\e<e.f_name>)");
+end;
 
 # Same as above, but checking that it also works without filtering child
 # on Entity()
 match e: Entity ()
-pick child ().all () 
-weave V (test_name => "TEST 2 (\e<e.f_name>)");
+pick child ().all () do
+   match wrapper (V2 ()) 
+      weave V2bis (test_name => "TEST 2 (\e<e.f_name>)");
+   else
+      weave V2 (test_name => "TEST 2 (\e<e.f_name>)");
+end;
 
 # Trying a different browse function. output should include
 # E, E, F, C1, C2, C2, D, D, DX and Z
 match e: Entity ()
-pick next ().all () 
-weave V (test_name => "TEST 3 (\e<e.f_name>)");
+pick next ().all () do
+   match wrapper (V3bis ())
+      weave V3ter (test_name => "TEST 3 (\e<e.f_name>)");
+   else match wrapper (V3 ())
+      weave V3bis (test_name => "TEST 3 (\e<e.f_name>)");
+   else
+      weave V3 (test_name => "TEST 3 (\e<e.f_name>)");
+end;
 
 # Testing all children that have a name matching C: C1 and C2
 match e: Entity ()
 pick child (f_name (x"C")).all() 
-weave V (test_name => "TEST 4 (\e<e.f_name>)");
+weave V4 (test_name => "TEST 4 (\e<e.f_name>)");
 
 # This should only pick the first child of each entity starting with 
 # "C" (W and Y)
 match e: Entity ()
 pick child (f_name (x"C")).all().child(Entity ())
-weave V (test_name => "TEST 5 (\e<e.f_name>)");
+weave V5 (test_name => "TEST 5 (\e<e.f_name>)");
 
 # finds all the children where the parent is "C", so W, X, Y Z
 match e: Entity ()
 pick child (f_name (x"C")).all().child(Entity ()).all()
-weave V (test_name => "TEST 6 (\e<e.f_name>)");
+weave V6 (test_name => "TEST 6 (\e<e.f_name>)");
 
 # should pick up the child of the first match to C, W 
 match e: Entity () and child (f_name (x"C"))
 pick child (f_name (x"C")).child(Entity ()) #.all()
-weave V (test_name => "TEST 7 (\e<e.f_name>)");
+weave V7 (test_name => "TEST 7 (\e<e.f_name>)");
 
 # should pick up the children of the first match to C, W and X
 match e: Entity () and child (f_name (x"C"))
 pick child (f_name (x"C")).child(Entity ()).all()
-weave V (test_name => "TEST 8 (\e<e.f_name>)");
+weave V8 (test_name => "TEST 8 (\e<e.f_name>)");

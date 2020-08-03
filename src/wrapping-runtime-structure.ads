@@ -2,6 +2,7 @@ with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Containers.Ordered_Sets;
 with Ada.Containers.Vectors;
+with Ada.Containers; use Ada.Containers;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 
 with Langkit_Support.Text; use Langkit_Support.Text;
@@ -40,6 +41,8 @@ package Wrapping.Runtime.Structure is
    package Data_Frame_Vectors is new Ada.Containers.Vectors (Positive, Data_Frame);
    use Data_Frame_Vectors;
 
+   Top_Frame : Data_Frame;
+
    type Frame_Context_Type;
    type Frame_Context is access all Frame_Context_Type;
 
@@ -67,10 +70,10 @@ package Wrapping.Runtime.Structure is
       --  and its result (which is essentially here the same).
       Match_Call_Default,
 
-      --  Force a match is, typically through a is', e.g. is'x.f_name ()
+      --  Force a match is, typically through a is', e.g. is (x.f_name ())
       Match_Is,
 
-      --  Force a match has, typically through a is', e.g. has'x.f_name ()
+      --  Force a match has, typically through a is', e.g. has (x.f_name ())
       Match_Has);
 
    type Expand_Action_Type is access procedure;
@@ -181,7 +184,11 @@ package Wrapping.Runtime.Structure is
 
    function Push_Value
      (An_Entity : access W_Object_Type;
-      Name      : Text_Type) return Boolean is (False);
+      Name      : Text_Type) return Boolean is (False)
+     with Post'Class =>
+       Top_Frame.Data_Stack.Length'Old =
+         (if Push_Value'Result then Top_Frame.Data_Stack.Length - 1
+          else Top_Frame.Data_Stack.Length);
 
    --  Calling an entity means either doing an actual call if this entity
    --  refers to a function, or performing a comparison between the object and
@@ -191,7 +198,9 @@ package Wrapping.Runtime.Structure is
    --  By default, this returns an error (the object is not made for being called).
    procedure Push_Call_Result
      (An_Entity : access W_Object_Type;
-      Params    : T_Arg_Vectors.Vector);
+      Params    : T_Arg_Vectors.Vector)
+     with Post'Class => Top_Frame.Data_Stack.Length =
+       Top_Frame.Data_Stack.Length'Old + 1;
 
    --  Match this object with the top of the stack. Return False if no decision
    --  could be made, true otherwise. If the top object doesn't match, replace
@@ -223,7 +232,9 @@ package Wrapping.Runtime.Structure is
      (An_Entity : access W_Object_Type;
       Browsed : access W_Object_Type'Class;
       Match_Expression : T_Expr;
-      Result : out W_Object) return Visit_Action;
+      Result : out W_Object) return Visit_Action
+     with Post'Class => Top_Frame.Data_Stack.Length =
+       Top_Frame.Data_Stack.Length'Old;
 
    procedure Push_Match_True (An_Entity : access W_Object_Type'Class);
 

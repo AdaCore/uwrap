@@ -73,7 +73,10 @@ package body Wrapping.Runtime.Structure is
    is
       Visit_Decision : aliased Visit_Action := Unknown;
 
-      procedure Evaluate_Expand_Function is
+      procedure Evaluate_Expand_Function
+        with Post => Top_Frame.Data_Stack.Length =
+          Top_Frame.Data_Stack.Length'Old
+      is
       begin
          --  In certain cases, there's no expression to be evaluated upon
          --  expansion. E.g.:
@@ -366,6 +369,10 @@ package body Wrapping.Runtime.Structure is
          else
             Error ("static entity not associated with a node");
          end if;
+
+         --  Static entities templates don't contain sections to be evaluated,
+         --  and already have their symbols initialized.
+         Result.Is_Evaluated := True;
 
          Object_For_Entity_Registry.Insert (Name, W_Object (Result));
          return W_Object (Result);

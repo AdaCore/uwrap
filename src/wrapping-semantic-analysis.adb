@@ -184,7 +184,11 @@ package body Wrapping.Semantic.Analysis is
       A_Template : T_Template := new T_Template_Type;
    begin
       Push_Named_Entity (A_Template, Node, Node.As_Template.F_Name);
-      A_Template.Program := Build_Command (Node.As_Template.F_Command);
+
+      if not Node.As_Template.F_Command.Is_Null then
+         A_Template.Program := Build_Command (Node.As_Template.F_Command);
+      end if;
+
       Pop_Entity;
 
       return A_Template;

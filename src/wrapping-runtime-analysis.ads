@@ -9,15 +9,15 @@ with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
 
 package Wrapping.Runtime.Analysis is
 
-   Top_Frame : Data_Frame;
-
    Templates_To_Traverse : W_Template_Instance_Vectors.Vector;
 
    procedure Analyse_Input (Root_Entity : W_Node);
 
    procedure Analyze_Templates;
 
-   procedure Evaluate_Expression (Expr : T_Expr);
+   procedure Evaluate_Expression (Expr : T_Expr)
+     with Post => Top_Frame.Data_Stack.Length =
+       Top_Frame.Data_Stack.Length'Old + 1;
 
    function Evaluate_Expression (Expr : T_Expr) return W_Object;
 

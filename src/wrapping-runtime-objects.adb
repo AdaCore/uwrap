@@ -250,9 +250,7 @@ package body Wrapping.Runtime.Objects is
          declare
             Map : W_Map := W_Map (Object);
          begin
-            if Map.A_Map.Length = 0 then
-               Push_Match_False;
-            else
+            if Map.A_Map.Length > 0 then
                for E of Map.A_Map loop
                   Last_Action := Object.Browse_Entity (E, Expr, Last_Result);
                   Update_Result;
@@ -265,9 +263,7 @@ package body Wrapping.Runtime.Objects is
          declare
             Set : W_Set := W_Set (Object);
          begin
-            if Set.A_Set.Length = 0 then
-               Push_Match_False;
-            else
+            if Set.A_Set.Length > 0 then
                for E of Set.A_Set loop
                   Last_Action := Object.Browse_Entity (E, Expr, Last_Result);
                   Update_Result;
@@ -278,12 +274,10 @@ package body Wrapping.Runtime.Objects is
          end;
       elsif Object.all in W_Vector_Type'Class then
          declare
-            Map : W_Vector := W_Vector (Object);
+            Vector : W_Vector := W_Vector (Object);
          begin
-            if Map.A_Vector.Length = 0 then
-               Push_Match_False;
-            else
-               for E of Map.A_Vector loop
+            if Vector.A_Vector.Length > 0 then
+               for E of Vector.A_Vector loop
                   Last_Action := Object.Browse_Entity (E, Expr, Last_Result);
                   Update_Result;
 
@@ -681,7 +675,7 @@ package body Wrapping.Runtime.Objects is
             else
                Name);
       begin
-         Temp_Symbols.Insert (Name, Evaluate_Expression (Value));
+         Temp_Symbols.Insert (Computed_Name, Evaluate_Expression (Value));
       end Evaluate_Parameter;
 
       Last_Picked : W_Object;

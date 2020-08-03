@@ -23,29 +23,42 @@ with Wrapping.Runtime.Functions; use Wrapping.Runtime.Functions;
 package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Identifier (Node : Template_Node'Class);
-   procedure Handle_Call (Expr : T_Expr);
+   procedure Handle_Call (Expr : T_Expr)
+     with Post =>
+       Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
 
    function Handle_Template_Call
      (A_Template_Instance : W_Template_Instance;
       Args : T_Arg_Vectors.Vector) return Visit_Action
-     with Post => Top_Frame.Data_Stack.Length
-       = Top_Frame.Data_Stack.Length'Old;
+     with Post =>
+       Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
 
-   procedure Handle_Fold (Selector : T_Expr;  Suffix : in out T_Expr_Vectors.Vector);
-   procedure Handle_New (Create_Tree : T_Create_Tree);
-   procedure Handle_All (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector);
-   procedure Handle_Selector (Expr : T_Expr;  Suffix : in out T_Expr_Vectors.Vector);
+   procedure Handle_Fold (Selector : T_Expr;  Suffix : in out T_Expr_Vectors.Vector)
+     with Post =>
+       Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
+
+   procedure Handle_New (Create_Tree : T_Create_Tree)
+     with Post =>
+       Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
+   procedure Handle_All (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector)
+     with Post =>
+       Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
+   procedure Handle_Selector (Expr : T_Expr;  Suffix : in out T_Expr_Vectors.Vector)
+     with Post =>
+       Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
 
    procedure Evaluate_String
      (Expr          : T_Expr;
       On_Group      : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expr : T_Expr) := null)
-       with Post => Top_Frame.Data_Stack.Length =
-         Top_Frame.Data_Stack.Length'Old + 1;
+       with Post =>
+         Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
 
    procedure Apply_Wrapping_Program
      (Self           : W_Node;
-      Lexical_Scope  : access T_Entity_Type'Class);
+      Lexical_Scope  : access T_Entity_Type'Class)
+     with Post =>
+       Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
 
    procedure Call_Convert_To_Text
      (Object : access W_Object_Type'Class;
@@ -61,6 +74,22 @@ package body Wrapping.Runtime.Analysis is
          Error ("conversion takes 1 argument");
       end if;
    end Call_Convert_To_Text;
+
+   procedure Call_Convert_To_String
+     (Object : access W_Object_Type'Class;
+      Params : T_Arg_Vectors.Vector)
+   is
+   begin
+      if Params.Length = 1 then
+         Push_Object
+           (W_Object'
+              (new W_String_Type'
+                   (Value => To_Unbounded_Text
+                        (Evaluate_Expression (Params.Element (1).Expr).To_String))));
+      else
+         Error ("conversion takes 1 argument");
+      end if;
+   end Call_Convert_To_String;
 
    procedure Push_Error_Location
      (An_Entity : access T_Entity_Type'Class)
@@ -475,6 +504,8 @@ package body Wrapping.Runtime.Analysis is
          Error ("can't pick selected object");
       end if;
 
+      Push_Implicit_Self (Top);
+
       if Command.Command_Sequence /= null then
          Handle_Command_Sequence (Command.Command_Sequence);
       elsif Command.Template_Section /= null then
@@ -495,6 +526,8 @@ package body Wrapping.Runtime.Analysis is
             Apply_Template_Action (Self, Command.Template_Section);
          end if;
       end if;
+
+      Pop_Object;
    end Handle_Command_Back;
 
    procedure Handle_Command_Sequence (Sequence : T_Command_Sequence) is
@@ -1238,7 +1271,11 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Evaluate_String;
 
-   function Push_Global_Identifier (Name : Text_Type) return Boolean is
+   function Push_Global_Identifier (Name : Text_Type) return Boolean
+     with Post => Top_Frame.Data_Stack.Length'Old =
+       (if Push_Global_Identifier'Result then Top_Frame.Data_Stack.Length - 1
+        else Top_Frame.Data_Stack.Length)
+   is
       A_Module : T_Module;
       Tentative_Symbol : W_Object;
       A_Semantic_Entity : T_Entity;
@@ -1258,9 +1295,8 @@ package body Wrapping.Runtime.Analysis is
          --  We're on an object to string conversion. Set the text object.
          --  When running the call, the actual text value will be computed and
          --  put in the object.
-         --Push_Object (W_Object'(new W_String_Type));
 
-         Error ("not implemented"); -- How about a kind in text_conversion?
+         Push_Intrinsic_Function (null, Call_Convert_To_String'Access);
 
          return True;
       elsif Name = "normalize_ada_name" then
@@ -1364,14 +1400,21 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Global_Identifier;
 
    procedure Handle_Identifier (Node : Template_Node'Class) is
-      procedure Handle_Language_Entity_Selection;
+      procedure Handle_Language_Entity_Selection
+        with Post =>
+          Top_Frame.Data_Stack.Length =
+            Top_Frame.Data_Stack.Length'Old + 1;
 
-      procedure Handle_Static_Entity_Selection is
+      procedure Handle_Static_Entity_Selection
+        with Post =>
+          Top_Frame.Data_Stack.Length =
+            Top_Frame.Data_Stack.Length'Old + 1
+      is
          Name : Text_Type := Node.Text;
       begin
          -- TODO: We probably don't need a specific function here anymore.
 
-         if not Pop_Object.Push_Value (Name) then
+         if not Top_Object.Push_Value (Name) then
             if Top_Frame.Top_Context.Match_Mode /= Match_None then
                Push_Match_False;
             else
@@ -1420,8 +1463,8 @@ package body Wrapping.Runtime.Analysis is
                Error ("'" & Node.Text & "' not found");
             end if;
          else
-            --  We're on an explicit name. Pop it and push the result.
-            Pop_Object;
+            --  We're on an explicit name. Push the result.
+            --  Pop_Object; --  TO REVIEW
 
             if Prefix_Entity.Push_Value (Name) then
                --  We found a component of the entity and it has been pushed
@@ -1520,7 +1563,9 @@ package body Wrapping.Runtime.Analysis is
             Handle_Template_Call_Recursive (A_Template.Extends);
          end if;
 
-         Handle_Command_Front (A_Template.Program);
+         if A_Template.Program /= null then
+            Handle_Command_Front (A_Template.Program);
+         end if;
       end Handle_Template_Call_Recursive;
 
       Visit_Result : aliased Visit_Action := Unknown;
@@ -1554,6 +1599,7 @@ package body Wrapping.Runtime.Analysis is
                & "' found for template");
          end if;
 
+         Pop_Object;
          Pop_Frame;
 
          if Visit_Result = Unknown then
@@ -1621,10 +1667,16 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_Call;
 
-   procedure Compute_Selector_Suffix (Suffix : in out T_Expr_Vectors.Vector) is
+   procedure Compute_Selector_Suffix (Suffix : in out T_Expr_Vectors.Vector)
+     with Post =>
+       Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1
+   is
       Terminal : T_Expr;
+
+      Has_Prev : Boolean := False;
    begin
       if Suffix.Length = 0 then
+         Push_Match_False;
          return;
       end if;
 
@@ -1655,6 +1707,12 @@ package body Wrapping.Runtime.Analysis is
 
       for Suffix_Expression of Suffix loop
          Evaluate_Expression (Suffix_Expression);
+
+         if Has_Prev then
+            Delete_Object_At_Position (-2);
+         end if;
+
+         Has_Prev := True;
          Top_Frame.Top_Context.Is_Root_Selection := False;
       end loop;
 
@@ -1669,14 +1727,19 @@ package body Wrapping.Runtime.Analysis is
       --  set in particular expanding context to true.
 
       Evaluate_Expression (Terminal);
+
+      if Has_Prev then
+         Delete_Object_At_Position (-2);
+      end if;
+
       Pop_Frame_Context;
    end Compute_Selector_Suffix;
 
    procedure Handle_Selector (Expr : T_Expr; Suffix : in out T_Expr_Vectors.Vector) is
    begin
       --  In a selector, we compute the left object, build the right
-      --  expression based on the left object, and then put the result
-      --  on the left object on the stack.
+      --  expression based on the left object, remove the left object
+      -- and then put the result on the left object on the stack.
 
       if Expr.Selector_Left = null then
          --  This can happen in particualr with the rule "dotted_identifier".
@@ -1765,7 +1828,10 @@ package body Wrapping.Runtime.Analysis is
 
       Pop_Frame_Context;
 
-      Compute_Selector_Suffix (Suffix);
+      if Suffix.Length > 0 then
+         Compute_Selector_Suffix (Suffix);
+         Delete_Object_At_Position (-2);
+      end if;
    end Handle_Fold;
 
    procedure Handle_All (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector)

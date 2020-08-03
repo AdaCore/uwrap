@@ -174,7 +174,7 @@ template_grammar.add_rules(
     
    module_scope=List(Or (G.template, G.command, G.function, G.var), empty_valid=True),
 
-   template=Template('template', G.identifier, Opt ('extends', G.dotted_name), G.command),
+   template=Template('template', G.identifier, Opt ('extends', G.dotted_name), Or (G.command, Pick (Null (G.command), ';'))),
     
    var=Var('var', G.identifier, ':', G.identifier, Opt ('(', G.arg_list, ')'), Opt ('=>', G.expression), ';'), 
 
@@ -184,7 +184,7 @@ template_grammar.add_rules(
          G.pick_section,
          G.wrap_section, 
          G.weave_section,
-         G.command_sequence,
+         G.command_sequence
       )
    ),
    match_section=MatchSection (
