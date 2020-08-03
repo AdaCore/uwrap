@@ -3,15 +3,15 @@ template w_Ada do
 end;
 
 template w_Unit extends w_Ada do
-   var spec : text;
-   var body : text;
+   var spec: text;
+   var body: text;
 
-   var spec_with_clauses : text;
-   var spec_use_clauses : text;
-   var body_with_clauses : text;
-   var body_use_clauses : text;
+   var spec_with_clauses: text;
+   var spec_use_clauses: text;
+   var body_with_clauses: text;
+   var body_use_clauses: text;
 
-   var spec_text : text => i"""
+   var spec_text: text => i"""
    \e<spec_with_clauses>
    \e<spec_use_clauses>
 
@@ -25,31 +25,31 @@ template w_Unit extends w_Ada do
 end;
 
 template w_NamedEntity extends w_Ada do
-  var name : text;
-  var original_name : text;
+  var name: text;
+  var original_name: text;
 end;
 
 template w_WithClause extends w_Ada do
-  var ref : text;
+  var ref: text;
 end;
 
 template w_UseClause extends w_Ada do
-  var ref : text;
+  var ref: text;
 end;
 
 template w_PackageDecl extends w_NamedEntity do
-   var spec_content : text;
-   var body_content : text;
-   var stmt : text;
-   var elaborate_body : text;
+   var spec_content: text;
+   var body_content: text;
+   var stmt: text;
+   var elaborate_body: text;
 
-   var spec : text => i"""
+   var spec: text => i"""
       package \e<name> is
         \e<elaborate_body>
         \e<spec_content>
       end \e<name>;""";
 
-   var body : text => i"""
+   var body: text => i"""
       package body \e<name> is
         \e<body_content>
       begin
@@ -59,35 +59,35 @@ template w_PackageDecl extends w_NamedEntity do
 end;
 
 template w_SubpDecl extends w_NamedEntity do
-   var function_or_procedure : text;
-   var return_spec : text;
-   var lparenSpec : text;
-   var rparenSpec : text;
+   var function_or_procedure: text;
+   var return_spec: text;
+   var lparenSpec: text;
+   var rparenSpec: text;
 
-   var lparenCall : text;
-   var rparenCall : text;
+   var lparenCall: text;
+   var rparenCall: text;
  
-   var param_spec_list : text;
-   var result_type_expr : text;
+   var param_spec_list: text;
+   var result_type_expr: text;
 
-   var pre_call_decl : text;
-   var pre_call_stmt : text;
-   var call_decl_exp : text;
-   var call_decl : text;
-   var call_stmt : text;
-   var post_call_decl : text;
-   var post_call_stmt : text;
+   var pre_call_decl: text;
+   var pre_call_stmt: text;
+   var call_decl_exp: text;
+   var call_decl: text;
+   var call_stmt: text;
+   var post_call_decl: text;
+   var post_call_stmt: text;
 
-   var return_stmt : text;
-   var call_assoc_list : text;
-   var call : text;
-   var call_name : text;
+   var return_stmt: text;
+   var call_assoc_list: text;
+   var call: text;
+   var call_name: text;
 
-   var profile : text => """\e<function_or_procedure> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""; 
+   var profile: text => """\e<function_or_procedure> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""; 
 
-   var spec : text; 
+   var spec: text; 
 
-   var body : text => i"""
+   var body: text => i"""
    \e<profile> is
       \e<pre_call_decl>
    begin
@@ -116,24 +116,24 @@ template w_SubpDeclCallback extends w_SubpDecl do
 end;
 
 template w_ParamSpec extends w_NamedEntity do
-   var generate_formal : text;
+   var generate_formal: text;
 
-   var formal_text : text;
-   var actual_text : text;
+   var formal_text: text;
+   var actual_text: text;
 
-   var type_expr : text;
+   var type_expr: text;
 
-   var pre_call_decl  : text;
-   var pre_call_stmt  : text;
-   var call_decl  : text;
-   var call_stmt  : text;
-   var actual_value   : text;
-   var post_call_decl : text;
-   var post_call_stmt : text;
-   var return_stmt    : text;
-   var result_type_expr : text;
+   var pre_call_decl: text;
+   var pre_call_stmt: text;
+   var call_decl: text;
+   var call_stmt: text;
+   var actual_value: text;
+   var post_call_decl: text;
+   var post_call_stmt: text;
+   var return_stmt: text;
+   var result_type_expr: text;
 
-   var mode           : text;
+   var mode: text;
 end;
 
 template w_ParamSpecCall extends w_ParamSpec do
@@ -145,22 +145,22 @@ template w_ParamSpecCallback extends w_ParamSpec do
 end;
 
 template w_DefiningName extends w_Ada do
-  var name : text;
+  var name: text;
 end;
 
 template w_TypeExpr extends w_Ada do
-   var txt : text;
+   var txt: text;
 end;
 
 template w_TypeDecl extends w_NamedEntity do
-   var definition : text;
-   var content_definition : text;
-   var rep_definition : text;
-   var rep_declaration : text;
-   var kind : text;
-   var aspects_declaration : text;
+   var definition: text;
+   var content_definition: text;
+   var rep_definition: text;
+   var rep_declaration: text;
+   var kind: text;
+   var aspects_declaration: text;
 
-   var declaration : text => lambda (
+   var declaration: text => lambda (
       (match origin (IncompleteTypeDecl ())
          pick "type \e<name>;"
       else match origin (SubtypeDecl ())
@@ -170,7 +170,7 @@ template w_TypeDecl extends w_NamedEntity do
 end;
 
 template w_Aspect extends w_Ada do
-   var txt : text;
+   var txt: text;
 end;
 
 template w_EnumLiteralDecl extends w_NamedEntity do
@@ -178,8 +178,8 @@ template w_EnumLiteralDecl extends w_NamedEntity do
 end;
 
 template w_EnumRep extends w_Ada do
-   var name : text;
-   var value : text;
+   var name: text;
+   var value: text;
 end;
 
 template w_ComponentDecl extends w_NamedEntity do
@@ -200,14 +200,18 @@ end;
 template body_file extends standard.file do
 end;
 
-visitor visit_EnumRepClause (enum_decl) do
+template visit_EnumRepClause pick origin do
+  var enum_decl: object;
+
   match AggregateAssoc () and child (i: Identifier ()) and child (v: IntLiteral ()) do
      match n: enum_decl.child (EnumLiteralDecl ("\e<i>")) # TODO, we should be able to write text (i) instead.
      pick n wrap w_EnumRep (name => lambda (n.wrapper (w_EnumLiteralDecl ()).name), value => v);
   end;
 end;
 
-visitor build_identifier (type) do
+template build_identifier pick origin do
+   var type: object;
+
    # not all identifiers are wrapped - in particular those coming from the
    # standard library are not. So differenciate here the cases where we
    # find a w_DefiningName (using the provided name) from the cases where we
@@ -221,7 +225,9 @@ visitor build_identifier (type) do
          pick type weave (txt => @ & " " & i);
 end;
 
-visitor build_dotted_name (type) do
+template build_dotted_name pick origin do
+   var type: object;
+
    match s: self () and c: child (DottedName ())
    pick c do
       weave build_dotted_name (type);
@@ -237,7 +243,9 @@ visitor build_dotted_name (type) do
       end;
 end;
 
-visitor build_type_expr (type) do 
+template build_type_expr pick origin do
+   var type: object;
+
    match d: DottedName () do
       pick d wrap build_dotted_name (type);
       wrap over;
@@ -258,7 +266,9 @@ visitor build_type_expr (type) do
    end;
 end;
 
-visitor build_subprogram (sb) do
+template build_subprogram pick origin do
+   var sb: object;
+
    match sb.child (f_subp_kind ("function")) and sb.child (te: TypeExpr()) 
       weave (
          function_or_procedure => "function",
@@ -276,7 +286,7 @@ visitor build_subprogram (sb) do
          function_or_procedure => "procedure");
 end;
 
-visitor ada_to_wrappers () do
+template ada_to_wrappers pick origin do
    match CompilationUnit () do
       wrap w_Unit ();
    end;
@@ -359,7 +369,7 @@ visitor ada_to_wrappers () do
    end;
 end;
 
-visitor wrappers_post_process () do
+template wrappers_post_process pick origin do
    match sb: w_SubpDeclCall () 
       and parent (p : w_PackageDecl ())
    do   
@@ -598,10 +608,11 @@ visitor wrappers_post_process () do
    end;
 end;
 
-visitor wrap_ada_specs () do
-   match AdaNode ()
-   wrap ada_to_wrappers ();
+template wrap_ada_specs do
+   wrap null (wrap_ada_specs);
 
-   match w_Ada ()
-   wrap wrappers_post_process ();
+   pick origin do
+      match AdaNode () wrap ada_to_wrappers ();
+      match w_Ada () wrap wrappers_post_process ();
+   end;
 end;
