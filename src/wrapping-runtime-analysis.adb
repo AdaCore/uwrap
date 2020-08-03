@@ -260,13 +260,13 @@ package body Wrapping.Runtime.Analysis is
       Free (Old_Frame);
    end Pop_Frame;
 
-   function Get_Implicit_Self return W_Object is
+   function Get_Implicit_Self (From : Data_Frame := Top_Frame) return W_Object is
    begin
-      for I in reverse Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index loop
-         if Top_Frame.Data_Stack.Element (I).all in W_Reference_Type'Class
-           and then W_Reference (Top_Frame.Data_Stack.Element (I)).Is_Implicit_Self
+      for I in reverse From.Data_Stack.First_Index .. From.Data_Stack.Last_Index loop
+         if From.Data_Stack.Element (I).all in W_Reference_Type'Class
+           and then W_Reference (From.Data_Stack.Element (I)).Is_Implicit_Self
          then
-            return W_Reference (Top_Frame.Data_Stack.Element (I)).Value;
+            return W_Reference (From.Data_Stack.Element (I)).Value;
          end if;
       end loop;
 
@@ -532,24 +532,27 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Command_Sequence (Sequence : T_Command_Sequence) is
       Seq  : T_Command_Sequence := Sequence;
+      Calling_Frame : Data_Frame := Top_Frame.Parent_Frame;
+      Called_Frame : Data_Frame := Top_Frame;
+      New_Ref : W_Reference;
+
+      use W_Object_Maps;
    begin
       while Seq /= null loop
-         --  First analyze variables
+         --  First, create variables for this scope. This need to be done before
+         --  any expression evaluation, as initialization and parameter
+         --  expressions may reference other variables declared before.
+         --  Also see Handle_Template_Call for details on the evaluation of
+         --  template parameters.
 
          for A_Var of Seq.Vars loop
             declare
-               New_Ref : W_Reference;
-               Saved_Frame : Data_Frame;
                Name : Text_Type := A_Var.Name_Node.Text;
             begin
-               --  See Handle_Tempalte_Call for details on the evaluation of
-               --  template parameters.
-
                New_Ref := new W_Reference_Type;
 
                case A_Var.Kind is
                   when Text_Kind =>
-
                      --  Symbols contained in templates are references to
                      --  values. Create the reference and the referenced
                      --  empty value here.
@@ -574,35 +577,6 @@ package body Wrapping.Runtime.Analysis is
 
                end case;
 
-               if A_Var.Init_Expr /= null then
-                  Evaluate_Expression (A_Var.Init_Expr);
-
-                  New_Ref.Value := Pop_Object;
-               end if;
-
-               if Top_Frame.Parent_Frame.Template_Parameters_Position.Length > 0
-                 or else Top_Frame.Parent_Frame.Template_Parameters_Names.Contains (Name)
-               then
-                  Saved_Frame := Top_Frame;
-                  Top_Frame := Top_Frame.Parent_Frame;
-                  Push_Frame_Context;
-                  Top_Frame.Top_Context.Left_Value := New_Ref.Value;
-                  Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-                  Top_Frame.Top_Context.Match_Mode := Match_None;
-
-                  if Top_Frame.Template_Parameters_Position.Length > 0 then
-                     Evaluate_Expression (Top_Frame.Template_Parameters_Position.First_Element);
-                     Top_Frame.Template_Parameters_Position.Delete_First;
-                  else
-                     Evaluate_Expression (Top_Frame.Template_Parameters_Names.Element (Name));
-                     Top_Frame.Template_Parameters_Names.Delete (Name);
-                  end if;
-
-                  New_Ref.Value := Pop_Object;
-                  Pop_Frame_Context;
-                  Top_Frame := Saved_Frame;
-               end if;
-
                Top_Frame.Symbols.Insert (Name, W_Object (New_Ref));
 
                if Top_Frame.Current_Template /= null then
@@ -614,7 +588,69 @@ package body Wrapping.Runtime.Analysis is
             end;
          end loop;
 
-         --  The execute command in reverse
+         --  Second, call initializations
+
+         for A_Var of Seq.Vars loop
+            declare
+               Name : Text_Type := A_Var.Name_Node.Text;
+            begin
+               New_Ref := W_Reference (Top_Frame.Symbols.Element (Name));
+
+               if A_Var.Init_Expr /= null then
+                  Push_Frame_Context;
+                  Top_Frame.Top_Context.Left_Value := New_Ref.Value;
+                  Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+                  Top_Frame.Top_Context.Match_Mode := Match_None;
+                  Top_Frame.Top_Context.Is_Root_Selection := True;
+
+                  Evaluate_Expression (A_Var.Init_Expr);
+
+                  Pop_Frame_Context;
+
+                  New_Ref.Value := Pop_Object;
+               end if;
+            end;
+         end loop;
+
+         --  Third, call parameter expressions. This needs to be done in the
+         --  context of the calling frame, which is temporarily restored for this
+         --  purpose.
+
+         Top_Frame := Calling_Frame;
+
+         for A_Var of Seq.Vars loop
+            declare
+               Name : Text_Type := A_Var.Name_Node.Text;
+            begin
+               New_Ref := W_Reference (Called_Frame.Symbols.Element (Name));
+
+               if Calling_Frame.Template_Parameters_Position.Length > 0
+                 or else Calling_Frame.Template_Parameters_Names.Contains (Name)
+               then
+                  Push_Frame_Context;
+                  Top_Frame.Top_Context.Left_Value := New_Ref.Value;
+                  Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+                  Top_Frame.Top_Context.Match_Mode := Match_None;
+                  Top_Frame.Top_Context.Is_Root_Selection := True;
+
+                  if Calling_Frame.Template_Parameters_Position.Length > 0 then
+                     Evaluate_Expression (Calling_Frame.Template_Parameters_Position.First_Element);
+                     Calling_Frame.Template_Parameters_Position.Delete_First;
+                  else
+                     Evaluate_Expression (Calling_Frame.Template_Parameters_Names.Element (Name));
+                     Calling_Frame.Template_Parameters_Names.Delete (Name);
+                  end if;
+
+                  New_Ref.Value := Pop_Object;
+
+                  Pop_Frame_Context;
+               end if;
+            end;
+         end loop;
+
+         Top_Frame := Called_Frame;
+
+         --  Then execute command in reverse
 
          for C of reverse Seq.Commands loop
             exit when Top_Frame.Interrupt_Program;
@@ -1464,7 +1500,6 @@ package body Wrapping.Runtime.Analysis is
             end if;
          else
             --  We're on an explicit name. Push the result.
-            --  Pop_Object; --  TO REVIEW
 
             if Prefix_Entity.Push_Value (Name) then
                --  We found a component of the entity and it has been pushed
@@ -1964,10 +1999,6 @@ package body Wrapping.Runtime.Analysis is
 
       for Name of Expr.Lambda_Closure loop
          if Push_Global_Identifier (Name) then
-            --  If the object is an imlicit ref, it may be marked self
-            --  or new. We don't want to carry this property over to the lambda
-            --  call, so remove it.
-
             if Top_Object.Dereference.all in W_Static_Entity_Type'Class
               or else Top_Object.Dereference.all in W_Function_Type'Class
             then
@@ -1976,7 +2007,12 @@ package body Wrapping.Runtime.Analysis is
                --  also confused name resolution as we would have a symbol
                --  and a statically solvable name.
                Pop_Object;
-            elsif Top_Object.all in W_Reference_Type'Class then
+            elsif Top_Object.all in W_Reference_Type'Class
+              and then W_Reference (Top_Object).Is_Implicit_Self
+            then
+               --  We don't want to carry the self property over to the lambda
+               --  call, so remove it.
+
                A_Lambda.Captured_Symbols.Insert
                  (Name, new W_Reference_Type'
                     (Value => W_Reference (Pop_Object).Value, others => <>));

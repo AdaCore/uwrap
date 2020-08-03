@@ -1,6 +1,6 @@
 import ada.wrappers;
 
-visitor access_into_out () do
+template access_into_out pick origin do
    match ParamSpec(x"access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
    wrap w: w_ParamSpecCall (
       pre_call_decl => """\e<sb.tmp ("call")> : aliased \e<te.child (TypeExpr ())> with Address => \e<w.name>'Address, Import;""",
@@ -10,7 +10,7 @@ visitor access_into_out () do
    );
 end;
 
-visitor access_into_return () do
+template access_into_return pick origin do
    match child (TypeExpr (child (te: TypeExpr ()))) do
       match parent (wrapper (w: w_SubpDeclCall ()))
       pick w weave (function_or_procedure => "function");
@@ -27,7 +27,9 @@ visitor access_into_return () do
    end;
 end;
 
-visitor address_into_return (result_type) do
+template address_into_return pick origin do
+   var result_type: object;
+
    match parent (wrapper (w: w_SubpDeclCall ()))
    pick w weave (function_or_procedure => "function");
 
@@ -42,7 +44,10 @@ visitor address_into_return (result_type) do
       result_type_expr => result_type);
 end;
 
-visitor constant_into_enumeration (type_name, lit_name) do
+template constant_into_enumeration pick origin do
+   var type_name: object;
+   var lit_name: object;
+
    match d: NumberDecl(child (n: DefiningName ())) and parent (wrapper (p: w_PackageDecl())) do
       wrap null (w_NumberDecl);
       pick n wrap null (w_DefiningName);
@@ -54,7 +59,7 @@ visitor constant_into_enumeration (type_name, lit_name) do
    end;
 end;
 
-visitor chars_into_string () do
+template chars_into_string pick origin do
    match ParamSpec(x"Interfaces.C.Strings.chars_ptr") and parent (sb: SubpDecl())
    wrap w: w_ParamSpecCall (
       type_expr => "String",
@@ -106,7 +111,11 @@ match w_ExceptionRegistry () do
    end;
 end;
 
-visitor error_code_into_exception (package_container, registry_name, exception_name) do
+template error_code_into_exception pick origin do
+   var package_container: object;
+   var registry_name: object;
+   var exception_name: object;
+
    match (dnum: NumberDecl (child (n: DefiningName ()) and expr: f_expr)
        or dobj: ObjectDecl ((child (n: DefiningName ())) and expr: f_default_expr))
    do
@@ -127,7 +136,9 @@ visitor error_code_into_exception (package_container, registry_name, exception_n
    end;
 end;
 
-visitor into_binary_compatible (type_name) do
+template into_binary_compatible pick origin do
+   var type_name: object;
+
    match ParamSpec() and parent (sb: SubpDecl ())
    wrap w: w_ParamSpecCall(
       type_expr => type_name,
@@ -147,7 +158,9 @@ visitor into_binary_compatible (type_name) do
        return_stmt => """return \e<self.tmp ("result_wrapped")>;""");
 end;
 
-visitor into_explicit_conversion (type_name) do
+template into_explicit_conversion pick origin do
+   var type_name: object;
+
    match ParamSpec() and parent (sb: SubpDecl ())
    wrap w: w_ParamSpecCall(
       type_expr => type_name,
@@ -155,7 +168,9 @@ visitor into_explicit_conversion (type_name) do
    );
 end;
 
-visitor parameter_into_computed_expression (expr) do
+template parameter_into_computed_expression pick origin do
+   var expr: object;
+
    match ParamSpec()
    wrap w_ParamSpecCall(
       generate_formal => "NO",
@@ -164,7 +179,10 @@ visitor parameter_into_computed_expression (expr) do
    );
 end;
 
-visitor return_into_exception (registry_package, registry_name) do
+template return_into_exception pick origin do
+   var registry_package: object;
+   var registry_name: object;
+
    match parent (PackageDecl ()).wrapper (p: w_PackageDecl()) do
       match not p.name (registry_package) 
          and u: p.parent (w_Unit ())

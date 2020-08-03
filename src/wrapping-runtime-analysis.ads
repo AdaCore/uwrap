@@ -70,7 +70,7 @@ package Wrapping.Runtime.Analysis is
    --  object
    function Top_Is_Implicit return Boolean;
 
-   function Get_Implicit_Self return W_Object;
+   function Get_Implicit_Self (From : Data_Frame := Top_Frame) return W_Object;
 
    procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expr : T_Expr);
 

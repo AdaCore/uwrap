@@ -154,7 +154,6 @@ package Wrapping.Runtime.Structure is
       Parent_Frame   : Data_Frame;
 
       Symbols        : W_Object_Maps.Map;
-      Ordered_Vars   : T_Var_Vectors.Vector;
 
       Group_Sections : Matched_Groups_Vectors.Vector;
       Data_Stack     : W_Object_Vectors.Vector;

@@ -145,7 +145,7 @@ template w_ParamSpecCallback extends w_ParamSpec do
 end;
 
 template w_DefiningName extends w_Ada do
-  var name: text;
+   var name: text;
 end;
 
 template w_TypeExpr extends w_Ada do
@@ -160,13 +160,13 @@ template w_TypeDecl extends w_NamedEntity do
    var kind: text;
    var aspects_declaration: text;
 
-   var declaration: text => lambda (
+   var declaration: text =>
       (match origin (IncompleteTypeDecl ())
          pick "type \e<name>;"
       else match origin (SubtypeDecl ())
          pick "subtype \e<name> is \e<definition>;"
       else
-         pick "type \e<name> is \e<definition>\e<aspects_declaration>;\n\e<rep_declaration>"));
+         pick "type \e<name> is \e<definition>\e<aspects_declaration>;\n\e<rep_declaration>");
 end;
 
 template w_Aspect extends w_Ada do

@@ -502,6 +502,8 @@ package body Wrapping.Runtime.Structure is
       Parameter_Index := 1;
 
       for Param of Args loop
+         Push_Error_Location (Param.Name_Node);
+
          if Param.Name /= "" then
             In_Named_Section := True;
             Evaluate_Parameter (Param.Name_Node.Text, Parameter_Index, Param.Expr);
@@ -513,8 +515,7 @@ package body Wrapping.Runtime.Structure is
             Evaluate_Parameter ("", Parameter_Index, Param.Expr);
          end if;
 
-
-
+         Pop_Error_Location;
          Parameter_Index := Parameter_Index + 1;
       end loop;
 
