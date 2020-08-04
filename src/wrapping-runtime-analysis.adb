@@ -2060,11 +2060,16 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Outer_Expression_Pick is
    begin
-      if Top_Frame.Top_Context.Pick_Callback /= null then
+      if Top_Frame.Top_Context.Pick_Callback /= null
+        and then Top_Frame.Top_Context.Current_Command.Command_Sequence = null
+      then
+         --  We are on a final pick expression (not followed by a command
+         --  sequence). The Pick_Callback contains what to do with the picked
+         --  object.
          Top_Frame.Top_Context.Pick_Callback (Top_Object);
+      else
+         Handle_Command_Back (Top_Frame.Top_Context.Current_Command);
       end if;
-
-      Handle_Command_Back (Top_Frame.Top_Context.Current_Command);
    end Outer_Expression_Pick;
 
 end Wrapping.Runtime.Analysis;

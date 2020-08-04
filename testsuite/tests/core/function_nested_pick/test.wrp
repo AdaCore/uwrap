@@ -1,0 +1,11 @@
+function analyze (e) do
+   pick e do
+      match Entity (f_name (x"A"))
+         pick "A: \e<f_name>\n";
+      else
+         pick "!A: \e<f_name>\n";
+   end;
+end;
+
+match Entity ()
+weave standard.out (analyze (self));
