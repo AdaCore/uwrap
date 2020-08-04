@@ -47,7 +47,7 @@ template wp_TypeDecl extends wp_NamedProxy do
    
 end;
 
-visitor generate_proxy2json () do
+template generate_proxy2json pick origin do
    match wp_Unit ()
    wrap standard.file (name & ".json", contents);
 end;

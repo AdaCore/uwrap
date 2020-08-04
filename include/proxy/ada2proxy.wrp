@@ -6,15 +6,26 @@ function wrapped_type () do
    pick child (TypeExpr ()).wrapper (te: wp_TypeExpr ());
 end;
 
-visitor to_proxy_struct () do
-   match parent (sb: SubpDecl()) and t: sb.tmp ("Value")
-   wrap w: w_ParamSpecCall (
+template create_ParamSpecCall do
+   var sb : object;
+   var name : text;
+   
+   pick origin () or parent ()
+   wrap w_ParamSpecCall (
+      name => name, #change name definition to a lambda, looking for first w defining name child
       type_expr => "System.Address",
       pre_call_decl => lambda (i"""
          \e<sb.tmp ("Proxy")> : \e<wrapped_type().name> with Address => \e<w.name>, Import;
          \e<t> : aliased \e<child (TypeExpr ())> with Address => \e<sb.tmp ("Proxy")>.Address;"""),
       actual_value => t
    );
+end;
+
+template to_proxy_struct pick origin do
+   match ParamSpec() and parent (sb: SubpDecl()) and t: sb.tmp ("Value")
+   wrap create_ParamSpecCall (
+      sb.wrappers (w_SubpDecl ()), 
+      lambda (child (DefiningName ()).wrapper (w_DefiningName().name)));
 
    match sb: SubpDecl() 
       and t1: sb.tmp ("Res")
@@ -36,7 +47,9 @@ visitor to_proxy_struct () do
    );
 end;
 
-visitor ada2proxy_type (w_param) do
+template ada2proxy_type pick origin do
+   var w_param: object;
+
    match p_type_expression.p_designated_type_decl().f_type_def (SignedIntTypeDef ()) 
       do
          pick w_param weave (type => "int32");
@@ -47,7 +60,7 @@ visitor ada2proxy_type (w_param) do
       pick w_param weave (type => "proxy_address");
 end;
 
-visitor generate_ada2proxy () do
+template generate_ada2proxy pick origin do
    wrap wrap_ada_specs ();
 
    match DefiningName (x"(.*)")
@@ -115,7 +128,7 @@ visitor generate_ada2proxy () do
    end;
 
    match TypeDecl () and child (RecordTypeDef ()) do
-         wrap w: w_TypeDecl (
+      wrap w: w_TypeDecl (
          declaration => i"""
             type \e<w.name> is record
                Address        : System.Address;
@@ -130,6 +143,22 @@ visitor generate_ada2proxy () do
       wrap wp_TypeDecl (
          name => "\e<w.name>"
       );
+   then
+      pick parent (PackageDecl ()).wrapper (w_PackageDecl) do
+         pick new ({
+            w_SubpDeclCall (
+               name => "\e<w.name>_Proxy_Allocate",
+               function_or_procedure => "function"
+            ) {
+               to_proxy_struct ()
+            },
+
+            w_SubpDeclCall (
+               name => "\e<w.name>_Proxy_Free",
+               function_or_procedure => "procedure"
+            )
+         });
+      end;
    end;
 
    match TypeExpr ()
