@@ -33,7 +33,7 @@ package body Wrapping.Runtime.Analysis is
      with Post =>
        Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
 
-   procedure Handle_Fold (Selector : T_Expr;  Suffix : in out T_Expr_Vectors.Vector)
+   procedure Handle_Fold (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector)
      with Post =>
        Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
 
@@ -1702,13 +1702,14 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_Call;
 
-   procedure Compute_Selector_Suffix (Suffix : in out T_Expr_Vectors.Vector)
+   procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector)
      with Post =>
        Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1
    is
       Terminal : T_Expr;
 
       Has_Prev : Boolean := False;
+      Suffix_Expression : T_Expr;
    begin
       if Suffix.Length = 0 then
          Push_Match_False;
@@ -1716,7 +1717,6 @@ package body Wrapping.Runtime.Analysis is
       end if;
 
       Terminal := Suffix.Last_Element;
-      Suffix.Delete_Last;
 
       --  The left part of a selector may have calls. In this
       --  case, these calls are unrelated to the value that is
@@ -1740,7 +1740,9 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Match_Mode := Match_None;
       Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
-      for Suffix_Expression of Suffix loop
+      for I in Suffix.First_Index .. Suffix.Last_Index - 1 loop
+         Suffix_Expression := Suffix.Element (I);
+
          Evaluate_Expression (Suffix_Expression);
 
          if Has_Prev then
@@ -1799,7 +1801,7 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Selector;
 
-   procedure Handle_Fold (Selector : T_Expr;  Suffix : in out T_Expr_Vectors.Vector) is
+   procedure Handle_Fold (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector) is
 
       Fold_Expr : T_Expr := Selector.Selector_Right;
       Init_Value : W_Object;
@@ -1874,9 +1876,21 @@ package body Wrapping.Runtime.Analysis is
       Initial_Context : Frame_Context := Top_Frame.Top_Context;
 
       procedure Expand_Action is
-         Last_Result : W_Object := Get_Implicit_Self.Dereference;
          Visit_Decision : Visit_Action_Ptr;
       begin
+         --  First try to run the all filter if any, and cancel the iteration
+         --  if no match.
+
+         if Selector.Selector_Right.All_Match /= null then
+            Evaluate_Expression (Selector.Selector_Right.All_Match);
+
+            if Top_Object = Match_False then
+               return;
+            else
+               Pop_Object;
+            end if;
+         end if;
+
          Visit_Decision := Top_Frame.Top_Context.Visit_Decision;
 
          --  Restore the context at this point of the call. This is important
@@ -1892,15 +1906,30 @@ package body Wrapping.Runtime.Analysis is
          --  value.
          Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
-         for Suffix_Expression of Suffix loop
-            Last_Result := Evaluate_Expression (Suffix_Expression);
-         end loop;
+         if Suffix.Length > 0 then
+            --  If there's a suffix, then compute it to get the value of the
+            --  expansion
+            Compute_Selector_Suffix (Suffix);
+         else
+            --  Otherwise, the value is the just the last stacked object.
+            --  Dereference it to remove the potential "self" attribute
+            Push_Object (Top_Object.Dereference);
+         end If;
 
-         Push_Object (Last_Result);
+         --  .all () may itself be in an expression such as .all().fold().
+         --  In this case an expand action is set and needs to be executed.
+
+         if Initial_Context.Is_Expanding_Context
+           and then Initial_Context.Expand_Action /= null
+         then
+            Initial_Context.Expand_Action.all;
+            Delete_Object_At_Position (-2);
+         end if;
 
          --  Execute the outer action once per run of the suffix, which may be
          --  a Outer_Expression_Pick call.
          Initial_Context.Outer_Expr_Callback.all;
+
          Pop_Frame_Context;
       end Expand_Action;
 

@@ -1,0 +1,21 @@
+function analyze_3 (e) do
+   pick e.child (Entity ()).all ();
+end;
+
+function analyze_2 (e) do
+   pick e.child (f_name (x"B")).all () do
+      pick analyze_3 (self).all();
+   end;
+end;
+
+function analyze_1 (e) do
+   pick e.child (f_name (x"B")).all () do
+      pick self;
+   end;
+end;
+
+match Entity (f_name ("A"))
+weave standard.out (@ & "B nodes: " & analyze_1 (self).all (x: true).fold (c: "", c: (c & x.f_name & " ")) & "\n");
+
+match Entity (f_name ("A"))
+weave standard.out (@ & "B children: " & analyze_2 (self).all (x: true).fold (c: "", c: (c & x.f_name & " ")) & "\n");

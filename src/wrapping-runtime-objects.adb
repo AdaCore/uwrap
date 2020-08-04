@@ -663,8 +663,9 @@ package body Wrapping.Runtime.Objects is
      (An_Entity : access W_Function_Type;
       Params    : T_Arg_Vectors.Vector)
    is
+      Calling_Frame : Data_Frame;
+      Called_Frame : Data_Frame;
       Temp_Symbols : W_Object_Maps.Map;
-      Initial_Context : Frame_Context := Top_Frame.Top_Context;
 
       procedure Evaluate_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr)
@@ -683,14 +684,25 @@ package body Wrapping.Runtime.Objects is
       procedure Pick_Callback (Object : W_Object)
       is
       begin
-         if Initial_Context.Is_Expanding_Context = False then
+         --  When reaching a value to be picked on a function f, either:
+         --  (1) the caller is not an expansion, in which case we found
+         --      the value, we can interrupt the above expansion if any.
+         --  (2) the parent is an expansion, e.g. f ().all(). In this case, we
+         --      restore temporarily frame parent frame (the frame of the
+         --      caller) and execute the rest of the caller actions for the
+         --      specific value picked, then go back fetching other values for
+         --      the function.
+
+         if Calling_Frame.Top_Context.Is_Expanding_Context = False then
             Last_Picked := Object;
             Top_Frame.Interrupt_Program := True;
          else
+            Top_Frame := Calling_Frame;
             Push_Implicit_Self (Object);
-            Initial_Context.Expand_Action.all;
+            Calling_Frame.Top_Context.Expand_Action.all;
             Last_Picked := Pop_Object;
             Pop_Object;
+            Top_Frame := Called_Frame;
          end if;
       end Pick_Callback;
 
@@ -699,7 +711,11 @@ package body Wrapping.Runtime.Objects is
       Handle_Call_Parameters
         (Params, Evaluate_Parameter'Access);
 
+      Calling_Frame := Top_Frame;
+
       Push_Frame (An_Entity.A_Function);
+      Called_Frame := Top_Frame;
+
       Push_Implicit_Self (Prev_Self);
       Top_Frame.Symbols.Move (Temp_Symbols);
       Top_Frame.Top_Context.Pick_Callback := Pick_Callback'Unrestricted_Access;
