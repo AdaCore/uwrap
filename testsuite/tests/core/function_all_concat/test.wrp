@@ -1,0 +1,6 @@
+function call (e) do
+   pick " [ONE] " & " [ANOTHER ONE] ";
+end;
+
+match Entity (f_name ("A"))
+weave standard.out (call (self).all (x: true).fold (c: "", c: (c & x)));

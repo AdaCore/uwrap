@@ -889,6 +889,25 @@ package body Wrapping.Runtime.Analysis is
       Run_Outer_Callback : Boolean := True;
 
       Do_Pop_Frame_Context : Boolean := False;
+
+      --  Many expression part need to deactivate being picked as function results.
+      --  For example, while in:
+      --     function f do
+      --        pick a and b;
+      --     end;
+      --  we want to pick a and b (if it's called from e.g. .all(), in :
+      --     function f do
+      --        pick a & b;
+      --     end;
+      --  we only want to pick the result of a & b.
+      --  The following function pushes a new context with the proper flags.
+      procedure Push_Frame_Context_No_Pick is
+      begin
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Pick_Callback := null;
+         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+      end Push_Frame_Context_No_Pick;
+
    begin
       Push_Error_Location (Expr.Node);
 
@@ -954,10 +973,10 @@ package body Wrapping.Runtime.Analysis is
             declare
                Left, Right : W_Object;
             begin
-               Left := Evaluate_Expression (Expr.Binary_Left);
-
                case Expr.Node.As_Binary_Expr.F_Op.Kind is
                   when Template_Operator_And =>
+                     Left := Evaluate_Expression (Expr.Binary_Left);
+
                      if Left /= Match_False then
                         Right := Evaluate_Expression (Expr.Binary_Right);
 
@@ -972,6 +991,8 @@ package body Wrapping.Runtime.Analysis is
 
                      Run_Outer_Callback := False;
                   when Template_Operator_Or =>
+                     Left := Evaluate_Expression (Expr.Binary_Left);
+
                      if Left /= Match_False then
                         Push_Object (Left);
                      else
@@ -986,7 +1007,10 @@ package body Wrapping.Runtime.Analysis is
 
                      Run_Outer_Callback := False;
                   when Template_Operator_Amp =>
+                     Push_Frame_Context_No_Pick;
+                     Left := Evaluate_Expression (Expr.Binary_Left);
                      Right := Evaluate_Expression (Expr.Binary_Right);
+                     Pop_Frame_Context;
 
                      if Left.Dereference.all in W_Text_Expression_Type'Class
                        and then Right.Dereference.all in W_Text_Expression_Type'Class
@@ -1011,6 +1035,10 @@ package body Wrapping.Runtime.Analysis is
                      end if;
                   when Template_Operator_Plus | Template_Operator_Minus |
                        Template_Operator_Multiply | Template_Operator_Divide =>
+
+                     Push_Frame_Context_No_Pick;
+
+                     Left := Evaluate_Expression (Expr.Binary_Left);
 
                      declare
                         Left_I, Right_I : Integer;
@@ -1047,6 +1075,8 @@ package body Wrapping.Runtime.Analysis is
                                               0))));
                      end;
 
+                     Pop_Frame_Context;
+
                   when others =>
                      Error ("unexpected operator");
 
@@ -1054,6 +1084,8 @@ package body Wrapping.Runtime.Analysis is
             end;
 
          when Template_Unary_Expr =>
+            Push_Frame_Context_No_Pick;
+
             declare
                Right : W_Object :=
                  Evaluate_Expression (Expr.Unary_Right).Dereference;
@@ -1067,6 +1099,9 @@ package body Wrapping.Runtime.Analysis is
                end if;
             end;
 
+            Pop_Frame_Context;
+
+
          when Template_Literal =>
             if Expr.Node.Text = "true" then
                Push_Match_True (Top_Object);
@@ -1077,13 +1112,17 @@ package body Wrapping.Runtime.Analysis is
             end if;
 
          when Template_Token_Identifier | Template_Identifier =>
+            Push_Frame_Context_No_Pick;
             Handle_Identifier (Expr.Node);
+            Pop_Frame_Context;
 
          when Template_Number =>
             Push_Object (W_Object'(new W_Integer_Type'(Value => Expr.Number)));
 
          when Template_Str =>
+            Push_Frame_Context_No_Pick;
             Evaluate_String (Expr);
+            Pop_Frame_Context;
 
             if Expr.Str_Kind = String_Regexp then
                --  If we wanted a regexp, pop the object on the stack and
@@ -1092,7 +1131,9 @@ package body Wrapping.Runtime.Analysis is
             end if;
 
          when Template_Call_Expr =>
+            Push_Frame_Context_No_Pick;
             Handle_Call (Expr);
+            Pop_Frame_Context;
 
             --  Prepare the matching context for the resulting value.
             --  As we're on a call match, we can
@@ -1157,6 +1198,8 @@ package body Wrapping.Runtime.Analysis is
             Run_Outer_Callback := False;
 
          when Template_Match_Expr =>
+            Push_Frame_Context_No_Pick;
+
             Push_Frame_Context;
             Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
             Top_Frame.Top_Context.Outer_Object := Top_Object;
@@ -1170,6 +1213,8 @@ package body Wrapping.Runtime.Analysis is
             else
                Push_Match_False;
             end if;
+
+            Pop_Frame_Context;
 
          when others =>
             Error

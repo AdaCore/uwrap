@@ -139,10 +139,6 @@ package body Wrapping.Runtime.Structure is
          Push_Frame_Context;
          Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
 
-         --  Pick is never done when browsing the values. It's done either in
-         --  an "all" callback, or one upon return.
-         Top_Frame.Top_Context.Pick_Callback := null;
-
          Push_Implicit_Self (Browsed);
          Top_Frame.Top_Context.Outer_Expr_Callback.all;
          Pop_Object;
@@ -197,10 +193,6 @@ package body Wrapping.Runtime.Structure is
       Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
       Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
       Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
-
-      --  Pick is never done when browsing the values. It's done either in
-      --  an "all" callback, or one upon return.
-      Top_Frame.Top_Context.Pick_Callback := null;
 
       Evaluate_Expression (Match_Expression);
 
