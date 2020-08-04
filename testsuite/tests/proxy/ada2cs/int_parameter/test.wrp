@@ -1,5 +1,9 @@
+import proxy.proxy;
 import proxy.proxy2cs;
 import cs.wrappers;
 
+match name ()
 wrap generate_proxy2cs ();
+
+match w_CS ()
 wrap wrappers2cs ();

@@ -1,7 +1,7 @@
 import proxy.proxy;
 import cs.wrappers;
 
-visitor generate_proxy2cs () do
+template generate_proxy2cs pick origin do
    match kind () and not parent () #TODO: this is a rather weak way to check we're on a JSON node, to improve
    wrap w: w_Unit (name => child (name ("name")).value);
 
