@@ -6,26 +6,31 @@ function wrapped_type () do
    pick child (TypeExpr ()).wrapper (te: wp_TypeExpr ());
 end;
 
-template create_ParamSpecCall do
-   var sb : object;
-   var name : text;
+template w_ParamSpecCallProxy extends w_ParamSpecCall do
+   var sb: object;
+   var original_type: text;
+
+   match origin () do
+      pick origin wrap null (w_ParamSpecCall);
+   end;
    
-   pick origin () or parent ()
-   wrap w_ParamSpecCall (
-      name => name, #change name definition to a lambda, looking for first w defining name child
-      type_expr => "System.Address",
-      pre_call_decl => lambda (i"""
-         \e<sb.tmp ("Proxy")> : \e<wrapped_type().name> with Address => \e<w.name>, Import;
-         \e<t> : aliased \e<child (TypeExpr ())> with Address => \e<sb.tmp ("Proxy")>.Address;"""),
-      actual_value => t
-   );
+   do
+      var tmp_val: text => sb.tmp ("Val");
+
+      weave (
+         type_expr => "System.Address",
+         pre_call_decl => lambda (i"""
+            \e<sb.tmp ("Proxy")> : aliased \e<child (wp_TypeExpr ()).name> with Address => \e<name>, Import;
+            \e<tmp_val> : aliased \e<original_type> with Address => \e<sb.tmp ("Proxy")>.Address, Import;"""),
+         actual_value => tmp_val);
+   end;
 end;
 
 template to_proxy_struct pick origin do
    match ParamSpec() and parent (sb: SubpDecl()) and t: sb.tmp ("Value")
-   wrap create_ParamSpecCall (
-      sb.wrappers (w_SubpDecl ()), 
-      lambda (child (DefiningName ()).wrapper (w_DefiningName().name)));
+   wrap w_ParamSpecCallProxy (
+      sb   => sb.wrapper (w_SubpDecl ()),
+      original_type => child (TypeExpr));
 
    match sb: SubpDecl() 
       and t1: sb.tmp ("Res")
@@ -33,7 +38,7 @@ template to_proxy_struct pick origin do
    wrap w: w_SubpDeclCall (
       function_or_procedure => "function",
       result_type_expr => "System.Address",
-      call_decl => """\e<t1> : aliased \e<child (TypeExpr ())> := \e<w.call>;\n""",
+      call_decl => """\e<t1> : aliased \e<child (w_TypeExpr ())> := \e<w.call>;\n""",
       call_stmt => "null;", 
    
       post_call_decl => lambda (i"""
@@ -127,37 +132,56 @@ template generate_ada2proxy pick origin do
       wrap ada2proxy_type (w);
    end;
 
-   match TypeDecl () and child (RecordTypeDef ()) do
-      wrap w: w_TypeDecl (
+   match TypeExpr ()
+   wrap wp_TypeExpr ();
+
+   match type: TypeDecl () and child (RecordTypeDef ()) do
+      var original_type: text => string (p_defining_name);
+
+      wrap proxy_type: w_TypeDecl (
          declaration => i"""
-            type \e<w.name> is record
+            type \e<proxy_type.name> is record
                Address        : System.Address;
                Is_Proxy_Owned : Boolean;
                Is_Automatic   : Boolean;
             end record;
 
-            type \e<w.name>_Access is access all \e<w.name>;
+            type \e<proxy_type.name>_Access is access all \e<proxy_type.name>;
          """
       );
    then
       wrap wp_TypeDecl (
-         name => "\e<w.name>"
+         name => "\e<proxy_type.name>"
       );
    then
-      pick parent (PackageDecl ()).wrapper (w_PackageDecl) do
-         pick new ({
-            w_SubpDeclCall (
-               name => "\e<w.name>_Proxy_Allocate",
+      pick parent (PackageDecl ()).wrapper (w_PackageDecl ()) do
+         pick child (new ({
+            sb: w_SubpDeclCall (
+               name => "\e<proxy_type.name>_Proxy_Allocate",
                function_or_procedure => "function"
             ) {
-               to_proxy_struct ()
+               w_ParamSpecCallProxy (
+                  sb => sb, 
+                  name => "Proxy",
+                  original_type => original_type
+               ) {
+                  wp_TypeExpr (name => proxy_type.name)
+               }
             },
 
-            w_SubpDeclCall (
-               name => "\e<w.name>_Proxy_Free",
+            sb: w_SubpDeclCall (
+               name => "\e<proxy_type.name>_Proxy_Free",
                function_or_procedure => "procedure"
-            )
-         });
+            ) {
+               w_ParamSpecCallProxy (
+                  sb => sb, 
+                  name => "Proxy", 
+                  original_type => original_type)
+               {
+                  wp_TypeExpr (name => proxy_type.name)
+               }
+            }
+         }));
       end;
    end;
 

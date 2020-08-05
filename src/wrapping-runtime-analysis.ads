@@ -43,18 +43,18 @@ package Wrapping.Runtime.Analysis is
 
    procedure Pop_Match_Groups_Section;
 
-   procedure Push_Object (An_Object : access W_Object_Type'Class);
+   procedure Push_Object (Object : access W_Object_Type'Class)
+     with Pre =>
+       (if Object.all in W_Reference_Type'Class then W_Reference (Object).Value /= null);
 
-   procedure Push_Implicit_Self (An_Entity : access W_Object_Type'Class);
+   procedure Push_Implicit_Self (Object : access W_Object_Type'Class);
 
-   procedure Push_Allocated_Entity (An_Entity : access W_Object_Type'Class);
+   procedure Push_Allocated_Entity (Object : access W_Object_Type'Class);
 
    --  Push the temporary of the given name on the stack. If one needs to be
    --  created, counter will be used to append to the name and be incremented.
    procedure Push_Temporary_Name (Name : Text_Type; Counter : in out Integer);
 
-   --  TODO: generalize the usage of this instead of manual deleting from the
-   --  stack
    procedure Pop_Object (Number : Positive := 1);
 
    --  Deletes a specific object. Negative deletes from end, positives delete

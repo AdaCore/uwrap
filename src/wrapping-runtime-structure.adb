@@ -117,7 +117,7 @@ package body Wrapping.Runtime.Structure is
          --  If there's an name to store the result, store it there.
 
          if Top_Frame.Top_Context.Name_Captured /= "" then
-            Top_Frame.Symbols.Include
+            Include_Symbol
               (To_Text (Top_Frame.Top_Context.Name_Captured),
                Result);
          end if;
@@ -177,7 +177,7 @@ package body Wrapping.Runtime.Structure is
       if Top_Frame.Top_Context.Name_Captured /= ""
         and then not Top_Frame.Top_Context.Is_Expanding_Context
       then
-         Top_Frame.Symbols.Include
+         Include_Symbol
            (To_Text (Top_Frame.Top_Context.Name_Captured),
             new W_Reference_Type'
               (Value => W_Object (Browsed), others => <>));
@@ -255,6 +255,15 @@ package body Wrapping.Runtime.Structure is
    begin
       Push_Object (Match_False);
    end Push_Match_False;
+
+   procedure Include_Symbol (Name : Text_Type; Object : W_Object) is
+   begin
+      pragma Assert
+        (if Object.all in W_Reference_Type'Class
+         then W_Reference (Object).Value /= null);
+
+      Top_Frame.Symbols.Include (Name, Object);
+   end Include_Symbol;
 
    procedure Push_Call_Result
      (An_Entity : access W_Object_Type;

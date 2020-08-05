@@ -25,8 +25,8 @@ template w_Unit extends w_Ada do
 end;
 
 template w_NamedEntity extends w_Ada do
-  var name: text;
-  var original_name: text;
+  var name: text => text (lambda (child (w_DefiningName ()).name));
+  var original_name: text => (match (origin (v: p_fully_qualified_name ())) pick v else pick "");
 end;
 
 template w_WithClause extends w_Ada do
@@ -373,7 +373,7 @@ template wrappers_post_process pick origin do
       match function_or_procedure ("function")
       weave (return_spec => "return \e<result_type_expr>");
 
-      match v: origin.p_fully_qualified_name ()
+      match origin (v: p_fully_qualified_name ())
       weave (call_name => v);
       
       weave (call => "\e<call_name> \e<lparenCall> \e<call_assoc_list> \e<rparenCall>");
@@ -384,7 +384,7 @@ template wrappers_post_process pick origin do
       match child (c: w_ParamSpecCall())
       weave (lparenCall => "(", rparenCall => ")");
 
-      match origin (SubpDecl ())
+      match origin (SubpDecl ()) or not origin ()
       pick p weave (spec_content => @ & sb.spec & "\n\n", body_content => @ & sb.body);
 
       match child (w_Aspect ())
@@ -582,16 +582,6 @@ template wrappers_post_process pick origin do
       else pick u weave (
          spec_with_clauses => @ & "\e<c> \e<w.ref>;\n"
       );
-   end;
-
-   match n: w_NamedEntity () 
-      and child (s: w_DefiningName ()) 
-      and n.name (x"^$")
-   do
-      match v: n.origin.p_fully_qualified_name ()
-         weave (name => s.name, original_name => v);
-      else
-         weave (name => s.name);
    end;
    
    match w_Unit () and child (p: w_PackageDecl ()) do

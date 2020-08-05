@@ -181,6 +181,9 @@ package Wrapping.Runtime.Structure is
       null;
    end record;
 
+   procedure Include_Symbol (Name : Text_Type; Object : W_Object)
+     with Pre => Object /= null;
+
    function Push_Value
      (An_Entity : access W_Object_Type;
       Name      : Text_Type) return Boolean is (False)

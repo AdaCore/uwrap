@@ -105,27 +105,27 @@ package body Wrapping.Runtime.Analysis is
       Wrapping.Pop_Error_Location;
    end Pop_Error_Location;
 
-   procedure Push_Object (An_Object : access W_Object_Type'Class) is
+   procedure Push_Object (Object : access W_Object_Type'Class) is
    begin
-      Top_Frame.Data_Stack.Append (W_Object (An_Object));
+      Top_Frame.Data_Stack.Append (W_Object (Object));
    end Push_Object;
 
-   procedure Push_Implicit_Self (An_Entity : access W_Object_Type'Class) is
+   procedure Push_Implicit_Self (Object : access W_Object_Type'Class) is
    begin
-      Top_Frame.Data_Stack.Append
-        (new W_Reference_Type'
-           (Value => W_Object (An_Entity),
-            Is_Implicit_Self => True,
-            others => <>));
+      Push_Object
+        (W_Object'(new W_Reference_Type'
+             (Value => W_Object (Object),
+              Is_Implicit_Self => True,
+              others           => <>)));
    end Push_Implicit_Self;
 
-   procedure Push_Allocated_Entity (An_Entity : access W_Object_Type'Class) is
+   procedure Push_Allocated_Entity (Object : access W_Object_Type'Class) is
    begin
-      Top_Frame.Data_Stack.Append
-        (new W_Reference_Type'
-           (Value => W_Object (An_Entity),
-            Is_Allocated => True,
-            others => <>));
+      Push_Object
+        (W_Object'(new W_Reference_Type'
+             (Value        => W_Object (Object),
+              Is_Allocated => True,
+              others       => <>)));
    end Push_Allocated_Entity;
 
    procedure Push_Temporary_Name (Name : Text_Type; Counter : in out Integer) is
@@ -295,7 +295,7 @@ package body Wrapping.Runtime.Analysis is
                  (Value => To_Unbounded_Text (Matched_Text)));
 
             if Name /= "" then
-               Top_Frame.Symbols.Include
+               Include_Symbol
                  (Name,
                   new W_String_Type'
                     (Value => To_Unbounded_Text (Matched_Text)));
@@ -389,7 +389,7 @@ package body Wrapping.Runtime.Analysis is
 
          if A_Template_Instance /= null then
             if Template_Clause.Call.Captured_Name /= "" then
-               Top_Frame.Symbols.Include
+               Include_Symbol
                  (To_Text (Template_Clause.Call.Captured_Name),
                   W_Object (A_Template_Instance));
             end if;
@@ -569,15 +569,14 @@ package body Wrapping.Runtime.Analysis is
                      New_Ref.Value := new W_Vector_Type;
 
                   when Object_Kind =>
-                     --  No initialization needed for object vars
-                     null;
+                     New_Ref.Value := Match_False;
 
                   when others =>
                      Error ("variable kind not supported for templates");
 
                end case;
 
-               Top_Frame.Symbols.Insert (Name, W_Object (New_Ref));
+               Include_Symbol (Name, W_Object (New_Ref));
 
                if Top_Frame.Current_Template /= null then
                   W_Template_Instance (Top_Frame.Current_Template).Indexed_Variables.Insert
@@ -934,14 +933,14 @@ package body Wrapping.Runtime.Analysis is
                Evaluate_Expression (Expr.Match_Capture_Expr);
 
                if Top_Frame.Data_Stack.Last_Element /= Match_False then
-                  Top_Frame.Symbols.Include (Captured_Name, Top_Object);
+                  Include_Symbol (Captured_Name, Top_Object);
                else
                   --  For early reference, that name may have already been
                   --  captured. If we eneded up not having a match, it needs
                   --  to be removed, or replaced by the previous value.
 
                   if Previous_Value /= null then
-                     Top_Frame.Symbols.Include (Captured_Name, Previous_Value);
+                     Include_Symbol (Captured_Name, Previous_Value);
                   elsif Top_Frame.Symbols.Contains (Captured_Name) then
                      Top_Frame.Symbols.Delete (Captured_Name);
                   end if;
@@ -1359,7 +1358,7 @@ package body Wrapping.Runtime.Analysis is
    is
       A_Module : T_Module;
       Tentative_Symbol : W_Object;
-      A_Semantic_Entity : T_Entity;
+      Semantic_Entity : T_Entity;
    begin
       if Name = "self" then
          Push_Object (Get_Implicit_Self);
@@ -1405,7 +1404,8 @@ package body Wrapping.Runtime.Analysis is
       if To_Text (A_Module.Name) = Name then
          Push_Object
            (W_Object'(new W_Static_Entity_Type'
-              (An_Entity => T_Entity (A_Module))));
+                (An_Entity => T_Entity (A_Module))));
+
          return True;
       end if;
 
@@ -1413,14 +1413,14 @@ package body Wrapping.Runtime.Analysis is
 
       if A_Module.Children_Indexed.Contains (Name) then
          if Tentative_Symbol = null then
-            A_Semantic_Entity := A_Module.Children_Indexed (Name);
+            Semantic_Entity := A_Module.Children_Indexed (Name);
 
-            if A_Semantic_Entity.all in T_Template_Type'Class then
+            if Semantic_Entity.all in T_Template_Type'Class then
                Tentative_Symbol := new W_Static_Entity_Type'
-                 (An_Entity => A_Semantic_Entity);
-            elsif A_Semantic_Entity.all in T_Function_Type'Class then
+                 (An_Entity => Semantic_Entity);
+            elsif Semantic_Entity.all in T_Function_Type'Class then
                 Tentative_Symbol := new W_Function_Type'
-                 (A_Function => T_Function (A_Semantic_Entity));
+                 (A_Function => T_Function (Semantic_Entity));
             end if;
          else
             Error ("can't reference " & Name & ", multiple definitions hiding");
@@ -1432,14 +1432,14 @@ package body Wrapping.Runtime.Analysis is
       for Imported of A_Module.Imported_Modules loop
          if Imported.Children_Indexed.Contains (Name) then
             if Tentative_Symbol = null then
-               A_Semantic_Entity := Imported.Children_Indexed (Name);
+               Semantic_Entity := Imported.Children_Indexed (Name);
 
-               if A_Semantic_Entity.all in T_Template_Type'Class then
+               if Semantic_Entity.all in T_Template_Type'Class then
                   Tentative_Symbol := new W_Static_Entity_Type'
-                    (An_Entity => A_Semantic_Entity);
-               elsif A_Semantic_Entity.all in T_Function_Type'Class then
+                    (An_Entity => Semantic_Entity);
+               elsif Semantic_Entity.all in T_Function_Type'Class then
                   Tentative_Symbol := new W_Function_Type'
-                    (A_Function => T_Function (A_Semantic_Entity));
+                    (A_Function => T_Function (Semantic_Entity));
                end if;
             else
                Error ("can't reference " & Name & ", multiple definitions hiding");
@@ -1451,14 +1451,14 @@ package body Wrapping.Runtime.Analysis is
 
       if Wrapping.Semantic.Analysis.Root.Children_Indexed.Contains (Name) then
          if Tentative_Symbol = null then
-            A_Semantic_Entity :=
+            Semantic_Entity :=
               Wrapping.Semantic.Analysis.Root.Children_Indexed.Element (Name);
 
-            if A_Semantic_Entity.all in T_Namespace_Type'Class
-              or else A_Semantic_Entity.all in T_Module_Type'Class
+            if Semantic_Entity.all in T_Namespace_Type'Class
+              or else Semantic_Entity.all in T_Module_Type'Class
             then
                Tentative_Symbol := new W_Static_Entity_Type'
-                 (An_Entity => A_Semantic_Entity);
+                 (An_Entity => Semantic_Entity);
             end if;
          else
             Error ("can't reference " & Name & ", multiple definitions hiding");
@@ -1626,6 +1626,10 @@ package body Wrapping.Runtime.Analysis is
          if Name = "" then
             Ref := A_Template_Instance.Ordered_Variables.Element (Position);
          else
+            if not A_Template_Instance.Indexed_Variables.Contains (Name) then
+               Error ("object does not contain variable '" & Name & "'");
+            end if;
+
             Ref := A_Template_Instance.Indexed_Variables.Element (Name);
          end if;
 
@@ -1882,7 +1886,7 @@ package body Wrapping.Runtime.Analysis is
       --     child ().fold (x: "", x: (x & something))
       --  which is consistent with the overall way capture works.
       if Top_Frame.Top_Context.Name_Captured /= "" then
-         Top_Frame.Symbols.Include
+         Include_Symbol
            (To_Text (Top_Frame.Top_Context.Name_Captured), Init_Value);
       end if;
 
@@ -2006,7 +2010,7 @@ package body Wrapping.Runtime.Analysis is
            (null, T_Template (New_Tree.Call.Reference));
 
          if Captured /= "" then
-            Top_Frame.Symbols.Include
+            Include_Symbol
               (Captured, W_Object (A_Template_Instance));
          end if;
 
