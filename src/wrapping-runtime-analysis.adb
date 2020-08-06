@@ -2006,6 +2006,7 @@ package body Wrapping.Runtime.Analysis is
          -- TODO: Is this necessary?
          Dummy_Action : Visit_Action;
       begin
+         Push_Error_Location (New_Tree.Node);
          A_Template_Instance := Create_Template_Instance
            (null, T_Template (New_Tree.Call.Reference));
 
@@ -2015,6 +2016,7 @@ package body Wrapping.Runtime.Analysis is
          end if;
 
          Dummy_Action := Handle_Template_Call (A_Template_Instance, New_Tree.Call.Args);
+         Pop_Error_Location;
 
          return A_Template_Instance;
       end Handle_Create_Template;
