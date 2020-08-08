@@ -1624,6 +1624,10 @@ package body Wrapping.Runtime.Analysis is
          Ref : W_Reference;
       begin
          if Name = "" then
+            if Position > A_Template_Instance.Ordered_Variables.Last_Index then
+               Error ("object does not contain variable at position" & Integer'Wide_Wide_Image (Position));
+            end if;
+
             Ref := A_Template_Instance.Ordered_Variables.Element (Position);
          else
             if not A_Template_Instance.Indexed_Variables.Contains (Name) then

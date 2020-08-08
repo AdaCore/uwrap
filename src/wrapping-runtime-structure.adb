@@ -511,7 +511,7 @@ package body Wrapping.Runtime.Structure is
       Parameter_Index := 1;
 
       for Param of Args loop
-         Push_Error_Location (Param.Name_Node);
+         Push_Error_Location (Param.Node);
 
          if Param.Name /= "" then
             In_Named_Section := True;
