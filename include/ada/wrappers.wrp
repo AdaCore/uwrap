@@ -68,7 +68,7 @@ template w_SubpDecl extends w_NamedEntity do
    var rparenCall: text;
  
    var param_spec_list: text;
-   var result_type_expr: text;
+   var result_type_expr: text => lambda (child (w_TypeExpr).txt);
 
    var pre_call_decl: text;
    var pre_call_stmt: text;
@@ -132,7 +132,7 @@ template w_ParamSpec extends w_NamedEntity do
    var post_call_decl: text;
    var post_call_stmt: text;
    var return_stmt: text;
-   var result_type_expr: text;
+   var result_type_expr: text => "_";
 
    var mode: text;
 end;
@@ -270,7 +270,6 @@ template build_subprogram pick origin do
    match sb.child (f_subp_kind ("function")) and sb.child (te: TypeExpr()) 
       weave (
          function_or_procedure => "function",
-         result_type_expr => lambda (child (w_TypeExpr()).txt),
          call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
          post_call_decl => i"""
             \e<self.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
@@ -437,7 +436,7 @@ template wrappers_post_process pick origin do
          post_call_decl   => @ & p.post_call_decl,
          post_call_stmt   => @ & p.post_call_stmt,
          return_stmt      => @ & p.return_stmt,
-         result_type_expr => @ & p.result_type_expr
+         result_type_expr => (match text (p.result_type_expr, "_") pick @ else pick p.result_type_expr)
       );
    end;
 
@@ -464,7 +463,7 @@ template wrappers_post_process pick origin do
          post_call_decl   => @ & p.post_call_decl,
          post_call_stmt   => @ & p.post_call_stmt,
          return_stmt      => @ & p.return_stmt,
-         result_type_expr => @ & p.result_type_expr
+         result_type_expr => (match text (p.result_type_expr, "_") pick @ else pick p.result_type_expr)
       );
    end;
 

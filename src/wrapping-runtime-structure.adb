@@ -2,6 +2,7 @@ with Ada.Containers; use Ada.Containers;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Tags; use Ada.Tags;
 with Ada.Unchecked_Conversion;
+with Ada.Characters.Conversions; use Ada.Characters.Conversions;
 with System; use System;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
@@ -269,7 +270,11 @@ package body Wrapping.Runtime.Structure is
      (An_Entity : access W_Object_Type;
       Params    : T_Arg_Vectors.Vector) is
    begin
-      Error ("non callable entity");
+      Error
+        ("non callable entity "
+         & To_Wide_Wide_String
+           (Ada.Tags.External_Tag
+                (W_Object_Type'Class (An_Entity.all)'Tag)));
    end Push_Call_Result;
 
    function Match_With_Top_Object
@@ -467,6 +472,8 @@ package body Wrapping.Runtime.Structure is
          else
             Push_Match_False;
          end if;
+
+         Pop_Frame_Context;
       end if;
    end Push_Match_Result;
 

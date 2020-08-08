@@ -65,13 +65,23 @@ package body Wrapping.Runtime.Analysis is
       Params : T_Arg_Vectors.Vector)
    is
    begin
-      if Params.Length = 1 then
+      if Params.Length in 1 .. 2 then
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Match_Mode := Match_None;
+
          Push_Object
            (W_Object'
               (new W_Text_Conversion_Type'
                    (An_Object => Evaluate_Expression (Params.Element (1).Expr))));
+
+         Pop_Frame_Context;
+
+         if Params.Length = 2 then
+            Push_Match_Result (Top_Object, Params.Element (2).Expr);
+            Delete_Object_At_Position (-2);
+         end if;
       else
-         Error ("conversion takes 1 argument");
+         Error ("conversion takes up to 2 arguments");
       end if;
    end Call_Convert_To_Text;
 
@@ -80,14 +90,24 @@ package body Wrapping.Runtime.Analysis is
       Params : T_Arg_Vectors.Vector)
    is
    begin
-      if Params.Length = 1 then
+      if Params.Length in 1 .. 2 then
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Match_Mode := Match_None;
+
          Push_Object
            (W_Object'
               (new W_String_Type'
                    (Value => To_Unbounded_Text
                         (Evaluate_Expression (Params.Element (1).Expr).To_String))));
+
+         Pop_Frame_Context;
+
+         if Params.Length = 2 then
+            Push_Match_Result (Top_Object, Params.Element (2).Expr);
+            Delete_Object_At_Position (-2);
+         end if;
       else
-         Error ("conversion takes 1 argument");
+         Error ("conversion takes up to 2 arguments");
       end if;
    end Call_Convert_To_String;
 
