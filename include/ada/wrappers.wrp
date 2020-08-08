@@ -385,7 +385,7 @@ template wrappers_post_process pick origin do
       match child (c: w_ParamSpecCall())
       weave (lparenCall => "(", rparenCall => ")");
 
-      match origin (SubpDecl ()) or not origin ()
+      match not origin (AccessToSubpDef ()) 
       pick p weave (spec_content => @ & sb.spec & "\n\n", body_content => @ & sb.body);
 
       match child (w_Aspect ())

@@ -504,7 +504,7 @@ package body Wrapping.Runtime.Analysis is
          Error ("can't pick selected object");
       end if;
 
-      Push_Implicit_Self (Top);
+      Push_Implicit_Self (Self);
 
       if Command.Command_Sequence /= null then
          Handle_Command_Sequence (Command.Command_Sequence);
