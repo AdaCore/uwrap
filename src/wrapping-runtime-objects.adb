@@ -1405,12 +1405,13 @@ package body Wrapping.Runtime.Objects is
 
       Result : W_Object;
 
+      Dispatching_Entity : W_Node := W_Node (An_Entity);
    begin
       if Expr = null
         or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
       then
-         An_Entity.Evaluate_Bowse_Functions
-           (A_Mode, Expr);
+         Evaluate_Bowse_Functions
+           (Dispatching_Entity, A_Mode, Expr);
 
          return;
       end if;
@@ -1420,7 +1421,8 @@ package body Wrapping.Runtime.Objects is
       if Expr.Kind = Template_Reg_Expr_Anchor then
          Top_Frame.Top_Context.Is_Expanding_Context := False;
 
-         Evaluate_Bowse_Functions (An_Entity, A_Mode, null);
+         Evaluate_Bowse_Functions
+           (Dispatching_Entity, A_Mode, null);
 
          Result := Pop_Object.Dereference;
 
@@ -1434,12 +1436,12 @@ package body Wrapping.Runtime.Objects is
       else
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
             Top_Frame.Top_Context.Regexpr_Anchored := True;
-            Evaluate_Generator_Regexp (An_Entity, A_Mode, Expr.Reg_Expr_Right);
+            Evaluate_Generator_Regexp (Dispatching_Entity, A_Mode, Expr.Reg_Expr_Right);
          elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
             case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                when Template_Operator_Many =>
                   Install_Yield_Capture;
-                  Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
+                  Evaluate_Bowse_Functions (Dispatching_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
                   Restore_Yield_Capture;
 
                   if Top_Object = Match_False then
@@ -1448,7 +1450,7 @@ package body Wrapping.Runtime.Objects is
 
                      if Expr.Reg_Expr_Left.Min = 0 then
                         Pop_Object;
-                        Evaluate_Generator_Regexp (An_Entity, A_Mode, Expr.Reg_Expr_Right);
+                        Evaluate_Generator_Regexp (Dispatching_Entity, A_Mode, Expr.Reg_Expr_Right);
                      end if;
                   end if;
 
@@ -1457,18 +1459,18 @@ package body Wrapping.Runtime.Objects is
                      --  We are on a lazy quantifier and are accepting no matches.
                      --  First see if we can avoid the quantifier altogether
 
-                     Evaluate_Generator_Regexp (An_Entity, A_Mode, Expr.Reg_Expr_Right);
+                     Evaluate_Generator_Regexp (Dispatching_Entity, A_Mode, Expr.Reg_Expr_Right);
 
                      if Top_Object = Match_False then
                         Pop_Object;
 
                         Install_Yield_Capture;
-                        Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
+                        Evaluate_Bowse_Functions (Dispatching_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
                         Restore_Yield_Capture;
                      end if;
                   else
                      Install_Yield_Capture;
-                     Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
+                     Evaluate_Bowse_Functions (Dispatching_Entity, A_Mode, Expr.Reg_Expr_Left.Quantifier_Expr);
                      Restore_Yield_Capture;
                   end if;
 
@@ -1477,7 +1479,7 @@ package body Wrapping.Runtime.Objects is
             end case;
          else
             Install_Yield_Capture;
-            Evaluate_Bowse_Functions (An_Entity, A_Mode, Expr.Reg_Expr_Left);
+            Evaluate_Bowse_Functions (Dispatching_Entity, A_Mode, Expr.Reg_Expr_Left);
             Restore_Yield_Capture;
          end if;
       end if;
@@ -1497,14 +1499,64 @@ package body Wrapping.Runtime.Objects is
          return Browse_Entity (An_Entity, E, Match_Expression, Result);
       end Visitor;
 
+      function Is_Wrapping (Node : access W_Node_Type'Class) return Boolean is
+         (Node.all in W_Template_Instance_Type'Class
+          and then W_Template_Instance (Node).Origin /= null);
+
+      function Create_Hollow_Next (Prev : access W_Node_Type'Class) return W_Hollow_Node is
+         Wrapped : W_Hollow_Node;
+         New_Node : W_Hollow_Node := new W_Hollow_Node_Type;
+      begin
+         if Is_Wrapping (Prev) then
+            Wrapped := Create_Hollow_Next (W_Template_Instance (Prev).Origin);
+            Wrapped.Templates_Ordered.Append (W_Template_Instance (New_Node));
+            New_Node.Origin := W_Node (Wrapped);
+         else
+            --  TODO: What if parent is null?
+            Add_Child (Prev.Parent, New_Node);
+         end if;
+
+         return New_Node;
+      end;
+
+      function Create_Hollow_Child (Parent : access W_Node_Type'Class) return W_Hollow_Node is
+         Wrapped : W_Hollow_Node;
+         New_Node : W_Hollow_Node := new W_Hollow_Node_Type;
+      begin
+         if Is_Wrapping (Parent) then
+            Wrapped := Create_Hollow_Child (W_Template_Instance (Parent).Origin);
+            Wrapped.Templates_Ordered.Append (W_Template_Instance (New_Node));
+            New_Node.Origin := W_Node (Wrapped);
+         else
+            Add_Child (Parent, New_Node);
+         end if;
+
+         return New_Node;
+      end;
+
       procedure Allocate (E : access W_Object_Type'Class) is
+         Wrapped : W_Hollow_Node;
       begin
          --  TODO: We need to be able to cancel allocation if the entire
          --  research happens to be false
 
          case A_Mode is
             when Child_Depth | Child_Breadth =>
-               Add_Child (W_Node (An_Entity), W_Node (E));
+               if Is_Wrapping (An_Entity) then
+                  --  Template instances that are part of the wrapping tree
+                  --  are never added directly. Instead, they are wrapping a
+                  --  hollow node created on the origin tree.
+
+                  Wrapped := Create_Hollow_Child
+                    (W_Template_Instance (W_Node (An_Entity)).Origin);
+                  Wrapped.Templates_Ordered.Append (W_Template_Instance (E));
+                  W_Template_Instance (E).Origin := W_Node (Wrapped);
+
+                  Call_Browse_Parent (E, T_Arg_Vectors.Empty_Vector);
+                  Pop_Object;
+               else
+                  Add_Child (W_Node (An_Entity), W_Node (E));
+               end if;
 
             when others =>
                Error ("allocation not implemented on the enclosing function");
@@ -1602,6 +1654,14 @@ package body Wrapping.Runtime.Objects is
 
             return True;
          end if;
+      elsif Name = "kind" then
+         Push_Object
+           (W_Object'
+              (new W_String_Type'
+                   (Value => To_Unbounded_Text
+                        (An_Entity.Defining_Entity.Full_Name))));
+
+         return True;
       elsif An_Entity.Indexed_Variables.Contains (Name) then
          Push_Object (An_Entity.Indexed_Variables.Element (Name));
          return True;
@@ -1699,20 +1759,16 @@ package body Wrapping.Runtime.Objects is
    begin
       Result := Match_False;
 
-      --  First, traverse through the actual structure of the template.
-
-      --  Call to the super traverse function
-      Last_Decision := W_Node_Type (An_Entity.all).Traverse
-        (A_Mode, Include_Self, Result, Visitor);
-
-      if Result /=  null and then Result /= Match_False then
-         Final_Result := Result;
-      end if;
-
-      --  Then, try to traverse the template implicit structure held by the
-      --  original node.
-
-      if Last_Decision /= Stop and then An_Entity.Origin /= null then
+      --  A template instance either belong to an input tree (if has been
+      --  created through a new from an input node) or a wrapping tree (in
+      --  all other cases). If it doesn't have an origin set, it's part of
+      --  the input tree, in this case fallback to the normal traversal.
+      --  Otherwise, use specialized traversing using the original tree as the
+      --  backbone of the iteration.
+      if An_Entity.Origin = null then
+         Last_Decision := W_Node_Type (An_Entity.all).Traverse
+           (A_Mode, Include_Self, Result, Visitor);
+      else
          Last_Decision := An_Entity.Origin.Traverse
            (A_Mode, False, Result, Template_Visitor'Access);
       end if;

@@ -52,7 +52,7 @@ template constant_into_enumeration pick origin do
       wrap null (w_NumberDecl);
       pick n wrap null (w_DefiningName);
 
-      match t: p.child (w_TypeDecl (name (type_name)) or new (w_TypeDecl (name => type_name, kind => "enumeration"))) do
+      match t: p.child (w_TypeDecl (name (type_name)) or new (w_TypeDecl (name => type_name, type_kind => "enumeration"))) do
          pick t.child (new (w_EnumLiteralDecl (name => lit_name)));
          pick t.child (new (w_EnumRep (name => lit_name, value => d.f_expr)));
       end;

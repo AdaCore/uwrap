@@ -1,0 +1,36 @@
+template w1_A do end;
+template w1_B do end;
+template w1_C do 
+   var content: text;
+end;
+
+template w2_A do end;
+template w2_B do end;
+template w2_C do
+   var content: text;
+end;
+
+match Entity (f_name ("A"))
+wrap w1_A ();
+
+match Entity (f_name ("B")) do
+   wrap w: w1_B ();
+then
+   # wrappers issued to this node used not to be considered as children of w2_A.
+   pick w.child (new (w1_C ("NEW")));
+end;
+
+match Entity (f_name ("C"))
+wrap w1_C ("WRAPPING");
+
+match w1_A ()
+wrap w2_A ();
+
+match w1_C ()
+wrap w2_C (content);
+
+match w2_A ()
+weave standard.out (@ & "FOLD FROM ROOT: " & child (w: w2_C()).fold (c: "", c: (c & w.content), c: (c & ", ")) & "\n");
+
+match w1_C () or w2_C ()
+weave standard.out (@ & kind & ": " & content & " has a parent of type " & parent ().kind & "\n");

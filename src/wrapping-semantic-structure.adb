@@ -120,7 +120,9 @@ package body Wrapping.Semantic.Structure is
 
    function Instance_Of (Child, Parent : T_Template) return Boolean is
    begin
-      if Child = Parent then
+      if Child = null or else Parent = null then
+         return False;
+      elsif Child = Parent then
          return True;
       elsif Child.Extends = null then
          return False;

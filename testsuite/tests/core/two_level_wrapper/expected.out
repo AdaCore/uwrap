@@ -1,0 +1,6 @@
+test.w1_C: NEW has a parent of type test.w1_B
+test.w1_C: WRAPPING has a parent of type test.w1_B
+FOLD FROM ROOT: NEW, WRAPPING
+test.w2_C: NEW has a parent of type test.w2_A
+test.w2_C: WRAPPING has a parent of type test.w2_A
+

@@ -87,11 +87,14 @@ package Wrapping.Runtime.Objects is
    use W_Node_Vectors;
 
    type W_Template_Instance_Type;
-   type W_Template_Instance is access all W_Template_Instance_Type;
+   type W_Template_Instance is access all W_Template_Instance_Type'Class;
    package W_Template_Instance_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, W_Template_Instance);
    use W_Template_Instance_Maps;
    package W_Template_Instance_Vectors is new Ada.Containers.Vectors (Positive, W_Template_Instance);
    use W_Template_Instance_Vectors;
+
+   type W_Hollow_Node_Type;
+   type W_Hollow_Node is access all W_Hollow_Node_Type'Class;
 
    type W_All_Type;
    type W_All is access all W_All_Type;
@@ -453,6 +456,30 @@ package Wrapping.Runtime.Objects is
         (E      : access W_Object_Type'Class;
          Result : out W_Object) return Visit_Action)
       return Visit_Action;
+
+   --  This type of node is created when instantiated node on wrappers. For
+   --  example, when writing:
+   --
+   --  template A do end;
+   --  template B do end;
+   --
+   --  match Entity ()
+   --  do
+   --     wrap x: A ()
+   --  then
+   --     pick x.child (new (B ()));
+   --  end;
+   --
+   --  A and B are in the wrapper tree. There is no real parent / child
+   --  relationship between A and B. Instead, A is wrapping the entity, new B
+   --  is actually creating a hollow node under the current entity, wrapped
+   --  with B. This structure is necessary to enable browsing of the wrapping
+   --  tree, which is based on browsing the original input tree. Hollow nodes
+   --  however are not supposed to be picked or matched against directly and
+   --  should be ignored besides browsing.
+   type W_Hollow_Node_Type is new W_Template_Instance_Type with record
+      null;
+   end record;
 
    type W_All_Type is record
       Iterable : W_Object;

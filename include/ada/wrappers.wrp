@@ -99,6 +99,7 @@ template w_SubpDecl extends w_NamedEntity do
          declare
             \e<post_call_decl>
          begin
+            null;
             \e<post_call_stmt>
             \e<return_stmt>
          end;
@@ -157,7 +158,7 @@ template w_TypeDecl extends w_NamedEntity do
    var content_definition: text;
    var rep_definition: text;
    var rep_declaration: text;
-   var kind: text;
+   var type_kind: text;
    var aspects_declaration: text;
 
    var declaration: text =>
@@ -329,7 +330,7 @@ template ada_to_wrappers pick origin do
 
    match TypeDecl () and child (EnumTypeDef ()) do
       wrap w_TypeDecl (
-         kind => "enumeration"
+         type_kind => "enumeration"
       );
 
       match s: self () and r: p_get_enum_representation_clause ()
@@ -542,7 +543,7 @@ template wrappers_post_process pick origin do
             else
                weave (definition => @ & "null record");
          end;
-      else match kind ("enumeration") # TODO: this whole test should be using enumeration instead
+      else match type_kind ("enumeration") # TODO: this whole test should be using enumeration instead
          weave (definition => @ & "(\e<content_definition>)");
       else match origin (child (t: TypeDef ())) 
          weave (definition => @ & "\e<t>");
