@@ -7,6 +7,10 @@ with Libtemplatelang.Common; use Libtemplatelang.Common;
 
 package body Wrapping.Runtime.Objects is
 
+   function Is_Wrapping (Node : access W_Node_Type'Class) return Boolean is
+     (Node.all in W_Template_Instance_Type'Class
+      and then W_Template_Instance (Node).Origin /= null);
+
    function Has_Allocator (Node : Template_Node'Class) return Boolean is
       Found : Boolean := False;
 
@@ -853,6 +857,23 @@ package body Wrapping.Runtime.Objects is
       Parent.Children_Indexed.Insert (Name, W_Node (Child));
    end Add_Child;
 
+   procedure Add_Wrapping_Child (Parent, Child : access W_Node_Type'Class) is
+      Wrapped : W_Node;
+   begin
+      if Is_Wrapping (Parent) then
+         --  Template instances that are part of the wrapping tree
+         --  are never added directly. Instead, they are wrapping a
+         --  hollow node created on the origin tree.
+
+         Wrapped := new W_Hollow_Node_Type;
+         Add_Wrapping_Child (W_Template_Instance (Parent).Origin, Wrapped);
+         Wrapped.Templates_Ordered.Append (W_Template_Instance (Child));
+         W_Template_Instance (Child).Origin := W_Node (Wrapped);
+      else
+         Add_Child (Parent, Child);
+      end if;
+   end Add_Wrapping_Child;
+
    function Create_Template_Instance
      (An_Entity : access W_Node_Type'Class;
       A_Template : T_Template) return W_Template_Instance
@@ -1499,10 +1520,6 @@ package body Wrapping.Runtime.Objects is
          return Browse_Entity (An_Entity, E, Match_Expression, Result);
       end Visitor;
 
-      function Is_Wrapping (Node : access W_Node_Type'Class) return Boolean is
-         (Node.all in W_Template_Instance_Type'Class
-          and then W_Template_Instance (Node).Origin /= null);
-
       function Create_Hollow_Next (Prev : access W_Node_Type'Class) return W_Hollow_Node is
          Wrapped : W_Hollow_Node;
          New_Node : W_Hollow_Node := new W_Hollow_Node_Type;
@@ -1519,44 +1536,14 @@ package body Wrapping.Runtime.Objects is
          return New_Node;
       end;
 
-      function Create_Hollow_Child (Parent : access W_Node_Type'Class) return W_Hollow_Node is
-         Wrapped : W_Hollow_Node;
-         New_Node : W_Hollow_Node := new W_Hollow_Node_Type;
-      begin
-         if Is_Wrapping (Parent) then
-            Wrapped := Create_Hollow_Child (W_Template_Instance (Parent).Origin);
-            Wrapped.Templates_Ordered.Append (W_Template_Instance (New_Node));
-            New_Node.Origin := W_Node (Wrapped);
-         else
-            Add_Child (Parent, New_Node);
-         end if;
-
-         return New_Node;
-      end;
-
       procedure Allocate (E : access W_Object_Type'Class) is
-         Wrapped : W_Hollow_Node;
       begin
          --  TODO: We need to be able to cancel allocation if the entire
          --  research happens to be false
 
          case A_Mode is
             when Child_Depth | Child_Breadth =>
-               if Is_Wrapping (An_Entity) then
-                  --  Template instances that are part of the wrapping tree
-                  --  are never added directly. Instead, they are wrapping a
-                  --  hollow node created on the origin tree.
-
-                  Wrapped := Create_Hollow_Child
-                    (W_Template_Instance (W_Node (An_Entity)).Origin);
-                  Wrapped.Templates_Ordered.Append (W_Template_Instance (E));
-                  W_Template_Instance (E).Origin := W_Node (Wrapped);
-
-                  Call_Browse_Parent (E, T_Arg_Vectors.Empty_Vector);
-                  Pop_Object;
-               else
-                  Add_Child (W_Node (An_Entity), W_Node (E));
-               end if;
+               Add_Wrapping_Child (W_Node (An_Entity), W_Node (E));
 
             when others =>
                Error ("allocation not implemented on the enclosing function");

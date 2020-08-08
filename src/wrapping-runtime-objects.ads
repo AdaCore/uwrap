@@ -358,6 +358,12 @@ package Wrapping.Runtime.Objects is
 
    procedure Add_Child (Parent, Child : access W_Node_Type'Class; Name : Text_Type);
 
+   procedure Add_Wrapping_Child (Parent, Child : access W_Node_Type'Class);
+   --  Similar to Add_Child, but if the Parent is a wrapping entity, will create
+   --  hollow nodes as a child to the origin of the parent and set Child as a
+   --  wrapper of this node instead of creating a direct link between parent and
+   --  Child.
+
    function Create_Template_Instance
      (An_Entity : access W_Node_Type'Class;
       A_Template : T_Template) return W_Template_Instance;

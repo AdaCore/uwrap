@@ -2046,7 +2046,7 @@ package body Wrapping.Runtime.Analysis is
 
                Top_Frame.Top_Context.An_Allocate_Callback.all (Main_Node);
             else
-               Add_Child (Parent, Main_Node);
+               Add_Wrapping_Child (Parent, Main_Node);
             end if;
 
             for C of A_Tree.Subtree loop

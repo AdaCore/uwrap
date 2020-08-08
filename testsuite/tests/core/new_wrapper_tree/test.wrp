@@ -1,0 +1,15 @@
+template w1 do end;
+template w2 do end;
+template w2_child do end;
+
+match Entity (f_name ("A")) do
+   wrap w: w1 ();
+then
+    pick w.child (new (w2 () {
+        w2_child (),
+        w2_child ()
+    }));
+end;
+
+match w2 ()
+weave standard.out ("CHILDREN OF " & kind & ": " & child (x: true).fold (c: "", c: (c & x.kind & ",")));
