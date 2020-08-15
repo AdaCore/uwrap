@@ -1,0 +1,25 @@
+template w_Root do
+   var content : text;
+end;
+
+template w_Child do
+   var content : text;
+
+   pick child (new (w_Grandchild ("A grandchild")));
+end;
+
+template w_Grandchild do
+   var content : text;
+end;
+
+match f_name ("A") do
+   wrap w: w_Root ("A root");
+then
+   pick w.child (new (w_Child ("A child")));
+end;
+
+match w_Child ()
+wrap standard.out (@ & "FROM CHILD: " & child (w_Grandchild ()).content & "\n");
+
+match w_Grandchild ()
+wrap standard.out (@ & "FROM GRANDCHILD: " & content & "\n");

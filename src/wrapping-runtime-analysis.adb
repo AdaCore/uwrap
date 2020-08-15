@@ -2021,28 +2021,44 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_New (Create_Tree : T_Create_Tree) is
 
-      function Handle_Create_Template (New_Tree : T_Create_Tree)
+      function Handle_Create_Template
+        (New_Tree : T_Create_Tree;
+         Parent   : W_Template_Instance)
          return W_Template_Instance
       is
-         A_Template_Instance : W_Template_Instance;
+         New_Node : W_Template_Instance;
          Captured : Text_Type := To_Text (New_Tree.Call.Captured_Name);
 
          -- TODO: Is this necessary?
          Dummy_Action : Visit_Action;
       begin
          Push_Error_Location (New_Tree.Node);
-         A_Template_Instance := Create_Template_Instance
+         New_Node := Create_Template_Instance
            (null, T_Template (New_Tree.Call.Reference));
 
          if Captured /= "" then
             Include_Symbol
-              (Captured, W_Object (A_Template_Instance));
+              (Captured, W_Object (New_Node));
          end if;
 
-         Dummy_Action := Handle_Template_Call (A_Template_Instance, New_Tree.Call.Args);
+         if Parent = null then
+            --  If this is the root of the creation, then we need to signal this
+            --  outside. This is needed in particular for constructions like:
+            --  child (new (T ())) or child (new ([T(), T()])) where the root
+            --  entities need to be connected to the children of the parent entity.
+
+            --  for the form new (T() []), only the first one needs to be
+            --  passed above.
+
+            Top_Frame.Top_Context.An_Allocate_Callback.all (New_Node);
+         else
+            Add_Wrapping_Child (Parent, New_Node);
+         end if;
+
+         Dummy_Action := Handle_Template_Call (New_Node, New_Tree.Call.Args);
          Pop_Error_Location;
 
-         return A_Template_Instance;
+         return New_Node;
       end Handle_Create_Template;
 
       function Handle_Create_Tree
@@ -2053,21 +2069,7 @@ package body Wrapping.Runtime.Analysis is
          Dummy : W_Template_Instance;
       begin
          if A_Tree.Call /= null then
-            Main_Node := Handle_Create_Template (A_Tree);
-
-            if Parent = null then
-               --  If this is the root of the creation, then we need to signal this
-               --  outside. This is needed in particular for constructions like:
-               --  child (new (T ())) or child (new ([T(), T()])) where the root
-               --  entities need to be connected to the children of the parent entity.
-
-               --  for the form new (T() []), only the first one needs to be
-               --  passed above.
-
-               Top_Frame.Top_Context.An_Allocate_Callback.all (Main_Node);
-            else
-               Add_Wrapping_Child (Parent, Main_Node);
-            end if;
+            Main_Node := Handle_Create_Template (A_Tree, Parent);
 
             for C of A_Tree.Subtree loop
                Dummy := Handle_Create_Tree (C, Main_Node);
