@@ -237,7 +237,7 @@ template_grammar.add_rules(
       List (G.command, empty_valid = True), 
       Opt (ThenSequence ('then', G.command_sequence_element))
    ),
-   conditionned_command_sequence=CommandSequence (Opt (Defer ('defer', Opt (G.expression))), 'do', G.conditionned_command_sequence_element, 'end', ';'),
+   conditionned_command_sequence=CommandSequence (Null (Defer), 'do', G.conditionned_command_sequence_element, 'end', ';'),
    conditionned_command_sequence_element=CommandSequenceElement (
       List (G.var, empty_valid = True), 
       List (G.command, empty_valid = True), 

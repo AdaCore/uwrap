@@ -6,10 +6,13 @@ with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
+with Wrapping.Utils; use Wrapping.Utils;
 
 package Wrapping.Runtime.Analysis is
 
    Templates_To_Traverse : W_Template_Instance_Vectors.Vector;
+
+   Deferred_Commands : Deferred_Command_Vectors.Vector;
 
    procedure Analyse_Input (Root_Entity : W_Node);
 
@@ -71,6 +74,8 @@ package Wrapping.Runtime.Analysis is
    function Top_Is_Implicit return Boolean;
 
    function Get_Implicit_Self (From : Data_Frame := Top_Frame) return W_Object;
+
+   function Capture_Closure (Names : Text_Sets.Set) return Closure;
 
    procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expr : T_Expr);
 

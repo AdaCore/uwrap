@@ -176,6 +176,15 @@ package Wrapping.Runtime.Structure is
 
    function Get_Module (A_Frame : Data_Frame_Type) return Semantic.Structure.T_Module;
 
+   type Closure_Type;
+   type Closure is access all Closure_Type;
+
+
+   type Deferred_Command_Type;
+   type Deferred_Command is access all Deferred_Command_Type;
+   package Deferred_Command_Vectors is new Ada.Containers.Vectors (Positive, Deferred_Command);
+   use Deferred_Command_Vectors;
+
    --  This is the root type of all values that are manipulated by expressions
    type W_Object_Type is tagged record
       null;
@@ -301,5 +310,17 @@ package Wrapping.Runtime.Structure is
      (Args : T_Arg_Vectors.Vector;
       Evaluate_Parameter : access procedure
         (Name : Text_Type; Position : Integer; Value : T_Expr));
+
+   type Closure_Type is record
+      Captured_Symbols : W_Object_Maps.Map;
+      Implicit_Self    : W_Object;
+      Lexical_Scope    : T_Entity;
+      -- TODO: also add the temporary names
+   end record;
+
+   type Deferred_Command_Type is record
+      Command   : T_Command;
+      A_Closure : Closure;
+   end record;
 
 end Wrapping.Runtime.Structure;

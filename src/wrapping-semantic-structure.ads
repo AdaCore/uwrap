@@ -189,8 +189,12 @@ package Wrapping.Semantic.Structure is
    type T_Command_Sequence_Type is new T_Entity_Type with record
       Defer            : Boolean;
       Defer_Expression : T_Expr;
+      Deferred_Closure : Text_Sets.Set;
       First_Element    : T_Command_Sequence_Element;
    end record;
+
+   overriding
+   procedure Resolve_References (An_Entity : access T_Command_Sequence_Type);
 
    type T_Command_Sequence_Element_Type is new T_Entity_Type with record
       Is_Else          : Boolean;

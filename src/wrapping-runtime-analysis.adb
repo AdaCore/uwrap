@@ -444,49 +444,55 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame;
    end Handle_Command;
 
+   function Evaluate_Match_Expression (Expr : T_Expr) return Boolean is
+   begin
+      if Expr /= null then
+         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+
+         Evaluate_Expression (Expr);
+
+         Top_Frame.Top_Context.Match_Mode := Match_None;
+
+         return Pop_Object /= Match_False;
+      else
+         return True;
+      end if;
+   end Evaluate_Match_Expression;
+
+
+   procedure Allocate_Detached (E : access W_Object_Type'Class) is
+   begin
+      --  when allocating an object outside of a browsing function, nothign
+      --  special to do
+      null;
+   end Allocate_Detached;
+
+   procedure Install_Command_Context (Command : T_Command) is
+   begin
+      Top_Frame.Top_Context.An_Allocate_Callback := Allocate_Detached'Unrestricted_Access;
+      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+      Top_Frame.Top_Context.Current_Command := Command;
+      Top_Frame.Top_Context.Is_Root_Selection := True;
+      Top_Frame.Top_Context.Outer_Object := Top_Object;
+
+      Push_Match_Groups_Section;
+   end Install_Command_Context;
+
+   procedure Uninstall_Command_Context is
+   begin
+      Pop_Match_Groups_Section;
+   end Uninstall_Command_Context;
+
    procedure Handle_Command_Front (Command : T_Command) is
-
-      procedure Allocate (E : access W_Object_Type'Class) is
-      begin
-         --  when allocating an object outside of a browsing function, nothign
-         --  special to do
-         null;
-      end Allocate;
-
-      Matched : Boolean;
       Result  : W_Object;
-      Self    : W_Object := Top_Object;
-
-      procedure Evaluate_Match_Expression (Expr : T_Expr) is
-      begin
-         if Expr /= null then
-            Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-
-            Evaluate_Expression (Expr);
-
-            Matched := Pop_Object /= Match_False;
-            Top_Frame.Top_Context.Match_Mode := Match_None;
-         else
-            Matched := True;
-         end if;
-      end Evaluate_Match_Expression;
-
    begin
       if Top_Frame.Interrupt_Program then
          return;
       end if;
 
-      Top_Frame.Top_Context.An_Allocate_Callback := Allocate'Unrestricted_Access;
-      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-      Top_Frame.Top_Context.Current_Command := Command;
-      Top_Frame.Top_Context.Is_Root_Selection := True;
-      Top_Frame.Top_Context.Outer_Object := Self;
+      Install_Command_Context (Command);
 
-      Push_Match_Groups_Section;
-
-      Evaluate_Match_Expression (Command.Match_Expression);
-
-      if Matched then
+      if Evaluate_Match_Expression (Command.Match_Expression) then
          if Command.Pick_Expression /= null then
             --  When evaluating a pick expression, the wrapping program will
             --  be evaluated by the outer epxression callback. This caters
@@ -515,9 +521,7 @@ package body Wrapping.Runtime.Analysis is
 
                   exit when Else_Section = null;
 
-                  Evaluate_Match_Expression (Else_Section.Match_Expression);
-
-                  if Matched then
+                  if Evaluate_Match_Expression (Else_Section.Match_Expression) then
                      Handle_Command_Sequence (Else_Section);
                      exit;
                   end if;
@@ -528,7 +532,7 @@ package body Wrapping.Runtime.Analysis is
          end if;
       end if;
 
-      Pop_Match_Groups_Section;
+      Uninstall_Command_Context;
    end Handle_Command_Front;
 
    procedure Handle_Command_Back (Command : T_Command) is
@@ -552,7 +556,18 @@ package body Wrapping.Runtime.Analysis is
       Push_Implicit_Self (Self);
 
       if Command.Command_Sequence /= null then
-         Handle_Command_Sequence (Command.Command_Sequence.First_Element);
+         if Command.Command_Sequence.Defer then
+            declare
+               New_Command : Deferred_Command := new Deferred_Command_Type;
+            begin
+               New_Command.Command := Command;
+               New_Command.A_Closure := Capture_Closure (Command.Command_Sequence.Deferred_Closure);
+
+               Deferred_Commands.Append (New_Command);
+            end;
+         else
+            Handle_Command_Sequence (Command.Command_Sequence.First_Element);
+         end if;
       elsif Command.Template_Section /= null then
          if Command.Template_Section.A_Visit_Action /= Unknown then
             -- TODO: consider differences between weave and wrap here
@@ -574,6 +589,35 @@ package body Wrapping.Runtime.Analysis is
 
       Pop_Object;
    end Handle_Command_Back;
+
+   function Handle_Defered_Command (Command : Deferred_Command) return Boolean is
+      Copy_Symbols : W_Object_Maps.Map;
+      Result : Boolean := False;
+   begin
+      Push_Frame (Command.A_Closure.Lexical_Scope);
+
+      Copy_Symbols := Command.A_Closure.Captured_Symbols.Copy;
+      Top_Frame.Symbols.Move (Copy_Symbols);
+
+      if Command.A_Closure.Implicit_Self /= null then
+         Push_Implicit_Self (Command.A_Closure.Implicit_Self);
+      end if;
+
+      Install_Command_Context (Command.Command);
+
+      --  Only commands with a command sequence and no else part can be defered
+
+      if Evaluate_Match_Expression (Command.Command.Command_Sequence.Defer_Expression) then
+         Handle_Command_Sequence (Command.Command.Command_Sequence.First_Element);
+         Result := True;
+      end if;
+
+      Uninstall_Command_Context;
+
+      Pop_Frame;
+
+      return Result;
+   end Handle_Defered_Command;
 
    procedure Handle_Command_Sequence (Sequence : T_Command_Sequence_Element) is
       Seq  : T_Command_Sequence_Element := Sequence;
@@ -829,7 +873,9 @@ package body Wrapping.Runtime.Analysis is
         (Resolve_Module_By_Name ("standard").
              Children_Indexed.Element ("out"));
 
-      while Templates_To_Traverse.Length > 0 loop
+      while Templates_To_Traverse.Length > 0
+        or else Deferred_Commands.Length > 0
+      loop
          declare
             Next_Iteration : W_Template_Instance_Vectors.Vector;
          begin
@@ -852,6 +898,20 @@ package body Wrapping.Runtime.Analysis is
                   Output.Append (A_Template_Instance);
                end if;
             end loop;
+
+            -- Analyzed all defered commands that are valid
+
+            declare
+               Next_Deferred : Deferred_Command_Vectors.Vector;
+            begin
+               for D of Deferred_Commands loop
+                  if not Handle_Defered_Command (D) then
+                     Next_Deferred.Append (D);
+                  end if;
+               end loop;
+
+               Deferred_Commands.Move (Next_Deferred);
+            end;
 
             Current_Visitor_Id := 0;
 
@@ -2134,12 +2194,13 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_New;
 
-   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expr : T_Expr) is
+   function Capture_Closure (Names : Text_Sets.Set) return Closure is
+      A_Closure : Closure := new Closure_Type;
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
-      for Name of Expr.Lambda_Closure loop
+      for Name of Names loop
          if Push_Global_Identifier (Name) then
             if Top_Object.Dereference.all in W_Static_Entity_Type'Class
               or else Top_Object.Dereference.all in W_Function_Type'Class
@@ -2155,31 +2216,38 @@ package body Wrapping.Runtime.Analysis is
                --  We don't want to carry the self property over to the lambda
                --  call, so remove it.
 
-               A_Lambda.Captured_Symbols.Insert
+               A_Closure.Captured_Symbols.Insert
                  (Name, new W_Reference_Type'
                     (Value => W_Reference (Pop_Object).Value, others => <>));
             else
-               A_Lambda.Captured_Symbols.Insert (Name, Pop_Object);
+               A_Closure.Captured_Symbols.Insert (Name, Pop_Object);
             end if;
          end if;
       end loop;
 
+      A_Closure.Implicit_Self := Get_Implicit_Self;
+      A_Closure.Lexical_Scope := Top_Frame.Lexical_Scope;
+
+      return A_Closure;
+   end Capture_Closure;
+
+   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expr : T_Expr) is
+   begin
+      A_Lambda.A_Closure := Capture_Closure (Expr.Lambda_Closure);
       A_Lambda.Expr := Expr.Lambda_Expr;
-      A_Lambda.Implicit_Self := W_Node (Get_Implicit_Self);
-      A_Lambda.Lexical_Scope := Top_Frame.Lexical_Scope;
    end Capture_Lambda_Environment;
 
    procedure Run_Lambda (A_Lambda : W_Lambda_Type) is
       Copy_Symbols : W_Object_Maps.Map;
       Result : W_Object;
    begin
-      Push_Frame (A_Lambda.Lexical_Scope);
+      Push_Frame (A_Lambda.A_Closure.Lexical_Scope);
 
-      Copy_Symbols := A_Lambda.Captured_Symbols.Copy;
+      Copy_Symbols := A_Lambda.A_Closure.Captured_Symbols.Copy;
       Top_Frame.Symbols.Move (Copy_Symbols);
 
-      if A_Lambda.Implicit_Self /= null then
-         Push_Implicit_Self (A_Lambda.Implicit_Self);
+      if A_Lambda.A_Closure.Implicit_Self /= null then
+         Push_Implicit_Self (A_Lambda.A_Closure.Implicit_Self);
       end if;
 
       Result := Evaluate_Expression (A_Lambda.Expr);

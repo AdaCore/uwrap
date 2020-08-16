@@ -6,7 +6,7 @@ with Wrapping.Utils; use Wrapping.Utils;
 
 package body Wrapping.Semantic.Structure is
 
-   procedure Compute_Lambda_Closure (A_Lambda : T_Expr);
+   procedure Compute_Closure (Root : T_Entity; Closure : in out Text_Sets.Set);
 
    procedure Add_Child (Parent, Child : access T_Entity_Type'Class) is
    begin
@@ -293,6 +293,16 @@ package body Wrapping.Semantic.Structure is
    end Resolve_References;
 
    overriding
+   procedure Resolve_References (An_Entity : access T_Command_Sequence_Type) is
+   begin
+      if An_Entity.Defer then
+         Compute_Closure (T_Entity (An_Entity), An_Entity.Deferred_Closure);
+      end if;
+
+      T_Entity_Type (An_Entity.all).Resolve_References;
+   end Resolve_References;
+
+   overriding
    procedure Resolve_References (An_Entity : access T_Template_Call_Type) is
       Name : Text_Type :=
         (if An_Entity.Node.As_Template_Call.F_Name.Is_Null then
@@ -377,7 +387,7 @@ package body Wrapping.Semantic.Structure is
    procedure Resolve_References (An_Entity : access T_Expr_Type) is
    begin
       if An_Entity.Kind = Template_Lambda_Expr then
-         Compute_Lambda_Closure (T_Expr (An_Entity));
+         Compute_Closure (T_Entity (An_Entity.Lambda_Expr), An_Entity.Lambda_Closure);
       end if;
 
       --  TODO: There are a few cases where names can be resolved statically,
@@ -386,7 +396,7 @@ package body Wrapping.Semantic.Structure is
       T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
-   procedure Compute_Lambda_Closure (A_Lambda : T_Expr) is
+   procedure Compute_Closure (Root : T_Entity; Closure : in out Text_Sets.Set) is
       Local_Symbols : Text_Sets.Set;
 
       procedure Not_Capture_Identifiers (Expr : T_Expr);
@@ -402,7 +412,7 @@ package body Wrapping.Semantic.Structure is
          else
             --  Otherwise, record this symbol to be captured.
 
-            A_Lambda.Lambda_Closure.Include (Name);
+            Closure.Include (Name);
          end if;
       end Capture;
 
@@ -503,8 +513,21 @@ package body Wrapping.Semantic.Structure is
 
          Pop_Error_Location;
       end Not_Capture_Identifiers;
+
+      procedure Capture_Identifiers_In_Expressions (Entity : T_Entity) is
+      begin
+         --  TODO: handle var and their scope in the list of local symbols
+         if Entity.all in T_Expr_Type'Class then
+            Capture_Identifiers (T_Expr (Entity));
+         else
+            for C of Entity.Children_Ordered loop
+               Capture_Identifiers_In_Expressions (C);
+            end loop;
+         end if;
+      end Capture_Identifiers_In_Expressions;
+
    begin
-      Capture_Identifiers (A_Lambda.Lambda_Expr);
-   end Compute_Lambda_Closure;
+      Capture_Identifiers_In_Expressions (Root);
+   end Compute_Closure;
 
 end Wrapping.Semantic.Structure;

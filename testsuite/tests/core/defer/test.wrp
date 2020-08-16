@@ -1,0 +1,30 @@
+template T1 do
+   weave standard.out (@ & "PROCESSED\n");
+
+   defer do
+      weave standard.out (@ & "DEFERED\n");
+
+      pick child (new (T2 ("T2 CREATED")));
+   end;
+
+   defer c: child (T3 (val (x"OK"))) do
+      weave standard.out (@ & "FURTHER DEFERED " & c.val);
+   end;
+end;
+
+template T2 do
+   var val : text;
+end;
+
+template T3 do
+   var val : text;
+end;
+
+match Entity ()
+wrap T1 ();
+
+match T2 ()
+pick child (new (T3 ()));
+
+match T3 ()
+weave (val => "OK, GO!");

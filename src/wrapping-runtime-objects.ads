@@ -322,12 +322,8 @@ package Wrapping.Runtime.Objects is
    --  the To_String calls. The environment is captured at creation time
    --  to that the expression can be valuated later on.
    type W_Lambda_Type is new W_Object_Type with record
-      Captured_Symbols : W_Object_Maps.Map;
-      Expr             : T_Expr;
-      Implicit_Self    : W_Node;
-      Implicit_New     : W_Node;
-      Lexical_Scope    : T_Entity;
-      -- TODO: also add the temporary register
+      A_Closure : Closure;
+      Expr      : T_Expr;
    end record;
 
    overriding
