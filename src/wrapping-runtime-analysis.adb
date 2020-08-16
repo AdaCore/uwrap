@@ -456,6 +456,21 @@ package body Wrapping.Runtime.Analysis is
       Matched : Boolean;
       Result  : W_Object;
       Self    : W_Object := Top_Object;
+
+      procedure Evaluate_Match_Expression (Expr : T_Expr) is
+      begin
+         if Expr /= null then
+            Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+
+            Evaluate_Expression (Expr);
+
+            Matched := Pop_Object /= Match_False;
+            Top_Frame.Top_Context.Match_Mode := Match_None;
+         else
+            Matched := True;
+         end if;
+      end Evaluate_Match_Expression;
+
    begin
       if Top_Frame.Interrupt_Program then
          return;
@@ -469,16 +484,7 @@ package body Wrapping.Runtime.Analysis is
 
       Push_Match_Groups_Section;
 
-      if Command.Match_Expression /= null then
-         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-
-         Evaluate_Expression (Command.Match_Expression);
-
-         Matched := Pop_Object /= Match_False;
-         Top_Frame.Top_Context.Match_Mode := Match_None;
-      else
-         Matched := True;
-      end if;
+      Evaluate_Match_Expression (Command.Match_Expression);
 
       if Matched then
          if Command.Pick_Expression /= null then
@@ -498,8 +504,27 @@ package body Wrapping.Runtime.Analysis is
             Handle_Command_Back (Command);
          end if;
       else
-         if Command.Else_Actions /= null then
-            Handle_Command_Front (T_Command (Command.Else_Actions));
+         if Command.Command_Sequence /= null then
+            declare
+               Else_Section : T_Command_Sequence_Element := Command.Command_Sequence.First_Element;
+            begin
+               while Else_Section /= null loop
+                  while Else_Section /= null and then not Else_Section.Is_Else loop
+                     Else_Section := Else_Section.Next_Element;
+                  end loop;
+
+                  exit when Else_Section = null;
+
+                  Evaluate_Match_Expression (Else_Section.Match_Expression);
+
+                  if Matched then
+                     Handle_Command_Sequence (Else_Section);
+                     exit;
+                  end if;
+
+                  Else_Section := Else_Section.Next_Element;
+               end loop;
+            end;
          end if;
       end if;
 
@@ -527,7 +552,7 @@ package body Wrapping.Runtime.Analysis is
       Push_Implicit_Self (Self);
 
       if Command.Command_Sequence /= null then
-         Handle_Command_Sequence (Command.Command_Sequence);
+         Handle_Command_Sequence (Command.Command_Sequence.First_Element);
       elsif Command.Template_Section /= null then
          if Command.Template_Section.A_Visit_Action /= Unknown then
             -- TODO: consider differences between weave and wrap here
@@ -550,8 +575,8 @@ package body Wrapping.Runtime.Analysis is
       Pop_Object;
    end Handle_Command_Back;
 
-   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence) is
-      Seq  : T_Command_Sequence := Sequence;
+   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence_Element) is
+      Seq  : T_Command_Sequence_Element := Sequence;
       Calling_Frame : Data_Frame := Top_Frame.Parent_Frame;
       Called_Frame : Data_Frame := Top_Frame;
       New_Ref : W_Reference;
@@ -679,7 +704,14 @@ package body Wrapping.Runtime.Analysis is
 
          exit when Top_Frame.Interrupt_Program;
 
-         Seq := Seq.Next_Sequence;
+         Seq := Seq.Next_Element;
+
+         --  Run all command sequences up until hitting an else section. If such
+         --  section is hit, it's controlled by a top level match section, which
+         --  already validated the current sequence as matching. The else wasn't
+         --  picked. Stop runnint here.
+
+         exit when Seq = null or else Seq.Is_Else;
       end loop;
    end Handle_Command_Sequence;
 
@@ -1533,8 +1565,6 @@ package body Wrapping.Runtime.Analysis is
       begin
          -- We're resolving a reference to an entity
 
-         Prefix_Entity := Top_Object.Dereference;
-
          if Top_Frame.Top_Context.Is_Root_Selection then
             --  If we're on the implicit entity, then first check if there's
             --  some more global identifier overriding it.
@@ -1565,6 +1595,12 @@ package body Wrapping.Runtime.Analysis is
             end if;
          else
             --  We're on an explicit name. Push the result.
+
+            Prefix_Entity := Top_Object.Dereference;
+
+            if Prefix_Entity = Match_False then
+               Error ("prefix not found");
+            end if;
 
             if Prefix_Entity.Push_Value (Name) then
                --  We found a component of the entity and it has been pushed

@@ -91,7 +91,7 @@ package Wrapping.Runtime.Analysis is
 
    procedure Outer_Expression_Pick;
 
-   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence)
+   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence_Element)
      with Post => Top_Frame.Data_Stack.Length =
        Top_Frame.Data_Stack.Length'Old;
 

@@ -30,6 +30,7 @@ package body Wrapping.Semantic.Analysis is
    function Build_Arg (Node : Template_Node'Class) return T_Arg;
    function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree;
    function Build_Command_Sequence (Node : Command_Sequence'Class) return T_Command_Sequence;
+   function Build_Command_Sequence_Element (Node : Command_Sequence_Element'Class) return T_Command_Sequence_Element;
    function Build_Template_Call (Node : Template_Call'Class) return T_Template_Call;
 
    procedure Analyze_String
@@ -199,22 +200,66 @@ package body Wrapping.Semantic.Analysis is
    begin
       Push_Entity (Sequence, Node);
 
-      for V of Node.F_Vars loop
-         Sequence.Vars.Append (Build_Variable (V));
-      end loop;
+      if not Node.F_Defer.Is_Null then
+         Sequence.Defer := True;
 
-      for C of Node.F_Commands loop
-         Sequence.Commands.Append (Build_Command (C));
-      end loop;
+         if not Node.F_Defer.F_Condition.Is_Null then
+            Sequence.Defer_Expression := Build_Expr (Node.F_Defer.F_Condition);
+         end if;
+      else
+         Sequence.Defer := False;
+      end if;
 
-      if not Node.F_Then.Is_Null then
-         Sequence.Next_Sequence := Build_Command_Sequence (Node.F_Then);
+      if not Node.F_Sequence.Is_Null then
+         Sequence.First_Element := Build_Command_Sequence_Element (Node.F_Sequence);
       end if;
 
       Pop_Entity;
 
       return Sequence;
    end Build_Command_Sequence;
+
+   function Build_Command_Sequence_Element (Node : Command_Sequence_Element'Class) return T_Command_Sequence_Element is
+      Sequence_Element : T_Command_Sequence_Element := new T_Command_Sequence_Element_Type;
+   begin
+      Push_Entity (Sequence_Element, Node);
+
+      --  By default, sequence elements are not else. Can be switched to true if
+      --  created from an elsmatch or else.
+      Sequence_Element.Is_Else := False;
+
+      for V of Node.F_Vars loop
+         Sequence_Element.Vars.Append (Build_Variable (V));
+      end loop;
+
+      for C of Node.F_Commands loop
+         Sequence_Element.Commands.Append (Build_Command (C));
+      end loop;
+
+      if not Node.F_Next.Is_Null then
+         case Node.F_Next.Kind is
+            when Template_Then_Sequence =>
+               Sequence_Element.Next_Element := Build_Command_Sequence_Element (Node.F_Next.As_Then_Sequence.F_Actions);
+
+            when Template_Elsmatch_Sequence =>
+               Sequence_Element.Next_Element := Build_Command_Sequence_Element (Node.F_Next.As_Elsmatch_Sequence.F_Actions);
+               Sequence_Element.Next_Element.Is_Else := True;
+               Sequence_Element.Next_Element.Match_Expression := Build_Expr (Node.F_Next.As_Elsmatch_Sequence.F_Expression);
+
+            when Template_Else_Sequence =>
+               Sequence_Element.Next_Element := Build_Command_Sequence_Element (Node.F_Next.As_Else_Sequence.F_Actions);
+               Sequence_Element.Next_Element.Is_Else := True;
+
+            when others =>
+               Error ("unkown sequence kind");
+
+         end case;
+      end if;
+
+      Pop_Entity;
+
+      return Sequence_Element;
+   end Build_Command_Sequence_Element;
 
    function Build_Template_Call (Node : Template_Call'Class) return T_Template_Call is
       A_Template_Call : T_Template_Call := new T_Template_Call_Type;
@@ -246,11 +291,6 @@ package body Wrapping.Semantic.Analysis is
                  (Node.As_Match_Section.F_Expression);
 
                Node.As_Match_Section.F_Actions.Traverse (Visit'Access);
-
-               if not Node.As_Match_Section.F_Alternate_Actions.Is_Null then
-                  A_Command.Else_Actions :=
-                    Build_Command (Node.As_Match_Section.F_Alternate_Actions.F_Actions);
-               end if;
 
                return Over;
             when Template_Pick_Section =>

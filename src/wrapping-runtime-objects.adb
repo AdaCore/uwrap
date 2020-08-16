@@ -726,7 +726,7 @@ package body Wrapping.Runtime.Objects is
       Top_Frame.Top_Context.Is_Expanding_Context := False;
       Top_Frame.Top_Context.Expand_Action := null;
 
-      Handle_Command_Sequence (An_Entity.A_Function.Program);
+      Handle_Command_Sequence (An_Entity.A_Function.Program.First_Element);
 
       Pop_Frame;
 

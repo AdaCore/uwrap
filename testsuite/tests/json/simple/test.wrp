@@ -1,6 +1,7 @@
 match not standard.out () do
-    match kind ("string") or kind ("integer")
-    weave standard.out (@ & "\e<name>: \e<value>\n");
-    else match kind (x".*")
-    weave standard.out (@ & "\e<name>: (\e<kind>)\n");
+    match kind ("string") or kind ("integer") do
+        weave standard.out (@ & "\e<name>: \e<value>\n");
+    elsmatch kind (x".*") do
+        weave standard.out (@ & "\e<name>: (\e<kind>)\n");
+    end;
 end;

@@ -61,6 +61,11 @@ package Wrapping.Semantic.Structure is
    package Command_Sequence_Vectors is new Ada.Containers.Vectors (Positive, T_Command_Sequence);
    use Command_Sequence_Vectors;
 
+   type T_Command_Sequence_Element_Type;
+   type T_Command_Sequence_Element is access all T_Command_Sequence_Element_Type'Class;
+   package Command_Sequence_Element_Vectors is new Ada.Containers.Vectors (Positive, T_Command_Sequence_Element);
+   use Command_Sequence_Element_Vectors;
+
    type T_Template_Call_Type;
    type T_Template_Call is access all T_Template_Call_Type'Class;
 
@@ -182,13 +187,26 @@ package Wrapping.Semantic.Structure is
    end record;
 
    type T_Command_Sequence_Type is new T_Entity_Type with record
-      Vars          : T_Var_Vectors.Vector;
-      Commands      : T_Command_Vectors.Vector;
-      Next_Sequence : T_Command_Sequence;
+      Defer            : Boolean;
+      Defer_Expression : T_Expr;
+      First_Element    : T_Command_Sequence_Element;
+   end record;
+
+   type T_Command_Sequence_Element_Type is new T_Entity_Type with record
+      Is_Else          : Boolean;
+      --  True if this element is an else or elsmatch element
+
+      Match_Expression : T_Expr;
+      --  If this element is an elmatch element, provide the expression to match
+      --  against
+
+      Vars             : T_Var_Vectors.Vector;
+      Commands         : T_Command_Vectors.Vector;
+      Next_Element     : T_Command_Sequence_Element;
    end record;
 
    type T_Template_Call_Type is new T_Entity_Type with record
-      Is_Null        : Boolean := False;
+      Is_Null       : Boolean := False;
       Captured_Name : Unbounded_Text_Type;
       Reference     : T_Entity;
       Args          : T_Arg_Vectors.Vector;
@@ -220,7 +238,6 @@ package Wrapping.Semantic.Structure is
       Template_Section : T_Weave_Or_Wrap;
 
       Command_Sequence : T_Command_Sequence;
-      Else_Actions     : T_Command;
    end Record;
 
    overriding

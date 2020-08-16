@@ -13,7 +13,7 @@ end;
 template access_into_return pick origin do
    match child (TypeExpr (child (te: TypeExpr ()))) do
       match parent (wrapper (w: w_SubpDeclCall ()))
-      pick w weave (function_or_procedure => "function");
+      pick w weave (subp_kind => "function");
 
       wrap n: w_ParamSpecCall (
          generate_formal => "NO",  # TODO: introduce boolean here instead
@@ -31,7 +31,7 @@ template address_into_return pick origin do
    var result_type: object;
 
    match parent (wrapper (w: w_SubpDeclCall ()))
-   pick w weave (function_or_procedure => "function");
+   pick w weave (subp_kind => "function");
 
    wrap w_ParamSpecCall (
       generate_formal => "NO",  # TODO: introduce boolean here instead
@@ -70,7 +70,7 @@ template chars_into_string pick origin do
 
    match SubpDecl() and child (TypeExpr (x"Interfaces.C.Strings.chars_ptr"))
    wrap w: w_SubpDeclCall (
-      function_or_procedure => "function",
+      subp_kind => "function",
       result_type_expr => "String",
       call_decl => """\e<self.tmp ("c_string")> : aliased Interfaces.C.Strings.chars_ptr := \e<w.call>;\n""",
       call_stmt => "null;", 
@@ -148,7 +148,7 @@ template into_binary_compatible pick origin do
 
    match child (f_subp_kind ("function")) and child (te: TypeExpr()) 
    wrap w: w_SubpDeclCall
-      (function_or_procedure => "function",
+      (subp_kind => "function",
        result_type_expr => type_name,
        call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<w.call>;\n""",
        post_call_decl => """
@@ -196,7 +196,7 @@ template return_into_exception pick origin do
    end;
 
    wrap w: w_SubpDeclCall (
-      function_or_procedure => "procedure",
+      subp_kind => "procedure",
       call_decl => """\e<self.tmp ("res")> : Integer := Integer (\e<w.call>);\n""",
       call_stmt => "null;", 
       post_call_stmt => """

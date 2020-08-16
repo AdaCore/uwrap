@@ -1,8 +1,9 @@
 function is_A_entity (e) do
-   match e (Entity (f_name ("A")))
+   match e (Entity (f_name ("A"))) do
       pick e;
    else
       pick false;
+   end;
 end;
 
 function get_two_children (e) do

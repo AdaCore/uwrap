@@ -10,9 +10,11 @@ class Token(LexerToken):
     Var        = WithText()
 
     Match      = WithText()
-    Else       = WithText()
+    Elsmatch   = WithText()
+    Defer      = WithText ()
     Do         = WithText()
     Then       = WithText()
+    Else       = WithText()
     End        = WithText()
     Weave      = WithText()
     Wrap       = WithText()    
@@ -82,9 +84,11 @@ template_lexer.add_rules(
     (Literal ("var"), Token.Var),
 
     (Literal("match"), Token.Match),
-    (Literal("else"), Token.Else),
-    (Literal("do"), Token.Else),
+    (Literal("elsmatch"), Token.Elsmatch),
+    (Literal("defer"), Token.Defer),
+    (Literal("do"), Token.Do),
     (Literal("then"), Token.Then),
+    (Literal("else"), Token.Else),
     (Literal("end"), Token.End),
     (Literal("wrap"), Token.Wrap),
     (Literal("weave"), Token.Weave),

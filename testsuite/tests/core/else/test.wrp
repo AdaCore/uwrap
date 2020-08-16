@@ -1,15 +1,19 @@
 match Entity () do
-    match f_name (x"A")
-    weave standard.out (@ & "\e<f_name>: FOUND A\n");
-    else weave standard.out (@ & "\e<f_name>: NOT FOUND A\n");
+    match f_name (x"A") do
+        weave standard.out (@ & "\e<f_name>: FOUND A\n");
+    else
+        weave standard.out (@ & "\e<f_name>: NOT FOUND A\n");
+    end;
 
-    match f_name (x"B")
-    weave standard.out (@ & "\e<f_name>: FOUND B\n");
-    else match f_name (x"[0-9]+")
-    weave standard.out (@ & "\e<f_name>: FOUND NUMBER\n");
-    else do
-        match f_name (x"C")
-        weave standard.out (@ & "\e<f_name>: FOUND C\n");
-        else weave standard.out (@ & "\e<f_name>: NOT FOUND B, NUMBER OR C\n");
+    match f_name (x"B") do
+        weave standard.out (@ & "\e<f_name>: FOUND B\n");
+    elsmatch f_name (x"[0-9]+") do
+        weave standard.out (@ & "\e<f_name>: FOUND NUMBER\n");
+    else
+        match f_name (x"C") do
+            weave standard.out (@ & "\e<f_name>: FOUND C\n");
+        else 
+            weave standard.out (@ & "\e<f_name>: NOT FOUND B, NUMBER OR C\n");
+        end;
     end;
 end;

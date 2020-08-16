@@ -22,32 +22,35 @@ template V8 extends T;
 # are children of A as well as C1 and C2
 match e: Entity ()
 pick child (Entity ()).all () do
-   match wrapper (V1 ()) 
+   match wrapper (V1 ()) do
       weave V1bis (test_name => "TEST 1 (\e<e.f_name>)");
    else
       weave V1 (test_name => "TEST 1 (\e<e.f_name>)");
+   end;
 end;
 
 # Same as above, but checking that it also works without filtering child
 # on Entity()
 match e: Entity ()
 pick child ().all () do
-   match wrapper (V2 ()) 
+   match wrapper (V2 ()) do
       weave V2bis (test_name => "TEST 2 (\e<e.f_name>)");
    else
       weave V2 (test_name => "TEST 2 (\e<e.f_name>)");
+   end;
 end;
 
 # Trying a different browse function. output should include
 # E, E, F, C1, C2, C2, D, D, DX and Z
 match e: Entity ()
 pick next ().all () do
-   match wrapper (V3bis ())
+   match wrapper (V3bis ()) do
       weave V3ter (test_name => "TEST 3 (\e<e.f_name>)");
-   else match wrapper (V3 ())
+   elsmatch wrapper (V3 ()) do
       weave V3bis (test_name => "TEST 3 (\e<e.f_name>)");
    else
       weave V3 (test_name => "TEST 3 (\e<e.f_name>)");
+   end;
 end;
 
 # Testing all children that have a name matching C: C1 and C2

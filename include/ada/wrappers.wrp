@@ -59,7 +59,7 @@ template w_PackageDecl extends w_NamedEntity do
 end;
 
 template w_SubpDecl extends w_NamedEntity do
-   var function_or_procedure: text;
+   var subp_kind: text;
    var return_spec: text;
    var lparenSpec: text;
    var rparenSpec: text;
@@ -83,7 +83,7 @@ template w_SubpDecl extends w_NamedEntity do
    var call: text;
    var call_name: text;
 
-   var profile: text => """\e<function_or_procedure> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""; 
+   var profile: text => """\e<subp_kind> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""; 
 
    var spec: text; 
 
@@ -217,18 +217,20 @@ function build_identifier (from) do
    # don't.
 
    pick from do
-      match i: self() 
+      match i: self()
             and x: p_referenced_decl ()
             and t: x.child (DefiningName ()).wrapper (w_DefiningName ())
+      do
          pick " " & t.name;
       else
          pick " " & i;
+      end;
    end;
 end;
 
 function build_dotted_name (from) do
    pick from do
-      match s: self () and c: child (DottedName ())
+      match s: self () and c: child (DottedName ()) do
          pick build_dotted_name (c) 
             & "." 
             &  build_identifier (s.child (Identifier()));
@@ -238,25 +240,27 @@ function build_dotted_name (from) do
             & build_identifier (i1)
             & "."
             & build_identifier (i2);
+      end;
    end;
 end;
 
 function build_type_expr_gen (from) do
    pick from.child(\ true).all () do
-      match d: DottedName ()
+      match d: DottedName () do
          pick build_dotted_name (self);
-      else match i: Identifier ()
+      elsmatch i: Identifier () do
          pick build_identifier (self);     
-      else match RangeSpec ()
+      elsmatch RangeSpec () do
          pick " range" & build_type_expr (self);
-      else match TypeAccessDef ()
+      elsmatch TypeAccessDef () do
          pick " access" & build_type_expr (self);
-      else match s: self () and SingleTokNode()
+      elsmatch s: self () and SingleTokNode() do
          pick " \e<s>" & build_type_expr (self);
-      else match s: IndexConstraint ()
+      elsmatch s: IndexConstraint () do
          pick " (" & build_type_expr (self) & " )";
       else
          pick build_type_expr (self);
+      end;
    end;
 end;
 
@@ -267,9 +271,9 @@ end;
 template build_subprogram pick origin do
    var sb: object;
 
-   match sb.child (f_subp_kind ("function")) and sb.child (te: TypeExpr()) 
+   match sb.child (f_subp_kind ("function")) and sb.child (te: TypeExpr()) do
       weave (
-         function_or_procedure => "function",
+         subp_kind => "function",
          call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
          post_call_decl => i"""
             \e<self.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
@@ -280,7 +284,8 @@ template build_subprogram pick origin do
       weave (
          call_stmt => "\e<call>;", 
          return_stmt => "null;",
-         function_or_procedure => "procedure");
+         subp_kind => "procedure");
+   end;
 end;
 
 template ada_to_wrappers pick origin do
@@ -295,13 +300,13 @@ template ada_to_wrappers pick origin do
       do
          wrap w: w_SubpDeclCall ();
       then
-         match w () pick w weave build_subprogram (sb);
+         pick w weave build_subprogram (sb);
       end;
       
       do 
          wrap w: w_SubpDeclCallback();
       then 
-         match w () pick w weave build_subprogram (sb);
+         pick w weave build_subprogram (sb);
       end;
    end;
    
@@ -370,7 +375,7 @@ template wrappers_post_process pick origin do
    match sb: w_SubpDeclCall () 
       and parent (p : w_PackageDecl ())
    do   
-      match function_or_procedure ("function")
+      match subp_kind ("function")
       weave (return_spec => "return \e<result_type_expr>");
 
       match origin (v: p_fully_qualified_name ())
@@ -387,18 +392,19 @@ template wrappers_post_process pick origin do
       match not origin (AccessToSubpDef ()) 
       pick p weave (spec_content => @ & sb.spec & "\n\n", body_content => @ & sb.body);
 
-      match child (w_Aspect ())
+      match child (w_Aspect ()) do
          weave (spec => i"""
             \e<profile> with 
                \e<child (a: w_Aspect ()).fold (c: "", c: (c & a.txt), c: (c & ",\n"))>;""");
       else
          weave (spec => profile & ";");
+      end;
    end;
 
    match sb: w_SubpDeclCallback() 
       and parent (p : w_PackageDecl ()) 
    do   
-      match function_or_procedure ("function")
+      match subp_kind ("function")
       weave (return_spec => "return \e<result_type_expr>");
 
       match v: origin.p_fully_qualified_name ()
@@ -415,16 +421,20 @@ template wrappers_post_process pick origin do
 
    match p: w_ParamSpecCall() and parent (s: w_SubpDeclCall()) do
       match not generate_formal ("NO") do
-         match prev (w_ParamSpecCall (not generate_formal ("NO")))
-         weave (
-            formal_text => @ & "; \e<name> : \e<mode> \e<type_expr>");
-         else weave (
-            formal_text => @ & "\e<name> : \e<mode> \e<type_expr>");
+         match prev (w_ParamSpecCall (not generate_formal ("NO"))) do
+            weave (
+               formal_text => @ & "; \e<name> : \e<mode> \e<type_expr>");
+         else 
+            weave (
+               formal_text => @ & "\e<name> : \e<mode> \e<type_expr>");
+         end;
       end;
 
-      match prev (w_ParamSpecCall ())
-      weave (actual_text => @ & ", \e<actual_value>");
-      else weave (actual_text => @ & "\e<actual_value>");
+      match prev (w_ParamSpecCall ()) do
+         weave (actual_text => @ & ", \e<actual_value>");
+      else 
+         weave (actual_text => @ & "\e<actual_value>");
+      end;
 
       pick s weave (
          param_spec_list  => @ & p.formal_text,
@@ -442,16 +452,20 @@ template wrappers_post_process pick origin do
 
    match p: w_ParamSpecCallback() and parent (s: w_SubpDeclCallback()) do
       match not generate_formal ("NO") do
-         match prev (w_ParamSpecCallback (not generate_formal ("NO")))
-         weave (
-            formal_text => @ & "; \e<name> : \e<mode> \e<type_expr>");
-         else weave (
-            formal_text => @ & "\e<name> : \e<mode> \e<type_expr>");
+         match prev (w_ParamSpecCallback (not generate_formal ("NO"))) do
+            weave (
+               formal_text => @ & "; \e<name> : \e<mode> \e<type_expr>");
+         else 
+            weave (
+               formal_text => @ & "\e<name> : \e<mode> \e<type_expr>");
+         end;
       end;
 
-      match prev (w_ParamSpecCallback ())
-      weave (actual_text => @ & ", \e<actual_value>");
-      else weave (actual_text => @ & "\e<actual_value>");
+      match prev (w_ParamSpecCallback ()) do
+         weave (actual_text => @ & ", \e<actual_value>");
+      else 
+         weave (actual_text => @ & "\e<actual_value>");
+      end;
 
       pick s weave (
          param_spec_list  => @ & p.formal_text,
@@ -476,78 +490,79 @@ template wrappers_post_process pick origin do
    );
 
    match s: w_EnumLiteralDecl() and parent (p: w_TypeDecl ()) do
-      match prev (w_EnumLiteralDecl ())
+      match prev (w_EnumLiteralDecl ()) do
          pick p weave (content_definition => @ & ", \e<s.name>");
       else
          pick p weave (content_definition => @ & "\e<s.name>");
+      end;
    end;
 
    match e: w_EnumRep() and parent (p: w_TypeDecl ()) do
-      match prev (w_EnumRep())
+      match prev (w_EnumRep()) do
          pick p weave (rep_definition => @ & ", \e<e.name> => \e<e.value>\n"); 
       else 
          pick p weave (rep_definition => @ & "\e<e.name> => \e<e.value>\n");
+      end;
    end;
 
    match w: w_Aspect() and parent (p: w_TypeDecl ()) do
-      match prev (w_Aspect ())
+      match prev (w_Aspect ()) do
          pick p weave (aspects_declaration => @ & ", \e<w.txt>\n"); 
       else 
          pick p weave (aspects_declaration => @ & "with \e<w.txt>\n");
+      end;
    end;
 
    match top: w_TypeDecl () do
-      match origin (t: child (TypeAccessDef ())) 
+      match origin (t: child (TypeAccessDef ())) do
          weave (definition => @ & " access \e<child (w_TypeExpr ()).txt>");
-      else match origin (t: child (DerivedTypeDef ())) 
+      elsmatch origin (t: child (DerivedTypeDef ())) do
          weave (definition => @ & "new \e<child (w_TypeExpr ()).txt>");
-      else 
-         match origin (
+      elsmatch origin (
             t: child (ArrayTypeDef (
             i: child (UnconstrainedArrayIndex () or ConstrainedArrayIndices)))) 
-         do
-            match i (UnconstrainedArrayIndex ()) and i.child (wrapper (w1 : w_TypeExpr ()))
+      do
+         match i (UnconstrainedArrayIndex ()) and i.child (wrapper (w1 : w_TypeExpr ())) do
             weave (definition => @ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>");
-            else weave (definition => @ & "array (\e<t.child(ConstraintList ())>) of \e<child (w_TypeExpr ()).txt>");
+         else
+            weave (definition => @ & "array (\e<t.child(ConstraintList ())>) of \e<child (w_TypeExpr ()).txt>");
          end;
-      else 
-         match origin (child (AccessToSubpDef ())) do
-            match origin (child (t: TypeDef ())) 
-            weave (definition => @ & "\e<t>");
-
-            match child (cl: w_SubpDeclCall ()) and child (cb: w_SubpDeclCallback ()) 
-               and parent (p: w_PackageDecl()) 
-               and ncall: top.tmp ("Call")
-            do 
-               pick cl weave (name => ncall);
-               pick cb weave (
-                  name => top.name & "_Gen", 
-                  call_name => ncall);
-
-               pick p weave (
-                  spec_content => @ & i"""
-                     generic 
-                        with \e<cl.profile>;
-                     \e<cb.profile>;""",
-                  body_content => @ & """\e<cb.body>""");
-            end;
-         end;
-      else 
-         match origin (child (RecordTypeDef ())) do
-            match child (w_ComponentDecl())
-               weave (definition => @ & i"""
-                  record
-                     \e<content_definition>
-                  end record""");
-            else
-               weave (definition => @ & "null record");
-         end;
-      else match type_kind ("enumeration") # TODO: this whole test should be using enumeration instead
-         weave (definition => @ & "(\e<content_definition>)");
-      else match origin (child (t: TypeDef ())) 
+      elsmatch origin (child (AccessToSubpDef ())) do
+         match origin (child (t: TypeDef ())) 
          weave (definition => @ & "\e<t>");
-      else match child (t: w_TypeExpr())
+
+         match child (cl: w_SubpDeclCall ()) and child (cb: w_SubpDeclCallback ()) 
+            and parent (p: w_PackageDecl()) 
+            and ncall: top.tmp ("Call")
+         do 
+            pick cl weave (name => ncall);
+            pick cb weave (
+               name => top.name & "_Gen", 
+               call_name => ncall);
+
+            pick p weave (
+               spec_content => @ & i"""
+                  generic 
+                     with \e<cl.profile>;
+                  \e<cb.profile>;""",
+               body_content => @ & """\e<cb.body>""");
+         end;
+      elsmatch origin (child (RecordTypeDef ())) do
+         match child (w_ComponentDecl()) do
+            weave (definition => @ & i"""
+               record
+                  \e<content_definition>
+               end record""");
+         else
+            weave (definition => @ & "null record");
+         end;
+      elsmatch type_kind ("enumeration") do # TODO: this whole test should be using enumeration instead
+         weave (definition => @ & "(\e<content_definition>)");
+      elsmatch origin (child (t: TypeDef ())) do
+         weave (definition => @ & "\e<t>");
+      elsmatch child (t: w_TypeExpr()) do
          weave (definition => @ & "\e<t.txt>");
+      end;
 
       match child (w_EnumRep ())
       weave (rep_declaration => @ & "for \e<name> use (\n\e<rep_definition>\n);\n");
@@ -576,12 +591,15 @@ template wrappers_post_process pick origin do
       and parent (u: w_Unit ())
    do
       match origin (child (r: Name()))
-        and (r.p_referenced_decl ().wrapper (child (n: w_DefiningName ())))
-      pick u weave (
-         spec_with_clauses => @ & "\e<c> \e<n.name>; \e<c> \e<w.ref>;\n");
-      else pick u weave (
-         spec_with_clauses => @ & "\e<c> \e<w.ref>;\n"
-      );
+        and (r.p_referenced_decl ().wrapper (child (n: w_DefiningName ()))) 
+      do
+         pick u weave (
+            spec_with_clauses => @ & "\e<c> \e<n.name>; \e<c> \e<w.ref>;\n");
+      else 
+         pick u weave (
+            spec_with_clauses => @ & "\e<c> \e<w.ref>;\n"
+         );
+      end;
    end;
    
    match w_Unit () and child (p: w_PackageDecl ()) do
