@@ -293,16 +293,6 @@ package body Wrapping.Semantic.Structure is
    end Resolve_References;
 
    overriding
-   procedure Resolve_References (An_Entity : access T_Command_Sequence_Type) is
-   begin
-      if An_Entity.Defer then
-         Compute_Closure (T_Entity (An_Entity), An_Entity.Deferred_Closure);
-      end if;
-
-      T_Entity_Type (An_Entity.all).Resolve_References;
-   end Resolve_References;
-
-   overriding
    procedure Resolve_References (An_Entity : access T_Template_Call_Type) is
       Name : Text_Type :=
         (if An_Entity.Node.As_Template_Call.F_Name.Is_Null then
@@ -339,6 +329,10 @@ package body Wrapping.Semantic.Structure is
    overriding
    procedure Resolve_References (An_Entity : access T_Command_Type) is
    begin
+      if An_Entity.Defer then
+         Compute_Closure (T_Entity (An_Entity), An_Entity.Deferred_Closure);
+      end if;
+
       if An_Entity.Template_Section /= null then
          case An_Entity.Template_Section.Node.
            As_Template_Section.F_Actions.Kind

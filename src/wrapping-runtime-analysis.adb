@@ -426,6 +426,14 @@ package body Wrapping.Runtime.Analysis is
      with Post => Top_Frame.Data_Stack.Length =
        Top_Frame.Data_Stack.Length'Old;
 
+   procedure Handle_Command_Front_Nodefer (Command : T_Command)
+     with Post => Top_Frame.Data_Stack.Length =
+       Top_Frame.Data_Stack.Length'Old;
+   --  Same as Handle_Command_Front but skips the defer part of the command,
+   --  computing its actions right away. This assumes that the command context
+   --  has been previously installed and will be cleared afterwards (see
+   --  Install_Command_Context / Uninstall_Command_Context).
+
    procedure Handle_Command_Back (Command : T_Command)
      with Post => Top_Frame.Data_Stack.Length =
        Top_Frame.Data_Stack.Length'Old;
@@ -484,14 +492,29 @@ package body Wrapping.Runtime.Analysis is
    end Uninstall_Command_Context;
 
    procedure Handle_Command_Front (Command : T_Command) is
-      Result  : W_Object;
    begin
       if Top_Frame.Interrupt_Program then
          return;
       end if;
 
-      Install_Command_Context (Command);
+      if Command.Defer then
+         declare
+            New_Command : Deferred_Command := new Deferred_Command_Type;
+         begin
+            New_Command.Command := Command;
+            New_Command.A_Closure := Capture_Closure (Command.Deferred_Closure);
 
+            Deferred_Commands.Append (New_Command);
+         end;
+      else
+         Install_Command_Context (Command);
+         Handle_Command_Front_Nodefer (Command);
+         Uninstall_Command_Context;
+      end if;
+   end Handle_Command_Front;
+
+   procedure Handle_Command_Front_Nodefer (Command : T_Command) is
+   begin
       if Evaluate_Match_Expression (Command.Match_Expression) then
          if Command.Pick_Expression /= null then
             --  When evaluating a pick expression, the wrapping program will
@@ -502,7 +525,8 @@ package body Wrapping.Runtime.Analysis is
             Top_Frame.Top_Context.Outer_Expr_Callback :=
               Outer_Expression_Pick'Access;
 
-            Result := Evaluate_Expression (Command.Pick_Expression).Dereference;
+            Evaluate_Expression (Command.Pick_Expression);
+            Pop_Object;
 
             Top_Frame.Top_Context.Outer_Expr_Callback :=
               Outer_Expression_Match'Access;
@@ -531,9 +555,7 @@ package body Wrapping.Runtime.Analysis is
             end;
          end if;
       end if;
-
-      Uninstall_Command_Context;
-   end Handle_Command_Front;
+   end Handle_Command_Front_Nodefer;
 
    procedure Handle_Command_Back (Command : T_Command) is
       Top : W_Object := Top_Object.Dereference;
@@ -556,18 +578,7 @@ package body Wrapping.Runtime.Analysis is
       Push_Implicit_Self (Self);
 
       if Command.Command_Sequence /= null then
-         if Command.Command_Sequence.Defer then
-            declare
-               New_Command : Deferred_Command := new Deferred_Command_Type;
-            begin
-               New_Command.Command := Command;
-               New_Command.A_Closure := Capture_Closure (Command.Command_Sequence.Deferred_Closure);
-
-               Deferred_Commands.Append (New_Command);
-            end;
-         else
-            Handle_Command_Sequence (Command.Command_Sequence.First_Element);
-         end if;
+         Handle_Command_Sequence (Command.Command_Sequence.First_Element);
       elsif Command.Template_Section /= null then
          if Command.Template_Section.A_Visit_Action /= Unknown then
             -- TODO: consider differences between weave and wrap here
@@ -607,8 +618,8 @@ package body Wrapping.Runtime.Analysis is
 
       --  Only commands with a command sequence and no else part can be defered
 
-      if Evaluate_Match_Expression (Command.Command.Command_Sequence.Defer_Expression) then
-         Handle_Command_Sequence (Command.Command.Command_Sequence.First_Element);
+      if Evaluate_Match_Expression (Command.Command.Defer_Expression) then
+         Handle_Command_Front_Nodefer (Command.Command);
          Result := True;
       end if;
 

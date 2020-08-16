@@ -200,16 +200,6 @@ package body Wrapping.Semantic.Analysis is
    begin
       Push_Entity (Sequence, Node);
 
-      if not Node.F_Defer.Is_Null then
-         Sequence.Defer := True;
-
-         if not Node.F_Defer.F_Condition.Is_Null then
-            Sequence.Defer_Expression := Build_Expr (Node.F_Defer.F_Condition);
-         end if;
-      else
-         Sequence.Defer := False;
-      end if;
-
       if not Node.F_Sequence.Is_Null then
          Sequence.First_Element := Build_Command_Sequence_Element (Node.F_Sequence);
       end if;
@@ -286,6 +276,16 @@ package body Wrapping.Semantic.Analysis is
       function Visit (Node : Template_Node'Class) return Visit_Status is
       begin
          case Node.Kind is
+            when Template_Defer_Section =>
+               A_Command.Defer := True;
+
+               if not Node.As_Defer_Section.F_Expression.Is_Null then
+                  A_Command.Defer_Expression := Build_Expr (Node.As_Defer_Section.F_Expression);
+               end if;
+
+               Node.As_Defer_Section.F_Actions.Traverse (Visit'Access);
+
+               return Over;
             when Template_Match_Section =>
                A_Command.Match_Expression := Build_Expr
                  (Node.As_Match_Section.F_Expression);
@@ -333,6 +333,8 @@ package body Wrapping.Semantic.Analysis is
          end case;
       end Visit;
    begin
+      A_Command.Defer := False;
+
       Push_Entity (A_Command, Node);
 
       for C of Node.Children loop

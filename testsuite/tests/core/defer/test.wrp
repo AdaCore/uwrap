@@ -7,9 +7,8 @@ template T1 do
       pick child (new (T2 ("T2 CREATED")));
    end;
 
-   defer c: child (T3 (val (x"OK"))) do
-      weave standard.out (@ & "FURTHER DEFERED " & c.val);
-   end;
+   defer c: child (T3 (val (x"OK")))
+   weave standard.out (@ & "FURTHER DEFERED " & c.val);
 end;
 
 template T2 do

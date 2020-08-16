@@ -31,6 +31,10 @@ class Var(TemplateNode):
 class Command(TemplateNode):
    actions = Field()
 
+class DeferSection (TemplateNode):
+   expression = Field()
+   actions = Field ()
+
 class MatchSection(TemplateNode):
    expression = Field()
    actions = Field ()
@@ -144,7 +148,6 @@ class QualifiedMatch (TemplateNode):
    rhs = Field()
 
 class CommandSequence (TemplateNode):
-   defer = Field ()
    sequence = Field()
 
 class CommandSequenceElement (TemplateNode):
@@ -161,9 +164,6 @@ class ElsmatchSequence (TemplateNode):
 
 class ElseSequence (TemplateNode):
    actions = Field()
-
-class Defer (TemplateNode):
-   condition = Field()
 
 class RegExpr (TemplateNode):
    left = Field()
@@ -192,6 +192,17 @@ template_grammar.add_rules(
    var=Var('var', G.identifier, ':', G.identifier, Opt ('(', G.arg_list, ')'), Opt ('=>', G.expression), ';'), 
 
    command=Command(
+      Or(
+         G.defer_section,
+         G.match_section,
+         G.pick_section,
+         G.wrap_section, 
+         G.weave_section,
+         G.command_sequence
+      )
+   ),
+   defer_section=DeferSection (
+      'defer', Opt (G.expression),
       Or(
          G.match_section,
          G.pick_section,
@@ -230,14 +241,13 @@ template_grammar.add_rules(
          G.template_call,
          G.traverse_decision), 
       ';'),
-
-   command_sequence=CommandSequence (Opt (Defer ('defer', Opt (G.expression))), 'do', G.command_sequence_element, 'end', ';'),
+   command_sequence=CommandSequence ('do', G.command_sequence_element, 'end', ';'),
    command_sequence_element=CommandSequenceElement (
       List (G.var, empty_valid = True), 
       List (G.command, empty_valid = True), 
       Opt (ThenSequence ('then', G.command_sequence_element))
    ),
-   conditionned_command_sequence=CommandSequence (Null (Defer), 'do', G.conditionned_command_sequence_element, 'end', ';'),
+   conditionned_command_sequence=CommandSequence ('do', G.conditionned_command_sequence_element, 'end', ';'),
    conditionned_command_sequence_element=CommandSequenceElement (
       List (G.var, empty_valid = True), 
       List (G.command, empty_valid = True), 
@@ -245,7 +255,7 @@ template_grammar.add_rules(
          ThenSequence ('then', G.conditionned_command_sequence_element),
          ElsmatchSequence ('elsmatch', G.expression, 'do', G.conditionned_command_sequence_element),
          ElseSequence ('else', G.command_sequence_element)))
-      ),
+   ),
    traverse_decision=Or(TraverseInto ('into'), TraverseOver ('over')),
 
    function=Function('function', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
