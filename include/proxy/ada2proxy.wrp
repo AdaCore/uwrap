@@ -2,68 +2,247 @@ import proxy.proxy;
 import ada.wrappers;
 import ada.transformations;
 
-function wrapped_type () do
-   pick child (TypeExpr ()).wrapper (te: wp_TypeExpr ());
+################################################################################
+# w_TypeDeclProxy
+################################################################################
+
+template w_TypeDeclProxy extends w_TypeDecl do
+   var type: text               => (match origin (n: p_defining_name ()) pick n else pick "");
+   var type_access: text        => type & "_Access";
+   var type_proxy: text         => type & "_Proxy";
+   var type_proxy_access : text => type & "_Proxy_Access";
+
+   match origin () pick origin wrap null (w_TypeDecl);
+
+   wrap wp_TypeDecl (
+      name => "\e<type>"
+   );
+
+   match origin (child (RecordTypeDef ())) do
+      weave (
+         declaration => i"""
+            type \e<type_proxy> is record
+               Address        : System.Address;
+               Is_Proxy_Owned : Boolean;
+               Is_Automatic   : Boolean;
+            end record;
+
+            type \e<type_access> is access all \e<type>;
+            type \e<type_proxy_access> is access all \e<type_proxy>;
+
+            function Convert is new Ada.Unchecked_Conversion (System.Address, \e<type_proxy_access>);
+         """
+      );
+   then
+      var proxy_type: object => self;
+
+      pick parent (w_PackageDecl ()) do
+         pick child (new ({
+            sb: w_SubpDeclCallProxy (
+               name => "\e<proxy_type.name>_Proxy_Allocate",
+               subp_kind => "function",
+               memory_mode => "heap",
+               is_proxy_owned => "True",
+               call => "\e<type_access>'(new \e<type>)"
+            ) {
+               w_TypeExprProxy (origin_type_decl => proxy_type.origin)
+            },
+
+            sb: w_SubpDeclCallProxy (
+               name => "\e<proxy_type.name>_Proxy_Free",
+               subp_kind => "procedure",
+               pre_call_decl => @ & i"""
+                  procedure Free is new Ada.Unchecked_Deallocation (\e<type>, \e<type_access>);
+                  procedure Free is new Ada.Unchecked_Deallocation (\e<type_proxy>, \e<type_proxy_access>);
+               """
+            ) {
+               p: w_ParamSpecCallProxy (
+                  name => "Proxy", 
+                  memory_mode => "heap",
+                  call_stmt => @ & lambda (i"""
+                     Free (\e<p.var_name>);
+                     Free (\e<p.proxy_name>);
+                  """))
+               {
+                  w_TypeExprProxy (origin_type_decl => proxy_type.origin)
+               }
+            }
+         }));
+      end;
+   end;
 end;
+
+################################################################################
+# w_SubpDeclCallProxy
+################################################################################
+
+template w_SubpDeclCallProxy extends w_SubpDeclCall do
+   var t1: text   => origin.tmp ("t1");
+   var t2: text   => origin.tmp ("t2");
+   var s: object  => self ();
+   var memory_mode: text => "stack";
+   var is_proxy_owned: text => lambda ((match mode ("stack") pick "True" else pick "False"));
+
+   wrap wp_Function (
+      name => (match origin (SubpDecl ()) pick origin.p_defining_name else pick name),
+      type => lambda ((match subp_kind ("function") pick child (w_TypeExpr).wrapper (wp_TypeExpr).txt else pick "void")),
+      symbol => lambda (parent (w_Unit ()).tmp (name))
+   );
+
+   match origin (SubpDecl ()) do      
+      pick origin do      
+         wrap null (w_SubpDeclCall);
+
+         match child (f_subp_kind ("function")) do
+            pick s weave (subp_kind => "function");
+         else
+            pick s weave (subp_kind => "procedure");
+         end;
+      end;
+   end;
+then
+   pick child (new ({
+      w_Aspect ("Export => True"),
+      w_Aspect ("Convention => C"),
+      w_Aspect ("""External_Name => "\e<s.wrapper (wp_Function ()).symbol>" """)
+   }));
+
+   match subp_kind ("function") do
+      defer ret: child (w_TypeExprProxy (type_computed (true)))
+      match ret_proxy: ret.w_designated_type_decl () do
+         match memory_mode ("stack") do
+            weave (
+               result_type_expr => "System.Address",
+               call_decl => """\e<origin.tmp ("t1")> : aliased \e<ret_proxy.type> := \e<call>;\n""",
+               call_stmt => "null;",
+               return_stmt => """return \e<origin.tmp ("t2")>.all'Address;""",
+               post_call_decl => i"""
+                  \e<origin.tmp ("t2")> : \e<ret_proxy.type_proxy_access> := new \e<ret_proxy.type_proxy>'
+                     (Is_Proxy_Owned => \e<is_proxy_owned>,
+                      Is_Automatic   => False,
+                      Address        => Allocate_Byte_Copy (\e<origin.tmp ("t1")>'Address, \e<origin.tmp ("t1")>'Size));
+               """);
+         else
+            weave (
+               result_type_expr => "System.Address",
+               call_decl => """\e<origin.tmp ("t1")> : \e<ret_proxy.type_access> := \e<ret_proxy.type_access> (\e<call>);\n""",
+               call_stmt => "null;",
+               return_stmt => """return \e<origin.tmp ("t2")>.all'Address;""",
+               post_call_decl => i"""
+                  \e<origin.tmp ("t2")> : \e<ret_proxy.type_proxy_access> := new \e<ret_proxy.type_proxy>'
+                     (Is_Proxy_Owned => \e<is_proxy_owned>,
+                      Is_Automatic   => False,
+                      Address        => Allocate_Byte_Copy (\e<origin.tmp ("t1")>.all'Address, \e<origin.tmp ("t1")>.all'Size));
+               """);         
+         end;
+      else
+         weave (
+            result_type_expr => ret.txt,
+            call_decl => @ & i"""
+               \e<origin.tmp ("t1")> : \e<ret.txt> := \e<ret.txt> (\e<call>);""",
+            return_stmt => """return \e<origin.tmp ("t1")>;"""
+         );    
+      end;
+   end;
+end;
+
+################################################################################
+# w_ParamSpecCallProxy
+################################################################################
 
 template w_ParamSpecCallProxy extends w_ParamSpecCall do
-   var sb: object;
-   var original_type: text;
+   var retreived_val: text;
+   var var_name: text => parent (w_SubpDecl ()).origin.tmp ("var");
+   var proxy_name: text => parent (w_SubpDecl()).origin.tmp ("proxy");
+   var memory_mode: text => "stack";
 
-   match origin () do
-      pick origin wrap null (w_ParamSpecCall);
-   end;
-   
-   do
-      var tmp_val: text => sb.tmp ("Val");
+   match origin () pick origin wrap null (w_ParamSpecCall);
+
+   wrap wp_Parameter (
+      name => name,
+      type => lambda (child (w_TypeExpr).wrapper (wp_TypeExpr).txt));
+
+   defer ret: child (w_TypeExprProxy (type_computed (true)))
+   match ret_proxy: ret.w_designated_type_decl () do
+      match memory_mode ("stack") do
+         weave (
+            type_expr => child (w_TypeExpr).txt,
+            pre_call_decl => @ & i"""
+               \e<proxy_name> : \e<ret_proxy.type_proxy_access> := Convert (\e<name>);
+               \e<var_name> : \e<ret_proxy.type>
+                 with Address => \e<proxy_name>.Address, Import;
+            """,
+            actual_value => var_name);
+      else
+         weave (
+            type_expr => child (w_TypeExpr).txt,
+            pre_call_decl => @ & i"""
+               \e<proxy_name> : \e<ret_proxy.type_proxy_access> := Convert (\e<name>);
+               \e<var_name> : \e<ret_proxy.type_access>
+                 with Address => \e<proxy_name>.Address'Address, Import;
+            """,
+            actual_value => var_name);
+      end;
+   else
+      var original_type: text => (match ret.origin_type_expr (x".") pick ret.origin_type_expr else pick ret.origin_type_decl);
 
       weave (
-         type_expr => "System.Address",
-         pre_call_decl => lambda (i"""
-            \e<sb.tmp ("Proxy")> : aliased \e<child (wp_TypeExpr ()).name> with Address => \e<name>, Import;
-            \e<tmp_val> : aliased \e<original_type> with Address => \e<sb.tmp ("Proxy")>.Address, Import;"""),
-         actual_value => tmp_val);
+         type_expr => child (w_TypeExpr).txt,
+         pre_call_decl => @ & i"""
+            \e<var_name> : \e<original_type> := \e<original_type> (\e<name>);
+         """,
+         actual_value => var_name);
    end;
 end;
 
-template to_proxy_struct pick origin do
-   match ParamSpec() and parent (sb: SubpDecl()) and t: sb.tmp ("Value")
-   wrap w_ParamSpecCallProxy (
-      sb   => sb.wrapper (w_SubpDecl ()),
-      original_type => child (TypeExpr));
+################################################################################
+# w_TypeExprProxy
+################################################################################
 
-   match sb: SubpDecl() 
-      and t1: sb.tmp ("Res")
-      and t2: sb.tmp ("Proxy_Res")
-   wrap w: w_SubpDeclCall (
-      function_or_procedure => "function",
-      result_type_expr => "System.Address",
-      call_decl => """\e<t1> : aliased \e<child (w_TypeExpr ())> := \e<w.call>;\n""",
-      call_stmt => "null;", 
-   
-      post_call_decl => lambda (i"""
-         \e<t2> : \e<wrapped_type().name>_Access := new \e<wrapped_type().name>'
-            (Is_Proxy_Owned => True,
-             Is_Automatic   => False,
-             Address        => Allocate_Byte_Copy (\e<t1>'Address, \e<t1>'Size));"""
-      ),
-             
-      return_stmt => """return \e<t2>.all'Address;"""
-   );
+template w_TypeExprProxy extends w_TypeExpr do
+   # this value can come from:
+   #    - the original parameter itself
+   #    - another object from which the parameter is created (e.g. a field)
+   # it can be coming either from a type expression or directly a type 
+   # declaration.
+   var origin_type_expr: object;
+   var origin_type_decl: object;
+
+   var w_designated_type_decl : object;
+   var type_computed: object => false;
+
+   match origin pick origin wrap null (w_TypeExpr);
 end;
 
-template ada2proxy_type pick origin do
-   var w_param: object;
+# At the time w_TypeExprProxy is created, wp_TypeDecl may not be yet. Defer
+# the computation until the next cycle.
+match w_TypeExprProxy () do
+   match o: origin_type_decl (w: wrapper (w_TypeDecl))
+         or o: origin_type_expr (p_designated_type_decl (w: wrapper (w_TypeDecl))) 
+   do
+      weave (w_designated_type_decl => w, type_computed => true);
+   else
+      weave (type_computed => true);
+   end;
 
-   match p_type_expression.p_designated_type_decl().f_type_def (SignedIntTypeDef ()) 
-      do
-         pick w_param weave (type => "int32");
-         
-         wrap into_explicit_conversion ("Interfaces.C.int");
-      end;
-   else match s: self ()
-      pick w_param weave (type => "proxy_address");
+   match origin_type_expr (p_designated_type_decl (f_type_def (SignedIntTypeDef ()))) do
+      wrap wp_TypeExpr ("int32");
+      weave (txt => "Interfaces.C.int");
+   elsmatch o: origin_type_decl ()
+      or origin_type_expr (o: p_designated_type_decl ())
+   do
+      wrap wp_TypeExpr (o.p_defining_name ());
+      weave (
+         txt => "System.Address");
+   else
+      wrap wp_TypeExpr ("_anonymous_proxy_"); 
+      weave (txt => "System.Address");
+   end;
 end;
+
+################################################################################
+# generate_ada2proxy
+################################################################################
 
 template generate_ada2proxy pick origin do
    wrap wrap_ada_specs ();
@@ -71,25 +250,34 @@ template generate_ada2proxy pick origin do
    match DefiningName (x"(.*)")
    wrap w_DefiningName ("Proxy_\1");
 
-   match d: PackageDecl () do
-      pick p: parent (CompilationUnit ()) do
-         wrap wp_Unit (name => d.p_defining_name);
+   ########
+   # UNIT #
+   ########
 
-         # TODO: self should be p, for some reason it's not. To fix
-         # match wrapper (x: w_Unit ()) 
-         match p.wrapper (x: w_Unit ())
-         pick x.child (new ({
+   match d: w_PackageDecl () do
+      pick p: parent (w_Unit ()) do
+         wrap wp_Unit (name => d.origin.p_defining_name);
+
+         pick p.child (new ({
             w_WithClause ("Interfaces.C"),
-            w_WithClause ("System")
+            w_WithClause ("System"),
+            w_WithClause ("Ada.Unchecked_Deallocation"),
+            w_WithClause ("Ada.Unchecked_Conversion"),
+            w_WithClause (d.origin.p_defining_name),
+            w_UseClause (d.origin.p_defining_name)
          }));
       end;
 
-      weave w_PackageDecl (
+      weave (
          spec_content => @ & i"""
             function Allocate_Byte_Copy (Address : System.Address; Size : Integer) return System.Address;
          """,
 
          body_content => @ & i"""
+            ------------------------
+            -- Allocate_Byte_Copy --
+            ------------------------
+
             function Allocate_Byte_Copy (Address : System.Address; Size : Integer) return System.Address is
                type Byte_Array is array (Integer range 1 .. Size) of Boolean with Pack;
                type Byte_Array_Access is access all Byte_Array;
@@ -99,94 +287,73 @@ template generate_ada2proxy pick origin do
             begin
                return Dst.all'Address;
             end Allocate_Byte_Copy;
+         
          """
       );
    end;
 
-   match s: SubpDecl () do
-      match parent (u: wrapper (w_Unit ()))
-      wrap wp: wp_Function (
-         name => p_defining_name,
-         type => "void",
-         symbol => u.tmp (s.p_defining_name)
-      );
+   ##############
+   # SUBPROGRAM #
+   ##############
 
-      match child (f_subp_kind ("function")) and 
-         child (TypeExpr ()).child (Identifier ()).p_referenced_decl (child (RecordTypeDef ()))
-      wrap to_proxy_struct ();
-
-      weave w: w_SubpDeclCall ();
+   match sb: SubpDecl () do
+      wrap w: w_SubpDeclCallProxy ();
    then
-      pick w.child (new ({
-         w_Aspect ("Export => True"),
-         w_Aspect ("Convention => C"),
-         w_Aspect ("""External_Name => "\e<wp.symbol>" """)}));
+      pick w weave build_subprogram (sb);
    end;
 
-   match ParamSpec () do
-      wrap w: wp_Parameter (name => p_defining_name);
+   #############
+   # PARAMETER #
+   #############
 
-      match child (TypeExpr ()).child (Identifier ()).p_referenced_decl (child (RecordTypeDef ()))
-      wrap to_proxy_struct ();
-   then
-      wrap ada2proxy_type (w);
-   end;
+   match ParamSpec ()
+   wrap w_ParamSpecCallProxy ();
 
-   match TypeExpr ()
-   wrap wp_TypeExpr ();
+   ########
+   # TYPE #
+   ########
 
-   match type: TypeDecl () and child (RecordTypeDef ()) do
-      var original_type: text => string (p_defining_name);
+   match TypeDecl ()
+   wrap w_TypeDeclProxy ();
 
-      wrap proxy_type: w_TypeDecl (
-         declaration => i"""
-            type \e<proxy_type.name> is record
-               Address        : System.Address;
-               Is_Proxy_Owned : Boolean;
-               Is_Automatic   : Boolean;
-            end record;
-
-            type \e<proxy_type.name>_Access is access all \e<proxy_type.name>;
-         """
-      );
-   then
-      wrap wp_TypeDecl (
-         name => "\e<proxy_type.name>"
-      );
-   then
-      pick parent (PackageDecl ()).wrapper (w_PackageDecl ()) do
-         pick child (new ({
-            sb: w_SubpDeclCall (
-               name => "\e<proxy_type.name>_Proxy_Allocate",
-               function_or_procedure => "function"
-            ) {
-               w_ParamSpecCallProxy (
-                  sb => sb, 
-                  name => "Proxy",
-                  original_type => original_type
-               ) {
-                  wp_TypeExpr (name => proxy_type.name)
-               }
-            },
-
-            sb: w_SubpDeclCall (
-               name => "\e<proxy_type.name>_Proxy_Free",
-               function_or_procedure => "procedure"
-            ) {
-               w_ParamSpecCallProxy (
-                  sb => sb, 
-                  name => "Proxy", 
-                  original_type => original_type)
-               {
-                  wp_TypeExpr (name => proxy_type.name)
-               }
+   match s: w_ComponentDecl () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ()) do
+      pick t.child (new ({
+         w: w_SubpDeclCallProxy (
+            name => "Get_" & s.name,
+            subp_kind => "function",
+            call => lambda ("\e<w.child (w_ParamSpecCallProxy).var_name>.\e<s.origin.p_defining_name ()>")
+            #result_type_expr => te.txt,
+            #return_stmt => lambda (i"""
+            #         return \e<w.child (w_ParamSpecCallProxy).var_name>.\e<s.origin.p_defining_name ()>;
+            #      """)
+         ) {
+            w_TypeExprProxy (origin_type_expr => te.origin),
+            w_ParamSpecCallProxy (name => "Proxy") {
+               w_TypeExprProxy (origin_type_decl => t.origin)
             }
-         }));
-      end;
+         },
+         w_SubpDeclCallProxy (
+            name => "Set_" & s.name,
+            subp_kind => "procedure",
+            result_type_expr => te.origin,
+            call_stmt => @ & lambda (i"""
+                     \e<w.child (w_ParamSpecCallProxy).var_name>.\e<s.origin.p_defining_name ()> := \e<te.origin> (Val);
+                  """)
+         ) {
+            w_ParamSpecCallProxy (name => "Proxy") {
+               w_TypeExprProxy (origin_type_decl => t.origin)
+            },
+            w_ParamSpecCallProxy (name => "Val") {
+               w_TypeExprProxy (origin_type_expr => te.origin)
+            }
+         }
+      })); 
    end;
 
+   #############
+   # TYPE_EXPR #
+   #############
+
    match TypeExpr ()
-   wrap wp_TypeExpr (name => lambda (
-      p_designated_type_decl().wrapper (wp_TypeDecl ()).name
-   ));
+   wrap w_TypeExprProxy (origin_type_expr => self);
 end;

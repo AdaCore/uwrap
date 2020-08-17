@@ -714,40 +714,45 @@ package body Wrapping.Runtime.Analysis is
          --  Third, call parameter expressions. This needs to be done in the
          --  context of the calling frame, which is temporarily restored for this
          --  purpose.
+         --  Calling frame may be null here, e.g. in the case of a defered
+         --  command. In this case, there's no way to modify the value of the
+         --  variable.
 
-         Top_Frame := Calling_Frame;
+         if Calling_Frame /= null then
+            Top_Frame := Calling_Frame;
 
-         for A_Var of Seq.Vars loop
-            declare
-               Name : Text_Type := A_Var.Name_Node.Text;
-            begin
-               New_Ref := W_Reference (Called_Frame.Symbols.Element (Name));
+            for A_Var of Seq.Vars loop
+               declare
+                  Name : Text_Type := A_Var.Name_Node.Text;
+               begin
+                  New_Ref := W_Reference (Called_Frame.Symbols.Element (Name));
 
-               if Calling_Frame.Template_Parameters_Position.Length > 0
-                 or else Calling_Frame.Template_Parameters_Names.Contains (Name)
-               then
-                  Push_Frame_Context;
-                  Top_Frame.Top_Context.Left_Value := New_Ref.Value;
-                  Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-                  Top_Frame.Top_Context.Match_Mode := Match_None;
-                  Top_Frame.Top_Context.Is_Root_Selection := True;
+                  if Calling_Frame.Template_Parameters_Position.Length > 0
+                    or else Calling_Frame.Template_Parameters_Names.Contains (Name)
+                  then
+                     Push_Frame_Context;
+                     Top_Frame.Top_Context.Left_Value := New_Ref.Value;
+                     Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+                     Top_Frame.Top_Context.Match_Mode := Match_None;
+                     Top_Frame.Top_Context.Is_Root_Selection := True;
 
-                  if Calling_Frame.Template_Parameters_Position.Length > 0 then
-                     Evaluate_Expression (Calling_Frame.Template_Parameters_Position.First_Element);
-                     Calling_Frame.Template_Parameters_Position.Delete_First;
-                  else
-                     Evaluate_Expression (Calling_Frame.Template_Parameters_Names.Element (Name));
-                     Calling_Frame.Template_Parameters_Names.Delete (Name);
+                     if Calling_Frame.Template_Parameters_Position.Length > 0 then
+                        Evaluate_Expression (Calling_Frame.Template_Parameters_Position.First_Element);
+                        Calling_Frame.Template_Parameters_Position.Delete_First;
+                     else
+                        Evaluate_Expression (Calling_Frame.Template_Parameters_Names.Element (Name));
+                        Calling_Frame.Template_Parameters_Names.Delete (Name);
+                     end if;
+
+                     New_Ref.Value := Pop_Object;
+
+                     Pop_Frame_Context;
                   end if;
+               end;
+            end loop;
 
-                  New_Ref.Value := Pop_Object;
-
-                  Pop_Frame_Context;
-               end if;
-            end;
-         end loop;
-
-         Top_Frame := Called_Frame;
+            Top_Frame := Called_Frame;
+         end if;
 
          --  Then execute command in reverse
 

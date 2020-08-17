@@ -80,7 +80,7 @@ template w_SubpDecl extends w_NamedEntity do
 
    var return_stmt: text;
    var call_assoc_list: text;
-   var call: text;
+   var call: text => lambda ("\e<call_name> \e<lparenCall> \e<call_assoc_list> \e<rparenCall>");
    var call_name: text;
 
    var profile: text => """\e<subp_kind> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""; 
@@ -88,6 +88,10 @@ template w_SubpDecl extends w_NamedEntity do
    var spec: text; 
 
    var body: text => i"""
+   ---
+   -- \e<name> --
+   ---
+
    \e<profile> is
       \e<pre_call_decl>
    begin
@@ -105,6 +109,7 @@ template w_SubpDecl extends w_NamedEntity do
          end;
       end;
    end \e<name>;
+   
    """; 
 end;
 
@@ -380,8 +385,6 @@ template wrappers_post_process pick origin do
 
       match origin (v: p_fully_qualified_name ())
       weave (call_name => v);
-      
-      weave (call => "\e<call_name> \e<lparenCall> \e<call_assoc_list> \e<rparenCall>");
 
       match child (w_ParamSpecCall(not generate_formal ("NO")))
       weave (lparenSpec => "(", rparenSpec => ")");

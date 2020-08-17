@@ -8,10 +8,15 @@ template wp_NamedProxy extends wp_Proxy do
 end;
 
 template wp_Unit extends wp_NamedProxy do
+   # TODO: this shoud really be: \e<child (\ v: wp_Function ()).fold (c: "", c: (c & v.contents), c: (c & ",\n"))>
+   # doesn't work for now, reg exp for wrappers are broken. to fix...
+   
    var contents : text => lambda (i"""
       {
          "name":"\e<name>",
-         \e<child (v: wp_Function ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>
+         "functions": [
+            \e<child (v: wp_Function ()).fold (c: "", c: (c & v.contents), c: (c & ",\n"))>
+         ]
       }""");
 end;
 
@@ -19,13 +24,13 @@ template wp_Function extends wp_NamedProxy do
    var type : text;
 
    var contents : text => lambda(i"""
-      "function": {
+      {
          "name": "\e<name>",
          "symbol": "\e<symbol>",
          "type": "\e<type>",
-         "parameters": {
-            \e<child (v: wp_Parameter ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>
-         }
+         "parameters": [
+            \e<child (v: wp_Parameter ()).fold (c: "", c: (c & v.contents), c: (c & ",\n"))>
+         ]
       }""");
 end;
 
@@ -33,14 +38,14 @@ template wp_Parameter extends wp_NamedProxy do
    var type : text;
 
    var contents : text => lambda(i"""
-      "parameter": {
+      {
          "name": "\e<name>",
          "type": "\e<type>"
       }""");
 end;
 
 template wp_TypeExpr extends wp_Proxy do
-   var name : text;
+   var txt : text;
 end;
 
 template wp_TypeDecl extends wp_NamedProxy do
