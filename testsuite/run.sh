@@ -12,20 +12,22 @@ function test () {
 
 function test_dir () {
 (
-  cd $1
+  if [ -d $1 ]; then
+    if [ $1 != ".." ]; then
+      if  [ $1 != "." ]; then
+        cd $1
 
-  if [ -f test.sh ]; then
-    test
-  else
-    for j in *; do
-      if [ -d $j ]; then
-        if [ $j != ".." ]; then
-          if  [ $j != "." ]; then
+        if [ -f test.sh ]; then
+          test
+        elif [ -f run.sh ]; then
+          ./run.sh
+        else
+          for j in *; do
             test_dir $j
-          fi
+          done
         fi
-      fi;
-    done
+      fi
+    fi
   fi
 )
 }
@@ -43,12 +45,13 @@ function UWRAP () {
 export MODE="$2"
 export ROOT=`pwd`/../
 export -f UWRAP
+export -f test_dir
+export -f test
 
 if [ "$1" = "" ]; then
   test_dir "tests" 
 else
-  cd $1
-  test
+  test_dir $1
 fi
 
 
