@@ -5,7 +5,7 @@ library project Proxy is
     for Library_Name use "proxy";
     for Source_Dirs use ("../../out", "../../src");
     for Library_Standalone use "encapsulated";
-    for Library_Interface use ("Proxy_P");
+    for Library_Interface use ("Proxy_P", "P");
     for Library_Kind use "dynamic";
 
     package Compiler is
