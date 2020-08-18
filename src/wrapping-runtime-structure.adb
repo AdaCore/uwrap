@@ -247,6 +247,239 @@ package body Wrapping.Runtime.Structure is
       end if;
    end Browse_Entity;
 
+   procedure Evaluate_Generator_Regexp
+     (Root      : access W_Object_Type'Class;
+      Generator : access procedure
+        (Node : access W_Object_Type'Class; Expr : T_Expr);
+      Expr      : T_Expr)
+   is
+      Quantifiers_Hit : Integer := 0;
+
+      Is_Original_Expansion : Boolean := Top_Frame.Top_Context.Is_Expanding_Context;
+      Original_Expand_Function : Expand_Action_Type := Top_Frame.Top_Context.Expand_Action;
+
+      procedure Yield_Action
+        with Post => Top_Frame.Data_Stack.Length
+          = Top_Frame.Data_Stack.Length'Old + 1;
+
+      procedure Install_Yield_Capture is
+      begin
+         Top_Frame.Top_Context.Is_Expanding_Context := True;
+         Top_Frame.Top_Context.Expand_Action := Yield_Action'Unrestricted_Access;
+      end Install_Yield_Capture;
+
+      procedure Restore_Yield_Capture is
+      begin
+         Top_Frame.Top_Context.Is_Expanding_Context := Is_Original_Expansion;
+         Top_Frame.Top_Context.Expand_Action := Original_Expand_Function;
+      end Restore_Yield_Capture;
+
+      procedure Process_Right_Action is
+         Result : W_Object;
+      begin
+         if Expr.Reg_Expr_Right /= null then
+            Push_Frame_Context;
+
+            Restore_Yield_Capture;
+            Evaluate_Generator_Regexp (W_Node (Top_Object.Dereference), Generator, Expr.Reg_Expr_Right);
+            Result := Top_Object.Dereference;
+
+            Pop_Frame_Context;
+
+            if Result = Match_False then
+               Top_Frame.Top_Context.Visit_Decision.all := Into;
+            else
+               if Is_Original_Expansion then
+                  Top_Frame.Top_Context.Visit_Decision.all := Into;
+               else
+                  Top_Frame.Top_Context.Visit_Decision.all := Stop;
+               end if;
+            end if;
+         else
+            Push_Object (Top_Object);
+
+            if Is_Original_Expansion then
+               Original_Expand_Function.all;
+               Delete_Object_At_Position (-2);
+               Top_Frame.Top_Context.Visit_Decision.all := Into;
+            else
+               Top_Frame.Top_Context.Visit_Decision.all := Stop;
+            end if;
+         end if;
+      end Process_Right_Action;
+
+      --  TODO: we need to generalize this concept of generator / yield
+      --  instead of expand.
+      procedure Yield_Action is
+      begin
+         Push_Frame_Context;
+
+         if Expr.Kind = Template_Reg_Expr_Anchor then
+            Top_Frame.Top_Context.Is_Expanding_Context := False;
+            --  If we're evaluating an anchor at this stage, this is a right
+            --  anchor. There should not be any more element available.
+
+            Generator (Top_Object, null);
+
+            if Pop_Object /= Match_False then
+               Push_Match_False;
+            else
+               Push_Object (Root);
+            end if;
+         else
+            Top_Frame.Top_Context.Regexpr_Anchored := True;
+            Install_Yield_Capture;
+
+            if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
+               Quantifiers_Hit := Quantifiers_Hit + 1;
+
+               if Quantifiers_Hit < Expr.Reg_Expr_Left.Min then
+                  --  First, no matter the quantifier, try to reach the minimum
+                  --  value
+                  Generator
+                    (Top_Object,
+                     Expr.Reg_Expr_Left.Quantifier_Expr);
+               elsif Quantifiers_Hit = Expr.Reg_Expr_Left.Max then
+                  -- Second, if we hit the max, move on to the right action
+                  Process_Right_Action;
+               else
+                  --  Then if the quantifier is many, try to reach as many
+                  --  as possible. If few, see if one is necessary.
+
+                  case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
+                     when Template_Operator_Many =>
+                        Generator
+                          (Top_Object,
+                           Expr.Reg_Expr_Left.Quantifier_Expr);
+
+                        if Top_Object = Match_False then
+                           --  If the result is false, we went one element too
+                           --  far. Pop it and process the right action.
+
+                           Pop_Object;
+                           Process_Right_Action;
+                        elsif Is_Original_Expansion then
+                           --  If we're doing an expansion, then we need to
+                           --  consider all cases of potential children
+
+                           Process_Right_Action;
+                           Delete_Object_At_Position (-2);
+                        end if;
+
+                     when Template_Operator_Few =>
+                        Process_Right_Action;
+
+                        if Top_Object = Match_False then
+                           --  If the result is false, the right action didn't
+                           --  work, try to process another node under the
+                           --  current condition
+
+                           Pop_Object;
+                           Generator
+                             (Top_Object,
+                              Expr.Reg_Expr_Left.Quantifier_Expr);
+                        elsif Is_Original_Expansion then
+                           --  If we're doing an expansion, then we need to
+                           --  consider all cases of potential children
+
+                           Generator
+                             (Top_Object,
+                              Expr.Reg_Expr_Left.Quantifier_Expr);
+                           Delete_Object_At_Position (-2);
+                        end if;
+
+                     when others =>
+                        Error ("unexpected quantifier kind");
+                  end case;
+               end if;
+            else
+               Process_Right_Action;
+            end if;
+         end if;
+
+         Pop_Frame_Context;
+      end Yield_Action;
+
+      Result : W_Object;
+   begin
+      if Expr = null
+        or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
+      then
+         Generator (Root, Expr);
+
+         return;
+      end if;
+
+      Push_Frame_Context;
+
+      if Expr.Kind = Template_Reg_Expr_Anchor then
+         Top_Frame.Top_Context.Is_Expanding_Context := False;
+
+         Generator (Root, null);
+
+         Result := Pop_Object.Dereference;
+
+         if Result = Match_False then
+            Push_Object (Root);
+         else
+            Push_Match_False;
+         end if;
+
+         Top_Frame.Top_Context.Visit_Decision.all := Stop;
+      else
+         if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
+            Top_Frame.Top_Context.Regexpr_Anchored := True;
+            Evaluate_Generator_Regexp (Root, Generator, Expr.Reg_Expr_Right);
+         elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
+            case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
+               when Template_Operator_Many =>
+                  Install_Yield_Capture;
+                  Generator (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
+                  Restore_Yield_Capture;
+
+                  if Top_Object = Match_False then
+                     --  If we didn't find a match but the minimum requested is 0,
+                     --  try to evaluate the result bypassing the quantifier.
+
+                     if Expr.Reg_Expr_Left.Min = 0 then
+                        Pop_Object;
+                        Evaluate_Generator_Regexp (Root, Generator, Expr.Reg_Expr_Right);
+                     end if;
+                  end if;
+
+               when Template_Operator_Few =>
+                  if Expr.Reg_Expr_Left.Min = 0 then
+                     --  We are on a lazy quantifier and are accepting no matches.
+                     --  First see if we can avoid the quantifier altogether
+
+                     Evaluate_Generator_Regexp (Root, Generator, Expr.Reg_Expr_Right);
+
+                     if Top_Object = Match_False then
+                        Pop_Object;
+
+                        Install_Yield_Capture;
+                        Generator (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
+                        Restore_Yield_Capture;
+                     end if;
+                  else
+                     Install_Yield_Capture;
+                     Generator (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
+                     Restore_Yield_Capture;
+                  end if;
+
+               when others =>
+                  Error ("unexpected quantifier kind");
+            end case;
+         else
+            Install_Yield_Capture;
+            Generator (Root, Expr.Reg_Expr_Left);
+            Restore_Yield_Capture;
+         end if;
+      end if;
+
+      Pop_Frame_Context;
+   end Evaluate_Generator_Regexp;
+
    procedure Push_Match_True (An_Entity : access W_Object_Type'Class) is
    begin
       Push_Object (An_Entity);

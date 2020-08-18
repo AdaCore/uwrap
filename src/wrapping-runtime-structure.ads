@@ -247,6 +247,12 @@ package Wrapping.Runtime.Structure is
      with Post'Class => Top_Frame.Data_Stack.Length =
        Top_Frame.Data_Stack.Length'Old;
 
+   procedure Evaluate_Generator_Regexp
+     (Root      : access W_Object_Type'Class;
+      Generator : access procedure
+        (Node : access W_Object_Type'Class; Expr : T_Expr);
+      Expr      : T_Expr);
+
    procedure Push_Match_True (An_Entity : access W_Object_Type'Class);
 
    procedure Push_Match_False;

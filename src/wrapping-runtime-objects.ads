@@ -403,11 +403,6 @@ package Wrapping.Runtime.Objects is
          Result : out W_Object) return Visit_Action)
       return Visit_Action;
 
-   procedure Evaluate_Generator_Regexp
-     (An_Entity : access W_Node_Type;
-      A_Mode    : Browse_Mode;
-      Expr      : T_Expr);
-
    overriding
    procedure Evaluate_Bowse_Functions
      (An_Entity        : access W_Node_Type;
