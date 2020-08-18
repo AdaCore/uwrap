@@ -78,13 +78,14 @@ package body Wrapping.Runtime.Structure is
         with Post => Top_Frame.Data_Stack.Length =
           Top_Frame.Data_Stack.Length'Old
       is
+         Expand_Action : Expand_Action_Type := Top_Frame.Top_Context.Expand_Action;
       begin
          --  In certain cases, there's no expression to be evaluated upon
          --  expansion. E.g.:
          --    x.all ()
          --  as opposed to:
          --    x.all().something().
-         if Top_Frame.Top_Context.Expand_Action = null then
+         if Expand_Action = null then
             return;
          end if;
 
@@ -94,7 +95,7 @@ package body Wrapping.Runtime.Structure is
          --  are capturing in this browsing iteration. TODO: quite the opposite if we do fold (i : inti, i: acc);
 
          Push_Frame_Context;
-         Top_Frame.Top_Context.Is_Expanding_Context := False;
+         Top_Frame.Top_Context.Expand_Action := null;
          Top_Frame.Top_Context.Match_Mode := Match_None;
          Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
          Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
@@ -103,7 +104,7 @@ package body Wrapping.Runtime.Structure is
          --  Then evaluate that folding expression
 
          Push_Implicit_Self (Browsed);
-         Top_Frame.Top_Context.Expand_Action.all;
+         Expand_Action.all;
 
          --  The result of the evaluate expression is the result of the
          --  expanding function, as opposed to the matching entity in normal
@@ -145,7 +146,7 @@ package body Wrapping.Runtime.Structure is
          Pop_Object;
          Pop_Frame_Context;
 
-         if Top_Frame.Top_Context.Is_Expanding_Context then
+         if Top_Frame.Top_Context.Expand_Action /= null then
             Evaluate_Expand_Function;
 
             if Visit_Decision = Unknown then
@@ -176,7 +177,7 @@ package body Wrapping.Runtime.Structure is
       --  the folding expression will actually be what needs to be captured.
 
       if Top_Frame.Top_Context.Name_Captured /= ""
-        and then not Top_Frame.Top_Context.Is_Expanding_Context
+        and then Top_Frame.Top_Context.Expand_Action = null
       then
          Include_Symbol
            (To_Text (Top_Frame.Top_Context.Name_Captured),
@@ -218,13 +219,13 @@ package body Wrapping.Runtime.Structure is
             --  stop allocating). This case is supposed to have being taken
             --  care of earlier but raise an error here just in case.
 
-            if Top_Frame.Top_Context.Is_Expanding_Context then
+            if Top_Frame.Top_Context.Expand_Action /= null then
                Error ("allocation in expanding browsing functions is illegal");
             end if;
 
             return Stop;
          else
-            if Top_Frame.Top_Context.Is_Expanding_Context then
+            if Top_Frame.Top_Context.Expand_Action /= null then
                Evaluate_Expand_Function;
 
                --  The result of the expansion can be calls to wrap functions,
@@ -255,7 +256,6 @@ package body Wrapping.Runtime.Structure is
    is
       Quantifiers_Hit : Integer := 0;
 
-      Is_Original_Expansion : Boolean := Top_Frame.Top_Context.Is_Expanding_Context;
       Original_Expand_Function : Expand_Action_Type := Top_Frame.Top_Context.Expand_Action;
 
       procedure Yield_Action
@@ -264,13 +264,11 @@ package body Wrapping.Runtime.Structure is
 
       procedure Install_Yield_Capture is
       begin
-         Top_Frame.Top_Context.Is_Expanding_Context := True;
          Top_Frame.Top_Context.Expand_Action := Yield_Action'Unrestricted_Access;
       end Install_Yield_Capture;
 
       procedure Restore_Yield_Capture is
       begin
-         Top_Frame.Top_Context.Is_Expanding_Context := Is_Original_Expansion;
          Top_Frame.Top_Context.Expand_Action := Original_Expand_Function;
       end Restore_Yield_Capture;
 
@@ -289,7 +287,7 @@ package body Wrapping.Runtime.Structure is
             if Result = Match_False then
                Top_Frame.Top_Context.Visit_Decision.all := Into;
             else
-               if Is_Original_Expansion then
+               if Original_Expand_Function /= null then
                   Top_Frame.Top_Context.Visit_Decision.all := Into;
                else
                   Top_Frame.Top_Context.Visit_Decision.all := Stop;
@@ -298,7 +296,7 @@ package body Wrapping.Runtime.Structure is
          else
             Push_Object (Top_Object);
 
-            if Is_Original_Expansion then
+            if Original_Expand_Function /= null then
                Original_Expand_Function.all;
                Delete_Object_At_Position (-2);
                Top_Frame.Top_Context.Visit_Decision.all := Into;
@@ -315,7 +313,7 @@ package body Wrapping.Runtime.Structure is
          Push_Frame_Context;
 
          if Expr.Kind = Template_Reg_Expr_Anchor then
-            Top_Frame.Top_Context.Is_Expanding_Context := False;
+            Top_Frame.Top_Context.Expand_Action := null;
             --  If we're evaluating an anchor at this stage, this is a right
             --  anchor. There should not be any more element available.
 
@@ -358,7 +356,7 @@ package body Wrapping.Runtime.Structure is
 
                            Pop_Object;
                            Process_Right_Action;
-                        elsif Is_Original_Expansion then
+                        elsif Original_Expand_Function /= null then
                            --  If we're doing an expansion, then we need to
                            --  consider all cases of potential children
 
@@ -378,7 +376,7 @@ package body Wrapping.Runtime.Structure is
                            Generator
                              (Top_Object,
                               Expr.Reg_Expr_Left.Quantifier_Expr);
-                        elsif Is_Original_Expansion then
+                        elsif Original_Expand_Function /= null then
                            --  If we're doing an expansion, then we need to
                            --  consider all cases of potential children
 
@@ -413,7 +411,7 @@ package body Wrapping.Runtime.Structure is
       Push_Frame_Context;
 
       if Expr.Kind = Template_Reg_Expr_Anchor then
-         Top_Frame.Top_Context.Is_Expanding_Context := False;
+         Top_Frame.Top_Context.Expand_Action := null;
 
          Generator (Root, null);
 

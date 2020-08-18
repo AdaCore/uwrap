@@ -711,7 +711,7 @@ package body Wrapping.Runtime.Objects is
          --      specific value picked, then go back fetching other values for
          --      the function.
 
-         if Calling_Frame.Top_Context.Is_Expanding_Context = False then
+         if Calling_Frame.Top_Context.Expand_Action = null then
             Last_Picked := Object;
             Top_Frame.Interrupt_Program := True;
          else
@@ -737,7 +737,6 @@ package body Wrapping.Runtime.Objects is
       Push_Implicit_Self (Prev_Self);
       Top_Frame.Symbols.Move (Temp_Symbols);
       Top_Frame.Top_Context.Pick_Callback := Pick_Callback'Unrestricted_Access;
-      Top_Frame.Top_Context.Is_Expanding_Context := False;
       Top_Frame.Top_Context.Expand_Action := null;
 
       Handle_Command_Sequence (An_Entity.A_Function.Program.First_Element);
@@ -1348,7 +1347,7 @@ package body Wrapping.Runtime.Objects is
          --  an allocator. If none is found and if there are allocators, then
          --  re-try, this time with allocators enabled.
 
-         if Top_Frame.Top_Context.Is_Expanding_Context then
+         if Top_Frame.Top_Context.Expand_Action /= null then
             --  TODO: it would be best to check that earlier in the system,
             --  as opposed to only when trying to call a folding function.
             Error ("allocators are not allowed in folding browsing functions");
@@ -1380,7 +1379,7 @@ package body Wrapping.Runtime.Objects is
       if not Found and then
         not
           (Top_Frame.Top_Context.Match_Mode /= Match_None
-           or else Top_Frame.Top_Context.Is_Expanding_Context)
+           or else Top_Frame.Top_Context.Expand_Action /= null)
       then
          Error ("no result found for browsing function");
       end if;

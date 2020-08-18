@@ -105,10 +105,6 @@ package Wrapping.Runtime.Structure is
 
       Match_Mode : Match_Kind := Match_None;
 
-      --- TODO: We may not need this, just use the value of the function
-      --  instead
-      Is_Expanding_Context : Boolean := False;
-
       --  When hitting a capture expression, the name is being stored here so
       --  that the capturing expression can update its value.
       Name_Captured : Unbounded_Text_Type;

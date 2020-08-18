@@ -220,7 +220,6 @@ package body Wrapping.Runtime.Analysis is
          Current_Command      => Context.Current_Command,
          Outer_Expr_Callback  => Context.Outer_Expr_Callback,
          Match_Mode           => Context.Match_Mode,
-         Is_Expanding_Context => Context.Is_Expanding_Context,
          Name_Captured        => Context.Name_Captured,
          Expand_Action        => Context.Expand_Action,
          An_Allocate_Callback => Context.An_Allocate_Callback,
@@ -257,7 +256,6 @@ package body Wrapping.Runtime.Analysis is
       if Top_Frame /= null then
          New_Frame.Top_Context.An_Allocate_Callback := Top_Frame.Top_Context.An_Allocate_Callback;
          New_Frame.Top_Context.Visit_Decision := Top_Frame.Top_Context.Visit_Decision;
-         New_Frame.Top_Context.Is_Expanding_Context := Top_Frame.Top_Context.Is_Expanding_Context;
          New_Frame.Top_Context.Expand_Action := Top_Frame.Top_Context.Expand_Action;
       end if;
 
@@ -1905,7 +1903,7 @@ package body Wrapping.Runtime.Analysis is
 
       Push_Frame_Context;
       Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
-      Top_Frame.Top_Context.Is_Expanding_Context := False;
+      Top_Frame.Top_Context.Expand_Action := null;
       Top_Frame.Top_Context.Match_Mode := Match_None;
       Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
@@ -2014,7 +2012,6 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
 
       Push_Frame_Context;
-      Top_Frame.Top_Context.Is_Expanding_Context := True;
       Top_Frame.Top_Context.Expand_Action := Expand_Action'Unrestricted_Access;
       Top_Frame.Top_Context.Match_Mode := Match_None;
       Top_Frame.Top_Context.Is_Root_Selection := True;
@@ -2088,9 +2085,7 @@ package body Wrapping.Runtime.Analysis is
          --  .all () may itself be in an expression such as .all().fold().
          --  In this case an expand action is set and needs to be executed.
 
-         if Initial_Context.Is_Expanding_Context
-           and then Initial_Context.Expand_Action /= null
-         then
+         if Initial_Context.Expand_Action /= null then
             Initial_Context.Expand_Action.all;
             Delete_Object_At_Position (-2);
          end if;
@@ -2107,7 +2102,6 @@ package body Wrapping.Runtime.Analysis is
 
       Top_Frame.Top_Context.Expand_Action := Expand_Action'Unrestricted_Access;
       Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-      Top_Frame.Top_Context.Is_Expanding_Context := True;
       Top_Frame.Top_Context.Match_Mode := Match_None;
 
       Evaluate_Expression (Selector.Selector_Left);
