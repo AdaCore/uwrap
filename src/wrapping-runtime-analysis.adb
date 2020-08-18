@@ -95,10 +95,7 @@ package body Wrapping.Runtime.Analysis is
          Top_Frame.Top_Context.Match_Mode := Match_None;
 
          Push_Object
-           (W_Object'
-              (new W_String_Type'
-                   (Value => To_Unbounded_Text
-                        (Evaluate_Expression (Params.Element (1).Expr).To_String))));
+           (To_W_String (Evaluate_Expression (Params.Element (1).Expr).To_String));
 
          Pop_Frame_Context;
 
@@ -151,9 +148,7 @@ package body Wrapping.Runtime.Analysis is
    procedure Push_Temporary_Name (Name : Text_Type; Counter : in out Integer) is
    begin
       if Top_Frame.Temp_Names.Contains (Name) then
-         Top_Frame.Data_Stack.Append
-           (new W_String_Type'
-              (Value => To_Unbounded_Text (Top_Frame.Temp_Names.Element (Name))));
+         Push_Object (To_W_String (Top_Frame.Temp_Names.Element (Name)));
       else
          Counter := Counter + 1;
 
@@ -164,8 +159,7 @@ package body Wrapping.Runtime.Analysis is
          begin
             Top_Frame.Temp_Names.Insert (Name, Tmp);
 
-            Top_Frame.Data_Stack.Append
-              (new W_String_Type'(Value => To_Unbounded_Text (Tmp)));
+            Push_Object (To_W_String (Tmp));
          end;
       end if;
    end Push_Temporary_Name;
@@ -311,14 +305,10 @@ package body Wrapping.Runtime.Analysis is
             Name : Text_Type := To_Text (Get_Capture_Name (Matches, I));
          begin
             Top_Frame.Group_Sections.Last_Element.Groups.Append
-              (new W_String_Type'
-                 (Value => To_Unbounded_Text (Matched_Text)));
+              (W_Object (To_W_String (Matched_Text)));
 
             if Name /= "" then
-               Include_Symbol
-                 (Name,
-                  new W_String_Type'
-                    (Value => To_Unbounded_Text (Matched_Text)));
+               Include_Symbol (Name, W_Object (To_W_String (Matched_Text)));
             end if;
          end;
       end loop;
@@ -1375,14 +1365,9 @@ package body Wrapping.Runtime.Analysis is
    is
       Result : W_Text_Vector := new W_Text_Vector_Type;
 
-      New_Text : W_String;
-
       procedure Append_Text (Text : Text_Type) is
       begin
-         New_Text := new W_String_Type;
-         New_Text.Value := To_Unbounded_Text (Text);
-
-         Result.A_Vector.Append (W_Object (New_Text));
+         Result.A_Vector.Append (W_Object (To_W_String (Text)));
       end Append_Text;
 
       procedure On_Error
@@ -1413,8 +1398,7 @@ package body Wrapping.Runtime.Analysis is
       for Str of Expr.Str loop
          case Str.Kind is
             when Str_Kind =>
-               Result.A_Vector.Append
-                 (new W_String_Type'(Value => Str.Value));
+               Result.A_Vector.Append (W_Object (To_W_String (Str.Value)));
             when Expr_Kind =>
                --  if Expr.Str_Kind = String_Indent then
                --     Indent : W_Text_Reindent := new W_Text_Reindent_Type'

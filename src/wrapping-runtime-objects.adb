@@ -605,6 +605,16 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Eq;
 
+   function To_W_String (Str : Text_Type) return W_String is
+   begin
+      return new W_String_Type'(Value => To_Unbounded_Text (Str));
+   end To_W_String;
+
+   function To_W_String (Str : Unbounded_Text_Type) return W_String is
+   begin
+      return new W_String_Type'(Value => Str);
+   end To_W_String;
+
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Text_Expression_Type;
@@ -971,6 +981,12 @@ package body Wrapping.Runtime.Objects is
            (W_Object'(new W_Intrinsic_Function_Type'
                 (Prefix => W_Object (An_Entity),
                  Call => A_Call)));
+
+         return True;
+      end if;
+
+      if Name = "language" then
+         Push_Object (To_W_String (W_Node (An_Entity).Language));
 
          return True;
       end if;
@@ -1642,11 +1658,7 @@ package body Wrapping.Runtime.Objects is
             return True;
          end if;
       elsif Name = "kind" then
-         Push_Object
-           (W_Object'
-              (new W_String_Type'
-                   (Value => To_Unbounded_Text
-                        (An_Entity.Defining_Entity.Full_Name))));
+         Push_Object (To_W_String (An_Entity.Defining_Entity.Full_Name));
 
          return True;
       elsif An_Entity.Indexed_Variables.Contains (Name) then

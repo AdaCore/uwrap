@@ -32,7 +32,8 @@ package body Wrapping.Run is
       use Libtestlang.Introspection;
 
       package Input is new Wrapping.Input.Kit
-        (Kit_Node                   => Libtestlang.Analysis.Test_Node,
+        (Language_Name              => "test",
+         Kit_Node                   => Libtestlang.Analysis.Test_Node,
          Kit_Unit                   => Libtestlang.Analysis.Analysis_Unit,
          Kit_Node_Array             => Libtestlang.Analysis.Test_Node_Array,
          Any_Node_Data_Reference    => Libtestlang.Common.Any_Node_Data_Reference,
@@ -65,7 +66,8 @@ package body Wrapping.Run is
       use Libadalang.Introspection;
 
       package Input is new Wrapping.Input.Kit
-        (Kit_Node                   => Libadalang.Analysis.Ada_Node,
+        (Language_Name              => "ada",
+         Kit_Node                   => Libadalang.Analysis.Ada_Node,
          Kit_Unit                   => Libadalang.Analysis.Analysis_Unit,
          Kit_Node_Array             => Libadalang.Analysis.Ada_Node_Array,
          Any_Node_Data_Reference    => Libadalang.Common.Any_Node_Data_Reference,

@@ -160,8 +160,7 @@ package body Wrapping.Input.Kit is
                end;
 
                if Kind (Value) = Text_Type_Value then
-                  return new W_String_Type'
-                    (Value => To_Unbounded_Text (As_Text_Type (Value)));
+                  return W_Object (To_W_String (As_Text_Type (Value)));
                elsif Kind (Value) = Node_Value then
                   if As_Node (Value).Is_Null then
                      return Match_False;
@@ -199,23 +198,17 @@ package body Wrapping.Input.Kit is
 
       if Name = "hash" then
          Push_Object
-           (W_Object'
-              (new W_String_Type'
-                   (Value => To_Unbounded_Text (Hash_Type'Wide_Wide_Image (Hash (An_Entity.Node))))));
+           (To_W_String (Hash_Type'Wide_Wide_Image (Hash (An_Entity.Node))));
+
          return True;
       elsif Name = "sloc" then
-         Push_Object
-           (W_Object'
-              (new W_String_Type'
-                   (Value => To_Unbounded_Text (Full_Sloc_Image (An_Entity.Node)))));
+         Push_Object (To_W_String (Full_Sloc_Image (An_Entity.Node)));
+
          return True;
       elsif Name = "kind" then
          Push_Object
-           (W_Object'
-              (new W_String_Type'
-                   (Value => To_Unbounded_Text
-                        (To_Wide_Wide_String
-                           (An_Entity.Node.Kind_Name)))));
+           (To_W_String (To_Wide_Wide_String (An_Entity.Node.Kind_Name)));
+
          return True;
       end if;
 

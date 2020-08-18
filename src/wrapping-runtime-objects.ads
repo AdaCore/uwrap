@@ -240,6 +240,10 @@ package Wrapping.Runtime.Objects is
      (Left : access W_String_Type; Right : access W_Object_Type'Class)
       return Boolean;
 
+   function To_W_String (Str : Text_Type) return W_String;
+
+   function To_W_String (Str : Unbounded_Text_Type) return W_String;
+
    type W_Regexp_Type is new W_Text_Expression_Type with record
       Value : W_Object;
    end record;
@@ -414,6 +418,8 @@ package Wrapping.Runtime.Objects is
 
    procedure Print (An_Entity : W_Node_Type; Indent : Text_Type := "");
 
+   function Language (An_Entity : W_Node_Type) return Text_Type is ("");
+
    type W_Template_Instance_Type is new W_Node_Type with record
       Defining_Entity : T_Entity;
 
@@ -459,6 +465,9 @@ package Wrapping.Runtime.Objects is
          Result : out W_Object) return Visit_Action)
       return Visit_Action;
 
+   overriding
+   function Language (An_Entity : W_Template_Instance_Type) return Text_Type is ("template");
+
    --  This type of node is created when instantiated node on wrappers. For
    --  example, when writing:
    --
@@ -482,6 +491,9 @@ package Wrapping.Runtime.Objects is
    type W_Hollow_Node_Type is new W_Template_Instance_Type with record
       null;
    end record;
+
+   overriding
+   function Language (An_Entity : W_Hollow_Node_Type) return Text_Type is ("hollow");
 
    type W_All_Type is record
       Iterable : W_Object;

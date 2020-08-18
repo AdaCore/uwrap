@@ -60,9 +60,7 @@ package body Wrapping.Runtime.Functions is
          end loop;
 
 
-         Push_Match_Result
-           (W_Object'(new W_String_Type'(Value => New_Name)),
-            Actuals (2));
+         Push_Match_Result (W_Object (To_W_String (New_Name)), Actuals (2));
       end;
 
       Pop_Frame_Context;
@@ -90,9 +88,7 @@ package body Wrapping.Runtime.Functions is
          Pattern : Text_Type := Evaluate_Expression (Actuals (2)).To_String;
          Replace : Text_Type := Evaluate_Expression (Actuals (3)).To_String;
       begin
-         Result := (new W_String_Type'
-                      (Value => To_Unbounded_Text
-                       (Replace_String (Source, Pattern, Replace))));
+         Result := W_Object (To_W_String (Replace_String (Source, Pattern, Replace)));
       end;
 
       Push_Match_Result (Result, Actuals (4));
@@ -114,16 +110,12 @@ package body Wrapping.Runtime.Functions is
       Push_Frame_Context;
       Top_Frame.Top_Context.Match_Mode := Match_None;
 
-      Result :=
-        new W_String_Type'
-          (Value => To_Unbounded_Text
-             (To_Lower (Evaluate_Expression (Actuals (1)).To_String)));
+      Result := W_Object (To_W_String (To_Lower (Evaluate_Expression (Actuals (1)).To_String)));
 
       Push_Match_Result (Result, Actuals (2));
 
       Pop_Frame_Context;
    end Call_To_Lower;
-
 
    P_Unindent : Parameter_Profile :=
      (Make_Parameter ("ident", False),
@@ -149,8 +141,8 @@ package body Wrapping.Runtime.Functions is
       end if;
 
       Result :=
-        new W_String_Type'
-          (Value => To_Unbounded_Text
+        W_Object
+          (To_W_String
              (Reindent
                 (W_Integer (Indentation).Value,
                  Evaluate_Expression (Actuals (2)).To_String,

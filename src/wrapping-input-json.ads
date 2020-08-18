@@ -26,6 +26,9 @@ package Wrapping.Input.JSON is
    overriding
    function To_Debug_String (Object : W_JSON_Node_Type) return Text_Type;
 
+   overriding
+   function Language (Object : W_JSON_Node_Type) return Text_Type is ("json");
+
    procedure Analyze_File (Filename : String);
 
 end Wrapping.Input.JSON;

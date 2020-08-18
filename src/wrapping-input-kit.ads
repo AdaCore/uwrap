@@ -8,6 +8,8 @@ with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
 
 generic
+   Language_Name : in Text_Type;
+
    type Kit_Node is tagged private;
    type Kit_Unit is tagged private;
    type Kit_Node_Array is array (Positive range <>) of Kit_Node;
@@ -111,6 +113,9 @@ package Wrapping.Input.Kit is
 
    overriding
    function To_Debug_String (Object : W_Kit_Node_Type) return Text_Type;
+
+   overriding
+   function Language (An_Entity : W_Kit_Node_Type) return Text_Type is (Language_Name);
 
    procedure Analyze_File (File : String);
 

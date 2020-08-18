@@ -59,11 +59,7 @@ package body Wrapping.Input.JSON is
                Error ("unimplemented");
 
             when JSON_String_Type =>
-               Push_Object
-                 (W_Object'(new W_String_Type'
-                      (Value  => To_Unbounded_Text
-                       (Decode (An_Entity.Node.Get, UTF_8)),
-                       others => <>)));
+               Push_Object (To_W_String (Decode (An_Entity.Node.Get, UTF_8)));
 
             when JSON_Array_Type =>
                Error ("unimplemented");
