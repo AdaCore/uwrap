@@ -133,6 +133,9 @@ class FoldExpr(TemplateNode):
    combine=Field()
    separator=Field()
 
+class FilterExpr(TemplateNode):
+   expression=Field()
+
 class AllExpr(TemplateNode):
    expression=Field()
 
@@ -321,6 +324,7 @@ template_grammar.add_rules(
       G.at_ref, 
       G.new_expr, 
       G.fold_expr,
+      G.filter_expr,
       G.all_expr,
       G.call_expr,
       G.identifier),
@@ -338,11 +342,12 @@ template_grammar.add_rules(
       CreateTemplateTree(G.template_call, Opt ('{', List (G.create_template_tree, sep = ',', empty_valid = True), '}')),
       CreateTemplateTree(Null (G.template_call), '{', List (G.create_template_tree, sep = ',', empty_valid = True), '}')),
    fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, Opt (',', G.expression), ')'),
+   filter_expr=FilterExpr ('filter', '(', G.expression, ')'),
    all_expr=AllExpr ('all', '(', Opt (G.expression), ')'),
    at_ref=AtRef('@'),
    call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
    lambda_expr=LambdaExpr ('lambda', '(', G.expression, ')'),
-   arg_list=List(Argument(Opt (Or (G.identifier, TokenIdentifier ("match")), "=>"), G.root_expression), sep=',', empty_valid=True),
+   arg_list=List(Argument(Opt (G.identifier, "=>"), G.root_expression), sep=',', empty_valid=True),
    identifier=Identifier(Token.Identifier),
    dotted_name=Selector(Opt (G.dotted_name, '.'), G.identifier),
    integer=Number(Token.Integer),

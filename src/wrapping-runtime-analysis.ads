@@ -34,6 +34,8 @@ package Wrapping.Runtime.Analysis is
 
    procedure Push_Frame (Lexical_Scope : access T_Entity_Type'Class);
 
+   procedure Push_Frame (Frame : Data_Frame);
+
    procedure Pop_Frame;
 
    procedure Push_Frame_Context;

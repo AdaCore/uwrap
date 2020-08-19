@@ -419,10 +419,12 @@ package body Wrapping.Runtime.Objects is
      (An_Entity : access W_Vector_Type;
       Name      : Text_Type) return Boolean
    is
-       Call : Call_Access;
+      Call : Call_Access;
+      Is_Generator : Boolean := False;
    begin
       if Name = "element" then
          Call := Call_Element'Access;
+         Is_Generator := True;
       elsif Name = "get" then
          Call := Call_Get'Access;
       elsif Name = "append" then
@@ -433,7 +435,8 @@ package body Wrapping.Runtime.Objects is
          Push_Object
            (W_Object'(new W_Intrinsic_Function_Type'
               (Prefix => W_Object (An_Entity),
-               Call => Call)));
+               Call   => Call,
+               Is_Generator => Is_Generator)));
          return True;
       else
          return False;
@@ -484,6 +487,7 @@ package body Wrapping.Runtime.Objects is
       Name      : Text_Type) return Boolean
    is
       Call : Call_Access;
+      Is_Generator : Boolean := False;
    begin
       if Name = "insert" then
          Call := Call_Insert'Access;
@@ -491,6 +495,7 @@ package body Wrapping.Runtime.Objects is
          Call := Call_Include'Access;
       elsif Name = "element" then
          Call := Call_Element'Access;
+         Is_Generator := True;
       elsif Name = "get" then
          Call := Call_Get'Access;
       end if;
@@ -499,7 +504,8 @@ package body Wrapping.Runtime.Objects is
          Push_Object
            (W_Object'(new W_Intrinsic_Function_Type'
               (Prefix => W_Object (An_Entity),
-               Call => Call)));
+               Call   => Call,
+               Is_Generator => Is_Generator)));
          return True;
       else
          return False;
@@ -512,6 +518,7 @@ package body Wrapping.Runtime.Objects is
       Name      : Text_Type) return Boolean
    is
       Call : Call_Access;
+      Is_Generator : Boolean := False;
    begin
       if Name = "insert" then
          Call := Call_Insert'Access;
@@ -519,6 +526,7 @@ package body Wrapping.Runtime.Objects is
          Call := Call_Include'Access;
       elsif Name = "element" then
          Call := Call_Element'Access;
+         Is_Generator := True;
       elsif Name = "get" then
          Call := Call_Get'Access;
       end if;
@@ -527,7 +535,8 @@ package body Wrapping.Runtime.Objects is
          Push_Object
            (W_Object'(new W_Intrinsic_Function_Type'
               (Prefix => W_Object (An_Entity),
-               Call => Call)));
+               Call   => Call,
+               Is_Generator => Is_Generator)));
          return True;
       else
          return False;
@@ -674,6 +683,17 @@ package body Wrapping.Runtime.Objects is
       Params    : T_Arg_Vectors.Vector) is
    begin
       An_Entity.Call (An_Entity.Prefix, Params);
+
+      if not An_Entity.Is_Generator then
+         --  If this entity is a generator itself (e.g. child ()), it already
+         --  took care of the expansion. Otherwise, call the expanded action
+         --  on the one result
+
+         if Top_Frame.Top_Context.Expand_Action /= null then
+            Top_Frame.Top_Context.Expand_Action.all;
+            Delete_Object_At_Position (-2);
+         end if;
+      end if;
    end Push_Call_Result;
 
    overriding
@@ -715,12 +735,12 @@ package body Wrapping.Runtime.Objects is
             Last_Picked := Object;
             Top_Frame.Interrupt_Program := True;
          else
-            Top_Frame := Calling_Frame;
+            Push_Frame (Calling_Frame);
             Push_Implicit_Self (Object);
             Calling_Frame.Top_Context.Expand_Action.all;
             Last_Picked := Pop_Object;
             Pop_Object;
-            Top_Frame := Called_Frame;
+            Pop_Frame;
          end if;
       end Pick_Callback;
 
@@ -763,7 +783,8 @@ package body Wrapping.Runtime.Objects is
               (W_Object'
                  (new W_Intrinsic_Function_Type'
                       (Prefix => Get_Object_For_Entity (An_Entity.An_Entity),
-                       Call => Call_Find'Access)));
+                       Call   => Call_Find'Access,
+                       Is_Generator => True)));
             return True;
          end if;
       end if;
@@ -956,6 +977,7 @@ package body Wrapping.Runtime.Objects is
       Name      : Text_Type) return Boolean
    is
       A_Call : Call_Access := null;
+      Is_Generator : Boolean := False;
    begin
       if An_Entity.Templates_By_Name.Contains (Name) then
          Push_Object (An_Entity.Templates_By_Name.Element (Name));
@@ -963,16 +985,22 @@ package body Wrapping.Runtime.Objects is
          return True;
       elsif Name = "parent" then
          A_Call := Call_Browse_Parent'Access;
+         Is_Generator := True;
       elsif Name = "child" then
          A_Call := Call_Browse_Child'Access;
+         Is_Generator := True;
       elsif Name = "next" then
          A_Call := Call_Browse_Next'Access;
+         Is_Generator := True;
       elsif Name = "prev" then
          A_Call := Call_Browse_Prev'Access;
+         Is_Generator := True;
       elsif Name = "sibling" then
          A_Call := Call_Browse_Sibling'Access;
+         Is_Generator := True;
       elsif Name = "wrapper" then
          A_Call := Call_Browse_Wrapper'Access;
+         Is_Generator := True;
       elsif Name = "tmp" then
          A_Call := Call_Tmp'Access;
       elsif Name = "self" then
@@ -982,8 +1010,9 @@ package body Wrapping.Runtime.Objects is
       if A_Call /= null then
          Push_Object
            (W_Object'(new W_Intrinsic_Function_Type'
-                (Prefix => W_Object (An_Entity),
-                 Call => A_Call)));
+                (Prefix       => W_Object (An_Entity),
+                 Call         => A_Call,
+                 Is_Generator => Is_Generator)));
 
          return True;
       end if;

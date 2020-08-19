@@ -568,6 +568,9 @@ package body Wrapping.Semantic.Analysis is
                  (Node.As_Match_Expr.F_Else_Exp);
             end if;
 
+         when Template_Filter_Expr =>
+            Expr.Filter_Expr := Build_Expr (Node.As_Filter_Expr.F_Expression);
+
          when others =>
             Error ("Unsupported expression node");
 

@@ -1,0 +1,11 @@
+function X () do
+   pick "D";
+   pick "E";
+   pick "F";
+end;
+
+match Entity (f_name ("A")) do
+   weave standard.out (@ & "GENERATION: " & X ().filter (x"D|F").all(v: true).fold (c : "", c: (c & v & ",")) & "\n");   
+then
+   weave standard.out (@ & "SIMPLE VALUE: " & X ().filter ("E") & "\n");   
+end;

@@ -29,10 +29,12 @@ class Token(LexerToken):
     
     New        = WithText()
     Fold       = WithText()
+    Filter     = WithText()
+    All        = WithText()
 
     Into       = WithText()
     Over       = WithText()
-    All        = WithText()
+    
     Is         = WithText()
     Has        = WithText()
     Many       = WithText()
@@ -100,10 +102,12 @@ template_lexer.add_rules(
 
     (Literal ("new"), Token.New),
     (Literal ("fold"), Token.Fold),
-    
+    (Literal ("all"), Token.All),
+    (Literal ("filter"), Token.Filter),
+
     (Literal("into"), Token.Into),
     (Literal("over"), Token.Over),
-    (Literal("all"), Token.All),
+    
     (Literal("is"), Token.Is),
     (Literal("has"), Token.Has),
     (Literal("many"), Token.Many),

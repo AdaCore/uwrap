@@ -226,7 +226,8 @@ package body Wrapping.Input.Kit is
            (W_Object'
               (new W_Intrinsic_Function_Type'
                    (Prefix => W_Object (An_Entity),
-                    Call   => Call_Check_Expression'Unrestricted_Access)));
+                    Call   => Call_Check_Expression'Unrestricted_Access,
+                    others => <>)));
          return True;
       end if;
 

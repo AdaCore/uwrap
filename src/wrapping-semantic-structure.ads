@@ -355,6 +355,9 @@ package Wrapping.Semantic.Structure is
             Match_Pick_Expr : T_Expr;
             Match_Else_Expr : T_Expr;
 
+         when Template_Filter_Expr =>
+            Filter_Expr : T_Expr;
+
          when others =>
             null;
       end case;
@@ -364,7 +367,7 @@ package Wrapping.Semantic.Structure is
    procedure Resolve_References (An_Entity : access T_Expr_Type);
 
    type T_Arg_Type is new T_Entity_Type with record
-      Name_Node : Template_Node;
+      Name_Node : Identifier;
       Name : Unbounded_Text_Type;
       Expr : T_Expr;
    end record;

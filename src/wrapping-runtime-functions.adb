@@ -8,8 +8,7 @@ with Wrapping.Utils; use Wrapping.Utils;
 package body Wrapping.Runtime.Functions is
 
    P_Normalize_Ada_Name : Parameter_Profile :=
-      (Make_Parameter ("str", False),
-       Make_Parameter ("match", True));
+      (1 => Make_Parameter ("str", False));
 
    procedure Call_Normalize_Ada_Name
      (Object : access W_Object_Type'Class;
@@ -58,10 +57,9 @@ package body Wrapping.Runtime.Functions is
 
             C := C + 1;
          end loop;
-
-
-         Push_Match_Result (W_Object (To_W_String (New_Name)), Actuals (2));
       end;
+
+      Push_Object (To_W_String (New_Name));
 
       Pop_Frame_Context;
    end Call_Normalize_Ada_Name;
@@ -69,8 +67,7 @@ package body Wrapping.Runtime.Functions is
    P_Replace_Text : Parameter_Profile :=
       (Make_Parameter ("source", False),
        Make_Parameter ("pattern", False),
-       Make_Parameter ("replace", False),
-       Make_Parameter ("match", True));
+       Make_Parameter ("replace", False));
 
    procedure Call_Replace_Text
      (Object : access W_Object_Type'Class;
@@ -91,13 +88,13 @@ package body Wrapping.Runtime.Functions is
          Result := W_Object (To_W_String (Replace_String (Source, Pattern, Replace)));
       end;
 
-      Push_Match_Result (Result, Actuals (4));
+      Push_Object (Result);
+
       Pop_Frame_Context;
    end Call_Replace_Text;
 
    P_To_Lower : Parameter_Profile :=
-      (Make_Parameter ("str", False),
-       Make_Parameter ("match", True));
+      (1 => Make_Parameter ("str", False));
 
    procedure Call_To_Lower
     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
@@ -111,16 +108,14 @@ package body Wrapping.Runtime.Functions is
       Top_Frame.Top_Context.Match_Mode := Match_None;
 
       Result := W_Object (To_W_String (To_Lower (Evaluate_Expression (Actuals (1)).To_String)));
-
-      Push_Match_Result (Result, Actuals (2));
+      Push_Object (Result);
 
       Pop_Frame_Context;
    end Call_To_Lower;
 
    P_Unindent : Parameter_Profile :=
      (Make_Parameter ("ident", False),
-      Make_Parameter ("str", False),
-      Make_Parameter ("match", True));
+      Make_Parameter ("str", False));
 
    procedure Call_Reindent
     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
@@ -147,8 +142,7 @@ package body Wrapping.Runtime.Functions is
                 (W_Integer (Indentation).Value,
                  Evaluate_Expression (Actuals (2)).To_String,
                  True)));
-
-      Push_Match_Result (Result, Actuals (3));
+      Push_Object (Result);
 
       Pop_Frame_Context;
    end Call_Reindent;

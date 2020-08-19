@@ -283,6 +283,7 @@ package Wrapping.Runtime.Objects is
    type W_Intrinsic_Function_Type is new W_Object_Type with record
       Prefix : W_Object;
       Call   : Call_Access;
+      Is_Generator : Boolean := False;
    end record;
 
    overriding

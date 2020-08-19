@@ -30,13 +30,11 @@ package body Wrapping.Runtime.Structure is
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return W_Object is
    begin
-      if A_Frame.Symbols.Contains (Name) then
-         return A_Frame.Symbols.Element (Name);
-      elsif A_Frame.Parent_Frame /= null then
-         return Get_Visible_Symbol (A_Frame.Parent_Frame.all, Name);
-      else
-         return null;
+      if Top_Frame.Symbols.Contains (Name) then
+         return Top_Frame.Symbols.Element (Name);
       end if;
+
+      return null;
    end Get_Visible_Symbol;
 
    function Get_Module (A_Frame : Data_Frame_Type) return Semantic.Structure.T_Module is
@@ -195,6 +193,7 @@ package body Wrapping.Runtime.Structure is
       Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
       Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
       Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
+      Top_Frame.Top_Context.Expand_Action := null;
 
       Evaluate_Expression (Match_Expression);
 

@@ -37,6 +37,10 @@ package body Wrapping.Runtime.Analysis is
      with Post =>
        Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
 
+   procedure Handle_Filter (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector)
+     with Post =>
+       Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
+
    procedure Handle_New (Create_Tree : T_Create_Tree)
      with Post =>
        Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
@@ -170,7 +174,8 @@ package body Wrapping.Runtime.Analysis is
         (W_Object'
            (new W_Intrinsic_Function_Type'
                 (Prefix => Prefix,
-                 Call   => A_Call)));
+                 Call   => A_Call,
+                 others => <>)));
    end Push_Intrinsic_Function;
 
    procedure Pop_Object (Number : Positive := 1) is
@@ -249,27 +254,26 @@ package body Wrapping.Runtime.Analysis is
    procedure Push_Frame (Lexical_Scope : access T_Entity_Type'Class) is
       New_Frame : Data_Frame := new Data_Frame_Type;
    begin
-      New_Frame.Parent_Frame := Top_Frame;
       New_Frame.Lexical_Scope := T_Entity (Lexical_Scope);
       New_Frame.Top_Context := new Frame_Context_Type;
 
-      if Top_Frame /= null then
+      if Data_Frame_Stack.Length > 0 then
          New_Frame.Top_Context.An_Allocate_Callback := Top_Frame.Top_Context.An_Allocate_Callback;
          New_Frame.Top_Context.Visit_Decision := Top_Frame.Top_Context.Visit_Decision;
          New_Frame.Top_Context.Expand_Action := Top_Frame.Top_Context.Expand_Action;
       end if;
 
-      Top_Frame := New_Frame;
+      Data_Frame_Stack.Append (New_Frame);
+   end Push_Frame;
+
+   procedure Push_Frame (Frame : Data_Frame) is
+   begin
+      Data_Frame_Stack.Append (Frame);
    end Push_Frame;
 
    procedure Pop_Frame is
-      procedure Free is new Ada.Unchecked_Deallocation (Data_Frame_Type, Data_Frame);
-
-      Old_Frame : Data_Frame;
    begin
-      Old_Frame := Top_Frame;
-      Top_Frame := Old_Frame.Parent_Frame;
-      Free (Old_Frame);
+      Data_Frame_Stack.Delete_Last;
    end Pop_Frame;
 
    function Get_Implicit_Self (From : Data_Frame := Top_Frame) return W_Object is
@@ -620,11 +624,9 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Command_Sequence (Sequence : T_Command_Sequence_Element) is
       Seq  : T_Command_Sequence_Element := Sequence;
-      Calling_Frame : Data_Frame := Top_Frame.Parent_Frame;
+      Calling_Frame : Data_Frame := Parent_Frame;
       Called_Frame : Data_Frame := Top_Frame;
       New_Ref : W_Reference;
-
-      use W_Object_Maps;
    begin
       while Seq /= null loop
          --  First, create variables for this scope. This need to be done before
@@ -707,7 +709,7 @@ package body Wrapping.Runtime.Analysis is
          --  variable.
 
          if Calling_Frame /= null then
-            Top_Frame := Calling_Frame;
+            Push_Frame (Calling_Frame);
 
             for A_Var of Seq.Vars loop
                declare
@@ -739,7 +741,7 @@ package body Wrapping.Runtime.Analysis is
                end;
             end loop;
 
-            Top_Frame := Called_Frame;
+            Pop_Frame;
          end if;
 
          --  Then execute command in reverse
@@ -1792,12 +1794,12 @@ package body Wrapping.Runtime.Analysis is
             Handle_Template_Call_Recursive (T_Template (A_Template_Instance.Defining_Entity));
          end if;
 
-         if Top_Frame.Parent_Frame.Template_Parameters_Position.Length > 0 then
+         if Parent_Frame.Template_Parameters_Position.Length > 0 then
             Error ("too many parameters");
-         elsif Top_Frame.Parent_Frame.Template_Parameters_Names.Length > 0 then
+         elsif Parent_Frame.Template_Parameters_Names.Length > 0 then
             Error
               ("no parameter '"
-               & Top_Frame.Parent_Frame.Template_Parameters_Names.First_Key
+               & Parent_Frame.Template_Parameters_Names.First_Key
                & "' found for template");
          end if;
 
@@ -1957,6 +1959,8 @@ package body Wrapping.Runtime.Analysis is
          Handle_All (Expr, Suffix);
       elsif Expr.Selector_Right.Kind in Template_Fold_Expr then
          Handle_Fold (Expr, Suffix);
+      elsif Expr.Selector_Right.Kind in Template_Filter_Expr then
+         Handle_Filter (Expr, Suffix);
       elsif Expr.Selector_Left.Kind in Template_Selector then
          Suffix.Prepend (Expr.Selector_Right);
          Handle_Selector (Expr.Selector_Left, Suffix);
@@ -2036,6 +2040,99 @@ package body Wrapping.Runtime.Analysis is
          Delete_Object_At_Position (-2);
       end if;
    end Handle_Fold;
+
+   procedure Handle_Filter (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector) is
+
+      Filtered_Expr : T_Expr := Selector.Selector_Right.Filter_Expr;
+      Prefix_Function : T_Expr;
+
+      procedure Generator (Node : access W_Object_Type'Class; Expr : T_Expr) is
+
+         Original_Yield : Expand_Action_Type := Top_Frame.Top_Context.Expand_Action;
+
+         procedure Yield_Callback is
+            Testing : W_Object := Top_Object;
+         begin
+            Push_Frame_Context;
+            Top_Frame.Top_Context.Outer_Object := Testing;
+            Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+            Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+
+            Evaluate_Expression (Expr);
+
+            Pop_Frame_Context;
+
+            if Top_Object /= Match_False then
+               Pop_Object;
+               Push_Object (Testing);
+
+               if Original_Yield /= null then
+                  --  We are generating values, calling the original generator.
+
+                  Original_Yield.all;
+                  Delete_Object_At_Position (-2);
+               else
+                  --  We're just looking for the first matching value, interrupt
+                  --  the current iteration
+
+                  Parent_Frame.Interrupt_Program := True;
+               end if;
+            end if;
+         end Yield_Callback;
+
+      begin
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Expand_Action := Yield_Callback'Unrestricted_Access;
+         Top_Frame.Top_Context.Match_Mode := Match_None;
+
+         Evaluate_Expression (Prefix_Function);
+
+         Pop_Frame_Context;
+      end Generator;
+
+   begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Top_Frame.Top_Context.Is_Root_Selection := True;
+
+      --  A filter expression is about calling the directly prefixing function
+      --  several times to find a matching pattern. First identify the inital
+      --  value of self and the expression on which the filter is done. In
+      --  the case:
+      --     X ().filter ()
+      --  Self is current self, X is the function. In the case:
+      --     A.B.X ().filter ()
+      --  X is still the function, but A.B needs to be computed to retreive
+      --  self.
+
+      case Selector.Selector_Left.Kind is
+         when Template_Selector =>
+            Prefix_Function := Selector.Selector_Left.Selector_Right;
+            Evaluate_Expression (Selector.Selector_Left.Selector_Left);
+
+         when others =>
+            Prefix_Function := Selector.Selector_Left;
+            Push_Object (Top_Object);
+
+      end case;
+
+      --  At this stage, we evaluated the prefix of A.B.X () if any. Now launch
+      --  the regexp analysis
+
+      Evaluate_Generator_Regexp
+        (Root      => Top_Object,
+         Generator => Generator'Access,
+         Expr      => Filtered_Expr);
+
+      Delete_Object_At_Position (-2);
+      Pop_Frame_Context;
+
+      if Suffix.Length > 0 then
+         Compute_Selector_Suffix (Suffix);
+         Delete_Object_At_Position (-2);
+      end if;
+   end Handle_Filter;
+
 
    procedure Handle_All (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector)
    is

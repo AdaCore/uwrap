@@ -484,6 +484,7 @@ package body Wrapping.Semantic.Structure is
                | Template_Qualified_Match
                | Template_All_Expr
                | Template_Fold_Expr
+               | Template_Filter_Expr
                | Template_Lambda_Expr
                | Template_Call_Expr
                | Template_New_Expr

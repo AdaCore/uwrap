@@ -1,11 +1,11 @@
 match Entity ()
 weave standard.out (@ & "to_lower (1) (\e<f_name>) = \e<to_lower (f_name)>\n");
 
-match Entity () and r: to_lower (f_name, x"a")
+match Entity () and r: to_lower (f_name).filter (x"a")
 weave standard.out (@ & "to_lower (2) (\e<f_name>) = \e<r>\n");
 
-match Entity () and r: to_lower (match => x"a", str => f_name)
+match Entity () and r: to_lower (str => f_name).filter (x"a")
 weave standard.out (@ & "to_lower (3) (\e<f_name>) = \e<r>\n");
 
-match Entity () and to_lower (f_name, x"b")
+match Entity () and to_lower (f_name).filter (x"b")
 weave standard.out (@ & "REPLACE: " & replace_text (to_lower (f_name), "b", "-") & "\n");

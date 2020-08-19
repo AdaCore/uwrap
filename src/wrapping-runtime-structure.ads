@@ -41,7 +41,11 @@ package Wrapping.Runtime.Structure is
    package Data_Frame_Vectors is new Ada.Containers.Vectors (Positive, Data_Frame);
    use Data_Frame_Vectors;
 
-   Top_Frame : Data_Frame;
+   Data_Frame_Stack : Data_Frame_Vectors.Vector;
+
+   function Top_Frame return Data_Frame is (if Data_Frame_Stack.Length > 0 then Data_Frame_Stack.Last_Element else null);
+
+   function Parent_Frame return Data_Frame is (if Data_Frame_Stack.Length > 1 then Data_Frame_Stack.Element (Data_Frame_Stack.Last_Index - 1) else null);
 
    type Frame_Context_Type;
    type Frame_Context is access all Frame_Context_Type;
@@ -147,8 +151,6 @@ package Wrapping.Runtime.Structure is
    end record;
 
    type Data_Frame_Type is record
-      Parent_Frame   : Data_Frame;
-
       Symbols        : W_Object_Maps.Map;
 
       Group_Sections : Matched_Groups_Vectors.Vector;
@@ -174,7 +176,6 @@ package Wrapping.Runtime.Structure is
 
    type Closure_Type;
    type Closure is access all Closure_Type;
-
 
    type Deferred_Command_Type;
    type Deferred_Command is access all Deferred_Command_Type;
