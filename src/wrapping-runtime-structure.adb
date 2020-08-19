@@ -693,6 +693,7 @@ package body Wrapping.Runtime.Structure is
          Push_Frame_Context;
          Top_Frame.Top_Context.Outer_Object := Object;
          Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
          Evaluate_Expression (Matching_Expression);
 

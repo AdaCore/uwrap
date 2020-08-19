@@ -1324,11 +1324,7 @@ package body Wrapping.Runtime.Analysis is
          when Template_Match_Expr =>
             Push_Frame_Context_No_Pick;
 
-            Push_Frame_Context;
-            Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-            Top_Frame.Top_Context.Outer_Object := Top_Object;
-            Evaluate_Expression (Expr.Match_Match_Expr);
-            Pop_Frame_Context;
+            Push_Match_Result (Top_Object, Expr.Match_Match_Expr);
 
             if Pop_Object /= Match_False then
                Evaluate_Expression (Expr.Match_Pick_Expr);
