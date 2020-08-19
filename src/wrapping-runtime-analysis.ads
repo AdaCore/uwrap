@@ -42,6 +42,8 @@ package Wrapping.Runtime.Analysis is
 
    procedure Push_Frame_Context (Context : Frame_Context_Type);
 
+   procedure Push_Frame_Context_Parameter;
+
    procedure Pop_Frame_Context;
 
    procedure Push_Match_Groups_Section;

@@ -218,6 +218,13 @@ package body Wrapping.Runtime.Analysis is
       Push_Frame_Context (Top_Frame.Top_Context.all);
    end Push_Frame_Context;
 
+   procedure Push_Frame_Context_Parameter is
+   begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Top_Frame.Top_Context.Is_Root_Selection := True;
+   end Push_Frame_Context_Parameter;
+
    procedure Push_Frame_Context (Context : Frame_Context_Type) is
    begin
       Top_Frame.Top_Context := new Frame_Context_Type'
@@ -1984,7 +1991,9 @@ package body Wrapping.Runtime.Analysis is
          if Is_First then
             Is_First := False;
          elsif Fold_Expr.Separator /= null then
+            Push_Frame_Context_Parameter;
             Evaluate_Expression (Fold_Expr.Separator);
+            Pop_Frame_Context;
             Pop_Object;
          end if;
 
@@ -1996,8 +2005,7 @@ package body Wrapping.Runtime.Analysis is
       --  self is top of the stack, as name can refer to the implicit self. Re
       --  push this value
 
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Is_Root_Selection := True;
+      Push_Frame_Context_Parameter;
       Push_Implicit_Self (Get_Implicit_Self);
       Init_Value := Evaluate_Expression (Fold_Expr.Default);
 
@@ -2051,21 +2059,10 @@ package body Wrapping.Runtime.Analysis is
          Original_Yield : Expand_Action_Type := Top_Frame.Top_Context.Expand_Action;
 
          procedure Yield_Callback is
-            Testing : W_Object := Top_Object;
          begin
-            Push_Frame_Context;
-            Top_Frame.Top_Context.Outer_Object := Testing;
-            Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-            Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-
-            Evaluate_Expression (Expr);
-
-            Pop_Frame_Context;
+            Push_Match_Result (Top_Object, Expr);
 
             if Top_Object /= Match_False then
-               Pop_Object;
-               Push_Object (Testing);
-
                if Original_Yield /= null then
                   --  We are generating values, calling the original generator.
 

@@ -92,9 +92,8 @@ package body Wrapping.Runtime.Structure is
          --  to remove potential name capture, as it would override the one we
          --  are capturing in this browsing iteration. TODO: quite the opposite if we do fold (i : inti, i: acc);
 
-         Push_Frame_Context;
+         Push_Frame_Context_Parameter;
          Top_Frame.Top_Context.Expand_Action := null;
-         Top_Frame.Top_Context.Match_Mode := Match_None;
          Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
          Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
          Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
@@ -187,7 +186,7 @@ package body Wrapping.Runtime.Structure is
       --  capture, as it would override the one we are capturing in this browsing
       --  iteration.
 
-      Push_Frame_Context;
+      Push_Frame_Context_Parameter;
       Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
       Top_Frame.Top_Context.Outer_Object := W_Object (Browsed);
       Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
@@ -741,8 +740,9 @@ package body Wrapping.Runtime.Structure is
       Parameter_Index : Integer;
       In_Named_Section : Boolean := False;
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Is_Root_Selection := True;
+      Push_Frame_Context_Parameter;
+      --  TODO: Do we really need expr callback here? Or maybe just reset to null?
+      --  Which should probably always set to null when processing parameters...
       Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
       Parameter_Index := 1;

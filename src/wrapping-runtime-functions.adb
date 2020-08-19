@@ -21,9 +21,6 @@ package body Wrapping.Runtime.Functions is
       Actuals : Actuals_Type :=
         Process_Parameters (P_Normalize_Ada_Name, Params);
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
-
       declare
          Name : constant Text_Type :=
             Evaluate_Expression (Actuals (1)).To_String;
@@ -60,8 +57,6 @@ package body Wrapping.Runtime.Functions is
       end;
 
       Push_Object (To_W_String (New_Name));
-
-      Pop_Frame_Context;
    end Call_Normalize_Ada_Name;
 
    P_Replace_Text : Parameter_Profile :=
@@ -77,9 +72,6 @@ package body Wrapping.Runtime.Functions is
       Actuals : Actuals_Type :=
         Process_Parameters (P_Replace_Text, Params);
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
-
       declare
          Source  : Text_Type := Evaluate_Expression (Actuals (1)).To_String;
          Pattern : Text_Type := Evaluate_Expression (Actuals (2)).To_String;
@@ -89,8 +81,6 @@ package body Wrapping.Runtime.Functions is
       end;
 
       Push_Object (Result);
-
-      Pop_Frame_Context;
    end Call_Replace_Text;
 
    P_To_Lower : Parameter_Profile :=
@@ -104,13 +94,8 @@ package body Wrapping.Runtime.Functions is
       Actuals          : Actuals_Type :=
         Process_Parameters (P_To_Lower, Params);
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
-
       Result := W_Object (To_W_String (To_Lower (Evaluate_Expression (Actuals (1)).To_String)));
       Push_Object (Result);
-
-      Pop_Frame_Context;
    end Call_To_Lower;
 
    P_Unindent : Parameter_Profile :=
@@ -126,9 +111,6 @@ package body Wrapping.Runtime.Functions is
         Process_Parameters (P_Unindent, Params);
       Indentation : W_Object;
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
-
       Indentation := Evaluate_Expression (Actuals (1)).Dereference;
 
       if Indentation.all not in W_Integer_Type'Class then
@@ -143,8 +125,6 @@ package body Wrapping.Runtime.Functions is
                  Evaluate_Expression (Actuals (2)).To_String,
                  True)));
       Push_Object (Result);
-
-      Pop_Frame_Context;
    end Call_Reindent;
 
 end Wrapping.Runtime.Functions;

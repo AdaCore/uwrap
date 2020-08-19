@@ -90,10 +90,7 @@ package body Wrapping.Runtime.Objects is
            ("",
             W_Node (Object).Tmp_Counter);
       elsif Params.Length = 1 then
-         Push_Frame_Context;
-         Top_Frame.Top_Context.Match_Mode := Match_None;
          Evaluate_Expression (Params.Element (1).Expr);
-         Pop_Frame_Context;
 
          Push_Temporary_Name
            (Pop_Object.To_String,
@@ -137,7 +134,6 @@ package body Wrapping.Runtime.Objects is
    is
       P1, P2 : W_Object;
    begin
-
       if Object.all in W_Map_Type'Class then
          if Params.Length /= 2 then
             Error ("two parameters expected for include");
@@ -682,7 +678,9 @@ package body Wrapping.Runtime.Objects is
      (An_Entity : access W_Intrinsic_Function_Type;
       Params    : T_Arg_Vectors.Vector) is
    begin
+      Push_Frame_Context_Parameter;
       An_Entity.Call (An_Entity.Prefix, Params);
+      Pop_Frame_Context;
 
       if not An_Entity.Is_Generator then
          --  If this entity is a generator itself (e.g. child ()), it already
@@ -746,8 +744,7 @@ package body Wrapping.Runtime.Objects is
 
       Prev_Self : W_Object := Get_Implicit_Self;
    begin
-      Handle_Call_Parameters
-        (Params, Evaluate_Parameter'Access);
+      Handle_Call_Parameters (Params, Evaluate_Parameter'Access);
 
       Calling_Frame := Top_Frame;
 
