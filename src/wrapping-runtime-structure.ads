@@ -144,6 +144,14 @@ package Wrapping.Runtime.Structure is
       --  When set, this designates the callback to call upon pick. If the result
       --  is Stop, then stop the analysis, otherwise continues.
       Pick_Callback : Pick_Callback_Type;
+
+      --  When iterating over wrappers, we can have several matches on the same
+      --  node. During an iteration, this flag matches wether we're calling
+      --  visitors on the first wrapper that matches a given condition, or
+      --  another one. This is used in particular to avoid duplicates when
+      --  computing the children on those wrappers (only an iteration on the
+      --  first matching one would be necessary).
+      Is_First_Matching_Wrapper : Boolean := True;
    end record;
 
    type Matched_Groups_Type is record

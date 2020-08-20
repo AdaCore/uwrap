@@ -1441,19 +1441,23 @@ package body Wrapping.Runtime.Objects is
 
                return Into_Override_Anchor;
             else
+               Push_Frame_Context;
+               Top_Frame.Top_Context.Is_First_Matching_Wrapper := True;
+
                for T of W_Node (E).Templates_Ordered loop
                   Last_Decision := Visitor (T, Current_Result);
 
                   if Current_Result /= Match_False
                     and then Current_Result /= null
                   then
+                     Top_Frame.Top_Context.Is_First_Matching_Wrapper := False;
                      Result := Current_Result;
                   end if;
 
-                  if Last_Decision = Stop then
-                     return Stop;
-                  end if;
+                  exit when Last_Decision = Stop;
                end loop;
+
+               Pop_Frame_Context;
             end if;
          end if;
 

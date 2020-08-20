@@ -228,19 +228,20 @@ package body Wrapping.Runtime.Analysis is
    procedure Push_Frame_Context (Context : Frame_Context_Type) is
    begin
       Top_Frame.Top_Context := new Frame_Context_Type'
-        (Parent_Context       => Top_Frame.Top_Context,
-         Current_Command      => Context.Current_Command,
-         Outer_Expr_Callback  => Context.Outer_Expr_Callback,
-         Match_Mode           => Context.Match_Mode,
-         Name_Captured        => Context.Name_Captured,
-         Expand_Action        => Context.Expand_Action,
-         An_Allocate_Callback => Context.An_Allocate_Callback,
-         Left_Value           => Context.Left_Value,
-         Is_Root_Selection    => Context.Is_Root_Selection,
-         Outer_Object         => Context.Outer_Object,
-         Visit_Decision       => Context.Visit_Decision,
-         Regexpr_Anchored     => Context.Regexpr_Anchored,
-         Pick_Callback        => Context.Pick_Callback);
+        (Parent_Context            => Top_Frame.Top_Context,
+         Current_Command           => Context.Current_Command,
+         Outer_Expr_Callback       => Context.Outer_Expr_Callback,
+         Match_Mode                => Context.Match_Mode,
+         Name_Captured             => Context.Name_Captured,
+         Expand_Action             => Context.Expand_Action,
+         An_Allocate_Callback      => Context.An_Allocate_Callback,
+         Left_Value                => Context.Left_Value,
+         Is_Root_Selection         => Context.Is_Root_Selection,
+         Outer_Object              => Context.Outer_Object,
+         Visit_Decision            => Context.Visit_Decision,
+         Regexpr_Anchored          => Context.Regexpr_Anchored,
+         Pick_Callback             => Context.Pick_Callback,
+         Is_First_Matching_Wrapper => Context.Is_First_Matching_Wrapper);
    end Push_Frame_Context;
 
    procedure Pop_Frame_Context is

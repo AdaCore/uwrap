@@ -1,0 +1,41 @@
+template A;
+template B;
+template C;
+
+template A1;
+template B1;
+template C1;
+
+template A2;
+template B2;
+template C2;
+
+match f_name ("A") do
+   wrap A ();
+   wrap A1 ();
+   wrap A2 ();
+end;
+
+match f_name ("B") do
+   wrap B ();
+   wrap B1 ();
+   wrap B2 ();
+end;
+
+match f_name ("C") do
+   wrap C ();
+   wrap C1 ();
+   wrap C2 ();
+end;
+
+match A () 
+pick child (\ B).all ()
+weave standard.out (@ & "\\ B: \e<kind>\n");
+
+match A () 
+pick child (\ B or B1 or B2).all ()
+weave standard.out (@ & "\\ B or B1 or B2: \e<kind> \n");
+
+match A ()
+pick child (\ true \ C).all ()
+weave standard.out (@ & "\\ true \\ C: \e<kind> \n");

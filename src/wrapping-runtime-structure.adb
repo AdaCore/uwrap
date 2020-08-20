@@ -277,7 +277,14 @@ package body Wrapping.Runtime.Structure is
       procedure Process_Right_Action is
          Result : W_Object;
       begin
-         if Expr.Reg_Expr_Right /= null then
+
+         --  If we are not on the wrapper, Is_First_Matching_Wrapper is always true.
+         --
+         --  If we are on a wrapper, we only want to look at the next step
+         --  in the iteration if we're on the first one that matches.
+         --  Ignore the others.
+         if Expr.Reg_Expr_Right /= null and then Top_Frame.Top_Context.Is_First_Matching_Wrapper then
+
             Push_Frame_Context;
 
             Restore_Yield_Capture;
@@ -295,7 +302,10 @@ package body Wrapping.Runtime.Structure is
                   Top_Frame.Top_Context.Visit_Decision.all := Stop;
                end if;
             end if;
-         else
+         elsif Expr.Reg_Expr_Right = null then
+            --  We're at the end of the expression. Call the expand fonction
+            --  on all matches (even duplicate wrappers).
+
             Push_Object (Top_Object);
 
             if Original_Expand_Function /= null then
@@ -305,6 +315,12 @@ package body Wrapping.Runtime.Structure is
             else
                Top_Frame.Top_Context.Visit_Decision.all := Stop;
             end if;
+         else
+            --  We're not at the end of the iteration but are not on the first
+            --  mathing wrapper anymore. Don't continue the processing on this
+            --  wrapper node, the next onces have already been processed.
+
+            Push_Match_False;
          end if;
       end Process_Right_Action;
 
