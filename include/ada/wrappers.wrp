@@ -374,6 +374,15 @@ template ada_to_wrappers pick origin do
       match parent (BasicDecl () and parent (PackageDecl ()))
       wrap w_DefiningName (name => @ & "\e<self>");
    end;
+
+   # TODO use to_lower ().filter () here in order to accept all casing for
+   # convention
+   match AspectAssoc (f_id ("Convention")) and parent (TypeDecl ()) do
+      wrap w_Aspect (self);
+
+      match f_expr ("C_Pass_By_Copy")
+      wrap w_Aspect ("Convention => C");
+   end;
 end;
 
 template wrappers_post_process pick origin do
@@ -512,7 +521,7 @@ template wrappers_post_process pick origin do
       match prev (w_Aspect ()) do
          pick p weave (aspects_declaration => @ & ", \e<w.txt>\n"); 
       else 
-         pick p weave (aspects_declaration => @ & "with \e<w.txt>\n");
+         pick p weave (aspects_declaration => @ & "\n with \e<w.txt>\n");
       end;
    end;
 
