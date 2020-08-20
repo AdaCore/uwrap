@@ -87,7 +87,7 @@ end;
 
 match w_ExceptionRegistry () do
    match r: self () and u: (
-       w_Unit.find (self.child (p: w_PackageDecl(name (r.package))))
+       w_Unit.filter (self.child (p: w_PackageDecl(name (r.package))))
          or
        new (w_Unit () {p: w_PackageDecl(name => r.package)}))
    do
@@ -127,7 +127,7 @@ template error_code_into_exception pick origin do
 
       pick n wrap null (w_DefiningName);
 
-      match r: (w_ExceptionRegistry.find (package (text (package_container)) and name (text (registry_name)))
+      match r: (w_ExceptionRegistry.filter (package (text (package_container)) and name (text (registry_name)))
          or new (w_ExceptionRegistry (package => text (package_container), name => text (registry_name))))
       pick r weave (
          exceptions => @ & "\e<exception_name> : exception;\n",

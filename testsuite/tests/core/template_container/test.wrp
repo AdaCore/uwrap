@@ -27,7 +27,7 @@ match f_name ("A")
 wrap w: w_Node ();
 
 match w_Node ()
-weave standard.out (@ & "SET: " & self.my_set.element (e: true).fold (c: "", c: (c & e), c: (c & ", ")) & "\n");
+weave standard.out (@ & "SET: " & self.my_set.filter (e: true).fold (c: "", c: (c & e), c: (c & ", ")) & "\n");
 
 match w_Node ()
-weave standard.out (@ & "VECTOR: " & self.my_vector.element (e: true).fold (c: "", c: (c & e), c: (c & ", ")) & "\n");
+weave standard.out (@ & "VECTOR: " & self.my_vector.filter (e: true).fold (c: "", c: (c & e), c: (c & ", ")) & "\n");

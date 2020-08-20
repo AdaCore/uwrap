@@ -226,115 +226,6 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Call_Get;
 
-   procedure Call_Element
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
-   is
-      Last_Action : Visit_Action;
-      Result : W_Object;
-      Last_Result : W_Object;
-      Expr : T_Expr;
-
-      procedure Update_Result is
-      begin
-         if Last_Result /= null and then Last_Result /= Match_False then
-            Result := Last_Result;
-         end if;
-      end Update_Result;
-   begin
-      if Params.Length > 1 then
-         Error ("element expects at most one parameter");
-      end if;
-
-      if Params.Length = 1 then
-         Expr := Params.Element (1).Expr;
-      end if;
-
-      if Object.all in W_Map_Type'Class then
-         declare
-            Map : W_Map := W_Map (Object);
-         begin
-            if Map.A_Map.Length > 0 then
-               for E of Map.A_Map loop
-                  Last_Action := Object.Browse_Entity (E, Expr, Last_Result);
-                  Update_Result;
-
-                  exit when Last_Action = Stop;
-               end loop;
-            end if;
-         end;
-      elsif Object.all in W_Set_Type'Class then
-         declare
-            Set : W_Set := W_Set (Object);
-         begin
-            if Set.A_Set.Length > 0 then
-               for E of Set.A_Set loop
-                  Last_Action := Object.Browse_Entity (E, Expr, Last_Result);
-                  Update_Result;
-
-                  exit when Last_Action = Stop;
-               end loop;
-            end if;
-         end;
-      elsif Object.all in W_Vector_Type'Class then
-         declare
-            Vector : W_Vector := W_Vector (Object);
-         begin
-            if Vector.A_Vector.Length > 0 then
-               for E of Vector.A_Vector loop
-                  Last_Action := Object.Browse_Entity (E, Expr, Last_Result);
-                  Update_Result;
-
-                  exit when Last_Action = Stop;
-               end loop;
-            end if;
-         end;
-      end if;
-
-      if Result /= null then
-         Push_Object (Result);
-      else
-         Push_Match_False;
-      end if;
-   end Call_Element;
-
-   procedure Call_Find
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
-   is
-      A_Template : W_Template_Instance := W_Template_Instance (Object);
-      Registry : W_Vector;
-      Last_Action : Visit_Action;
-      Last_Result : W_Object;
-   begin
-      if Params.Length > 1 then
-         Error ("find expects at most one parameter");
-      end if;
-
-      Registry := W_Vector
-        (W_Reference
-           (A_Template.Indexed_Variables.Element ("_registry")).Value);
-
-      if Registry.A_Vector.Length = 0 then
-         Push_Match_False;
-      elsif Params.Length = 0 then
-         Push_Match_True (Registry.A_Vector.First_Element);
-      else
-         for T of Registry.A_Vector loop
-            Last_Action := Object.Browse_Entity
-              (T, Params.Element (1).Expr, Last_Result);
-
-            exit when Last_Action = Stop;
-         end loop;
-
-         if Last_Result /= null then
-            Push_Object (Last_Result);
-         else
-            Push_Match_False;
-         end if;
-      end if;
-   end Call_Find;
-
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Reference_Type;
@@ -395,6 +286,12 @@ package body Wrapping.Runtime.Objects is
          Result           => Result);
    end Browse_Entity;
 
+   overriding
+   procedure Generate_Values (Object : access W_Reference_Type; Expr : T_Expr) is
+   begin
+      Object.Value.Generate_Values (Expr);
+   end;
+
    function Is_Text_Container (Container : W_Vector_Type) return Boolean is
    begin
       for I of Container.A_Vector loop
@@ -416,12 +313,8 @@ package body Wrapping.Runtime.Objects is
       Name      : Text_Type) return Boolean
    is
       Call : Call_Access;
-      Is_Generator : Boolean := False;
    begin
-      if Name = "element" then
-         Call := Call_Element'Access;
-         Is_Generator := True;
-      elsif Name = "get" then
+      if Name = "get" then
          Call := Call_Get'Access;
       elsif Name = "append" then
          Call := Call_Append'Access;
@@ -432,7 +325,7 @@ package body Wrapping.Runtime.Objects is
            (W_Object'(new W_Intrinsic_Function_Type'
               (Prefix => W_Object (An_Entity),
                Call   => Call,
-               Is_Generator => Is_Generator)));
+               others => <>)));
          return True;
       else
          return False;
@@ -477,21 +370,38 @@ package body Wrapping.Runtime.Objects is
       return To_Text (Result);
    end To_String;
 
+   procedure Generate_Values (Object : access W_Vector_Type; Expr : T_Expr) is
+      Result : W_Object;
+      Action : Visit_Action;
+   begin
+      if Object.A_Vector.Length = 0 then
+         Push_Match_False;
+      else
+         for E of Object.A_Vector loop
+            Action := Object.Browse_Entity (E, Expr, Result);
+
+            exit when Action = Stop;
+         end loop;
+
+         if Result /= null then
+            Push_Object (Result);
+         else
+            Push_Match_False;
+         end if;
+      end if;
+   end Generate_Values;
+
    overriding
    function Push_Value
      (An_Entity : access W_Set_Type;
       Name      : Text_Type) return Boolean
    is
       Call : Call_Access;
-      Is_Generator : Boolean := False;
    begin
       if Name = "insert" then
          Call := Call_Insert'Access;
       elsif Name = "include" then
          Call := Call_Include'Access;
-      elsif Name = "element" then
-         Call := Call_Element'Access;
-         Is_Generator := True;
       elsif Name = "get" then
          Call := Call_Get'Access;
       end if;
@@ -501,12 +411,33 @@ package body Wrapping.Runtime.Objects is
            (W_Object'(new W_Intrinsic_Function_Type'
               (Prefix => W_Object (An_Entity),
                Call   => Call,
-               Is_Generator => Is_Generator)));
+               others => <>)));
          return True;
       else
          return False;
       end if;
    end Push_Value;
+
+   procedure Generate_Values (Object : access W_Set_Type; Expr : T_Expr) is
+      Result : W_Object;
+      Action : Visit_Action;
+   begin
+      if Object.A_Set.Length = 0 then
+         Push_Match_False;
+      else
+         for E of Object.A_Set loop
+            Action := Object.Browse_Entity (E, Expr, Result);
+
+            exit when Action = Stop;
+         end loop;
+
+         if Result /= null then
+            Push_Object (Result);
+         else
+            Push_Match_False;
+         end if;
+      end if;
+   end Generate_Values;
 
    overriding
    function Push_Value
@@ -514,15 +445,11 @@ package body Wrapping.Runtime.Objects is
       Name      : Text_Type) return Boolean
    is
       Call : Call_Access;
-      Is_Generator : Boolean := False;
    begin
       if Name = "insert" then
          Call := Call_Insert'Access;
       elsif Name = "include" then
          Call := Call_Include'Access;
-      elsif Name = "element" then
-         Call := Call_Element'Access;
-         Is_Generator := True;
       elsif Name = "get" then
          Call := Call_Get'Access;
       end if;
@@ -532,44 +459,33 @@ package body Wrapping.Runtime.Objects is
            (W_Object'(new W_Intrinsic_Function_Type'
               (Prefix => W_Object (An_Entity),
                Call   => Call,
-               Is_Generator => Is_Generator)));
+               others => <>)));
          return True;
       else
          return False;
       end if;
    end Push_Value;
 
-   overriding
-   procedure Push_Call_Result
-     (An_Entity : access W_Map_Type;
-      Params    : T_Arg_Vectors.Vector)
-   is
+   procedure Generate_Values (Object : access W_Map_Type; Expr : T_Expr) is
       Result : W_Object;
       Action : Visit_Action;
    begin
-      --  Maps are browsing objects, they behave like various other tree browsing
-      --  functions.
-      --  TODO: there is no support for object allocation here at this stage,
-      --  which is not completely obvious (needs to implement some kind of a
-      --  tuple to create key and value at the same time).
-
-      if Params.Length /= 1 then
-         Error ("expected one argument for browsing map");
-      end if;
-
-      for E of An_Entity.A_Map loop
-         Action :=
-           An_Entity.Browse_Entity (E, Params.Element (1).Expr, Result);
-
-         exit when Action = Stop;
-      end loop;
-
-      if Result /= null then
-         Push_Object (Result);
-      else
+      if Object.A_Map.Length = 0 then
          Push_Match_False;
+      else
+         for E of Object.A_Map loop
+            Action := Object.Browse_Entity (E, Expr, Result);
+
+            exit when Action = Stop;
+         end loop;
+
+         if Result /= null then
+            Push_Object (Result);
+         else
+            Push_Match_False;
+         end if;
       end if;
-   end Push_Call_Result;
+   end Generate_Values;
 
    overriding
    function To_String (Object : W_Integer_Type) return Text_Type
@@ -774,18 +690,6 @@ package body Wrapping.Runtime.Objects is
    is
       A_Semantic_Entity : T_Entity;
    begin
-      if An_Entity.An_Entity.all in T_Template_Type'Class then
-         if Name = "find" then
-            Push_Object
-              (W_Object'
-                 (new W_Intrinsic_Function_Type'
-                      (Prefix => Get_Object_For_Entity (An_Entity.An_Entity),
-                       Call   => Call_Find'Access,
-                       Is_Generator => True)));
-            return True;
-         end if;
-      end if;
-
       if An_Entity.An_Entity.Children_Indexed.Contains (Name) then
          A_Semantic_Entity := An_Entity.An_Entity.Children_Indexed.Element (Name);
 
@@ -860,6 +764,20 @@ package body Wrapping.Runtime.Objects is
          Error ("matching a static entity requires one parameter at most");
       end if;
    end Push_Call_Result;
+
+   overriding
+   procedure Generate_Values (Object : access W_Static_Entity_Type; Expr : T_Expr) is
+      A_Template : W_Template_Instance;
+   begin
+      if Object.An_Entity.all not in T_Template_Type'Class then
+         Push_Match_False;
+         return;
+      end if;
+
+      A_Template := W_Template_Instance (Get_Object_For_Entity (Object.An_Entity));
+
+      A_Template.Indexed_Variables.Element ("_registry").Generate_Values (Expr);
+   end Generate_Values;
 
    overriding
    function To_String (Object : W_Lambda_Type) return Text_Type

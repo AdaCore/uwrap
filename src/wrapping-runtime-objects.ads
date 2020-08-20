@@ -160,6 +160,8 @@ package Wrapping.Runtime.Objects is
    function To_String (Object : W_Reference_Type) return Text_Type is
      (if Object.Value /= null then Object.Value.To_String else "");
 
+   procedure Generate_Values (Object : access W_Reference_Type; Expr : T_Expr);
+
    --  This type is record vector of runtime objects. In the context of
    --  templates, it is also used to provide one level of indirection between
    --  the variables and the actual objects (which may themselves be containers,
@@ -184,6 +186,9 @@ package Wrapping.Runtime.Objects is
    overriding
    function To_String (Object : W_Vector_Type) return Text_Type;
 
+   overriding
+   procedure Generate_Values (Object : access W_Vector_Type; Expr : T_Expr);
+
    type W_Set_Type is new W_Object_Type with record
       A_Set : W_Object_Sets.Set;
    end record;
@@ -192,6 +197,9 @@ package Wrapping.Runtime.Objects is
    function Push_Value
      (An_Entity : access W_Set_Type;
       Name      : Text_Type) return Boolean;
+
+   overriding
+   procedure Generate_Values (Object : access W_Set_Type; Expr : T_Expr);
 
    type W_Map_Type is new W_Object_Type with record
       A_Map : W_Object_Any_Maps.Map;
@@ -203,9 +211,7 @@ package Wrapping.Runtime.Objects is
       Name      : Text_Type) return Boolean;
 
    overriding
-   procedure Push_Call_Result
-     (An_Entity : access W_Map_Type;
-      Params    : T_Arg_Vectors.Vector);
+   procedure Generate_Values (Object : access W_Map_Type; Expr : T_Expr);
 
    type W_Integer_Type is new W_Object_Type with record
       Value : Integer;
@@ -313,6 +319,9 @@ package Wrapping.Runtime.Objects is
    procedure Push_Call_Result
      (An_Entity : access W_Static_Entity_Type;
       Params    : T_Arg_Vectors.Vector);
+
+   overriding
+   procedure Generate_Values (Object : access W_Static_Entity_Type; Expr : T_Expr);
 
    type W_Expression_Type is new W_Object_Type with record
       Expression : Template_Node;

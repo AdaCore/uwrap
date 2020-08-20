@@ -139,7 +139,11 @@ package body Wrapping.Runtime.Structure is
          Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
 
          Push_Implicit_Self (Browsed);
-         Top_Frame.Top_Context.Outer_Expr_Callback.all;
+
+         if Top_Frame.Top_Context.Outer_Expr_Callback /= null then
+            Top_Frame.Top_Context.Outer_Expr_Callback.all;
+         end if;
+
          Pop_Object;
          Pop_Frame_Context;
 
@@ -505,6 +509,16 @@ package body Wrapping.Runtime.Structure is
            (Ada.Tags.External_Tag
                 (W_Object_Type'Class (An_Entity.all)'Tag)));
    end Push_Call_Result;
+
+   procedure Generate_Values (Object : access W_Object_Type; Expr : T_Expr) is
+   begin
+      Push_Match_Result (W_Object (Object), Expr);
+
+      if Top_Frame.Top_Context.Expand_Action /= null then
+         Top_Frame.Top_Context.Expand_Action.all;
+         Delete_Object_At_Position (-2);
+      end if;
+   end Generate_Values;
 
    function Match_With_Top_Object
      (An_Entity : access W_Object_Type) return Boolean

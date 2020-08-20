@@ -2050,6 +2050,8 @@ package body Wrapping.Runtime.Analysis is
       Filtered_Expr : T_Expr := Selector.Selector_Right.Filter_Expr;
       Prefix_Function : T_Expr;
 
+      Object_Mode : Boolean;
+
       procedure Generator (Node : access W_Object_Type'Class; Expr : T_Expr) is
 
          Original_Yield : Expand_Action_Type := Top_Frame.Top_Context.Expand_Action;
@@ -2078,10 +2080,22 @@ package body Wrapping.Runtime.Analysis is
          Top_Frame.Top_Context.Expand_Action := Yield_Callback'Unrestricted_Access;
          Top_Frame.Top_Context.Match_Mode := Match_None;
 
-         Evaluate_Expression (Prefix_Function);
+         if Object_Mode then
+            --  Calling with a null expression - the expression will be checked
+            --  in the Yield callback.
+
+            Node.Generate_Values (null);
+         else
+            Evaluate_Expression (Prefix_Function);
+         end if;
 
          Pop_Frame_Context;
       end Generator;
+
+      procedure Object_Generator (Node : access W_Object_Type'Class; Expr : T_Expr) is
+      begin
+         Top_Object.Generate_Values (Expr);
+      end Object_Generator;
 
    begin
       Push_Frame_Context;
@@ -2111,6 +2125,16 @@ package body Wrapping.Runtime.Analysis is
 
       --  At this stage, we evaluated the prefix of A.B.X () if any. Now launch
       --  the regexp analysis
+
+      if Prefix_Function.Kind = Template_Identifier then
+         --  This is an identifier. Call the generator for the object
+
+         Evaluate_Expression (Prefix_Function);
+         Delete_Object_At_Position (-2);
+         Object_Mode := True;
+      else
+         Object_Mode := False;
+      end if;
 
       Evaluate_Generator_Regexp
         (Root      => Top_Object,

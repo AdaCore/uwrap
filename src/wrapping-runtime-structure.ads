@@ -210,6 +210,12 @@ package Wrapping.Runtime.Structure is
      with Post'Class => Top_Frame.Data_Stack.Length =
        Top_Frame.Data_Stack.Length'Old + 1;
 
+   --  If this object is a container or a generator, will generate values
+   --  matching the expression given in parameter one by one, calling the
+   --  yield action. If no Yield action is set in the frame, only generate
+   --  the first matching one, false if none.
+   procedure Generate_Values (Object : access W_Object_Type; Expr : T_Expr);
+
    --  Match this object with the top of the stack. Return False if no decision
    --  could be made, true otherwise. If the top object doesn't match, replace
    --  it with a match false.

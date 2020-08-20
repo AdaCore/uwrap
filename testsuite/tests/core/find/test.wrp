@@ -6,4 +6,4 @@ match Entity (x".(?<a>.+)")
 wrap w_Entity (name => a);
 
 match Entity (x"^A$")
-wrap standard.out ("FIND:" & lambda (w_Entity.find (v: true).fold (l: "", l: (l & " [" & v.name & "]")) & "\n"));
+wrap standard.out ("FIND:" & lambda (w_Entity.filter (v: true).fold (l: "", l: (l & " [" & v.name & "]")) & "\n"));
