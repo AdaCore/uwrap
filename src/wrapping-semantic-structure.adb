@@ -380,8 +380,8 @@ package body Wrapping.Semantic.Structure is
    overriding
    procedure Resolve_References (An_Entity : access T_Expr_Type) is
    begin
-      if An_Entity.Kind = Template_Lambda_Expr then
-         Compute_Closure (T_Entity (An_Entity.Lambda_Expr), An_Entity.Lambda_Closure);
+      if An_Entity.Kind = Template_Defer_Expr then
+         Compute_Closure (T_Entity (An_Entity.Deferred_Expr), An_Entity.Deferred_Closure);
       end if;
 
       --  TODO: There are a few cases where names can be resolved statically,
@@ -400,8 +400,8 @@ package body Wrapping.Semantic.Structure is
       procedure Capture (Name : Text_Type) is
       begin
          if Local_Symbols.Contains (Name) then
-            --  If the symbol is local to the lambda, then there's nothing to
-            --  capture.
+            --  If the symbol is local to the deferred structure, then there's
+            -- nothing to capture.
             return;
          else
             --  Otherwise, record this symbol to be captured.
@@ -485,7 +485,7 @@ package body Wrapping.Semantic.Structure is
                | Template_All_Expr
                | Template_Fold_Expr
                | Template_Filter_Expr
-               | Template_Lambda_Expr
+               | Template_Defer_Expr
                | Template_Call_Expr
                | Template_New_Expr
                | Template_Reg_Expr

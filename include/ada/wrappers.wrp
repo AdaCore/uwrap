@@ -25,7 +25,7 @@ template w_Unit extends w_Ada do
 end;
 
 template w_NamedEntity extends w_Ada do
-  var name: text => text (lambda (child (w_DefiningName ()).name));
+  var name: text => text (defer (child (w_DefiningName ()).name));
   var original_name: text => (match (origin (v: p_fully_qualified_name ())) pick v else pick "");
 end;
 
@@ -68,7 +68,7 @@ template w_SubpDecl extends w_NamedEntity do
    var rparenCall: text;
  
    var param_spec_list: text;
-   var result_type_expr: text => lambda (child (w_TypeExpr).txt);
+   var result_type_expr: text => defer (child (w_TypeExpr).txt);
 
    var pre_call_decl: text;
    var pre_call_stmt: text;
@@ -80,7 +80,7 @@ template w_SubpDecl extends w_NamedEntity do
 
    var return_stmt: text;
    var call_assoc_list: text;
-   var call: text => lambda ("\e<call_name> \e<lparenCall> \e<call_assoc_list> \e<rparenCall>");
+   var call: text => defer ("\e<call_name> \e<lparenCall> \e<call_assoc_list> \e<rparenCall>");
    var call_name: text;
 
    var profile: text => """\e<subp_kind> \e<name> \e<lparenSpec> \e<param_spec_list> \e<rparenSpec> \e<return_spec>"""; 
@@ -211,7 +211,7 @@ template visit_EnumRepClause pick origin do
 
   match AggregateAssoc () and child (i: Identifier ()) and child (v: IntLiteral ()) do
      match n: enum_decl.child (EnumLiteralDecl ("\e<i>")) # TODO, we should be able to write text (i) instead.
-     pick n wrap w_EnumRep (name => lambda (n.wrapper (w_EnumLiteralDecl ()).name), value => v);
+     pick n wrap w_EnumRep (name => defer (n.wrapper (w_EnumLiteralDecl ()).name), value => v);
   end;
 end;
 
@@ -321,14 +321,14 @@ template ada_to_wrappers pick origin do
 
       match parent (sb: (SubpDecl () or AccessToSubpDef ())) do
          wrap n: w_ParamSpecCall (
-            type_expr => lambda (n.child (w_TypeExpr()).txt),
+            type_expr => defer (n.child (w_TypeExpr()).txt),
             pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<n.name>'Address, Import;\n""",
             actual_value => sb.tmp ("local")
          );
 
          wrap n: w_ParamSpecCallback (
             type_expr => p_type_expression,
-            pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<lambda (n.child (w_TypeExpr()).txt)> with Address => \e<n.name>'Address, Import;\n""",
+            pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<defer (n.child (w_TypeExpr()).txt)> with Address => \e<n.name>'Address, Import;\n""",
             actual_value => sb.tmp ("local")
          );
       end;
@@ -616,11 +616,11 @@ template wrappers_post_process pick origin do
    
    match w_Unit () and child (p: w_PackageDecl ()) do
       wrap spec_file
-         (path => lambda (replace_text (to_lower (p.name), "\\.", "-")) & ".ads", content => self.spec_text);
+         (path => defer (replace_text (to_lower (p.name), "\\.", "-")) & ".ads", content => self.spec_text);
 
       match child (w_SubpDecl ()) or p (elaborate_body (x".+"))
       wrap body_file 
-         (path => lambda (replace_text (to_lower (p.name), "\\.", "-")) & ".adb", content => self.body_text);
+         (path => defer (replace_text (to_lower (p.name), "\\.", "-")) & ".adb", content => self.body_text);
    end;
 end;
 

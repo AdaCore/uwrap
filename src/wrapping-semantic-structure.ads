@@ -316,9 +316,9 @@ package Wrapping.Semantic.Structure is
             Called : T_Expr;
             Args   : T_Arg_Vectors.Vector;
 
-         when Template_Lambda_Expr =>
-            Lambda_Expr : T_Expr;
-            Lambda_Closure : Text_Sets.Set;
+         when Template_Defer_Expr =>
+            Deferred_Expr : T_Expr;
+            Deferred_Closure : Text_Sets.Set;
 
          when Template_New_Expr =>
             Tree : T_Create_Tree;

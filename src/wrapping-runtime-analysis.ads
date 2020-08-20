@@ -81,9 +81,9 @@ package Wrapping.Runtime.Analysis is
 
    function Capture_Closure (Names : Text_Sets.Set) return Closure;
 
-   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expr : T_Expr);
+   procedure Capture_Deferred_Environment (Deferred_Expr : W_Deferred_Expr; Expr : T_Expr);
 
-   procedure Run_Lambda (A_Lambda : W_Lambda_Type);
+   procedure Run_Deferred_Expr (Deferred_Expr : W_Deferred_Expr_Type);
 
    --  This is the counter of visitor. Every time a visitor is started
    --  (including the main one), it is to be incremented. This provdes a

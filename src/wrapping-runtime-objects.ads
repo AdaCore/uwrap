@@ -76,8 +76,8 @@ package Wrapping.Runtime.Objects is
    type W_Traverse_Decision_Type;
    type W_Traverse_Decision is access all W_Traverse_Decision_Type'Class;
 
-   type W_Lambda_Type;
-   type W_Lambda is access all W_Lambda_Type'Class;
+   type W_Deferred_Expr_Type;
+   type W_Deferred_Expr is access all W_Deferred_Expr_Type'Class;
 
    type W_Node_Type;
    type W_Node is access all W_Node_Type'Class;
@@ -332,16 +332,16 @@ package Wrapping.Runtime.Objects is
       Into_Expression : Template_Node;
    end record;
 
-   --  A lambda is a function that will be evaluated as late as possible, during
-   --  the To_String calls. The environment is captured at creation time
+   --  A defered expression is an expression that will be evaluated as late as
+   --  possible, during the To_String calls. The environment is captured at creation time
    --  to that the expression can be valuated later on.
-   type W_Lambda_Type is new W_Object_Type with record
+   type W_Deferred_Expr_Type is new W_Object_Type with record
       A_Closure : Closure;
       Expr      : T_Expr;
    end record;
 
    overriding
-   function To_String (Object : W_Lambda_Type) return Text_Type;
+   function To_String (Object : W_Deferred_Expr_Type) return Text_Type;
 
    type W_Node_Type is new W_Object_Type with record
       Parent, Next, Prev : W_Node;

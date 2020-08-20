@@ -11,7 +11,7 @@ template wp_Unit extends wp_NamedProxy do
    # TODO: this shoud really be: \e<child (\ v: wp_Function ()).fold (c: "", c: (c & v.contents), c: (c & ",\n"))>
    # doesn't work for now, reg exp for wrappers are broken. to fix...
    
-   var contents : text => lambda (i"""
+   var contents : text => defer (i"""
       {
          "name":"\e<name>",
          "functions": [
@@ -23,7 +23,7 @@ end;
 template wp_Function extends wp_NamedProxy do
    var type : text;
 
-   var contents : text => lambda(i"""
+   var contents : text => defer(i"""
       {
          "name": "\e<name>",
          "symbol": "\e<symbol>",
@@ -37,7 +37,7 @@ end;
 template wp_Parameter extends wp_NamedProxy do
    var type : text;
 
-   var contents : text => lambda(i"""
+   var contents : text => defer(i"""
       {
          "name": "\e<name>",
          "type": "\e<type>"

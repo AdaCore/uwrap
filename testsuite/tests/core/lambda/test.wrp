@@ -5,13 +5,13 @@ end;
 
 match Entity () do
    wrap w_Entity (
-     child_name => lambda ("NO CHILDREN FOR \e<f_name>"),
+     child_name => defer ("NO CHILDREN FOR \e<f_name>"),
      txt => f_name
    );
 
    match child (Entity ())
    wrap n: w_Entity (
-     child_name => lambda (n.child (w_Entity ()).txt),
+     child_name => defer (n.child (w_Entity ()).txt),
      txt => f_name
    );
 end;

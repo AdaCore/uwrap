@@ -6,7 +6,7 @@ template access_into_out pick origin do
       pre_call_decl => """\e<sb.tmp ("call")> : aliased \e<te.child (TypeExpr ())> with Address => \e<w.name>'Address, Import;""",
       actual_value => """\e<sb.tmp ("call")>'Unchecked_Access""",
       mode => "out",
-      type_expr => lambda (w.child (w_TypeExpr()).child (w_TypeExpr ()).txt)
+      type_expr => defer (w.child (w_TypeExpr()).child (w_TypeExpr ()).txt)
    );
 end;
 
@@ -23,7 +23,7 @@ template access_into_return pick origin do
             \e<self.tmp("ret")>  : aliased \e<n.result_type_expr> with Address => \e<self.tmp("call")>'Address, Import;
             """,
          return_stmt => """return \e<self.tmp("ret")>;""",
-         result_type_expr => lambda (te.wrapper (w_TypeExpr()).txt));
+         result_type_expr => defer (te.wrapper (w_TypeExpr()).txt));
    end;
 end;
 

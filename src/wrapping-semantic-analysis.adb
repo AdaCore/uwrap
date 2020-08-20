@@ -513,8 +513,8 @@ package body Wrapping.Semantic.Analysis is
                Expr.Args.Append (Build_Arg (A));
             end loop;
 
-         when Template_Lambda_Expr =>
-            Expr.Lambda_Expr := Build_Expr (Node.As_Lambda_Expr.F_Expression);
+         when Template_Defer_Expr =>
+            Expr.Deferred_Expr := Build_Expr (Node.As_Defer_Expr.F_Expression);
 
          when Template_New_Expr =>
             Expr.Has_New := True;

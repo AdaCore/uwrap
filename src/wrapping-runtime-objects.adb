@@ -780,10 +780,10 @@ package body Wrapping.Runtime.Objects is
    end Generate_Values;
 
    overriding
-   function To_String (Object : W_Lambda_Type) return Text_Type
+   function To_String (Object : W_Deferred_Expr_Type) return Text_Type
    is
    begin
-      Run_Lambda (Object);
+      Run_Deferred_Expr (Object);
 
       return Pop_Object.To_String;
    end To_String;

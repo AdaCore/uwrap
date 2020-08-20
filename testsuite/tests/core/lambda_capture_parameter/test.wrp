@@ -10,10 +10,10 @@ template x pick origin do
    var c: object;
 
    wrap w: w_Entity (
-     a => lambda (c.wrapper (w_Entity ()).txt),
-     b => lambda ("\e<c.f_name>"),
-     c => lambda (to_lower (c)),
-     d => lambda (c)
+     a => defer (c.wrapper (w_Entity ()).txt),
+     b => defer ("\e<c.f_name>"),
+     c => defer (to_lower (c)),
+     d => defer (c)
    );
 
    # also check wrap c: w_Entity

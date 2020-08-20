@@ -108,7 +108,7 @@ class CallExpr (TemplateNode):
    called = Field()
    args = Field()
 
-class LambdaExpr (TemplateNode):
+class DeferExpr (TemplateNode):
    expression = Field()
 
 class Argument(TemplateNode):
@@ -304,7 +304,7 @@ template_grammar.add_rules(
    primary=Or(
       Pick ('(', G.expression, ')'),
       G.match_expr,
-      G.lambda_expr,
+      G.defer_expr,
       G.literal,
       G.integer,
       G.str,
@@ -346,7 +346,7 @@ template_grammar.add_rules(
    all_expr=AllExpr ('all', '(', Opt (G.expression), ')'),
    at_ref=AtRef('@'),
    call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),
-   lambda_expr=LambdaExpr ('lambda', '(', G.expression, ')'),
+   defer_expr=DeferExpr ('defer', '(', G.expression, ')'),
    arg_list=List(Argument(Opt (G.identifier, "=>"), G.root_expression), sep=',', empty_valid=True),
    identifier=Identifier(Token.Identifier),
    dotted_name=Selector(Opt (G.dotted_name, '.'), G.identifier),

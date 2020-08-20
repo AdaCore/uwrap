@@ -59,7 +59,7 @@ template w_TypeDeclProxy extends w_TypeDecl do
                p: w_ParamSpecCallProxy (
                   name => "Proxy", 
                   memory_mode => "heap",
-                  call_stmt => @ & lambda (i"""
+                  call_stmt => @ & defer (i"""
                      Free (\e<p.var_name>);
                      Free (\e<p.proxy_name>);
                   """))
@@ -81,12 +81,12 @@ template w_SubpDeclCallProxy extends w_SubpDeclCall do
    var t2: text   => origin.tmp ("t2");
    var s: object  => self ();
    var memory_mode: text => "stack";
-   var is_proxy_owned: text => lambda ((match mode ("stack") pick "True" else pick "False"));
+   var is_proxy_owned: text => defer ((match mode ("stack") pick "True" else pick "False"));
 
    wrap wp_Function (
       name => (match origin (SubpDecl ()) pick origin.p_defining_name else pick name),
-      type => lambda ((match subp_kind ("function") pick child (w_TypeExpr).wrapper (wp_TypeExpr).txt else pick "void")),
-      symbol => lambda (parent (w_Unit ()).tmp (name))
+      type => defer ((match subp_kind ("function") pick child (w_TypeExpr).wrapper (wp_TypeExpr).txt else pick "void")),
+      symbol => defer (parent (w_Unit ()).tmp (name))
    );
 
    match origin (SubpDecl ()) do      
@@ -160,7 +160,7 @@ template w_ParamSpecCallProxy extends w_ParamSpecCall do
 
    wrap wp_Parameter (
       name => name,
-      type => lambda (child (w_TypeExpr).wrapper (wp_TypeExpr).txt));
+      type => defer (child (w_TypeExpr).wrapper (wp_TypeExpr).txt));
 
    defer ret: child (w_TypeExprProxy (type_computed (true)))
    match ret_proxy: ret.w_designated_type_decl () do
@@ -321,9 +321,9 @@ template generate_ada2proxy pick origin do
          w: w_SubpDeclCallProxy (
             name => "Get_" & s.name,
             subp_kind => "function",
-            call => lambda ("\e<w.child (w_ParamSpecCallProxy).var_name>.\e<s.origin.p_defining_name ()>")
+            call => defer ("\e<w.child (w_ParamSpecCallProxy).var_name>.\e<s.origin.p_defining_name ()>")
             #result_type_expr => te.txt,
-            #return_stmt => lambda (i"""
+            #return_stmt => defer (i"""
             #         return \e<w.child (w_ParamSpecCallProxy).var_name>.\e<s.origin.p_defining_name ()>;
             #      """)
          ) {
@@ -336,7 +336,7 @@ template generate_ada2proxy pick origin do
             name => "Set_" & s.name,
             subp_kind => "procedure",
             result_type_expr => te.origin,
-            call_stmt => @ & lambda (i"""
+            call_stmt => @ & defer (i"""
                      \e<w.child (w_ParamSpecCallProxy).var_name>.\e<s.origin.p_defining_name ()> := \e<te.origin> (Val);
                   """)
          ) {

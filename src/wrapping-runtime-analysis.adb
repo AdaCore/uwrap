@@ -1268,12 +1268,12 @@ package body Wrapping.Runtime.Analysis is
                Top_Frame.Top_Context.Match_Mode := Match_Call_Default;
             end if;
 
-         when Template_Lambda_Expr =>
+         when Template_Defer_Expr =>
             declare
-               A_Lambda : W_Lambda := new W_Lambda_Type;
+               Deferred_Expr : W_Deferred_Expr := new W_Deferred_Expr_Type;
             begin
-               Capture_Lambda_Environment (A_Lambda, Expr);
-               Push_Object (A_Lambda);
+               Capture_Deferred_Environment (Deferred_Expr, Expr);
+               Push_Object (Deferred_Expr);
 
                Pop_Error_Location;
             end;
@@ -2321,7 +2321,7 @@ package body Wrapping.Runtime.Analysis is
             elsif Top_Object.all in W_Reference_Type'Class
               and then W_Reference (Top_Object).Is_Implicit_Self
             then
-               --  We don't want to carry the self property over to the lambda
+               --  We don't want to carry the self property over to the deferred
                --  call, so remove it.
 
                A_Closure.Captured_Symbols.Insert
@@ -2339,29 +2339,29 @@ package body Wrapping.Runtime.Analysis is
       return A_Closure;
    end Capture_Closure;
 
-   procedure Capture_Lambda_Environment (A_Lambda : W_Lambda; Expr : T_Expr) is
+   procedure Capture_Deferred_Environment (Deferred_Expr : W_Deferred_Expr; Expr : T_Expr) is
    begin
-      A_Lambda.A_Closure := Capture_Closure (Expr.Lambda_Closure);
-      A_Lambda.Expr := Expr.Lambda_Expr;
-   end Capture_Lambda_Environment;
+      Deferred_Expr.A_Closure := Capture_Closure (Expr.Deferred_Closure);
+      Deferred_Expr.Expr := Expr.Deferred_Expr;
+   end Capture_Deferred_Environment;
 
-   procedure Run_Lambda (A_Lambda : W_Lambda_Type) is
+   procedure Run_Deferred_Expr (Deferred_Expr : W_Deferred_Expr_Type) is
       Copy_Symbols : W_Object_Maps.Map;
       Result : W_Object;
    begin
-      Push_Frame (A_Lambda.A_Closure.Lexical_Scope);
+      Push_Frame (Deferred_Expr.A_Closure.Lexical_Scope);
 
-      Copy_Symbols := A_Lambda.A_Closure.Captured_Symbols.Copy;
+      Copy_Symbols := Deferred_Expr.A_Closure.Captured_Symbols.Copy;
       Top_Frame.Symbols.Move (Copy_Symbols);
 
-      if A_Lambda.A_Closure.Implicit_Self /= null then
-         Push_Implicit_Self (A_Lambda.A_Closure.Implicit_Self);
+      if Deferred_Expr.A_Closure.Implicit_Self /= null then
+         Push_Implicit_Self (Deferred_Expr.A_Closure.Implicit_Self);
       end if;
 
-      Result := Evaluate_Expression (A_Lambda.Expr);
+      Result := Evaluate_Expression (Deferred_Expr.Expr);
       Pop_Frame;
       Push_Object (Result);
-   end Run_Lambda;
+   end Run_Deferred_Expr;
 
    procedure Outer_Expression_Match is
    begin
