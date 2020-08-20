@@ -342,7 +342,7 @@ template_grammar.add_rules(
       CreateTemplateTree(G.template_call, Opt ('{', List (G.create_template_tree, sep = ',', empty_valid = True), '}')),
       CreateTemplateTree(Null (G.template_call), '{', List (G.create_template_tree, sep = ',', empty_valid = True), '}')),
    fold_expr=FoldExpr ('fold', '(', G.expression, ',', G.expression, Opt (',', G.expression), ')'),
-   filter_expr=FilterExpr ('filter', '(', G.expression, ')'),
+   filter_expr=FilterExpr ('filter', '(', G.root_expression, ')'),
    all_expr=AllExpr ('all', '(', Opt (G.expression), ')'),
    at_ref=AtRef('@'),
    call_expr=CallExpr (G.identifier, '(', G.arg_list, ')'),

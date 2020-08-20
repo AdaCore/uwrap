@@ -1,0 +1,2 @@
+match Entity (f_name ("A1")) and z: child (Entity ()).filter (\ f_name (x"A") \ f_name (x"A"))
+weave standard.out ("NAME: " & z.f_name & "\n");

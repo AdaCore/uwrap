@@ -1,0 +1,4 @@
+# This should pick A3
+A1 {B {E}, A2 {A3}, C {D}},
+# nothing should be picked (but a bug may confuse the list of entities returned by child)
+A1 {A4, A5, A6} 

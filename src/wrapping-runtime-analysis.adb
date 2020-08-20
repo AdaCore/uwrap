@@ -923,6 +923,8 @@ package body Wrapping.Runtime.Analysis is
                   end if;
                end loop;
 
+               -- TODO: This is incorrect, additional deferred commands may
+               -- have been created above and will be ignored here.
                Deferred_Commands.Move (Next_Deferred);
             end;
 
@@ -2079,6 +2081,11 @@ package body Wrapping.Runtime.Analysis is
          Push_Frame_Context;
          Top_Frame.Top_Context.Expand_Action := Yield_Callback'Unrestricted_Access;
          Top_Frame.Top_Context.Match_Mode := Match_None;
+
+         --  We may be called from an anchored context. However, this anchor
+         --  should not be passed to the prefix, to which we're just getting
+         --  values one by one.
+         Top_Frame.Top_Context.Regexpr_Anchored := False;
 
          if Object_Mode then
             --  Calling with a null expression - the expression will be checked
