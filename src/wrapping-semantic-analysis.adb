@@ -308,7 +308,7 @@ package body Wrapping.Semantic.Analysis is
                   A_Command.Template_Section := new Weave_Type;
                end if;
 
-               Push_Entity (T_Entity (A_Command.Template_Section), Node);
+               Push_Entity (A_Command.Template_Section, Node);
 
                Node.As_Template_Section.F_Actions.Traverse
                  (Visit'Access);

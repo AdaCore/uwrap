@@ -288,7 +288,7 @@ package body Wrapping.Runtime.Structure is
             Push_Frame_Context;
 
             Restore_Yield_Capture;
-            Evaluate_Generator_Regexp (W_Node (Top_Object.Dereference), Generator, Expr.Reg_Expr_Right);
+            Evaluate_Generator_Regexp (W_Node_Type (Top_Object.Dereference.all)'Access, Generator, Expr.Reg_Expr_Right);
             Result := Top_Object.Dereference;
 
             Pop_Frame_Context;

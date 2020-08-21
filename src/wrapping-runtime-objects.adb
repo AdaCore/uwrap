@@ -1266,7 +1266,7 @@ package body Wrapping.Runtime.Objects is
 
          case A_Mode is
             when Child_Depth | Child_Breadth =>
-               Add_Wrapping_Child (W_Node (An_Entity), W_Node (E));
+               Add_Wrapping_Child (An_Entity, W_Node_Type (E.all)'Access);
 
             when others =>
                Error ("allocation not implemented on the enclosing function");
