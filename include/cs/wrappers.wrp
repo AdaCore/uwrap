@@ -47,7 +47,24 @@ template w_DllImportFunction extends w_Function do
 end;
 
 template w_Param extends w_NamedEntity do
-   var type : text;
+   var generate_formal: text;
+
+   var formal_text: text => type_expr & " "  & name;
+   var actual_text: text;
+
+   var type_expr: text;
+
+   var pre_call_decl: text;
+   var pre_call_stmt: text;
+   var call_decl: text;
+   var call_stmt: text;
+   var actual_value: text;
+   var post_call_decl: text;
+   var post_call_stmt: text;
+   var return_stmt: text;
+   var result_type_expr: text => "_";
+
+   var mode: text;
 end;
 
 template w_ParamCall extends w_Param do
@@ -57,6 +74,11 @@ end;
 template w_ParamCallback extends w_Param do
 
 end;
+
+template w_ParamDll extends w_Param do
+
+end;
+
 
 template w_TypeExpr extends w_CS do
    var txt : text;
@@ -70,12 +92,12 @@ template wrappers2cs pick origin do
    match w_DllImportFunction () do
       weave (contents => i"""
          [DllImport("libproxy")]
-         private \e<static> extern \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold ("", @ & w.type & " "  & w.name, @ & ", ")>);""");
+         private \e<static> extern \e<returned_type> \e<name> (\e<child (w: w_ParamDll ()).fold ("", @ & w.formal_text, @ & ", ")>);""");
    end;
 
    match w_FunctionCall () do
       weave (contents => i"""
-         public \e<static> \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold ("", @ & w.type & " "  & w.name, @ & ", ")>) {
+         public \e<static> \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold ("", @ & w.formal_text, @ & ", ")>) {
             \e<pre_call_decl>
             \e<pre_call_stmt>
             \e<call_decl_exp>
@@ -86,9 +108,21 @@ template wrappers2cs pick origin do
          }""");
    end;
 
+   match p: w_ParamCall () and s: parent (w_FunctionCall) do
+      pick s weave (
+         pre_call_decl    => @ & p.pre_call_decl,
+         pre_call_stmt    => @ & p.pre_call_stmt,
+         call_decl        => @ & p.call_decl,
+         post_call_decl   => @ & p.post_call_decl,
+         post_call_stmt   => @ & p.post_call_stmt
+      );
+   end;
+
    match w_Class () do
       weave (contents => i"""
-         class \e<name> {
+         public class \e<name> {
+            public System.IntPtr handle;
+
             \e<child (\ w: w_NamedEntity ()).fold ("", @ & w.contents, @ & "\n\n")>
          }""");
    end;
@@ -116,7 +150,7 @@ template wrappers2cs pick origin do
                \e<child (w_Function ()).filter (\w: true).fold ("", @ & w.contents & "\n")>
             }
 
-            \e<child (\ w: w_Class ()).fold ("", @ & w.contents & "\n")>
+            \e<child (w: w_Class ()).fold ("", @ & w.contents & "\n")>
          }""");
    end;
 end;

@@ -15,9 +15,20 @@ template wp_Unit extends wp_NamedProxy do
       {
          "name":"\e<name>",
          "functions": [
-            \e<child (v: wp_Function ()).fold (c: "", c: (c & v.contents), c: (c & ",\n"))>
+            \e<child (wp_Function ()).filter (\ v: true).fold ("", @ & v.contents, @ & ",\n")>
+         ],
+         "classes": [
+            \e<child (v: wp_Class ()).fold ("", @ & v.contents, c: (c & ",\n"))>
          ]
       }""");
+end;
+
+template wp_Class extends wp_NamedProxy do
+   var contents: text => defer (i"""
+      {
+         "name": "\e<name>"
+      }
+   """);
 end;
 
 template wp_Function extends wp_NamedProxy do
@@ -29,7 +40,7 @@ template wp_Function extends wp_NamedProxy do
          "symbol": "\e<symbol>",
          "type": "\e<type>",
          "parameters": [
-            \e<child (v: wp_Parameter ()).fold (c: "", c: (c & v.contents), c: (c & ",\n"))>
+            \e<child (v: wp_Parameter ()).fold ("", @ & v.contents, @ & ",\n")>
          ]
       }""");
 end;
@@ -46,10 +57,6 @@ end;
 
 template wp_TypeExpr extends wp_Proxy do
    var txt : text;
-end;
-
-template wp_TypeDecl extends wp_NamedProxy do
-   
 end;
 
 template generate_proxy2json pick origin do

@@ -9,7 +9,7 @@ package body P is
 
    procedure Some_P (V : Rec) is
    begin
-      null;
+      Put_Line (V.A'Img & ", " & V.B'Img);
    end Some_P;
 
 end P;

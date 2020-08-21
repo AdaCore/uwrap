@@ -1,29 +1,87 @@
 import proxy.proxy;
 import cs.wrappers;
 
+function native_type (type) do
+   pick "System.IntPtr";
+
+   match type("int32") pick "int";
+
+   match type("void") pick "void";
+end;
+
+function cs_type (type) do
+   pick type;
+
+   match type("int32") pick "int";
+
+   match type("void") pick "void";
+end;
+
 template generate_proxy2cs pick origin do
    match not parent ()
    wrap w: w_Unit (name => child (name ("name")).value);
 
    match parent (\ name ("functions"))
    do
+      var type: text => child (\ name ("type")).value;
+      var ret_type_native: text => native_type (type);
+      var ret_type_cs: text => cs_type (type);
+
       wrap n: w_FunctionCall (
          name => child (\ name ("name")).value,
-         returned_type => child (\ name ("type")).value,
-         call_stmt => defer (child (\ name ("symbol")).value & "(" 
-            & n.child (w: w_ParamCall ()).fold (c : "", c: (c & w.name), c: (c & ", ")) & ");"),
+         returned_type => ret_type_cs,
+         call => defer (child (\ name ("symbol")).value & "(" 
+            & n.child (w: w_ParamCall ()).fold ("", @ & w.actual_value, @ & ", ") & ")"),
          static => "static");
+
+      match type ("void") do 
+         weave w: w_FunctionCall (call_stmt => "\e<w.call>;");
+      elsmatch type ("int32") do
+         weave w: w_FunctionCall (call_stmt => "return \e<w.call>;");
+      else
+         weave w: w_FunctionCall (
+            pre_call_decl => "\e<ret_type_cs> res = new \e<ret_type_cs> ();",
+            pre_call_stmt => "res.handle = \e<w.call>;",
+            call_stmt => "return res;"
+         );
+      end;
 
       wrap w_DllImportFunction (
          name => child (\ name ("symbol")).value,
-         returned_type => child (\ name ("type")).value,
+         returned_type => ret_type_native,
          static => "static");
    end;
 
    match parent (\ name ("parameters")) do
+      var type: text => child (\ name ("type")).value;
+      var ret_type_native: text => native_type (type);
+      var ret_type_cs: text => cs_type (type);
+
       wrap w_ParamCall (
          name => child (\ name ("name")).value,
-         type => "int"
+         type_expr => ret_type_cs
+      );
+
+      match type ("int32") do
+         weave w: w_ParamCall (
+            actual_value => "\e<w.name>"
+         );
+      else
+         weave w: w_ParamCall (
+            actual_value => "\e<w.name>.handle"
+         );
+      end;
+
+      wrap w_ParamDll (
+         name => child (\ name ("name")).value,
+         type_expr => ret_type_native
+      );
+
+   end;
+
+   match parent (\ name ("classes")) do
+      wrap w_Class (
+         name => child (\ name ("name")).value
       );
    end;
 end;

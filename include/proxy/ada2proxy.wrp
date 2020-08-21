@@ -14,7 +14,7 @@ template w_TypeDeclProxy extends w_TypeDecl do
 
    match origin () pick origin wrap null (w_TypeDecl);
 
-   wrap wp_TypeDecl (
+   wrap wp_Class (
       name => "\e<type>"
    );
 
