@@ -293,6 +293,8 @@ package body Wrapping.Runtime.Analysis is
          New_Frame.Top_Context.Expand_Action := Top_Frame.Top_Context.Expand_Action;
       end if;
 
+      New_Frame.Temp_Names := new Text_Maps.Map;
+
       Data_Frame_Stack.Append (New_Frame);
       Update_Frames;
    end Push_Frame;
@@ -301,6 +303,20 @@ package body Wrapping.Runtime.Analysis is
    begin
       Data_Frame_Stack.Append (Frame);
       Update_Frames;
+   end Push_Frame;
+
+   procedure Push_Frame (A_Closure : Closure) is
+      Copy_Symbols : W_Object_Maps.Map;
+   begin
+      Push_Frame (A_Closure.Lexical_Scope);
+
+      Copy_Symbols := A_Closure.Captured_Symbols.Copy;
+      Top_Frame.Symbols.Move (Copy_Symbols);
+      Top_Frame.Temp_Names := A_Closure.Temp_Names;
+
+      if A_Closure.Implicit_Self /= null then
+         Push_Implicit_Self (A_Closure.Implicit_Self);
+      end if;
    end Push_Frame;
 
    procedure Pop_Frame is
@@ -627,17 +643,9 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Command_Back;
 
    function Handle_Defered_Command (Command : Deferred_Command) return Boolean is
-      Copy_Symbols : W_Object_Maps.Map;
       Result : Boolean := False;
    begin
-      Push_Frame (Command.A_Closure.Lexical_Scope);
-
-      Copy_Symbols := Command.A_Closure.Captured_Symbols.Copy;
-      Top_Frame.Symbols.Move (Copy_Symbols);
-
-      if Command.A_Closure.Implicit_Self /= null then
-         Push_Implicit_Self (Command.A_Closure.Implicit_Self);
-      end if;
+      Push_Frame (Command.A_Closure);
 
       Install_Command_Context (Command.Command);
 
@@ -2375,6 +2383,7 @@ package body Wrapping.Runtime.Analysis is
 
       A_Closure.Implicit_Self := Get_Implicit_Self;
       A_Closure.Lexical_Scope := Top_Frame.Lexical_Scope;
+      A_Closure.Temp_Names := Top_Frame.Temp_Names;
 
       return A_Closure;
    end Capture_Closure;
@@ -2386,17 +2395,9 @@ package body Wrapping.Runtime.Analysis is
    end Capture_Deferred_Environment;
 
    procedure Run_Deferred_Expr (Deferred_Expr : W_Deferred_Expr_Type) is
-      Copy_Symbols : W_Object_Maps.Map;
       Result : W_Object;
    begin
-      Push_Frame (Deferred_Expr.A_Closure.Lexical_Scope);
-
-      Copy_Symbols := Deferred_Expr.A_Closure.Captured_Symbols.Copy;
-      Top_Frame.Symbols.Move (Copy_Symbols);
-
-      if Deferred_Expr.A_Closure.Implicit_Self /= null then
-         Push_Implicit_Self (Deferred_Expr.A_Closure.Implicit_Self);
-      end if;
+      Push_Frame (Deferred_Expr.A_Closure);
 
       Result := Evaluate_Expression (Deferred_Expr.Expr);
       Pop_Frame;

@@ -157,6 +157,8 @@ package Wrapping.Runtime.Structure is
       Groups : W_Object_Vectors.Vector;
    end record;
 
+   type Text_Maps_Access is access all Text_Maps.Map;
+
    type Data_Frame_Type is record
       Symbols        : W_Object_Maps.Map;
 
@@ -165,7 +167,7 @@ package Wrapping.Runtime.Structure is
       Top_Context    : Frame_Context;
       Lexical_Scope  : T_Entity;
 
-      Temp_Names     : Text_Maps.Map;
+      Temp_Names     : Text_Maps_Access;
 
       Interrupt_Program : Boolean := False;
 
@@ -331,7 +333,7 @@ package Wrapping.Runtime.Structure is
       Captured_Symbols : W_Object_Maps.Map;
       Implicit_Self    : W_Object;
       Lexical_Scope    : T_Entity;
-      -- TODO: also add the temporary names
+      Temp_Names       : Text_Maps_Access;
    end record;
 
    type Deferred_Command_Type is record

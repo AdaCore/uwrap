@@ -36,6 +36,8 @@ package Wrapping.Runtime.Analysis is
 
    procedure Push_Frame (Frame : Data_Frame);
 
+   procedure Push_Frame (A_Closure : Closure);
+
    procedure Pop_Frame;
 
    procedure Push_Frame_Context;
