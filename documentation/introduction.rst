@@ -21,12 +21,13 @@ be created as wrappers to the initial tree, adding additional data to it.
 
 A ``command`` is the instruction by which a node is being analyzed. It's 
 composted of 4 sections:
- - a defer section, if the command is to be analyzed later
- - a match section, which describes the conditons for the node under which the
-   command can run
- - a pick section, which can change the node that is actually being impacted by
-   the command
- - a wrap or weave section, which define an operation to perform on that node
+
+- a defer section, if the command is to be analyzed later
+- a match section, which describes the conditons for the node under which the
+  command can run
+- a pick section, which can change the node that is actually being impacted by
+  the command
+- a wrap or weave section, which define an operation to perform on that node
 
 Commands are evaluated in the inverse order, from last to first, so that later
 commands can override earlier ones. This is one of the fundamental mechanism
@@ -48,13 +49,12 @@ As input, UWrap takes a tree structure. This tree can be coming from the parsing
 of a programming source file for example, or something more data oriented such
 as a JSON file. The general structure of the iteration will then be as follows:
 
- - Iterate over all the nodes (the input tree as well as the created one)
- - For each visited node, do a combination of three possible actions:
-  - Create a new node linked to the current node, a wrapper. This can also be 
-    viewed as a way to decorate a node.
-  - Create a new node either in the abstract, or connected to one tree
-  - Update an already created node.
- - Once all node are visited, process I/O
+- Iterate over all the nodes (the input tree as well as the created one)
+- For each visited node, do a combination of three possible actions:
+ - Create a new node linked to the current node, a wrapper. This can also be  viewed as a way to decorate a node.
+ - Create a new node either in the abstract, or connected to one tree
+ - Update an already created node.
+- Once all node are visited, process I/O
 
 Wrapping Trees
 --------------
@@ -65,7 +65,7 @@ of the input tree. Conceptually, each tree can be associated with a wrapping
 tree, whose nodes are added and updated through the ``wrap`` and ``weave`` 
 commands. For example:
 
- .. code-block:: text
+.. code-block:: text
 
    template X do
       var V: text;
@@ -88,7 +88,7 @@ node of every single type). If more node of a given type are necessary, an easy
 way is to create new templates through extension. E.g. if in the above case we
 need two instances of X, they can be created and named e.g. X1 and X2:
 
- .. code-block:: text
+.. code-block:: text
 
    template X do
       var V: text;
@@ -132,10 +132,10 @@ wrapping trees.
 Non-wrapping nodes are created with the ``new`` function, which is able to 
 create an entire non-wrapping tree at once. They can either be added to:
 
- - An input tree
- - A wrapping tree
- - The standalone environment
- - A tree that has been created in the standalone environment
+- An input tree
+- A wrapping tree
+- The standalone environment
+- A tree that has been created in the standalone environment
 
 Non-wrapping nodes behave exactly like regular wrapping node or input nodes. 
 When created as part of an input tree, nothing differenciates them from the 
@@ -153,10 +153,9 @@ Once the computation is over, data of various nodes is aggregated through
 various techniques, and either pushed to a file or on the standard out. 
 There are two main ways to aggregate data:
 
- - During wrapper post processing. A child wrapper can update a parent wrapper, 
-   concatenating some result. For example:
+- During wrapper post processing. A child wrapper can update a parent wrapper, concatenating some result. For example:
 
-   .. code-block:: text
+.. code-block:: text
 
       template X do
          var Vx: text;
@@ -170,9 +169,9 @@ There are two main ways to aggregate data:
       pick parent (X)
       weave (Vx => @ & y.Vy);
 
- - Through a reduction function. For example:
+- Through a reduction function. For example:
 
-   .. code-block:: text
+.. code-block:: text
 
       template X do
          var Vx: text;
@@ -183,4 +182,4 @@ There are two main ways to aggregate data:
       end;
 
       match X()
-      weave (Vx => child (y: Y()).fold (c: "", c: (c & y.Vy)));
+      weave (Vx => child (y: Y()).fold ("", @ & y.Vy));
