@@ -126,9 +126,17 @@ package body Wrapping.Runtime.Analysis is
       Wrapping.Pop_Error_Location;
    end Pop_Error_Location;
 
+   procedure Update_Object is
+   begin
+      if Top_Frame.Data_Stack.Length > 0 then
+         Top_Object := Top_Frame.Data_Stack.Last_Element;
+      end if;
+   end Update_Object;
+
    procedure Push_Object (Object : access W_Object_Type'Class) is
    begin
       Top_Frame.Data_Stack.Append (W_Object (Object));
+      Update_Object;
    end Push_Object;
 
    procedure Push_Implicit_Self (Object : access W_Object_Type'Class) is
@@ -181,6 +189,7 @@ package body Wrapping.Runtime.Analysis is
    procedure Pop_Object (Number : Positive := 1) is
    begin
       Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
+      Update_Object;
    end Pop_Object;
 
    procedure Delete_Object_At_Position (Position : Integer) is
@@ -191,6 +200,7 @@ package body Wrapping.Runtime.Analysis is
          Top_Frame.Data_Stack.Delete
            (Integer (Top_Frame.Data_Stack.Length) + Position + 1);
       end if;
+      Update_Object;
    end Delete_Object_At_Position;
 
    function Pop_Object return W_Object is
@@ -198,13 +208,10 @@ package body Wrapping.Runtime.Analysis is
    begin
       Result := Top_Frame.Data_Stack.Last_Element;
       Pop_Object;
+      Update_Object;
+
       return Result;
    end Pop_Object;
-
-   function Top_Object return W_Object is
-   begin
-      return Top_Frame.Data_Stack.Last_Element;
-   end Top_Object;
 
    function Top_Is_Implicit return Boolean is
       Top : W_Object := Top_Object;

@@ -71,7 +71,7 @@ package Wrapping.Runtime.Analysis is
 
    function Pop_Object return W_Object;
 
-   function Top_Object return W_Object;
+   Top_Object : W_Object;
 
    --  Return True if the top object on the frame is an implicitely stacked
    --  object
