@@ -6,7 +6,8 @@ Overall Structure
 
 A command sequence can be either controlled by a match or a pick clause, 
 or be introduced directly in a list of commands. It's also the body of a 
-visitor (described in a later chapter).
+function or a template (described in a later chapters). Command sequences are
+required when using alternative eslmatch or else in a match block.
 
 Command sequences are introduced with "do", terminated by "end;" 
 and contain a list of commands, possibly separated by "then". For example:
@@ -16,7 +17,7 @@ and contain a list of commands, possibly separated by "then". For example:
    do
       match a 
       pick b
-      wrap c;
+      wrap c ();
    end;
 
    match d do
@@ -28,18 +29,44 @@ and contain a list of commands, possibly separated by "then". For example:
    do
       match a 
       pick b
-      wrap c;
+      wrap c ();
 
       match d 
       pick e
-      wrap f;
+      wrap f ();
    then   
       match d
-      wrap e;
+      wrap e ();
    then
       match f
       pick g;
    end;
+
+At the begining of a sequence, variables can be declared, for example:
+
+.. code-block:: text
+
+  do
+      var v1: text;
+      var v2: text => "some default value";
+
+      pick b
+      wrap c ();
+
+      match d 
+      pick e
+      wrap f ();
+   then   
+      var v3: text;
+      var v4: text => "some other value";
+
+      match d
+      wrap e ();
+   end;
+
+These variables can be used after the declaration in further commands, or 
+commands followed by a ``then``. If the block is written in a template, these
+variables will be stored by the template, modifiable at a later stage.
 
 Evaluation order
 ----------------
@@ -55,14 +82,14 @@ some commands depend on the other. So in the following example:
 .. code-block:: text
 
    do
-      wrap a;
-      wrap b;
+      wrap a ();
+      wrap b ();
    then
-      wrap c;
-      wrap d;
+      wrap c ();
+      wrap d ();
    then
-      wrap e;
-      wrap f;
+      wrap e ();
+      wrap f ();
    end;
 
 the evaluation order will be: b, a, d, c, f, e.
@@ -100,8 +127,8 @@ sections. So that:
 
 .. code-block:: text
 
-   match "(.*)" do
-      match "(.*)": some_expression 
+   match x"(.*)" do
+      match x"(.*)": some_expression 
       # here, "\1" is the outer match capture, "\2" the inner one.
       ;
 

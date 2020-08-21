@@ -57,30 +57,29 @@ outside of the ``some_predicate`` call above, ``self`` is the value of the
 node currently being iterated, but within the parenthesis, `self` changes to be
 the value tested by the predicate (for example a field).
 
-Some predicate allow for both parameters and a match nested expression. When
-that's the case, the match nested expression is always the last parameter. For
-clarity, it can also be explicitely named:
+match clauses can be followed by a block that contains an else section:
 
 .. code-block:: text
 
-   match some_predicate (match => <some expression>)
-
-match clauses can be followed by an else section:
-
-.. code-block:: text
-
-   match some_predicate
-   else <some command>
+   match some_predicate do
+      <some commands>
+   else 
+      <some commands>
+   end;
 
 The command introduce by the else can take any of the form that a command can
-take, and will only be evaluated if the match predicate is false. In particular,
-it can start itself by a match clause:
+take, and will only be evaluated if the match predicate is false. It is also
+possible to list various alternatives through a elsmatch section:
 
 .. code-block:: text
 
-   match some_predicate <some actions>
-   else match some_other_predicate <some actions>
-   else match yet_anoter_predicate <some actions>
+   match some_predicate do
+      <some actions>
+   elsmatch some_other_predicate do
+      <some actions>
+   elsmatch yet_anoter_predicate do
+      <some actions>
+   end;
 
 is-predicates and has-predicates
 --------------------------------
@@ -221,21 +220,27 @@ Strings and Regular Expression Predicates
 
 Objects under iteration can always convert to strings. For example, in Ada, 
 that string is the textual content of the node. This string can be matched 
-against a regular expression. In UWrap, literal strings are always interpreted 
-as regular expressions, and are is-predicates. For example:
+against a regular expression. 
+
+There are four kind of strings in UWrap:
+ - Regular strings, with no prefix, or an ``s`` prefix
+ - Raw strings, which will ignore all special character, and have a ``r`` prefix
+ - Auto-indented strings which have a ``i`` prefix (described in a later section)
+ - Regular expressions, which have a ``x`` prefix
+
+For example:
 
 .. code-block:: text
 
    match "ABC"
 
-checks that the string "ABC" is contained in the text of the current node. The
-string:
+Checks that the text is exactly ABC.
 
 .. code-block:: text
 
-   match "^ABC$"
+   match x"ABC"
 
-Checks that the text is exactly ABC.
+checks that the string "ABC" is contained in the text of the current node.
 
 The full documentation for the regular expression language is decribed in the
 GNAT.Regpat package of the GNAT Compiler (TODO - Add reference).
@@ -246,15 +251,15 @@ the capture group:
 
 .. code-block:: text
 
-   match "^(.*)-(.*)$"
-   match "^(?<prefix>.*)-(?<suffix>.*)$"
+   match x"^(.*)-(.*)$"
+   match x"^(?<prefix>.*)-(?<suffix>.*)$"
 
 As soon as valuated, values can be used in further subexpressions. Note that
 only named groups can be directly referenced:
 
 .. code-block:: text
 
-   match "^(?<prefix>.*)-(?<suffix>.*)$" and prefix ("A.*B")
+   match x"^(?<prefix>.*)-(?<suffix>.*)$" and prefix (x"A.*B")
 
 String can be built by evaluating expressions. Groups captured by numbers can
 be referenced by "\number" syntax, with numbers starting at 1. For example:
@@ -263,14 +268,14 @@ be referenced by "\number" syntax, with numbers starting at 1. For example:
 
    # checks that the suffix is of the form A followed by prefix followed by B,
    # e.g. Something-[Something]
-   match "^(.*)-(?<suffix>.*)$" and suffix ("[\1]")
+   match x"^(.*)-(?<suffix>.*)$" and suffix (x"[\1]")
 
 Arbitrary expressions can be introduced by the "\e" escapement character,
 followed by the expression surrounded by "<>". For example:
 
 .. code-block:: text
 
-   match "^(?<prefix>.*)-(?<suffix>.*)$" and suffix ("[\e<prefix>]")
+   match x"^(?<prefix>.*)-(?<suffix>.*)$" and suffix (x"[\e<prefix>]")
 
 Type Predicates
 ---------------
@@ -281,7 +286,6 @@ ada language:
 
 .. code-block:: text
 
-   # TODO the below expression doesn't currently work, to fix and test
    match DefiningName
 
 the predicate will evaluate to true if the current node is of type DefiningName.
@@ -303,6 +307,7 @@ currently iterated on. So that:
 
 .. code-block:: text
 
+   # TODO: Capture in this case probably doesn't work yet, to check and fix
    match v1: DefiningName
    match v2: DefiningName (a or b)
 
@@ -355,7 +360,7 @@ field. For example:
 
 .. code-block:: text
 
-   match f_something (DefiningName ("ABC"))
+   match f_something (DefiningName (x"ABC"))
 
 checks that the node under iteration has a field called f_something, which is
 of type DefiningName and checks the regular expression "ABC". 
@@ -374,15 +379,6 @@ matching expression, and captured through a capture expression. For example:
 .. code-block:: text
 
    match l: to_lower (self)
-
-the above capture the lower case of self.
-
-.. code-block:: text
-
-   match to_lower (self, "abc")
-   match to_lower (self, match => "def")
-
-The above check that lowercased self match abc or def.
 
 Tree Browsing Predicates
 ------------------------
@@ -414,7 +410,7 @@ captured. For example:
 
 .. code-block:: text
 
-   match c: child (DefiningName ("BLA"))
+   match c: child (DefiningName (x"BLA"))
 
 will check within all children of the current node for one of type DefiningName
 that contains the text "BLA", and return the first occurence found. Capturing
@@ -422,14 +418,14 @@ the value can also be done within the nested expression:
 
 .. code-block:: text
 
-   match child (c: DefiningName ("BLA"))
+   match child (c: DefiningName (x"BLA"))
 
 Tree browsing predicates can be combined with boolean expressions or nested
 expressions. For example:
 
 .. code-block:: text
 
-   match child (next (DefiningName ("A"))) and prev ("B")
+   match child (next (DefiningName (x"A"))) and prev (x"B")
 
 the above checks for a node that has a child with a next node containing "A", 
 and that also has a previous node called "B".
@@ -442,7 +438,7 @@ node. Elements of this sequence are separated by \. For example:
 
 .. code-block:: text
 
-   match child ("A" \ "B")
+   match child (x"A" \ x"B")
 
 checks for a node containing the text "A" directly followed by a node containing
 the text "B". When \ is place at the begining of the sequence, it anchors to the
@@ -450,7 +446,7 @@ first element tested, \ at the end anchors to the last. E.g.:
 
 .. code-block:: text
 
-   match child (\ "A" \ "B" \)
+   match child (\ x"A" \ x"B" \)
 
 Match for a node that has a child sequence with one direct child "A" and one 
 direct grandchild "B" with no more children.
@@ -462,7 +458,7 @@ can accept a parameter min and a parameter max. For example:
 
 .. code-block:: text
 
-   match child (\ "A" \ many (true) \ "B" \)
+   match child (\ x"A" \ many (true) \ x"B" \)
 
 The above matches for a sequence of children where the first is "A", then 
 accepts as many nodes as possible then expects a "B".
@@ -472,7 +468,7 @@ be used with proper min and max values, for example:
 
 .. code-block:: text
 
-   match child (\ "A" \ many (true, 0, 1) \ "B" \)
+   match child (\ x"A" \ many (true, 0, 1) \ x"B" \)
 
 Note that child predicate isn't meant to describe the entire descendance of
 a node directly - it checks for the existence of at least one chain of 
@@ -485,7 +481,7 @@ sequence is the last element being matched. For example:
 .. code-block:: text
 
    TODO: this kind of capture needs to be implemented
-   match r: child (\ "A" \ last: many (true) \ "B" \)
+   match r: child (\ x"A" \ last: many (true) \ x"B" \)
 
 In the above, is matched, r is the value of the grandchild. last is the value
 of the last element being matched by the many predicate.

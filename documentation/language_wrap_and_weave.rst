@@ -7,17 +7,16 @@ Overall Structure
 A wrap or a weave clause allows to perform an operation to a node. This 
 operation can be:
 
-- Associate a template instance with the current node
+- Instancate a template on the current node
 - Update a template instance of the current node
-- Call a visitor
 - Control the remainder of the iteration from that node
 
 It's written:
 
 .. code-block:: text
 
-   wrap <an optional capture> <a static reference to a template or visitor> <parameters>;
-   weave <an optional capture> <a static reference to a template or visitor> <parameters>;
+   wrap <an optional capture> <a static reference to a template> <parameters>;
+   weave <an optional capture> <a static reference to a template> <parameters>;
 
 or when controlling the iteration:
 
@@ -50,23 +49,21 @@ It can stand on its own, in which case it unconditionally operates on self:
 A wrap or a weave clause is always terminating a command, and is always followed
 by a semicolon.
 
-Wrapping and Weaving Templates and Visitors
--------------------------------------------
+Wrapping and Weaving Templates
+------------------------------
 
-# TODO: visitor unicity needs to be implemented.
-
-Visitor and templates are static structural references. A given node can only 
-be wrapped once by such entity. When trying to apply wrap a second time to the
-same node will the same entity, the command will skip.
+Templates are static structural references. A given node can only be wrapped 
+once by such entity. When trying to apply wrap a second time to the same node 
+will the same entity, the command will skip.
 
 Recall that commands are applied from bottom to top. In the following sequence:
 
 .. code-block:: text
 
-   match "A"
+   match x"A"
    wrap standard.out ("TOP");
 
-   match "B"
+   match x"B"
    wrap standard.out ("BOTTOM");
 
 The two commands only contain a wrap clause, wrapping with the 
@@ -80,10 +77,10 @@ wrapping sequences. For example:
 
    wrap standard.out ("THE NAME DOESN'T CONTAIN SPECIFIC PATTERN");
       
-   match "A"
+   match x"A"
    wrap standard.out ("THE NAME CONTAINS A");
 
-   match "AB"
+   match x"AB"
    wrap standard.out ("THE NAME CONTAINS AB");
 
 Wrapping clauses can be developped to further refine the expected behavior.
@@ -94,10 +91,10 @@ For example in:
 
 .. code-block:: text
 
-   match "A"
+   match x"A"
    weave standard.out ("TOP");
    
-   match "A"
+   match x"A"
    weave standard.out ("BOTTOM");
 
 The two commands only contain an unconditional wrap clause, weaving with the 
@@ -111,10 +108,10 @@ previous example we want to display both TOP and BOTTOM, we could have:
 
 .. code-block:: text
 
-   match "A"
+   match x"A"
    weave standard.out (@ & " TOP");
 
-   match "A"
+   match x"A"
    weave standard.out ("BOTTOM");
 
 Weaving does not prevent wrapping even if it's applied first. The following code
@@ -122,15 +119,14 @@ will work the same as the code above even if weave is executed first:
 
 .. code-block:: text
 
-   match "A"
+   match x"A"
    wrap standard.out (@ & " TOP");
 
-   match "A"
+   match x"A"
    weave standard.out ("BOTTOM");
 
-Visitor wrapping behave the same way as template instancitations. A given 
-visitor can only be applied once on a wrap clause, but multiple times on weave
-clauses.
+At the time of its creation, a template instance will execute its sequence of
+commands, if any.
 
 Wrapping and weaving Template Instances
 ---------------------------------------
@@ -157,7 +153,7 @@ following code for example will provide same result as before:
 
 Note of the fact that template instances created by weave and wrap clauses will
 themselves be subject to the whole program, wrap clauses not contextualized by
-either a match clause or the scope of a visitor will result in infinite loops:
+either a match clause or the scope of a template will result in infinite loops:
 
 .. code-block:: text
 

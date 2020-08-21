@@ -64,7 +64,7 @@ matcher. For example:
 
 .. code-block:: text
 
-   match x: (child ("A") or child ("B"))
+   match x: (child (x"A") or child (x"B"))
    pick x
 
 Will pick either a child of name "A" or a child of name "B".
