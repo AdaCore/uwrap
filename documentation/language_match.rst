@@ -223,10 +223,11 @@ that string is the textual content of the node. This string can be matched
 against a regular expression. 
 
 There are four kind of strings in UWrap:
- - Regular strings, with no prefix, or an ``s`` prefix
- - Raw strings, which will ignore all special character, and have a ``r`` prefix
- - Auto-indented strings which have a ``i`` prefix (described in a later section)
- - Regular expressions, which have a ``x`` prefix
+
+- Regular strings, with no prefix, or an ``s`` prefix
+- Raw strings, which will ignore all special character, and have a ``r`` prefix
+- Auto-indented strings which have a ``i`` prefix (described in a later section)
+- Regular expressions, which have a ``x`` prefix
 
 For example:
 
