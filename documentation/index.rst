@@ -7,7 +7,8 @@ Contents:
    :numbered:
    :maxdepth: 3
 
-   tutorial/tutorial.rst
+   introduction
+   tutorial/tutorial
    language
    input
 
