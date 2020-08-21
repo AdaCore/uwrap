@@ -43,9 +43,8 @@ package Wrapping.Runtime.Structure is
 
    Data_Frame_Stack : Data_Frame_Vectors.Vector;
 
-   function Top_Frame return Data_Frame is (if Data_Frame_Stack.Length > 0 then Data_Frame_Stack.Last_Element else null);
-
-   function Parent_Frame return Data_Frame is (if Data_Frame_Stack.Length > 1 then Data_Frame_Stack.Element (Data_Frame_Stack.Last_Index - 1) else null);
+   Top_Frame : Data_Frame;
+   Parent_Frame : Data_Frame;
 
    type Frame_Context_Type;
    type Frame_Context is access all Frame_Context_Type;

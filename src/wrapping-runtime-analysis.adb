@@ -259,29 +259,47 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Group_Sections.Delete_Last;
    end Pop_Match_Groups_Section;
 
+   procedure Update_Frames is
+   begin
+      if Data_Frame_Stack.Length > 0 then
+         Top_Frame := Data_Frame_Stack.Last_Element;
+      else
+         Top_Frame := null;
+      end if;
+
+      if Data_Frame_Stack.Length > 1 then
+         Parent_Frame := Data_Frame_Stack.Element (Data_Frame_Stack.Last_Index - 1);
+      else
+         Parent_Frame := null;
+      end if;
+   end Update_Frames;
+
    procedure Push_Frame (Lexical_Scope : access T_Entity_Type'Class) is
       New_Frame : Data_Frame := new Data_Frame_Type;
    begin
       New_Frame.Lexical_Scope := T_Entity (Lexical_Scope);
       New_Frame.Top_Context := new Frame_Context_Type;
 
-      if Data_Frame_Stack.Length > 0 then
+      if Parent_Frame /= null then
          New_Frame.Top_Context.An_Allocate_Callback := Top_Frame.Top_Context.An_Allocate_Callback;
          New_Frame.Top_Context.Visit_Decision := Top_Frame.Top_Context.Visit_Decision;
          New_Frame.Top_Context.Expand_Action := Top_Frame.Top_Context.Expand_Action;
       end if;
 
       Data_Frame_Stack.Append (New_Frame);
+      Update_Frames;
    end Push_Frame;
 
    procedure Push_Frame (Frame : Data_Frame) is
    begin
       Data_Frame_Stack.Append (Frame);
+      Update_Frames;
    end Push_Frame;
 
    procedure Pop_Frame is
    begin
       Data_Frame_Stack.Delete_Last;
+      Update_Frames;
    end Pop_Frame;
 
    function Get_Implicit_Self (From : Data_Frame := Top_Frame) return W_Object is
@@ -1981,9 +1999,10 @@ package body Wrapping.Runtime.Analysis is
    procedure Handle_Fold (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector) is
 
       Fold_Expr : T_Expr := Selector.Selector_Right;
-      Init_Value : W_Object;
 
       Is_First : Boolean := True;
+
+      Current_Expression : W_Object;
 
       procedure Expand_Action is
       begin
@@ -1991,13 +2010,19 @@ package body Wrapping.Runtime.Analysis is
             Is_First := False;
          elsif Fold_Expr.Separator /= null then
             Push_Frame_Context_Parameter;
+            Top_Frame.Top_Context.Left_Value := Current_Expression;
             Evaluate_Expression (Fold_Expr.Separator);
+            Current_Expression := Pop_Object;
             Pop_Frame_Context;
-            Pop_Object;
          end if;
 
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Left_Value := Current_Expression;
          Evaluate_Expression (Fold_Expr.Combine);
+         Current_Expression := Top_Object;
+         Pop_Frame_Context;
       end Expand_Action;
+
 
    begin
       --  Inside the folded expression, we need to go back to a situation where
@@ -2006,7 +2031,7 @@ package body Wrapping.Runtime.Analysis is
 
       Push_Frame_Context_Parameter;
       Push_Implicit_Self (Get_Implicit_Self);
-      Init_Value := Evaluate_Expression (Fold_Expr.Default);
+      Current_Expression := Evaluate_Expression (Fold_Expr.Default);
 
       --  If the name captured is not null, provide its value here. This allows
       --  two equivalent stypes for fold:
@@ -2016,7 +2041,7 @@ package body Wrapping.Runtime.Analysis is
       --  which is consistent with the overall way capture works.
       if Top_Frame.Top_Context.Name_Captured /= "" then
          Include_Symbol
-           (To_Text (Top_Frame.Top_Context.Name_Captured), Init_Value);
+           (To_Text (Top_Frame.Top_Context.Name_Captured), Current_Expression);
       end if;
 
       Pop_Object;
@@ -2037,7 +2062,7 @@ package body Wrapping.Runtime.Analysis is
 
       if Top_Frame.Data_Stack.Last_Element = Match_False then
          Pop_Object;
-         Push_Object (Init_Value);
+         Push_Object (Current_Expression);
       end if;
 
       Pop_Frame_Context;

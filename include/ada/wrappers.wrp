@@ -270,7 +270,7 @@ function build_type_expr_gen (from) do
 end;
 
 function build_type_expr (from) do
-   pick build_type_expr_gen (from).all(x: true).fold (c: "", c: (c & x));
+   pick build_type_expr_gen (from).all(x: true).fold ("", @ & x);
 end;
 
 template build_subprogram pick origin do
@@ -407,7 +407,7 @@ template wrappers_post_process pick origin do
       match child (w_Aspect ()) do
          weave (spec => i"""
             \e<profile> with 
-               \e<child (a: w_Aspect ()).fold (c: "", c: (c & a.txt), c: (c & ",\n"))>;""");
+               \e<child (a: w_Aspect ()).fold ("", @ & a.txt, @ & ",\n")>;""");
       else
          weave (spec => profile & ";");
       end;

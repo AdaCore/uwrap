@@ -1,0 +1,12 @@
+template w_Entity do
+    var name : text;
+end;
+
+match Entity ()
+wrap w_Entity (name => f_name);
+
+match w_Entity ()
+weave standard.out (@ & "\n");
+
+match w_Entity ()
+weave standard.out (@ & self.child (w: w_Entity ()).fold ("children of \e<name>:", @ & " \e<w.name>"));
