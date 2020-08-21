@@ -83,7 +83,25 @@ class Str(Expr):
 
 class Operator(TemplateNode):
    enum_node = True
-   alternatives = ['and', 'or', 'not', 'amp', 'is', 'has', 'many', 'few', 'plus', 'minus', 'multiply', 'divide']
+   alternatives = [
+      'and',
+      'or',
+      'not',
+      'amp',
+      'is', 
+      'has', 
+      'many', 
+      'few', 
+      'plus', 
+      'minus', 
+      'multiply', 
+      'divide',
+      'eq',
+      'neq',
+      'lt',
+      'gt',
+      'lte',
+      'gte']
 
 class BinaryExpr(Expr):
    lhs = Field()
@@ -293,7 +311,15 @@ template_grammar.add_rules(
    expression=Or (
       BinaryExpr (G.relation, Or (Operator.alt_and('and'), Operator.alt_or('or')), G.expression),
       G.relation),
-   relation=G.simple_expression,
+   relation=Or (
+      BinaryExpr (G.simple_expression, Or (
+         Operator.alt_eq('='), 
+         Operator.alt_neq('/='), 
+         Operator.alt_lt('<'), 
+         Operator.alt_gt('>'), 
+         Operator.alt_lte('<='), 
+         Operator.alt_gte('>=')), G.simple_expression),
+      G.simple_expression),
    simple_expression=Or (BinaryExpr (G.term, Or (Operator.alt_amp('&'), Operator.alt_minus('-'), Operator.alt_plus('+')), G.simple_expression), G.term),
    term=Or (BinaryExpr (G.factor, Or (Operator.alt_multiply('*'), Operator.alt_divide('/')), G.term), G.factor),
    factor=Or(

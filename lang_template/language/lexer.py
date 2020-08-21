@@ -58,6 +58,12 @@ class Token(LexerToken):
     Minus      = WithText()
     Multiply   = WithText()
     Divide     = WithText()
+    Eq         = WithText()
+    Neq        = WithText()
+    Lt         = WithText()
+    Gt         = WithText()
+    Lte        = WithText()
+    Gte        = WithText()
 
     String     = WithText()
     Comment    = WithTrivia()
@@ -127,6 +133,13 @@ template_lexer.add_rules(
     (Literal("&"), Token.Amp),
     (Literal("@"), Token.At),
     (Literal("\\"), Token.Backslash),
+
+    (Literal ("="), Token.Eq),
+    (Literal ("/="), Token.Neq),
+    (Literal ("<"), Token.Lt),
+    (Literal (">"), Token.Gt),
+    (Literal ("<="), Token.Lte),
+    (Literal (">="), Token.Gte),
 
     (Literal("+"), Token.Plus),
     (Literal("-"), Token.Minus),
