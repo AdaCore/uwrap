@@ -2,7 +2,7 @@ import proxy.proxy;
 import proxy.proxy2cs;
 import cs.wrappers;
 
-match name ()
+match language ("json")
 wrap generate_proxy2cs ();
 
 match w_CS ()

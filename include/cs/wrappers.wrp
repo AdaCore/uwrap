@@ -70,12 +70,12 @@ template wrappers2cs pick origin do
    match w_DllImportFunction () do
       weave (contents => i"""
          [DllImport("libproxy")]
-         private \e<static> extern \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold (c: "", c: (c & w.type & " "  & w.name), c: (c & ", "))>);""");
+         private \e<static> extern \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold ("", @ & w.type & " "  & w.name, @ & ", ")>);""");
    end;
 
    match w_FunctionCall () do
       weave (contents => i"""
-         public \e<static> \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold (c: "", c: (c & w.type & " "  & w.name), c: (c & ", "))>) {
+         public \e<static> \e<returned_type> \e<name> (\e<child (w: w_ParamCall ()).fold ("", @ & w.type & " "  & w.name, @ & ", ")>) {
             \e<pre_call_decl>
             \e<pre_call_stmt>
             \e<call_decl_exp>
@@ -89,7 +89,7 @@ template wrappers2cs pick origin do
    match w_Class () do
       weave (contents => i"""
          class \e<name> {
-            \e<child (\ w: w_NamedEntity ()).fold (c : "", c: (c & w.contents), c: (c & "\n\n"))>
+            \e<child (\ w: w_NamedEntity ()).fold ("", @ & w.contents, @ & "\n\n")>
          }""");
    end;
 
@@ -97,10 +97,10 @@ template wrappers2cs pick origin do
       weave (contents => i"""
          namespace \e<name> {
             public static class \e<name>Module {
-               \e<child (\ w: w_Function ()).fold (c : "", c: (c & w.contents & "\n"))>
+               \e<child (\ w: w_Function ()).fold ("", @ & w.contents & "\n")>
             }
 
-            \e<child (\ w: w_Class ()).fold (c : "", c: (c & w.contents & "\n"))>
+            \e<child (\ w: w_Class ()).fold ("", @ & w.contents & "\n")>
          }""");
    end;
 
@@ -110,13 +110,13 @@ template wrappers2cs pick origin do
       weave (contents => i"""
          using System.Runtime.InteropServices;
 
-         \e<child (w: w_Using ()).fold (c : "", c: (c & "using " & w.ref & ";\n"))>
+         \e<child (w: w_Using ()).fold ("", @ & "using " & w.ref & ";\n")>
          namespace \e<name> {
             public static class \e<name>Unit {
-               \e<child (\ w: w_Function ()).fold (c : "", c: (c & w.contents & "\n"))>
+               \e<child (w_Function ()).filter (\w: true).fold ("", @ & w.contents & "\n")>
             }
 
-            \e<child (\ w: w_Class ()).fold (c : "", c: (c & w.contents & "\n"))>
+            \e<child (\ w: w_Class ()).fold ("", @ & w.contents & "\n")>
          }""");
    end;
 end;

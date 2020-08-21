@@ -2,14 +2,15 @@ import proxy.proxy;
 import cs.wrappers;
 
 template generate_proxy2cs pick origin do
-   match kind () and not parent () #TODO: this is a rather weak way to check we're on a JSON node, to improve
+   match not parent ()
    wrap w: w_Unit (name => child (name ("name")).value);
 
-   match name ("function") do
+   match parent (\ name ("functions"))
+   do
       wrap n: w_FunctionCall (
          name => child (\ name ("name")).value,
          returned_type => child (\ name ("type")).value,
-         call_stmt => lambda (child (\ name ("symbol")).value & "(" 
+         call_stmt => defer (child (\ name ("symbol")).value & "(" 
             & n.child (w: w_ParamCall ()).fold (c : "", c: (c & w.name), c: (c & ", ")) & ");"),
          static => "static");
 
@@ -19,7 +20,7 @@ template generate_proxy2cs pick origin do
          static => "static");
    end;
 
-   match name ("parameter") do
+   match parent (\ name ("parameters")) do
       wrap w_ParamCall (
          name => child (\ name ("name")).value,
          type => "int"
