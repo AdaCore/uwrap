@@ -43,6 +43,9 @@ package body Wrapping.Run is
          Analysis_Context           => Libtestlang.Analysis.Analysis_Context,
          Grammar_Rule               => Libtestlang.Common.Grammar_Rule,
          Unit_Provider_Reference    => Libtestlang.Analysis.Unit_Provider_Reference,
+         Token_Reference            => Libtestlang.Common.Token_Reference,
+         Token_Data_Type            => Libtestlang.Common.Token_Data_Type,
+         Token_Kind                 => Libtestlang.Common.Token_Kind,
          None                       => Libtestlang.Common.None,
          No_Kit_Node                => Libtestlang.Analysis.No_Test_Node,
          Default_Grammar_Rule       => Libtestlang.Common.Default_Grammar_Rule,
@@ -56,6 +59,7 @@ package body Wrapping.Run is
          Text_Type_Value            => Libtestlang.Common.Text_Type_Value,
          Node_Value                 => Libtestlang.Common.Node_Value,
          Boolean_Value              => Libtestlang.Common.Boolean_Value,
+         No_Token                   => Libtestlang.Common.No_Token,
          Value_Constraint           => Libtestlang.Common.Value_Constraint,
          Value_Constraint_Array     => Libtestlang.Common.Value_Constraint_Array);
    end Testlang;
@@ -77,6 +81,9 @@ package body Wrapping.Run is
          Analysis_Context           => Libadalang.Analysis.Analysis_Context,
          Grammar_Rule               => Libadalang.Common.Grammar_Rule,
          Unit_Provider_Reference    => Libadalang.Analysis.Unit_Provider_Reference,
+         Token_Reference            => Libadalang.Common.Token_Reference,
+         Token_Data_Type            => Libadalang.Common.Token_Data_Type,
+         Token_Kind                 => Libadalang.Common.Token_Kind,
          None                       => Libadalang.Common.None,
          No_Kit_Node                => Libadalang.Analysis.No_Ada_Node,
          Default_Grammar_Rule       => Libadalang.Common.Default_Grammar_Rule,
@@ -90,6 +97,7 @@ package body Wrapping.Run is
          Text_Type_Value            => Libadalang.Common.Text_Type_Value,
          Node_Value                 => Libadalang.Common.Node_Value,
          Boolean_Value              => Libadalang.Common.Boolean_Value,
+         No_Token                   => Libadalang.Common.No_Token,
          Value_Constraint           => Libadalang.Common.Value_Constraint,
          Value_Constraint_Array     => Libadalang.Common.Value_Constraint_Array);
    end Adalang;

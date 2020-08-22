@@ -274,19 +274,6 @@ package body Wrapping.Runtime.Objects is
    end Evaluate_Bowse_Functions;
 
    overriding
-   function Browse_Entity
-     (An_Entity : access W_Reference_Type;
-      Browsed : access W_Object_Type'Class;
-      Match_Expression : T_Expr;
-      Result : out W_Object) return Visit_Action is
-   begin
-      return An_Entity.Value.Browse_Entity
-        (Browsed          => Browsed,
-         Match_Expression => Match_Expression,
-         Result           => Result);
-   end Browse_Entity;
-
-   overriding
    procedure Generate_Values (Object : access W_Reference_Type; Expr : T_Expr) is
    begin
       Object.Value.Generate_Values (Expr);
@@ -378,7 +365,7 @@ package body Wrapping.Runtime.Objects is
          Push_Match_False;
       else
          for E of Object.A_Vector loop
-            Action := Object.Browse_Entity (E, Expr, Result);
+            Action := Browse_Entity (E, Expr, Result);
 
             exit when Action = Stop;
          end loop;
@@ -426,7 +413,7 @@ package body Wrapping.Runtime.Objects is
          Push_Match_False;
       else
          for E of Object.A_Set loop
-            Action := Object.Browse_Entity (E, Expr, Result);
+            Action := Browse_Entity (E, Expr, Result);
 
             exit when Action = Stop;
          end loop;
@@ -474,7 +461,7 @@ package body Wrapping.Runtime.Objects is
          Push_Match_False;
       else
          for E of Object.A_Map loop
-            Action := Object.Browse_Entity (E, Expr, Result);
+            Action := Browse_Entity (E, Expr, Result);
 
             exit when Action = Stop;
          end loop;
@@ -805,6 +792,26 @@ package body Wrapping.Runtime.Objects is
       Add_Child (Parent, Child);
       Parent.Children_Indexed.Insert (Name, W_Node (Child));
    end Add_Child;
+
+   procedure Add_Next (Cur, Next : access W_Node_Type'Class) is
+      Found : Boolean := False with Ghost;
+   begin
+      Next.Next := Cur.Next;
+      Next.Prev := W_Node (Cur);
+      Cur.Next := W_Node (Next);
+
+      if Cur.Parent /= null then
+         for I in Cur.Children_Ordered.First_Index .. Cur.Children_Ordered.Last_Index loop
+            if Cur.Children_Ordered.Element (I) = Cur then
+               Cur.Children_Ordered.Insert (I + 1, W_Node (Next));
+               Found := True;
+               exit;
+            end if;
+         end loop;
+
+         pragma Assert (Found);
+      end if;
+   end Add_Next;
 
    procedure Add_Wrapping_Child (Parent, Child : access W_Node_Type'Class) is
       Wrapped : W_Node;
@@ -1240,7 +1247,7 @@ package body Wrapping.Runtime.Objects is
         (E      : access W_Object_Type'Class;
          Result : out W_Object) return Visit_Action is
       begin
-         return Browse_Entity (An_Entity, E, Match_Expression, Result);
+         return Browse_Entity (E, Match_Expression, Result);
       end Visitor;
 
       function Create_Hollow_Next (Prev : access W_Node_Type'Class) return W_Hollow_Node is

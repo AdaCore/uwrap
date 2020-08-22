@@ -65,8 +65,7 @@ package body Wrapping.Runtime.Structure is
    end Traverse;
 
    function Browse_Entity
-     (An_Entity : access W_Object_Type;
-      Browsed : access W_Object_Type'Class;
+     (Browsed : access W_Object_Type'Class;
       Match_Expression : T_Expr;
       Result : out W_Object) return Visit_Action
    is

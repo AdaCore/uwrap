@@ -252,11 +252,10 @@ package Wrapping.Runtime.Structure is
       Match_Expression : T_Expr) is null;
 
    function Browse_Entity
-     (An_Entity : access W_Object_Type;
-      Browsed : access W_Object_Type'Class;
+     (Browsed : access W_Object_Type'Class;
       Match_Expression : T_Expr;
       Result : out W_Object) return Visit_Action
-     with Post'Class => Top_Frame.Data_Stack.Length =
+     with Post => Top_Frame.Data_Stack.Length =
        Top_Frame.Data_Stack.Length'Old;
 
    procedure Evaluate_Generator_Regexp

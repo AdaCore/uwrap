@@ -141,13 +141,6 @@ package Wrapping.Runtime.Objects is
       A_Mode           : Browse_Mode;
       Match_Expression : T_Expr);
 
-   overriding
-   function Browse_Entity
-     (An_Entity : access W_Reference_Type;
-      Browsed : access W_Object_Type'Class;
-      Match_Expression : T_Expr;
-      Result : out W_Object) return Visit_Action;
-
    function Is_Implicit (Object : W_Reference_Type) return Boolean is
      (Object.Is_Implicit_Self);
 
@@ -367,6 +360,8 @@ package Wrapping.Runtime.Objects is
    procedure Add_Child (Parent, Child : access W_Node_Type'Class);
 
    procedure Add_Child (Parent, Child : access W_Node_Type'Class; Name : Text_Type);
+
+   procedure Add_Next (Cur, Next : access W_Node_Type'Class);
 
    procedure Add_Wrapping_Child (Parent, Child : access W_Node_Type'Class);
    --  Similar to Add_Child, but if the Parent is a wrapping entity, will create

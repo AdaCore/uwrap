@@ -26,6 +26,9 @@ generic
    type Value_Constraint is private;
    type Value_Constraint_Array is
      array (Positive range <>) of Value_Constraint;
+   type Token_Reference is private;
+   type Token_Data_Type is private;
+   type Token_Kind is (<>);
 
    None : Any_Node_Data_Reference;
    No_Kit_Node : Kit_Node;
@@ -37,6 +40,7 @@ generic
    Text_Type_Value : Any_Value_Kind;
    Node_Value : Any_Value_Kind;
    Boolean_Value : Any_Value_Kind;
+   No_Token : Token_Reference;
 
    with function Children (Node : Kit_Node'Class) return Kit_Node_Array is <>;
    with function Parent (Node : Kit_Node'Class) return Kit_Node is <>;
@@ -80,10 +84,33 @@ generic
    with function Sloc_Range (Node : Kit_Node'Class) return Source_Location_Range is <>;
    with function Get_Filename (Unit : Kit_Unit'Class) return String is <>;
    with function Unit (Node : Kit_Node'Class) return Kit_Unit is <>;
+   with function Token_Start (Node : Kit_Node'Class) return Token_Reference is <>;
+   with function Token_End (Node : Kit_Node'Class) return Token_Reference is <>;
+   with function Next
+     (Token : Token_Reference; Exclude_Trivia : Boolean := False)
+      return Token_Reference is <>;
+   with function Previous
+     (Token : Token_Reference; Exclude_Trivia : Boolean := False)
+      return Token_Reference is <>;
+   with function Data (Token : Token_Reference) return Token_Data_Type is <>;
+   with function Text (Token : Token_Reference) return Text_Type is <>;
+   with function Kind (Token_Data : Token_Data_Type) return Token_Kind is <>;
+   with function Is_Trivia (Token : Token_Reference) return Boolean is <>;
 package Wrapping.Input.Kit is
 
    type W_Kit_Node_Type;
    type W_Kit_Node is access all W_Kit_Node_Type'Class;
+
+   type W_Kit_Node_Token_Type;
+   type W_Kit_Node_Token is access all W_Kit_Node_Token_Type'Class;
+
+   procedure Analyze_File (File : String);
+
+   procedure Analyze_Unit (Unit : Analysis_Unit);
+
+   ----------------
+   -- W_Kit_Node --
+   ----------------
 
    function Lt (Left, Right : Kit_Node) return Boolean;
 
@@ -98,6 +125,9 @@ package Wrapping.Input.Kit is
       Node : Kit_Node;
       Children_Computed : Boolean := False;
       Children_By_Node : W_Kit_Node_Entity_Node_Maps.Map;
+
+      First_Token_Node : W_Kit_Node_Token;
+      First_Token_Node_Computed : Boolean := False;
    end record;
 
    overriding
@@ -117,10 +147,31 @@ package Wrapping.Input.Kit is
    overriding
    function Language (An_Entity : W_Kit_Node_Type) return Text_Type is (Language_Name);
 
-   procedure Analyze_File (File : String);
+   ----------------------
+   -- W_Kit_Token_Node --
+   ----------------------
 
-   procedure Analyze_Unit (Unit : Analysis_Unit);
+   type W_Kit_Node_Token_Type is new W_Node_Type with record
+      Node : Token_Reference;
+      Next_Computed : Boolean := False;
+   end record;
 
+   overriding
+   procedure Pre_Visit (An_Entity : access W_Kit_Node_Token_Type);
+
+   overriding
+   function Push_Value
+     (An_Entity : access W_Kit_Node_Token_Type;
+      Name      : Text_Type) return Boolean;
+
+   overriding
+   function To_String (Object : W_Kit_Node_Token_Type) return Text_Type;
+
+   overriding
+   function To_Debug_String (Object : W_Kit_Node_Token_Type) return Text_Type;
+
+   overriding
+   function Language (An_Entity : W_Kit_Node_Token_Type) return Text_Type is (Language_Name & "_token");
 private
 
    type W_Source_Node_Type;

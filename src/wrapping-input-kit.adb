@@ -13,6 +13,33 @@ package body Wrapping.Input.Kit is
 
    Global_Node_Registry : W_Kit_Node_Entity_Node_Maps.Map;
 
+   function Get_Entity_For_Node (Node : Kit_Node) return W_Kit_Node;
+
+   procedure Analyze_File (File : String) is
+      Unit : Analysis_Unit;
+      Context : Analysis_Context := Create_Context;
+
+   begin
+      Unit := Get_From_File (Context, File);
+
+      if Has_Diagnostics (Unit) then
+         for D of Diagnostics (Unit) loop
+            Ada.Text_IO.Put_Line (File & ":" & To_Pretty_String (D));
+         end loop;
+      end if;
+
+      Analyze_Unit (Unit);
+      Analyze_Templates;
+   end Analyze_File;
+
+   procedure Analyze_Unit (Unit : Analysis_Unit) is
+      Root_Entity : W_Node;
+   begin
+      Root_Entity := W_Node (Get_Entity_For_Node (Unit.Root));
+
+      Wrapping.Runtime.Analysis.Analyse_Input (Root_Entity);
+   end Analyze_Unit;
+
    function Lt (Left, Right : Kit_Node) return Boolean is
    begin
       if Left.Kind < Right.Kind then
@@ -74,6 +101,62 @@ package body Wrapping.Input.Kit is
          Error ("matcher takes only 1 argument");
       end if;
    end Call_Check_Expression;
+
+   procedure Call_Token
+     (Object : access W_Object_Type'Class;
+      Params : T_Arg_Vectors.Vector)
+   is
+      Prefix : W_Kit_Node := W_Kit_Node (Object);
+      Cur_Token : W_Kit_Node_Token;
+      Match_Expr : T_Expr;
+      Result : W_Object;
+      A_Visit_Action : Visit_Action := Into;
+   begin
+      if Params.Length = 1 then
+         Match_Expr := Params.Element (1).Expr;
+      elsif Params.Length > 1 then
+         Error ("'token' accepts at most one argument'");
+      end if;
+
+
+      if not Prefix.First_Token_Node_Computed then
+         Prefix.First_Token_Node_Computed := True;
+
+         declare
+            Ref : Token_Reference := Token_Start (Prefix.Node);
+         begin
+            if Ref /= No_Token then
+               Cur_Token := new W_Kit_Node_Token_Type'
+                 (Node => Ref, others => <>);
+               Prefix.First_Token_Node := Cur_Token;
+            end if;
+         end;
+      else
+         Cur_Token := Prefix.First_Token_Node;
+      end if;
+
+      if Cur_Token = null then
+         Push_Match_False;
+
+         return;
+      end if;
+
+      while Cur_Token /= null loop
+         Cur_Token.Pre_Visit;
+
+         A_Visit_Action := Browse_Entity (Cur_Token, Match_Expr, Result);
+
+         exit when A_Visit_Action in Stop | Over;
+
+         Cur_Token := W_Kit_Node_Token (Cur_Token.Next);
+      end loop;
+
+      if Result /= null then
+         Push_Object (Result);
+      else
+         Push_Match_False;
+      end if;
+   end Call_Token;
 
    procedure Pre_Visit (An_Entity : access W_Kit_Node_Type) is
       New_Entity : W_Node;
@@ -210,6 +293,15 @@ package body Wrapping.Input.Kit is
            (To_W_String (To_Wide_Wide_String (An_Entity.Node.Kind_Name)));
 
          return True;
+      elsif Name = "token" then
+         Push_Object
+           (W_Object'(
+            new W_Intrinsic_Function_Type'
+              (Prefix       => W_Object (An_Entity),
+               Call         => Call_Token'Unrestricted_Access,
+               Is_Generator => True)));
+
+         return True;
       end if;
 
       Id := Lookup_DSL_Name (To_String (Name));
@@ -272,29 +364,55 @@ package body Wrapping.Input.Kit is
         & W_Kit_Node_Type'Class (Object).To_String;
    end To_Debug_String;
 
-   procedure Analyze_File (File : String) is
-      Unit : Analysis_Unit;
-      Context : Analysis_Context := Create_Context;
-
+   overriding
+   procedure Pre_Visit (An_Entity : access W_Kit_Node_Token_Type)
+   is
+      Ref : Token_Reference;
    begin
-      Unit := Get_From_File (Context, File);
+      if An_Entity.Next_Computed = False then
+         An_Entity.Next_Computed := True;
 
-      if Has_Diagnostics (Unit) then
-         for D of Diagnostics (Unit) loop
-            Ada.Text_IO.Put_Line (File & ":" & To_Pretty_String (D));
-         end loop;
+         Ref := Next (An_Entity.Node);
+
+         if Ref /= No_Token then
+            Add_Next
+              (An_Entity,
+               W_Node'
+                 (new W_Kit_Node_Token_Type'
+                      (Node => Ref,
+                       others => <>)));
+         end if;
+      end if;
+   end Pre_Visit;
+
+   overriding
+   function Push_Value
+     (An_Entity : access W_Kit_Node_Token_Type;
+      Name      : Text_Type) return Boolean is
+   begin
+      if W_Node_Type (An_Entity.all).Push_Value (Name) then
+         return True;
       end if;
 
-      Analyze_Unit (Unit);
-      Analyze_Templates;
-   end Analyze_File;
+      if Name = "kind" then
+         Push_Object
+           (To_W_String (Kind (Data (An_Entity.Node))'Wide_Wide_Image));
+         return True;
+      end if;
 
-   procedure Analyze_Unit (Unit : Analysis_Unit) is
-      Root_Entity : W_Node;
+      return False;
+   end Push_Value;
+
+   overriding
+   function To_String (Object : W_Kit_Node_Token_Type) return Text_Type is
    begin
-      Root_Entity := W_Node (Get_Entity_For_Node (Unit.Root));
+      return Text (Object.Node);
+   end To_String;
 
-      Wrapping.Runtime.Analysis.Analyse_Input (Root_Entity);
-   end Analyze_Unit;
+   overriding
+   function To_Debug_String (Object : W_Kit_Node_Token_Type) return Text_Type is
+   begin
+      return Text (Object.Node);
+   end To_Debug_String;
 
 end Wrapping.Input.Kit;
