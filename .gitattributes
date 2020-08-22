@@ -8,4 +8,5 @@
 *.cs text eol=lf
 *.py text eol=lf
 *.sh text eol=lf
+*.rst text eol=lf
 testsuite/**/*.out text eol=lf
