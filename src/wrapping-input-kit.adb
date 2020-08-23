@@ -107,17 +107,46 @@ package body Wrapping.Input.Kit is
       Params : T_Arg_Vectors.Vector)
    is
       Prefix : W_Kit_Node := W_Kit_Node (Object);
-      Cur_Token : W_Kit_Node_Token;
       Match_Expr : T_Expr;
-      Result : W_Object;
-      A_Visit_Action : Visit_Action := Into;
+
+      Analyzed_First : Boolean := False;
+
+      procedure Generator
+        (Node : access W_Object_Type'Class; Expr : T_Expr)
+      is
+         Result : W_Object;
+         A_Visit_Action : Visit_Action := Into;
+         Cur_Token : W_Kit_Node_Token := W_Kit_Node_Token (Node.Dereference);
+      begin
+         if Analyzed_First then
+            Cur_Token := W_Kit_Node_Token (Cur_Token.Next);
+         else
+            Analyzed_First := True;
+         end if;
+
+         while Cur_Token /= null loop
+            Cur_Token.Pre_Visit;
+
+            A_Visit_Action := Browse_Entity (Cur_Token, Expr, Result);
+
+            exit when A_Visit_Action in Stop | Over;
+
+            Cur_Token := W_Kit_Node_Token (Cur_Token.Next);
+         end loop;
+
+         if Result /= null then
+            Push_Object (Result);
+         else
+            Push_Match_False;
+         end if;
+      end Generator;
+
    begin
       if Params.Length = 1 then
          Match_Expr := Params.Element (1).Expr;
       elsif Params.Length > 1 then
          Error ("'token' accepts at most one argument'");
       end if;
-
 
       if not Prefix.First_Token_Node_Computed then
          Prefix.First_Token_Node_Computed := True;
@@ -126,36 +155,19 @@ package body Wrapping.Input.Kit is
             Ref : Token_Reference := Token_Start (Prefix.Node);
          begin
             if Ref /= No_Token then
-               Cur_Token := new W_Kit_Node_Token_Type'
+               Prefix.First_Token_Node := new W_Kit_Node_Token_Type'
                  (Node => Ref, others => <>);
-               Prefix.First_Token_Node := Cur_Token;
             end if;
          end;
-      else
-         Cur_Token := Prefix.First_Token_Node;
       end if;
 
-      if Cur_Token = null then
+      if Prefix.First_Token_Node = null then
          Push_Match_False;
 
          return;
       end if;
 
-      while Cur_Token /= null loop
-         Cur_Token.Pre_Visit;
-
-         A_Visit_Action := Browse_Entity (Cur_Token, Match_Expr, Result);
-
-         exit when A_Visit_Action in Stop | Over;
-
-         Cur_Token := W_Kit_Node_Token (Cur_Token.Next);
-      end loop;
-
-      if Result /= null then
-         Push_Object (Result);
-      else
-         Push_Match_False;
-      end if;
+      Evaluate_Generator_Regexp (Prefix.First_Token_Node, Generator'Access, Match_Expr);
    end Call_Token;
 
    procedure Pre_Visit (An_Entity : access W_Kit_Node_Type) is
@@ -394,11 +406,64 @@ package body Wrapping.Input.Kit is
          return True;
       end if;
 
-      if Name = "kind" then
+      if Name = "line" or else Name = "start_line" then
          Push_Object
-           (To_W_String (Kind (Data (An_Entity.Node))'Wide_Wide_Image));
+           (W_Object'(
+            new W_Integer_Type'(
+              Value => Integer (Sloc_Range (Data (An_Entity.Node)).Start_Line))));
+
+         return True;
+      elsif Name = "column" or else Name = "start_column" then
+         Push_Object
+           (W_Object'(
+            new W_Integer_Type'(
+              Value => Integer (Sloc_Range (Data (An_Entity.Node)).Start_Column))));
+
+         return True;
+      elsif Name = "end_line" then
+         Push_Object
+           (W_Object'(
+            new W_Integer_Type'(
+              Value => Integer (Sloc_Range (Data (An_Entity.Node)).End_Line))));
+
+         return True;
+      elsif Name = "end_column" then
+         Push_Object
+           (W_Object'(
+            new W_Integer_Type'(
+              Value => Integer (Sloc_Range (Data (An_Entity.Node)).End_Column))));
+
          return True;
       end if;
+
+      declare
+         Full_Kind : Wide_Wide_String := Kind (Data (An_Entity.Node))'Wide_Wide_Image;
+         Actual_Kind : Wide_Wide_String := To_Lower (Full_Kind (Full_Kind'First + 4 .. Full_Kind'Last));
+      begin
+         Actual_Kind (Actual_Kind'First) := To_Upper (Actual_Kind (Actual_Kind'First));
+
+         if Name = "kind" then
+            Push_Object (To_W_String (Actual_Kind));
+
+            return True;
+         elsif Name = Actual_Kind then
+            --  We are in something of the form
+            --  An_Entity (Node_Type ());
+            --  the type matched. Stack a function that will verify the sub
+            --  expression.
+            --  TODO: This also accepts An_Entity.Node_Type() which might be
+            --  bizzare... Need to decide if this is OK.
+
+            Push_Object
+              (W_Object'
+                 (new W_Intrinsic_Function_Type'
+                      (Prefix => W_Object (An_Entity),
+                       Call   => Call_Check_Expression'Unrestricted_Access,
+                       others => <>)));
+
+            return True;
+         end if;
+      end;
 
       return False;
    end Push_Value;

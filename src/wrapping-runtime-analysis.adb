@@ -51,6 +51,8 @@ package body Wrapping.Runtime.Analysis is
      with Post =>
        Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
 
+   procedure Handle_Arithmetic_Operator (Expr : T_Expr);
+
    procedure Evaluate_String
      (Expr          : T_Expr;
       On_Group      : access procedure (Index : Integer; Value : W_Object) := null;
@@ -231,6 +233,13 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Match_Mode := Match_None;
       Top_Frame.Top_Context.Is_Root_Selection := True;
    end Push_Frame_Context_Parameter;
+
+   procedure Push_Frame_Context_No_Pick is
+   begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Pick_Callback := null;
+      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+   end Push_Frame_Context_No_Pick;
 
    procedure Push_Frame_Context (Context : Frame_Context_Type) is
    begin
@@ -1049,25 +1058,6 @@ package body Wrapping.Runtime.Analysis is
       Run_Outer_Callback : Boolean := True;
 
       Do_Pop_Frame_Context : Boolean := False;
-
-      --  Many expression part need to deactivate being picked as function results.
-      --  For example, while in:
-      --     function f do
-      --        pick a and b;
-      --     end;
-      --  we want to pick a and b (if it's called from e.g. .all(), in :
-      --     function f do
-      --        pick a & b;
-      --     end;
-      --  we only want to pick the result of a & b.
-      --  The following function pushes a new context with the proper flags.
-      procedure Push_Frame_Context_No_Pick is
-      begin
-         Push_Frame_Context;
-         Top_Frame.Top_Context.Pick_Callback := null;
-         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-      end Push_Frame_Context_No_Pick;
-
    begin
       Push_Error_Location (Expr.Node);
 
@@ -1194,48 +1184,12 @@ package body Wrapping.Runtime.Analysis is
                         end;
                      end if;
                   when Template_Operator_Plus | Template_Operator_Minus |
-                       Template_Operator_Multiply | Template_Operator_Divide =>
+                       Template_Operator_Multiply | Template_Operator_Divide |
+                       Template_Operator_Eq | Template_Operator_Neq |
+                       Template_Operator_Gt | Template_Operator_Lt |
+                       Template_Operator_Gte | Template_Operator_Lte =>
 
-                     Push_Frame_Context_No_Pick;
-
-                     Left := Evaluate_Expression (Expr.Binary_Left);
-
-                     declare
-                        Left_I, Right_I : Integer;
-                     begin
-
-                        if Left.Dereference.all not in W_Integer_Type'Class then
-                           Error ("Expected integer for left operand");
-                        else
-                           Left_I := W_Integer (Left.Dereference).Value;
-                        end if;
-
-                        Right := Evaluate_Expression (Expr.Binary_Right);
-
-                        if Right.Dereference.all not in W_Integer_Type'Class then
-                           Error ("Expected integer for right operand");
-                        else
-                           Right_I := W_Integer (Right.Dereference).Value;
-                        end if;
-
-                        Push_Object
-                          (W_Object'
-                             (new W_Integer_Type'
-                                  (Value =>
-                                       (case Expr.Node.As_Binary_Expr.F_Op.Kind is
-                                           when Template_Operator_Plus     =>
-                                              Left_I + Right_I,
-                                           when Template_Operator_Minus    =>
-                                              Left_I - Right_I,
-                                           when Template_Operator_Multiply =>
-                                              Left_I * Right_I,
-                                           when Template_Operator_Divide   =>
-                                              Left_I / Right_I,
-                                           when others                     =>
-                                              0))));
-                     end;
-
-                     Pop_Frame_Context;
+                     Handle_Arithmetic_Operator (Expr);
 
                   when others =>
                      Error ("unexpected operator");
@@ -2198,7 +2152,6 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Filter;
 
-
    procedure Handle_All (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector)
    is
       Initial_Context : Frame_Context := Top_Frame.Top_Context;
@@ -2349,6 +2302,92 @@ package body Wrapping.Runtime.Analysis is
 
       Pop_Frame_Context;
    end Handle_New;
+
+   procedure Handle_Arithmetic_Operator (Expr : T_Expr) is
+      Left, Right : W_Object;
+      Left_I, Right_I : Integer;
+      Result : W_Object;
+      Kind : Template_Node_Kind_Type :=
+        Expr.Node.As_Binary_Expr.F_Op.Kind;
+   begin
+      Push_Frame_Context_No_Pick;
+      Top_Frame.Top_Context.Match_Mode := Match_Has;
+
+      Left := Evaluate_Expression (Expr.Binary_Left);
+
+      if Left.Dereference.all not in W_Integer_Type'Class then
+         Error ("Expected integer for left operand, found " & Wide_Wide_Expanded_Name (Left.Dereference.all'Tag));
+      else
+         Left_I := W_Integer (Left.Dereference).Value;
+      end if;
+
+      Right := Evaluate_Expression (Expr.Binary_Right);
+
+      if Right.Dereference.all not in W_Integer_Type'Class then
+         Error ("Expected integer for right operand, found " & Wide_Wide_Expanded_Name (Left.Dereference.all'Tag));
+      else
+         Right_I := W_Integer (Right.Dereference).Value;
+      end if;
+
+      case Kind is
+         when Template_Operator_Plus |
+              Template_Operator_Minus |
+              Template_Operator_Multiply |
+              Template_Operator_Divide
+            =>
+
+            Result := new W_Integer_Type'
+              (Value =>
+                 (case Expr.Node.As_Binary_Expr.F_Op.Kind is
+                     when Template_Operator_Plus     =>
+                        Left_I + Right_I,
+                     when Template_Operator_Minus    =>
+                        Left_I - Right_I,
+                     when Template_Operator_Multiply =>
+                        Left_I * Right_I,
+                     when Template_Operator_Divide   =>
+                        Left_I / Right_I,
+                     when others                     =>
+                        0));
+
+         when Template_Operator_Eq |
+              Template_Operator_Neq |
+              Template_Operator_Gt |
+              Template_Operator_Lt |
+              Template_Operator_Gte |
+              Template_Operator_Lte
+            =>
+
+            if (case Expr.Node.As_Binary_Expr.F_Op.Kind is
+                   when Template_Operator_Eq  =>
+                     Left_I = Right_I,
+                   when Template_Operator_Neq =>
+                     Left_I /= Right_I,
+                   when Template_Operator_Gt  =>
+                     Left_I > Right_I,
+                   when Template_Operator_Lt  =>
+                     Left_I < Right_I,
+                   when Template_Operator_Gte =>
+                     Left_I >= Right_I,
+                   when Template_Operator_Lte =>
+                     Left_I <= Right_I,
+                   when others                =>
+                     False)
+            then
+               Result := Top_Object;
+            else
+               Result := Match_False;
+            end if;
+
+         when others =>
+            Error ("unexpected operator");
+
+      end case;
+
+      Push_Object (Result);
+
+      Pop_Frame_Context;
+   end Handle_Arithmetic_Operator;
 
    function Capture_Closure (Names : Text_Sets.Set) return Closure is
       A_Closure : Closure := new Closure_Type;

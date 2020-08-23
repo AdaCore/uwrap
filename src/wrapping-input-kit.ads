@@ -96,6 +96,8 @@ generic
    with function Text (Token : Token_Reference) return Text_Type is <>;
    with function Kind (Token_Data : Token_Data_Type) return Token_Kind is <>;
    with function Is_Trivia (Token : Token_Reference) return Boolean is <>;
+   with function Sloc_Range
+     (Token_Data : Token_Data_Type) return Source_Location_Range is <>;
 package Wrapping.Input.Kit is
 
    type W_Kit_Node_Type;
@@ -172,6 +174,7 @@ package Wrapping.Input.Kit is
 
    overriding
    function Language (An_Entity : W_Kit_Node_Token_Type) return Text_Type is (Language_Name & "_token");
+
 private
 
    type W_Source_Node_Type;

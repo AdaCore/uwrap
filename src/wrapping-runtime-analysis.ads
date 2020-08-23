@@ -46,6 +46,19 @@ package Wrapping.Runtime.Analysis is
 
    procedure Push_Frame_Context_Parameter;
 
+   --  Many expression part need to deactivate being picked as function results.
+   --  For example, while in:
+   --     function f do
+   --        pick a and b;
+   --     end;
+   --  we want to pick a and b (if it's called from e.g. .all(), in :
+   --     function f do
+   --        pick a & b;
+   --     end;
+   --  we only want to pick the result of a & b.
+   --  The following function pushes a new context with the proper flags.
+   procedure Push_Frame_Context_No_Pick;
+
    procedure Pop_Frame_Context;
 
    procedure Push_Match_Groups_Section;
