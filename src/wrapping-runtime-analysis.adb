@@ -1836,49 +1836,35 @@ package body Wrapping.Runtime.Analysis is
          Top_Frame.Top_Context.Match_Mode := Match_Call_Default;
       end if;
 
-      Push_Frame_Context;
+      --  When evaluating the name of the function, we need to verify that it
+      --  matches the current object. For example in:
+      --     match w_SomeTemplate ()
+      --  we may find a reference to w_SomeTemplate as a static entity, but it
+      --  may not match the current object (it in the example above). This will
+      --  be checked by the Outer_Expression_Match callback below. Note that
+      --  intrinsinc and custom functions will always match, so that e.g.
+      --     match to_lower (some_value)
+      --  will always go through.
 
-      --  We want to use the outer expression callback when evaluating the
-      --  parameters, in particular to support something like
-      --     child (bla).all()
-      --  where the child identifier is extracted through regular test, but the
-      --  bla expression needs to be using whatever outer expression callback
-      --  is set.
       Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-      Evaluate_Expression (Expr.Called);
+
+      Called := Evaluate_Expression (Expr.Called).Dereference;
+
       Pop_Frame_Context;
 
-      Called := Top_Object.Dereference;
-      --  TODO: we can probably pop the called object now that we track the matching
-      --  object.
+      --  If the called identifier didn't match, we either just push a match
+      --  false if we're in a matching section, or raise an error. Otherwise,
+      --  execute the call on the retreived function
 
       if Called = Match_False then
          if Top_Frame.Top_Context.Match_Mode /= Match_None then
-            Pop_Frame_Context;
-            Pop_Object; -- Pop call symbol
             Push_Match_False;
-            return;
          else
             Error ("call not matching context");
          end if;
+      else
+         Called.Push_Call_Result (Expr.Args);
       end if;
-
-      --  TODO: It's not clear at all that we need three different branches
-      --  here, Push_Call_Result could be properly set for all of these objects.
-
-      --  Within a call, if we're matching, fall back to default ref matching
-
-      if Top_Frame.Top_Context.Match_Mode /= Match_None then
-         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-      end if;
-
-      Top_Frame.Top_Context.Is_Root_Selection := True;
-
-      Called.Push_Call_Result (Expr.Args);
-
-      Delete_Object_At_Position (-2); -- Remove call symbol
-
-      Pop_Frame_Context;
    end Handle_Call;
 
    procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector)
