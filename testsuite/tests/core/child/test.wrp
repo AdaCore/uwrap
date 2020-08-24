@@ -3,14 +3,14 @@ match Entity () do
     weave standard.out (@ & "NO CHILDREN: \e<f_name>\n");
 
     match child (c: Entity ())
-    weave standard.out (@ & "FIRST CHILD OF \e<self.f_name> is \e<c.f_name>\n");
+    weave standard.out (@ & "FIRST CHILD OF \e<it.f_name> is \e<c.f_name>\n");
 
     match child (Entity() and child (c: Entity ()))
-    weave standard.out (@ & "FIRST GRAND CHILD OF \e<self.f_name> is \e<c.f_name>\n");
+    weave standard.out (@ & "FIRST GRAND CHILD OF \e<it.f_name> is \e<c.f_name>\n");
 
     match child (c: Entity() and f_name (x".*x"))
-    weave standard.out (@ & "FIRST DESCENDANT OF \e<self.f_name> WITH X SUFFIX IS \e<c.f_name>\n");
+    weave standard.out (@ & "FIRST DESCENDANT OF \e<it.f_name> WITH X SUFFIX IS \e<c.f_name>\n");
 
     match child (c: Entity() and f_name (x"[0-9]+"))
-    weave standard.out (@ & "FIRST DESCENDANT OF \e<self.f_name> WITH NUMBER SUFFIX IS \e<c.f_name>\n");
+    weave standard.out (@ & "FIRST DESCENDANT OF \e<it.f_name> WITH NUMBER SUFFIX IS \e<c.f_name>\n");
 end;

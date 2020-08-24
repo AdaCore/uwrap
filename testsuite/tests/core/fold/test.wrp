@@ -9,4 +9,4 @@ match w_Entity ()
 weave standard.out (@ & "\n");
 
 match w_Entity ()
-weave standard.out (@ & self.child (w: w_Entity ()).fold (f: "children of \e<name>:", f: "\e<f> \e<w.name>"));
+weave standard.out (@ & it.child (w: w_Entity ()).fold (f: "children of \e<name>:", f: "\e<f> \e<w.name>"));

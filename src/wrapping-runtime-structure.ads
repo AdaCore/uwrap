@@ -237,7 +237,7 @@ package Wrapping.Runtime.Structure is
    function Traverse
      (An_Entity    : access W_Object_Type;
       A_Mode       : Browse_Mode;
-      Include_Self : Boolean;
+      Include_It : Boolean;
       Final_Result : out W_Object;
       Visitor      : access function
         (E      : access W_Object_Type'Class;
@@ -319,8 +319,8 @@ package Wrapping.Runtime.Structure is
      (Object : W_Object;
       Matching_Expression : T_Expr);
 
-   procedure Push_Match_Self_Result
-     (Self                : W_Object;
+   procedure Push_Match_It_Result
+     (It                : W_Object;
       Matching_Expression : T_Expr);
 
    procedure Handle_Call_Parameters
@@ -330,7 +330,7 @@ package Wrapping.Runtime.Structure is
 
    type Closure_Type is record
       Captured_Symbols : W_Object_Maps.Map;
-      Implicit_Self    : W_Object;
+      Implicit_It    : W_Object;
       Lexical_Scope    : T_Entity;
       Temp_Names       : Text_Maps_Access;
    end record;

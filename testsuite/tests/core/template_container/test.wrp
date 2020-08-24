@@ -4,14 +4,14 @@ template w_Node do
 end;
 
 template visit1 pick origin do
-   match s: self() and f_name (x"B(.*)") and parent (wrapper (w: w_Node ()))
+   match s: it() and f_name (x"B(.*)") and parent (wrapper (w: w_Node ()))
    pick w weave (
       my_set => @.include (string (s.f_name)),
       my_vector => @.append (string (s.f_name)));
 end;
 
 template visit2 pick origin do
-   match s: self() and f_name (x"B(.*)") and parent (wrapper (w: w_Node ()))
+   match s: it() and f_name (x"B(.*)") and parent (wrapper (w: w_Node ()))
    pick w weave (
       my_set => @.include (string (s.f_name)),
       my_vector => @.append (string (s.f_name)));
@@ -27,7 +27,7 @@ match f_name ("A")
 wrap w: w_Node ();
 
 match w_Node ()
-weave standard.out (@ & "SET: " & self.my_set.filter (e: true).fold (c: "", c: (c & e), c: (c & ", ")) & "\n");
+weave standard.out (@ & "SET: " & it.my_set.filter (e: true).fold (c: "", c: (c & e), c: (c & ", ")) & "\n");
 
 match w_Node ()
-weave standard.out (@ & "VECTOR: " & self.my_vector.filter (e: true).fold (c: "", c: (c & e), c: (c & ", ")) & "\n");
+weave standard.out (@ & "VECTOR: " & it.my_vector.filter (e: true).fold (c: "", c: (c & e), c: (c & ", ")) & "\n");

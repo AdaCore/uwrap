@@ -11,25 +11,25 @@ match Entity () do
 end;
 
 match txt (x"FIRST")
-weave standard.out (@ & "(1) FIRST \e<self.origin.f_name>\n");
+weave standard.out (@ & "(1) FIRST \e<it.origin.f_name>\n");
 
 match main () and not txt (x"FIRST")
-weave standard.out (@ & "(1) NOT FIRST \e<self.origin.f_name>\n");
+weave standard.out (@ & "(1) NOT FIRST \e<it.origin.f_name>\n");
 
 match txt (x"SECOND")
-weave standard.out (@ & "(1) SECOND \e<self.origin.f_name>\n");
+weave standard.out (@ & "(1) SECOND \e<it.origin.f_name>\n");
 
 match main () and not txt (x"SECOND")
-weave standard.out (@ & "(1) NOT SECOND \e<self.origin.f_name>\n");
+weave standard.out (@ & "(1) NOT SECOND \e<it.origin.f_name>\n");
 
 match main (txt (x"FIRST"))
-weave standard.out (@ & "(2) FIRST \e<self.origin.f_name>\n");
+weave standard.out (@ & "(2) FIRST \e<it.origin.f_name>\n");
 
 match main (not txt (x"FIRST"))
-weave standard.out (@ & "(2) NOT FIRST \e<self.origin.f_name>\n");
+weave standard.out (@ & "(2) NOT FIRST \e<it.origin.f_name>\n");
 
 match main (txt (x"SECOND"))
-weave standard.out (@ & "(2) SECOND \e<self.origin.f_name>\n");
+weave standard.out (@ & "(2) SECOND \e<it.origin.f_name>\n");
 
 match main (not txt (x"SECOND"))
-weave standard.out (@ & "(2) NOT SECOND \e<self.origin.f_name>\n");
+weave standard.out (@ & "(2) NOT SECOND \e<it.origin.f_name>\n");

@@ -61,7 +61,7 @@ package body Wrapping.Runtime.Analysis is
          Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
 
    procedure Apply_Wrapping_Program
-     (Self           : W_Node;
+     (It             : W_Node;
       Lexical_Scope  : access T_Entity_Type'Class)
      with Post =>
        Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
@@ -141,14 +141,14 @@ package body Wrapping.Runtime.Analysis is
       Update_Object;
    end Push_Object;
 
-   procedure Push_Implicit_Self (Object : access W_Object_Type'Class) is
+   procedure Push_Implicit_It (Object : access W_Object_Type'Class) is
    begin
       Push_Object
         (W_Object'(new W_Reference_Type'
              (Value => W_Object (Object),
-              Is_Implicit_Self => True,
+              Is_Implicit_It => True,
               others           => <>)));
-   end Push_Implicit_Self;
+   end Push_Implicit_It;
 
    procedure Push_Allocated_Entity (Object : access W_Object_Type'Class) is
    begin
@@ -323,8 +323,8 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Symbols.Move (Copy_Symbols);
       Top_Frame.Temp_Names := A_Closure.Temp_Names;
 
-      if A_Closure.Implicit_Self /= null then
-         Push_Implicit_Self (A_Closure.Implicit_Self);
+      if A_Closure.Implicit_It /= null then
+         Push_Implicit_It (A_Closure.Implicit_It);
       end if;
    end Push_Frame;
 
@@ -334,18 +334,18 @@ package body Wrapping.Runtime.Analysis is
       Update_Frames;
    end Pop_Frame;
 
-   function Get_Implicit_Self (From : Data_Frame := Top_Frame) return W_Object is
+   function Get_Implicit_It (From : Data_Frame := Top_Frame) return W_Object is
    begin
       for I in reverse From.Data_Stack.First_Index .. From.Data_Stack.Last_Index loop
          if From.Data_Stack.Element (I).all in W_Reference_Type'Class
-           and then W_Reference (From.Data_Stack.Element (I)).Is_Implicit_Self
+           and then W_Reference (From.Data_Stack.Element (I)).Is_Implicit_It
          then
             return W_Reference (From.Data_Stack.Element (I)).Value;
          end if;
       end loop;
 
       return null;
-   end Get_Implicit_Self;
+   end Get_Implicit_It;
 
    function Match (Pattern, Text : Text_Type) return Boolean is
       Text_Str : String := To_String (Text);
@@ -377,7 +377,7 @@ package body Wrapping.Runtime.Analysis is
    end Match;
 
    procedure Apply_Template_Action
-     (Self : W_Node; Template_Clause : T_Weave_Or_Wrap)
+     (It : W_Node; Template_Clause : T_Weave_Or_Wrap)
    is
       A_Template_Instance : W_Template_Instance;
       Self_Weave : Boolean := False;
@@ -387,7 +387,7 @@ package body Wrapping.Runtime.Analysis is
       Dummy_Action : Visit_Action;
    begin
       Push_Error_Location (Template_Clause.Node);
-      Push_Implicit_Self (Self);
+      Push_Implicit_It (It);
 
       if Template_Clause.Call.Is_Null then
          --  We've set a null template - the objective is to prevent this
@@ -416,7 +416,7 @@ package body Wrapping.Runtime.Analysis is
             Error ("expected template reference");
          end if;
 
-         Self.Forbidden_Template_Names.Include
+         It.Forbidden_Template_Names.Include
            (T_Template (W_Static_Entity (Result).An_Entity).Full_Name);
 
          --  TODO: remove the template if it's already been created in the
@@ -427,25 +427,25 @@ package body Wrapping.Runtime.Analysis is
             --  the current template.
             if Template_Clause.all not in Weave_Type'Class then
                Error ("self wrap not allowed, either weave or provide a template or visitor name");
-            elsif Self.all in W_Template_Instance_Type'Class then
-               A_Template_Instance := W_Template_Instance (Self);
+            elsif It.all in W_Template_Instance_Type'Class then
+               A_Template_Instance := W_Template_Instance (It);
             else
                Error ("only template instances can be self weaved");
             end if;
 
             Self_Weave := True;
          elsif Template_Clause.Call.Reference.all in T_Template_Type'Class then
-            A_Template_Instance := Self.Get_Template_Instance
+            A_Template_Instance := It.Get_Template_Instance
               (T_Template (Template_Clause.Call.Reference));
 
             if (Template_Clause.all in Weave_Type'Class
                 or else A_Template_Instance = null
                 or else A_Template_Instance.Is_Wrapping = False)
-              and then not Self.Forbidden_Template_Names.Contains
+              and then not It.Forbidden_Template_Names.Contains
                 (Template_Clause.Call.Reference.Full_Name)
             then
                if A_Template_Instance = null then
-                  A_Template_Instance := Self.Create_Template_Instance
+                  A_Template_Instance := It.Create_Template_Instance
                     (T_Template (Template_Clause.Call.Reference));
                end if;
 
@@ -488,17 +488,17 @@ package body Wrapping.Runtime.Analysis is
      with Post => Top_Frame.Data_Stack.Length =
        Top_Frame.Data_Stack.Length'Old;
 
-   procedure Handle_Command (Command : T_Command; Self : W_Node) is
+   procedure Handle_Command (Command : T_Command; It : W_Node) is
    begin
       --  The command is the enclosing scope for all of its clauses. It
       --  will in particular receive the matching groups and the temporary
       --  values that can be used consistently in the various clauses
       Push_Frame (Command);
-      Push_Implicit_Self (Self);
+      Push_Implicit_It (It);
 
       Handle_Command_Front (Command);
 
-      Pop_Object; -- Pop self.
+      Pop_Object; -- Pop It.
       Pop_Frame;
    end Handle_Command;
 
@@ -609,7 +609,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Command_Back (Command : T_Command) is
       Top : W_Object := Top_Object.Dereference;
-      Self : W_Node;
+      It : W_Node;
    begin
       if Top_Frame.Interrupt_Program then
          return;
@@ -618,14 +618,14 @@ package body Wrapping.Runtime.Analysis is
       if Top = Match_False then
          return;
       elsif Top.all in W_Node_Type'Class then
-         Self := W_Node (Top);
+         It := W_Node (Top);
       elsif Top.all in W_Static_Entity_Type then
-         Self := W_Node (Get_Object_For_Entity (W_Static_Entity (Top).An_Entity));
+         It := W_Node (Get_Object_For_Entity (W_Static_Entity (Top).An_Entity));
       else
          Error ("can't pick selected object");
       end if;
 
-      Push_Implicit_Self (Self);
+      Push_Implicit_It (It);
 
       if Command.Command_Sequence /= null then
          Handle_Command_Sequence (Command.Command_Sequence.First_Element);
@@ -644,7 +644,7 @@ package body Wrapping.Runtime.Analysis is
             -- There is an explicit template call. Pass this on either the
             -- current template or the whole tree
 
-            Apply_Template_Action (Self, Command.Template_Section);
+            Apply_Template_Action (It, Command.Template_Section);
          end if;
       end if;
 
@@ -816,7 +816,7 @@ package body Wrapping.Runtime.Analysis is
    end Handle_Command_Sequence;
 
    procedure Apply_Wrapping_Program
-     (Self          : W_Node;
+     (It          : W_Node;
       Lexical_Scope : access T_Entity_Type'Class)
    is
    begin
@@ -824,11 +824,11 @@ package body Wrapping.Runtime.Analysis is
 
       for Wrapping_Entity of reverse Lexical_Scope.Children_Ordered loop
          if Wrapping_Entity.all in T_Command_Type then
-            Handle_Command (T_Command (Wrapping_Entity), Self);
+            Handle_Command (T_Command (Wrapping_Entity), It);
          elsif Wrapping_Entity.all in T_Module_Type'Class
            or else Wrapping_Entity.all in T_Namespace_Type'Class
          then
-            Apply_Wrapping_Program (Self, Wrapping_Entity);
+            Apply_Wrapping_Program (It, Wrapping_Entity);
          end if;
       end loop;
 
@@ -1046,7 +1046,7 @@ package body Wrapping.Runtime.Analysis is
    is
       --  Some expression need to run the outer object callback. For example:
       --    match a
-      --  a needs to match with self. Other do not. For example in:
+      --  a needs to match with It. Other do not. For example in:
       --     match has'a
       --  we need to not match (has'a) expression. Similarly, in :
       --     match a or b
@@ -1465,8 +1465,8 @@ package body Wrapping.Runtime.Analysis is
       Tentative_Symbol : W_Object;
       Semantic_Entity : T_Entity;
    begin
-      if Name = "self" then
-         Push_Object (Get_Implicit_Self);
+      if Name = "it" then
+         Push_Object (Get_Implicit_It);
 
          return True;
       elsif Name = "text" then
@@ -1612,8 +1612,8 @@ package body Wrapping.Runtime.Analysis is
       procedure Handle_Language_Entity_Selection is
          Name : Text_Type := Node.Text;
 
-         Implicit_Self : W_Object;
-         Found_Self_Entity : Boolean;
+         Implicit_It : W_Object;
+         Found_It_Entity : Boolean;
          Prefix_Entity : W_Object;
       begin
          -- We're resolving a reference to an entity
@@ -1627,16 +1627,16 @@ package body Wrapping.Runtime.Analysis is
                return;
             end if;
 
-            --  Retreive the entity from implicit self. If Implicit new
+            --  Retreive the entity from implicit It. If Implicit new
             --  exist, we need to also attempt at retreiving its value.
             --  We'll return either the entity coming from one of the two,
             --  or raise an error if both contain such name.
 
-            Implicit_Self := Get_Implicit_Self;
+            Implicit_It := Get_Implicit_It;
 
-            Found_Self_Entity := Implicit_Self.Push_Value (Name);
+            Found_It_Entity := Implicit_It.Push_Value (Name);
 
-            if Found_Self_Entity then
+            if Found_It_Entity then
                return;
             end if;
 
@@ -1777,7 +1777,7 @@ package body Wrapping.Runtime.Analysis is
          Handle_Call_Parameters (Args, Store_Parameter'Access);
 
          Push_Frame (A_Template_Instance.Defining_Entity);
-         Push_Implicit_Self (A_Template_Instance);
+         Push_Implicit_It (A_Template_Instance);
          Top_Frame.Top_Context.Visit_Decision := Visit_Result'Unchecked_Access;
          Top_Frame.Current_Template := W_Object (A_Template_Instance);
 
@@ -1995,11 +1995,11 @@ package body Wrapping.Runtime.Analysis is
 
    begin
       --  Inside the folded expression, we need to go back to a situation where
-      --  self is top of the stack, as name can refer to the implicit self. Re
+      --  It is top of the stack, as name can refer to the implicit It. Re
       --  push this value
 
       Push_Frame_Context_Parameter;
-      Push_Implicit_Self (Get_Implicit_Self);
+      Push_Implicit_It (Get_Implicit_It);
       Current_Expression := Evaluate_Expression (Fold_Expr.Default);
 
       --  If the name captured is not null, provide its value here. This allows
@@ -2106,13 +2106,13 @@ package body Wrapping.Runtime.Analysis is
 
       --  A filter expression is about calling the directly prefixing function
       --  several times to find a matching pattern. First identify the inital
-      --  value of self and the expression on which the filter is done. In
+      --  value of It and the expression on which the filter is done. In
       --  the case:
       --     X ().filter ()
-      --  Self is current self, X is the function. In the case:
+      --  It is current It, X is the function. In the case:
       --     A.B.X ().filter ()
       --  X is still the function, but A.B needs to be computed to retreive
-      --  self.
+      --  It.
 
       case Selector.Selector_Left.Kind is
          when Template_Selector =>
@@ -2193,7 +2193,7 @@ package body Wrapping.Runtime.Analysis is
             Compute_Selector_Suffix (Suffix);
          else
             --  Otherwise, the value is the just the last stacked object.
-            --  Dereference it to remove the potential "self" attribute
+            --  Dereference it to remove the potential "It" attribute
             Push_Object (Top_Object.Dereference);
          end If;
 
@@ -2406,9 +2406,9 @@ package body Wrapping.Runtime.Analysis is
                --  and a statically solvable name.
                Pop_Object;
             elsif Top_Object.all in W_Reference_Type'Class
-              and then W_Reference (Top_Object).Is_Implicit_Self
+              and then W_Reference (Top_Object).Is_Implicit_It
             then
-               --  We don't want to carry the self property over to the deferred
+               --  We don't want to carry the It property over to the deferred
                --  call, so remove it.
 
                A_Closure.Captured_Symbols.Insert
@@ -2420,7 +2420,7 @@ package body Wrapping.Runtime.Analysis is
          end if;
       end loop;
 
-      A_Closure.Implicit_Self := Get_Implicit_Self;
+      A_Closure.Implicit_It := Get_Implicit_It;
       A_Closure.Lexical_Scope := Top_Frame.Lexical_Scope;
       A_Closure.Temp_Names := Top_Frame.Temp_Names;
 

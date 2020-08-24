@@ -3,4 +3,4 @@ function call (e) do
 end;
 
 match Entity (f_name ("A"))
-weave standard.out (@ & call (self).all (x: true).fold (c: "", c: (c & "SHOULD BE JUST ONE")));
+weave standard.out (@ & call (it).all (x: true).fold (c: "", c: (c & "SHOULD BE JUST ONE")));

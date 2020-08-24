@@ -52,7 +52,7 @@ package body Wrapping.Runtime.Structure is
    function Traverse
      (An_Entity    : access W_Object_Type;
       A_Mode       : Browse_Mode;
-      Include_Self : Boolean;
+      Include_It : Boolean;
       Final_Result : out W_Object;
       Visitor      : access function
         (E      : access W_Object_Type'Class;
@@ -99,7 +99,7 @@ package body Wrapping.Runtime.Structure is
 
          --  Then evaluate that folding expression
 
-         Push_Implicit_Self (Browsed);
+         Push_Implicit_It (Browsed);
          Expand_Action.all;
 
          --  The result of the evaluate expression is the result of the
@@ -137,7 +137,7 @@ package body Wrapping.Runtime.Structure is
          Push_Frame_Context;
          Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
 
-         Push_Implicit_Self (Browsed);
+         Push_Implicit_It (Browsed);
 
          if Top_Frame.Top_Context.Outer_Expr_Callback /= null then
             Top_Frame.Top_Context.Outer_Expr_Callback.all;
@@ -162,14 +162,14 @@ package body Wrapping.Runtime.Structure is
          end if;
       end if;
 
-      --  There is a subtetly in the browsing functions. The self reference
+      --  There is a subtetly in the browsing functions. The It reference
       --  within these calls isn't the entity currently analyzed anymore but
       --  directly the entity that is being evaluated under these calls.
       --  However, we cannot create a sub frame as whatever we match needs
       --  to find its way to the command frame (otherwise any extracted
       --  group would be deleted upon frame popped).
       --  TODO: these specificities needs to be duly documented in the UG.
-      Push_Implicit_Self (Browsed);
+      Push_Implicit_It (Browsed);
 
       --  If there's a name capture above this expression, its value needs
       --  to be available in the underlying match expression. We only capture
@@ -736,31 +736,31 @@ package body Wrapping.Runtime.Structure is
       end if;
    end Push_Match_Result;
 
-   procedure Push_Match_Self_Result
-     (Self                : W_Object;
+   procedure Push_Match_It_Result
+     (It                : W_Object;
       Matching_Expression : T_Expr) is
    begin
       if Matching_Expression = null then
-         Push_Object (Self);
+         Push_Object (It);
       else
          Push_Frame_Context;
-         Top_Frame.Top_Context.Outer_Object := Self;
+         Top_Frame.Top_Context.Outer_Object := It;
          Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
 
-         Push_Implicit_Self (Self);
+         Push_Implicit_It (It);
          Evaluate_Expression (Matching_Expression);
 
          if Pop_Object /= Match_False then
-            Pop_Object; -- Pop self
-            Push_Object (Self);
+            Pop_Object; -- Pop It
+            Push_Object (It);
          else
-            Pop_Object; -- Pop self
+            Pop_Object; -- Pop It
             Push_Match_False;
          end if;
 
          Pop_Frame_Context;
       end if;
-   end Push_Match_Self_Result;
+   end Push_Match_It_Result;
 
    procedure Handle_Call_Parameters
      (Args : T_Arg_Vectors.Vector;

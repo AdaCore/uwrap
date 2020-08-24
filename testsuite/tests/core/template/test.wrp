@@ -38,7 +38,7 @@ match Entity () do
 end;
 
 match w_root ()
-pick self weave (contents => @ & "PROCESSING ROOT \e<origin.f_name>\n");
+pick it weave (contents => @ & "PROCESSING ROOT \e<origin.f_name>\n");
 
 match e: w_entity () and parent (w: w_root ())
 pick w weave (contents => @ & e.output);

@@ -62,23 +62,23 @@ package body Wrapping.Runtime.Objects is
    procedure Call_Browse_Sibling is new Call_Gen_Browse (Sibling);
    procedure Call_Browse_Wrapper is new Call_Gen_Browse (Wrapping.Runtime.Structure.Wrapper);
 
-   procedure Call_Browse_Self
+   procedure Call_Browse_It
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
    is
    begin
-      --  TODO: This is probably never executed, as self is an object directly
+      --  TODO: This is probably never executed, as It is an object directly
       --  returned by push_value on nodes.
       if Params.Length = 0 then
          Push_Match_True (Object);
       elsif Params.Length = 1 then
-         Push_Match_Self_Result
+         Push_Match_It_Result
            (W_Object (Object),
             Params.Element (1).Expr);
       else
-         Error ("self only takes 1 argument");
+         Error ("'it' only takes 1 argument");
       end if;
-   end Call_Browse_Self;
+   end Call_Browse_It;
 
    procedure Call_Tmp
      (Object : access W_Object_Type'Class;
@@ -246,7 +246,7 @@ package body Wrapping.Runtime.Objects is
    function Traverse
      (An_Entity    : access W_Reference_Type;
       A_Mode       : Browse_Mode;
-      Include_Self : Boolean;
+      Include_It : Boolean;
       Final_Result : out W_Object;
       Visitor      : access function
         (E      : access W_Object_Type'Class;
@@ -256,7 +256,7 @@ package body Wrapping.Runtime.Objects is
    begin
       return An_Entity.Value.Traverse
         (A_Mode       => A_Mode,
-         Include_Self => Include_Self,
+         Include_It => Include_It,
          Final_Result => Final_Result,
          Visitor      => Visitor);
    end Traverse;
@@ -334,7 +334,7 @@ package body Wrapping.Runtime.Objects is
       if Params.Length = 0 then
          Push_Match_True (An_Entity);
       elsif Params.Length = 1 then
-         Push_Implicit_Self (An_Entity);
+         Push_Implicit_It (An_Entity);
          Evaluate_Expression (Params.Element (1).Expr);
          Result := Pop_Object;
          Pop_Object;
@@ -637,7 +637,7 @@ package body Wrapping.Runtime.Objects is
             Top_Frame.Interrupt_Program := True;
          else
             Push_Frame (Calling_Frame);
-            Push_Implicit_Self (Object);
+            Push_Implicit_It (Object);
             Calling_Frame.Top_Context.Expand_Action.all;
             Last_Picked := Pop_Object;
             Pop_Object;
@@ -645,7 +645,7 @@ package body Wrapping.Runtime.Objects is
          end if;
       end Pick_Callback;
 
-      Prev_Self : W_Object := Get_Implicit_Self;
+      Prev_It : W_Object := Get_Implicit_It;
    begin
       Handle_Call_Parameters (Params, Evaluate_Parameter'Access);
 
@@ -654,7 +654,7 @@ package body Wrapping.Runtime.Objects is
       Push_Frame (An_Entity.A_Function);
       Called_Frame := Top_Frame;
 
-      Push_Implicit_Self (Prev_Self);
+      Push_Implicit_It (Prev_It);
       Top_Frame.Symbols.Move (Temp_Symbols);
       Top_Frame.Top_Context.Pick_Callback := Pick_Callback'Unrestricted_Access;
       Top_Frame.Top_Context.Expand_Action := null;
@@ -702,37 +702,37 @@ package body Wrapping.Runtime.Objects is
      (An_Entity : access W_Static_Entity_Type;
       Params    : T_Arg_Vectors.Vector)
    is
-      Self_Object   : W_Object;
+      It_Object   : W_Object;
       Prefix        : W_Template_Instance;
       Result        : W_Object;
    begin
       --  Matching an static entity reference means two things:
       --    *  First, check that this entity reference exist in the context,
-      --       that is it's of a subtype of the enclosing self.
+      --       that is it's of a subtype of the enclosing It.
       --    *  Second, check that the expression, if any, corresponds to the
-      --       components of the enclosing self
+      --       components of the enclosing It
 
-      Self_Object := Get_Implicit_Self;
+      It_Object := Get_Implicit_It;
 
       --  This function currently only operates on template instances and
-      --  template types. Check that self is a template of the right type.
+      --  template types. Check that It is a template of the right type.
 
-      if Self_Object.all not in W_Template_Instance_Type then
+      if It_Object.all not in W_Template_Instance_Type then
          Push_Match_False;
          return;
       end if;
 
-      Prefix := W_Template_Instance (Self_Object);
+      Prefix := W_Template_Instance (It_Object);
 
-      --  If we're of the right type, then push the implicit self so that
+      --  If we're of the right type, then push the implicit It so that
       --  the stack starts with an implicit entity at the top, and check
       --  the result.
 
       if Params.Length = 0 then
-         Push_Match_True (Self_Object);
+         Push_Match_True (It_Object);
          return;
       elsif Params.Length = 1 then
-         Push_Implicit_Self (Self_Object);
+         Push_Implicit_It (It_Object);
          Evaluate_Expression (Params.Element (1).Expr);
          Result := Pop_Object;
          Pop_Object;
@@ -741,7 +741,7 @@ package body Wrapping.Runtime.Objects is
             --  If the result is good, then the result of this match is the
             --  matched object.
 
-            Push_Match_True (Self_Object);
+            Push_Match_True (It_Object);
             return;
          else
             Push_Match_False;
@@ -925,8 +925,8 @@ package body Wrapping.Runtime.Objects is
          Is_Generator := True;
       elsif Name = "tmp" then
          A_Call := Call_Tmp'Access;
-      elsif Name = "self" then
-         A_Call := Call_Browse_Self'Access;
+      elsif Name = "it" then
+         A_Call := Call_Browse_It'Access;
       end if;
 
       if A_Call /= null then
@@ -963,7 +963,7 @@ package body Wrapping.Runtime.Objects is
       if Params.Length = 0 then
          Push_Match_True (An_Entity);
       elsif Params.Length = 1 then
-         Push_Implicit_Self (W_Object (An_Entity));
+         Push_Implicit_It (W_Object (An_Entity));
          Result := Evaluate_Expression (Params.Element (1).Expr);
          Pop_Object;
 
@@ -1009,7 +1009,7 @@ package body Wrapping.Runtime.Objects is
    function Traverse
      (An_Entity    : access W_Node_Type;
       A_Mode       : Browse_Mode;
-      Include_Self : Boolean;
+      Include_It : Boolean;
       Final_Result : out W_Object;
       Visitor      : access function
         (E      : access W_Object_Type'Class;
@@ -1062,7 +1062,7 @@ package body Wrapping.Runtime.Objects is
 
       W_Node_Type'Class (An_Entity.all).Pre_Visit;
 
-      if Include_Self then
+      if Include_It then
          W_Node_Type'Class (An_Entity.all).Pre_Visit;
 
          case Visit_Wrapper (An_Entity) is
@@ -1421,7 +1421,7 @@ package body Wrapping.Runtime.Objects is
    function Traverse
      (An_Entity    : access W_Template_Instance_Type;
       A_Mode       : Browse_Mode;
-      Include_Self : Boolean;
+      Include_It : Boolean;
       Final_Result : out W_Object;
       Visitor      : access function
         (E      : access W_Object_Type'Class;
@@ -1484,7 +1484,7 @@ package body Wrapping.Runtime.Objects is
       --  backbone of the iteration.
       if An_Entity.Origin = null then
          Last_Decision := W_Node_Type (An_Entity.all).Traverse
-           (A_Mode, Include_Self, Result, Visitor);
+           (A_Mode, Include_It, Result, Visitor);
       else
          Last_Decision := An_Entity.Origin.Traverse
            (A_Mode, False, Result, Template_Visitor'Access);

@@ -222,7 +222,7 @@ function build_identifier (from) do
    # don't.
 
    pick from do
-      match i: self()
+      match i: it()
             and x: p_referenced_decl ()
             and t: x.child (DefiningName ()).wrapper (w_DefiningName ())
       do
@@ -235,7 +235,7 @@ end;
 
 function build_dotted_name (from) do
    pick from do
-      match s: self () and c: child (DottedName ()) do
+      match s: it () and c: child (DottedName ()) do
          pick build_dotted_name (c) 
             & "." 
             &  build_identifier (s.child (Identifier()));
@@ -252,25 +252,25 @@ end;
 function build_type_expr_gen (from) do
    pick from.child(\ true).all () do
       match d: DottedName () do
-         pick build_dotted_name (self);
+         pick build_dotted_name (it);
       elsmatch i: Identifier () do
-         pick build_identifier (self);     
+         pick build_identifier (it);     
       elsmatch RangeSpec () do
-         pick " range" & build_type_expr (self);
+         pick " range" & build_type_expr (it);
       elsmatch TypeAccessDef () do
-         pick " access" & build_type_expr (self);
-      elsmatch s: self () and SingleTokNode() do
-         pick " \e<s>" & build_type_expr (self);
+         pick " access" & build_type_expr (it);
+      elsmatch s: it () and SingleTokNode() do
+         pick " \e<s>" & build_type_expr (it);
       elsmatch s: IndexConstraint () do
-         pick " (" & build_type_expr (self) & " )";
+         pick " (" & build_type_expr (it) & " )";
       else
-         pick build_type_expr (self);
+         pick build_type_expr (it);
       end;
    end;
 end;
 
 function build_type_expr (from) do
-   pick build_type_expr_gen (from).fold ("", @ & self);
+   pick build_type_expr_gen (from).fold ("", @ & it);
 end;
 
 template build_subprogram pick origin do
@@ -279,10 +279,10 @@ template build_subprogram pick origin do
    match sb.child (f_subp_kind ("function")) and sb.child (te: TypeExpr()) do
       weave (
          subp_kind => "function",
-         call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
+         call_decl => """\e<it.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n""",
          post_call_decl => i"""
-            \e<self.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
-            with Address => \e<self.tmp ("result_orig")>'Address, Import;\n""",
+            \e<it.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
+            with Address => \e<it.tmp ("result_orig")>'Address, Import;\n""",
          call_stmt => "null;", 
          return_stmt => """return \e<sb.tmp ("result_wrapped")>;""");
    else
@@ -342,7 +342,7 @@ template ada_to_wrappers pick origin do
          type_kind => "enumeration"
       );
 
-      match s: self () and r: p_get_enum_representation_clause ()
+      match s: it () and r: p_get_enum_representation_clause ()
       pick r.child().all () wrap visit_EnumRepClause (s);
    end;
 
@@ -369,16 +369,16 @@ template ada_to_wrappers pick origin do
 
    match DefiningName () do
       match parent (PackageDecl ())
-      wrap w_DefiningName (name => @ & "\e<self>_Wrapped");
+      wrap w_DefiningName (name => @ & "\e<it>_Wrapped");
 
       match parent (BasicDecl () and parent (PackageDecl ()))
-      wrap w_DefiningName (name => @ & "\e<self>");
+      wrap w_DefiningName (name => @ & "\e<it>");
    end;
 
    # TODO use to_lower ().filter () here in order to accept all casing for
    # convention
    match AspectAssoc (f_id ("Convention")) and parent (TypeDecl ()) do
-      wrap w_Aspect (self);
+      wrap w_Aspect (it);
 
       match f_expr ("C_Pass_By_Copy")
       wrap w_Aspect ("Convention => C");
@@ -579,12 +579,12 @@ template wrappers_post_process pick origin do
       match child (w_EnumRep ())
       weave (rep_declaration => @ & "for \e<name> use (\n\e<rep_definition>\n);\n");
       
-      match s: self () and not parent (w_TypeExpr ()) and parent (p: w_PackageDecl())
+      match s: it () and not parent (w_TypeExpr ()) and parent (p: w_PackageDecl())
       pick p weave (spec_content => @ & s.declaration & "\n");
    end;
 
    match s: w_TypeExpr (o: origin (child (Identifier ())))
-   weave (txt => build_type_expr (self.origin ()));
+   weave (txt => build_type_expr (it.origin ()));
     
    match p: w_PackageDecl (parent (u: w_Unit ())) do
       pick u weave (
@@ -616,11 +616,11 @@ template wrappers_post_process pick origin do
    
    match w_Unit () and child (p: w_PackageDecl ()) do
       wrap spec_file
-         (path => defer (replace_text (to_lower (p.name), "\\.", "-")) & ".ads", content => self.spec_text);
+         (path => defer (replace_text (to_lower (p.name), "\\.", "-")) & ".ads", content => it.spec_text);
 
       match child (w_SubpDecl ()) or p (elaborate_body (x".+"))
       wrap body_file 
-         (path => defer (replace_text (to_lower (p.name), "\\.", "-")) & ".adb", content => self.body_text);
+         (path => defer (replace_text (to_lower (p.name), "\\.", "-")) & ".adb", content => it.body_text);
    end;
 end;
 

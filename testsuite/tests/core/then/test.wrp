@@ -7,7 +7,7 @@ do
       end;
    then
       match Entity ()
-      pick s1 weave (@ & "A or !A THEN NAME: \e<self.origin.f_name>\n"); 
+      pick s1 weave (@ & "A or !A THEN NAME: \e<it.origin.f_name>\n"); 
    end;
 then
    match Entity (x"B") do 

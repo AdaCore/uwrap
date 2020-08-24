@@ -9,4 +9,4 @@ match Entity (x"[0-9]+")
 wrap null (T);
 
 match T ()
-weave standard.out ("\e<self.origin.f_name>\n");
+weave standard.out ("\e<it.origin.f_name>\n");

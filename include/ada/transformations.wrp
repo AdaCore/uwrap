@@ -17,12 +17,12 @@ template access_into_return pick origin do
 
       wrap n: w_ParamSpecCall (
          generate_formal => "NO",  # TODO: introduce boolean here instead
-         actual_value => """\e<self.tmp("call")>'Unchecked_Access""",
+         actual_value => """\e<tmp("call")>'Unchecked_Access""",
          pre_call_decl => """
-            \e<self.tmp("call")> : aliased \e<te>;
-            \e<self.tmp("ret")>  : aliased \e<n.result_type_expr> with Address => \e<self.tmp("call")>'Address, Import;
+            \e<tmp("call")> : aliased \e<te>;
+            \e<tmp("ret")>  : aliased \e<n.result_type_expr> with Address => \e<tmp("call")>'Address, Import;
             """,
-         return_stmt => """return \e<self.tmp("ret")>;""",
+         return_stmt => """return \e<tmp("ret")>;""",
          result_type_expr => defer (te.wrapper (w_TypeExpr()).txt));
    end;
 end;
@@ -35,12 +35,12 @@ template address_into_return pick origin do
 
    wrap w_ParamSpecCall (
       generate_formal => "NO",  # TODO: introduce boolean here instead
-      actual_value => """\e<self.tmp("call")>""",
+      actual_value => """\e<tmp("call")>""",
       pre_call_decl => """
-         \e<self.tmp("ret")>  : aliased \e<result_type>;
-         \e<self.tmp("call")> : aliased System.Address := \e<self.tmp("ret")>'Address;
+         \e<tmp("ret")>  : aliased \e<result_type>;
+         \e<tmp("call")> : aliased System.Address := \e<tmp("ret")>'Address;
          """,
-      return_stmt => """return \e<self.tmp("ret")>;""",
+      return_stmt => """return \e<tmp("ret")>;""",
       result_type_expr => result_type);
 end;
 
@@ -72,9 +72,9 @@ template chars_into_string pick origin do
    wrap w: w_SubpDeclCall (
       subp_kind => "function",
       result_type_expr => "String",
-      call_decl => """\e<self.tmp ("c_string")> : aliased Interfaces.C.Strings.chars_ptr := \e<w.call>;\n""",
+      call_decl => """\e<tmp ("c_string")> : aliased Interfaces.C.Strings.chars_ptr := \e<w.call>;\n""",
       call_stmt => "null;", 
-      return_stmt => """return Interfaces.C.Strings.Value (\e<self.tmp ("c_string")>);"""
+      return_stmt => """return Interfaces.C.Strings.Value (\e<tmp ("c_string")>);"""
    );
 end;
 
@@ -86,8 +86,8 @@ template w_ExceptionRegistry do
 end;
 
 match w_ExceptionRegistry () do
-   match r: self () and u: (
-       w_Unit.filter (self.child (p: w_PackageDecl(name (r.package))))
+   match r: it () and u: (
+       w_Unit.filter (child (p: w_PackageDecl(name (r.package))))
          or
        new (w_Unit () {p: w_PackageDecl(name => r.package)}))
    do
@@ -150,12 +150,12 @@ template into_binary_compatible pick origin do
    wrap w: w_SubpDeclCall
       (subp_kind => "function",
        result_type_expr => type_name,
-       call_decl => """\e<self.tmp ("result_orig")> : aliased \e<te> := \e<w.call>;\n""",
+       call_decl => """\e<tmp ("result_orig")> : aliased \e<te> := \e<w.call>;\n""",
        post_call_decl => """
-         \e<self.tmp ("result_wrapped")> : aliased \e<type_name> 
-         with Address => \e<self.tmp ("result_orig")>'Address, Import;\n""",
+         \e<tmp ("result_wrapped")> : aliased \e<type_name> 
+         with Address => \e<tmp ("result_orig")>'Address, Import;\n""",
        call_stmt => "null;", 
-       return_stmt => """return \e<self.tmp ("result_wrapped")>;""");
+       return_stmt => """return \e<tmp ("result_wrapped")>;""");
 end;
 
 template into_explicit_conversion pick origin do
@@ -197,12 +197,12 @@ template return_into_exception pick origin do
 
    wrap w: w_SubpDeclCall (
       subp_kind => "procedure",
-      call_decl => """\e<self.tmp ("res")> : Integer := Integer (\e<w.call>);\n""",
+      call_decl => """\e<tmp ("res")> : Integer := Integer (\e<w.call>);\n""",
       call_stmt => "null;", 
       post_call_stmt => """
-         if \e<self.tmp ("res")> /= 0 then
+         if \e<tmp ("res")> /= 0 then
             Ada.Exceptions.Raise_Exception
-               (\e<registry_package>.\e<registry_name>.Element (Integer (\e<self.tmp ("res")>)));
+               (\e<registry_package>.\e<registry_name>.Element (Integer (\e<tmp ("res")>)));
          end if;
       """
    );

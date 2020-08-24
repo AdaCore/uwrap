@@ -1,2 +1,2 @@
 match Entity () and f_name (x"A") and child (Entity())
-wrap standard.out (f_name & " first child: " & self.child (Entity()).f_name & "\n");
+wrap standard.out (f_name & " first child: " & it.child (Entity()).f_name & "\n");

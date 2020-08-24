@@ -17,4 +17,4 @@ match Entity () do
 end;
 
 match w_Entity () 
-weave standard.out ("CHILDREN FOR \e<self.origin.f_name>: \e<child_name>\n");
+weave standard.out ("CHILDREN FOR \e<it.origin.f_name>: \e<child_name>\n");

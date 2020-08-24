@@ -102,7 +102,7 @@ package Wrapping.Runtime.Objects is
    type W_Reference_Type is new W_Object_Type with record
       Value : W_Object;
 
-      Is_Implicit_Self : Boolean := False;
+      Is_Implicit_It : Boolean := False;
 
       --  When entities are created in the expressions through the new function,
       --  this flag is set to true, so that the entity can be capture by
@@ -128,7 +128,7 @@ package Wrapping.Runtime.Objects is
    function Traverse
      (An_Entity    : access W_Reference_Type;
       A_Mode       : Browse_Mode;
-      Include_Self : Boolean;
+      Include_It : Boolean;
       Final_Result : out W_Object;
       Visitor      : access function
         (E      : access W_Object_Type'Class;
@@ -142,7 +142,7 @@ package Wrapping.Runtime.Objects is
       Match_Expression : T_Expr);
 
    function Is_Implicit (Object : W_Reference_Type) return Boolean is
-     (Object.Is_Implicit_Self);
+     (Object.Is_Implicit_It);
 
    overriding
    function Dereference
@@ -401,7 +401,7 @@ package Wrapping.Runtime.Objects is
    function Traverse
      (An_Entity    : access W_Node_Type;
       A_Mode       : Browse_Mode;
-      Include_Self : Boolean;
+      Include_It : Boolean;
       Final_Result : out W_Object;
       Visitor      : access function
         (E      : access W_Object_Type'Class;
@@ -458,7 +458,7 @@ package Wrapping.Runtime.Objects is
    function Traverse
      (An_Entity    : access W_Template_Instance_Type;
       A_Mode       : Browse_Mode;
-      Include_Self : Boolean;
+      Include_It : Boolean;
       Final_Result : out W_Object;
       Visitor      : access function
         (E      : access W_Object_Type'Class;

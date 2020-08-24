@@ -94,7 +94,7 @@ package body Wrapping.Input.Kit is
       if Params.Length = 0 then
          Push_Match_True (Object);
       elsif Params.Length = 1 then
-         Push_Match_Self_Result
+         Push_Match_It_Result
            (W_Object (Object),
             Params.Element (1).Expr);
       elsif Params.Length > 1 then

@@ -15,10 +15,10 @@ function get_B_children (e) do
    pick e.child (f_name (x"B")).all();
 end;
 
-match is_A_entity (self) do
-   pick get_two_children (self) weave standard.out (@ & "TWO CHILDREN (ONLY FIRST): " & f_name & "\n");
+match is_A_entity (it) do
+   pick get_two_children (it) weave standard.out (@ & "TWO CHILDREN (ONLY FIRST): " & f_name & "\n");
 then
-   pick get_two_children (self).all () weave standard.out (@ & "TWO CHILDREN (ALL): " & f_name & "\n");
+   pick get_two_children (it).all () weave standard.out (@ & "TWO CHILDREN (ALL): " & f_name & "\n");
 then
-   pick get_B_children (self).all () weave standard.out (@ & "B CHILDREN (ALL): " & f_name & "\n");
+   pick get_B_children (it).all () weave standard.out (@ & "B CHILDREN (ALL): " & f_name & "\n");
 end;

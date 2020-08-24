@@ -9,4 +9,4 @@ function analyze (e) do
 end;
 
 match Entity ()
-weave standard.out (analyze (self));
+weave standard.out (analyze (it));

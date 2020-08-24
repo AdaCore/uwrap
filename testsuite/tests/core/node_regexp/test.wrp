@@ -1,17 +1,17 @@
 match f_name (x"A") and next (f_name (x"B") \ f_name (x"C"))
-weave standard.out (@ & "next (B \\ C): " & sloc & self & "\n");
+weave standard.out (@ & "next (B \\ C): " & sloc & it & "\n");
 
 match f_name (x"A") and next (\ f_name (x"B") \ f_name (x"C"))
-weave standard.out (@ & "next (\\ B \\ C): " & sloc & self & "\n");
+weave standard.out (@ & "next (\\ B \\ C): " & sloc & it & "\n");
 
 match f_name (x"A") and next (f_name (x"B") \ f_name (x"C") \)
-weave standard.out (@ & "next (B \\ C \\): " & sloc & self & "\n");
+weave standard.out (@ & "next (B \\ C \\): " & sloc & it & "\n");
 
 match f_name (x"A") and next (\ f_name (x"B") \ f_name (x"C") \)
-weave standard.out (@ & "next (\\ B \\ C \\): " & sloc & self & "\n");
+weave standard.out (@ & "next (\\ B \\ C \\): " & sloc & it & "\n");
 
 match f_name (x"A") and child (f_name (x"B") \ TestNodeBaseList() \ f_name (x"C"))
-weave standard.out (@ & "child (B \\ C): " & sloc & self & "\n");
+weave standard.out (@ & "child (B \\ C): " & sloc & it & "\n");
 
 match f_name (x"A") and child (\ TestNodeBaseList() \ f_name (x"B") \ TestNodeBaseList() \ f_name (x"C"))
-weave standard.out (@ & "child (\\ B \\ C): " & sloc & self & "\n");
+weave standard.out (@ & "child (\\ B \\ C): " & sloc & it & "\n");

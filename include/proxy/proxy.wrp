@@ -15,10 +15,10 @@ template wp_Unit extends wp_NamedProxy do
       {
          "name":"\e<name>",
          "functions": [
-            \e<child (wp_Function ()).filter (\ true).fold ("", @ & self.contents, @ & ",\n")>
+            \e<child (wp_Function ()).filter (\ true).fold ("", @ & it.contents, @ & ",\n")>
          ],
          "classes": [
-            \e<child (wp_Class ()).fold ("", @ & self.contents, @ & ",\n")>
+            \e<child (wp_Class ()).fold ("", @ & it.contents, @ & ",\n")>
          ]
       }""");
 end;
@@ -40,7 +40,7 @@ template wp_Function extends wp_NamedProxy do
          "symbol": "\e<symbol>",
          "type": "\e<type>",
          "parameters": [
-            \e<child (wp_Parameter ()).fold ("", @ & self.contents, @ & ",\n")>
+            \e<child (wp_Parameter ()).fold ("", @ & it.contents, @ & ",\n")>
          ]
       }""");
 end;

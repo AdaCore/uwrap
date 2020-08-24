@@ -4,18 +4,18 @@ end;
 
 function analyze_2 (e) do
    pick e.child (f_name (x"B")).all () do
-      pick analyze_3 (self).all();
+      pick analyze_3 (it).all();
    end;
 end;
 
 function analyze_1 (e) do
    pick e.child (f_name (x"B")).all () do
-      pick self;
+      pick it;
    end;
 end;
 
 match Entity (f_name ("A"))
-weave standard.out (@ & "B nodes: " & analyze_1 (self).all (x: true).fold (c: "", c: (c & x.f_name & " ")) & "\n");
+weave standard.out (@ & "B nodes: " & analyze_1 (it).all (x: true).fold (c: "", c: (c & x.f_name & " ")) & "\n");
 
 match Entity (f_name ("A"))
-weave standard.out (@ & "B children: " & analyze_2 (self).all (x: true).fold (c: "", c: (c & x.f_name & " ")) & "\n");
+weave standard.out (@ & "B children: " & analyze_2 (it).all (x: true).fold (c: "", c: (c & x.f_name & " ")) & "\n");

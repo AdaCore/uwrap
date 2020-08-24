@@ -34,7 +34,7 @@ template w_TypeDeclProxy extends w_TypeDecl do
          """
       );
    then
-      var proxy_type: object => self;
+      var proxy_type: object => it;
 
       pick parent (w_PackageDecl ()) do
          pick child (new ({
@@ -79,7 +79,7 @@ end;
 template w_SubpDeclCallProxy extends w_SubpDeclCall do
    var t1: text   => origin.tmp ("t1");
    var t2: text   => origin.tmp ("t2");
-   var s: object  => self ();
+   var s: object  => it ();
    var memory_mode: text => "stack";
    var is_proxy_owned: text => defer ((match mode ("stack") pick "True" else pick "False"));
 
@@ -355,5 +355,5 @@ template generate_ada2proxy pick origin do
    #############
 
    match TypeExpr ()
-   wrap w_TypeExprProxy (origin_type_expr => self);
+   wrap w_TypeExprProxy (origin_type_expr => it);
 end;

@@ -69,7 +69,7 @@ package Wrapping.Runtime.Analysis is
      with Pre =>
        (if Object.all in W_Reference_Type'Class then W_Reference (Object).Value /= null);
 
-   procedure Push_Implicit_Self (Object : access W_Object_Type'Class);
+   procedure Push_Implicit_It (Object : access W_Object_Type'Class);
 
    procedure Push_Allocated_Entity (Object : access W_Object_Type'Class);
 
@@ -92,7 +92,7 @@ package Wrapping.Runtime.Analysis is
    --  object
    function Top_Is_Implicit return Boolean;
 
-   function Get_Implicit_Self (From : Data_Frame := Top_Frame) return W_Object;
+   function Get_Implicit_It (From : Data_Frame := Top_Frame) return W_Object;
 
    function Capture_Closure (Names : Text_Sets.Set) return Closure;
 

@@ -26,4 +26,4 @@ match Entity ()
 weave w_Entity (txt => f_name);
 
 match w_Entity ()
-weave standard.out ("\e<self.origin> {a, b, c, d} = \e<a>, \e<b>, \e<c>, \e<d>\n");
+weave standard.out ("\e<it.origin> {a, b, c, d} = \e<a>, \e<b>, \e<c>, \e<d>\n");

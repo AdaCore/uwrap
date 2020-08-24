@@ -12,7 +12,7 @@ match Entity ()
 weave n: main (a4 => @ & "a3 value is '\e<n.a3>'");
 
 match main ()
-weave (a1 => @ & self.origin.f_name);
+weave (a1 => @ & it.origin.f_name);
 
 match main ()
 weave (a3 => @ & origin.f_name);

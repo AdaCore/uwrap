@@ -1,8 +1,8 @@
-match s: self () and name (x"A") 
+match s: it () and name (x"A") 
 pick child (\ true).all ()
 weave standard.out (@ & "\e<s.name>: \e<value>\n");
 
-match s: self () and name (x"E") 
+match s: it () and name (x"E") 
 pick child (\ true).all ()
 weave standard.out (@ & "\e<s.name>: \e<value>\n");
 
