@@ -1285,7 +1285,13 @@ package body Wrapping.Runtime.Objects is
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.An_Allocate_Callback := null;
-      Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+
+      if Top_Frame.Top_Context.Outer_Object /= null then
+         --  TODO: THIS MAY NOT BE THE BEST FIX
+         --  PERHAPS WE SHOULD SET REF DEFAULT EARLIER?
+         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+      end if;
 
       Found := W_Node_Type'Class(An_Entity.all).Traverse
         (A_Mode, False, Result, Visitor'Access) = Stop;

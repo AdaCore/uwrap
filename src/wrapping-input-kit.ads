@@ -1,5 +1,6 @@
 with Ada.Containers.Indefinite_Hashed_Maps;
 with Ada.Containers.Indefinite_Ordered_Maps;
+with Ada.Containers.Vectors;
 
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 with Langkit_Support.Slocs; use Langkit_Support.Slocs;
@@ -29,6 +30,7 @@ generic
    type Token_Reference is private;
    type Token_Data_Type is private;
    type Token_Kind is (<>);
+   type Token_Index is range <>;
 
    None : Any_Node_Data_Reference;
    No_Kit_Node : Kit_Node;
@@ -98,6 +100,8 @@ generic
    with function Is_Trivia (Token : Token_Reference) return Boolean is <>;
    with function Sloc_Range
      (Token_Data : Token_Data_Type) return Source_Location_Range is <>;
+   with function First_Token (Unit : Kit_Unit'Class) return Token_Reference is <>;
+   with function Index (Token : Token_Reference) return Token_Index is <>;
 package Wrapping.Input.Kit is
 
    type W_Kit_Node_Type;
@@ -105,6 +109,8 @@ package Wrapping.Input.Kit is
 
    type W_Kit_Node_Token_Type;
    type W_Kit_Node_Token is access all W_Kit_Node_Token_Type'Class;
+   package W_Kit_Node_Vectors is new Ada.Containers.Vectors (Token_Index, W_Kit_Node_Token);
+   type W_Kit_Node_Vector_Access is access all W_Kit_Node_Vectors.Vector;
 
    procedure Analyze_File (File : String);
 
@@ -124,12 +130,11 @@ package Wrapping.Input.Kit is
    use W_Kit_Node_Entity_Node_Maps;
 
    type W_Kit_Node_Type is new W_Node_Type with record
-      Node : Kit_Node;
+      Node              : Kit_Node;
       Children_Computed : Boolean := False;
-      Children_By_Node : W_Kit_Node_Entity_Node_Maps.Map;
-
-      First_Token_Node : W_Kit_Node_Token;
-      First_Token_Node_Computed : Boolean := False;
+      Children_By_Node  : W_Kit_Node_Entity_Node_Maps.Map;
+      Tokens            : W_Kit_Node_Vector_Access;
+      Trivia_Tokens     : W_Kit_Node_Vector_Access;
    end record;
 
    overriding
@@ -155,11 +160,7 @@ package Wrapping.Input.Kit is
 
    type W_Kit_Node_Token_Type is new W_Node_Type with record
       Node : Token_Reference;
-      Next_Computed : Boolean := False;
    end record;
-
-   overriding
-   procedure Pre_Visit (An_Entity : access W_Kit_Node_Token_Type);
 
    overriding
    function Push_Value

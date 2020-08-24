@@ -36,9 +36,43 @@ package body Wrapping.Input.Kit is
       Root_Entity : W_Node;
    begin
       Root_Entity := W_Node (Get_Entity_For_Node (Unit.Root));
-
       Wrapping.Runtime.Analysis.Analyse_Input (Root_Entity);
    end Analyze_Unit;
+
+   procedure Create_Tokens (Node : W_Kit_Node) is
+      Token : Token_Reference;
+   begin
+      if Node.Tokens.Length > 0
+        or else Node.Trivia_Tokens.Length > 0
+      then
+         return;
+      end if;
+
+      Token := First_Token (Node.Node.Unit);
+
+      declare
+         W_Prev_Token : W_Kit_Node_Token;
+         W_Token : W_Kit_Node_Token;
+      begin
+         while Token /= No_Token loop
+
+            W_Token := new W_Kit_Node_Token_Type'(Node => Token, others => <>);
+
+            if W_Prev_Token /= null then
+               Add_Next (W_Prev_Token, W_Token);
+            end if;
+
+            if Is_Trivia (Token) then
+               Node.Trivia_Tokens.Append (W_Token);
+            else
+               Node.Tokens.Append (W_Token);
+            end if;
+
+            W_Prev_Token := W_Token;
+            Token := Next (Token);
+         end loop;
+      end;
+   end Create_Tokens;
 
    function Lt (Left, Right : Kit_Node) return Boolean is
    begin
@@ -111,6 +145,8 @@ package body Wrapping.Input.Kit is
 
       Analyzed_First : Boolean := False;
 
+      Last_Ref : Token_Reference;
+
       procedure Generator
         (Node : access W_Object_Type'Class; Expr : T_Expr)
       is
@@ -132,6 +168,8 @@ package body Wrapping.Input.Kit is
             exit when A_Visit_Action in Stop | Over;
 
             Cur_Token := W_Kit_Node_Token (Cur_Token.Next);
+
+            exit when Cur_Token = null or else Cur_Token.Node = Last_Ref;
          end loop;
 
          if Result /= null then
@@ -148,26 +186,26 @@ package body Wrapping.Input.Kit is
          Error ("'token' accepts at most one argument'");
       end if;
 
-      if not Prefix.First_Token_Node_Computed then
-         Prefix.First_Token_Node_Computed := True;
+      Create_Tokens (Prefix);
 
-         declare
-            Ref : Token_Reference := Token_Start (Prefix.Node);
-         begin
-            if Ref /= No_Token then
-               Prefix.First_Token_Node := new W_Kit_Node_Token_Type'
-                 (Node => Ref, others => <>);
-            end if;
-         end;
-      end if;
+      declare
+         Ref : Token_Reference := Token_Start (Prefix.Node);
+         First_Token : W_Kit_Node_Token;
+      begin
+         if Ref = No_Token then
+            Push_Match_False;
 
-      if Prefix.First_Token_Node = null then
-         Push_Match_False;
+            return;
+         elsif Is_Trivia (Ref) then
+            First_Token := Prefix.Trivia_Tokens.Element (Index (Ref));
+         else
+            First_Token := Prefix.Tokens.Element (Index (Ref));
+         end if;
 
-         return;
-      end if;
+         Last_Ref := Token_End (Prefix.Node);
 
-      Evaluate_Generator_Regexp (Prefix.First_Token_Node, Generator'Access, Match_Expr);
+         Evaluate_Generator_Regexp (First_Token, Generator'Access, Match_Expr);
+      end;
    end Call_Token;
 
    procedure Pre_Visit (An_Entity : access W_Kit_Node_Type) is
@@ -176,7 +214,11 @@ package body Wrapping.Input.Kit is
       if not An_Entity.Children_Computed then
          for C of An_Entity.Node.Children loop
             if not C.Is_Null then
-               New_Entity := new W_Kit_Node_Type'(Node => C, others => <>);
+               New_Entity := new W_Kit_Node_Type'
+                 (Node          => C,
+                  Tokens        => An_Entity.Tokens,
+                  Trivia_Tokens => An_Entity.Trivia_Tokens,
+                  others        => <>);
                Add_Child (An_Entity, New_Entity);
                An_Entity.Children_By_Node.Insert (C, W_Kit_Node (New_Entity));
                Global_Node_Registry.Insert (C, W_Kit_Node (New_Entity));
@@ -225,7 +267,11 @@ package body Wrapping.Input.Kit is
            W_Kit_Node_Type (Parent.all).
            Children_By_Node.Element (Node);
       else
-         New_Entity := new W_Kit_Node_Type'(Node => Node, others => <>);
+         New_Entity := new W_Kit_Node_Type'
+           (Node          => Node,
+            Tokens        => new W_Kit_Node_Vectors.Vector,
+            Trivia_Tokens => new W_Kit_Node_Vectors.Vector,
+            others        => <>);
          Global_Node_Registry.Insert (Node, New_Entity);
          return New_Entity;
       end if;
@@ -375,27 +421,6 @@ package body Wrapping.Input.Kit is
       return Object.Node.Kind'Wide_Wide_Image & ": "
         & W_Kit_Node_Type'Class (Object).To_String;
    end To_Debug_String;
-
-   overriding
-   procedure Pre_Visit (An_Entity : access W_Kit_Node_Token_Type)
-   is
-      Ref : Token_Reference;
-   begin
-      if An_Entity.Next_Computed = False then
-         An_Entity.Next_Computed := True;
-
-         Ref := Next (An_Entity.Node);
-
-         if Ref /= No_Token then
-            Add_Next
-              (An_Entity,
-               W_Node'
-                 (new W_Kit_Node_Token_Type'
-                      (Node => Ref,
-                       others => <>)));
-         end if;
-      end if;
-   end Pre_Visit;
 
    overriding
    function Push_Value
