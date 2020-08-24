@@ -48,6 +48,10 @@ package Wrapping.Runtime.Analysis is
 
    procedure Push_Frame_Context_Parameter_With_Match (Object : W_Object);
 
+   procedure Push_Frame_Context_No_Outer;
+
+   procedure Push_Frame_Context_No_Match;
+
    --  Many expression part need to deactivate being picked as function results.
    --  For example, while in:
    --     function f do

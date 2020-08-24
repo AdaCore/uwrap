@@ -72,8 +72,7 @@ package body Wrapping.Runtime.Analysis is
    is
    begin
       if Params.Length in 1 .. 2 then
-         Push_Frame_Context;
-         Top_Frame.Top_Context.Match_Mode := Match_None;
+         Push_Frame_Context_Parameter;
 
          Push_Object
            (W_Object'
@@ -97,8 +96,7 @@ package body Wrapping.Runtime.Analysis is
    is
    begin
       if Params.Length in 1 .. 2 then
-         Push_Frame_Context;
-         Top_Frame.Top_Context.Match_Mode := Match_None;
+         Push_Frame_Context_Parameter;
 
          Push_Object
            (To_W_String (Evaluate_Expression (Params.Element (1).Expr).To_String));
@@ -229,8 +227,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Push_Frame_Context_Parameter is
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Push_Frame_Context_No_Match;
       Top_Frame.Top_Context.Is_Root_Selection := True;
    end Push_Frame_Context_Parameter;
 
@@ -243,11 +240,27 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Outer_Object := Object;
    end Push_Frame_Context_Parameter_With_Match;
 
+   procedure Push_Frame_Context_No_Outer is
+   begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Pick_Callback := null;
+      Top_Frame.Top_Context.Outer_Expr_Callback := null;
+      Top_Frame.Top_Context.Outer_Object := null;
+   end Push_Frame_Context_No_Outer;
+
+   procedure Push_Frame_Context_No_Match is
+   begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Top_Frame.Top_Context.Outer_Expr_Callback := null;
+      Top_Frame.Top_Context.Outer_Object := null;
+   end Push_Frame_Context_No_Match;
+
    procedure Push_Frame_Context_No_Pick is
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.Pick_Callback := null;
-      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+      Top_Frame.Top_Context.Outer_Expr_Callback := null;
    end Push_Frame_Context_No_Pick;
 
    procedure Push_Frame_Context (Context : Frame_Context_Type) is
@@ -514,11 +527,10 @@ package body Wrapping.Runtime.Analysis is
    function Evaluate_Match_Expression (Expr : T_Expr) return Boolean is
    begin
       if Expr /= null then
+         Push_Frame_Context;
          Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-
          Evaluate_Expression (Expr);
-
-         Top_Frame.Top_Context.Match_Mode := Match_None;
+         Pop_Frame_Context;
 
          return Pop_Object /= Match_False;
       else
@@ -745,10 +757,8 @@ package body Wrapping.Runtime.Analysis is
                New_Ref := W_Reference (Top_Frame.Symbols.Element (Name));
 
                if A_Var.Init_Expr /= null then
-                  Push_Frame_Context;
+                  Push_Frame_Context_No_Match;
                   Top_Frame.Top_Context.Left_Value := New_Ref.Value;
-                  Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-                  Top_Frame.Top_Context.Match_Mode := Match_None;
                   Top_Frame.Top_Context.Is_Root_Selection := True;
 
                   Evaluate_Expression (A_Var.Init_Expr);
@@ -779,10 +789,8 @@ package body Wrapping.Runtime.Analysis is
                   if Calling_Frame.Template_Parameters_Position.Length > 0
                     or else Calling_Frame.Template_Parameters_Names.Contains (Name)
                   then
-                     Push_Frame_Context;
+                     Push_Frame_Context_No_Match;
                      Top_Frame.Top_Context.Left_Value := New_Ref.Value;
-                     Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-                     Top_Frame.Top_Context.Match_Mode := Match_None;
                      Top_Frame.Top_Context.Is_Root_Selection := True;
 
                      if Calling_Frame.Template_Parameters_Position.Length > 0 then
@@ -1166,7 +1174,7 @@ package body Wrapping.Runtime.Analysis is
 
                      Run_Outer_Callback := False;
                   when Template_Operator_Amp =>
-                     Push_Frame_Context_No_Pick;
+                     Push_Frame_Context_No_Outer;
                      Left := Evaluate_Expression (Expr.Binary_Left);
                      Right := Evaluate_Expression (Expr.Binary_Right);
                      Pop_Frame_Context;
@@ -1198,7 +1206,9 @@ package body Wrapping.Runtime.Analysis is
                        Template_Operator_Gt | Template_Operator_Lt |
                        Template_Operator_Gte | Template_Operator_Lte =>
 
+                     Push_Frame_Context_No_Outer;
                      Handle_Arithmetic_Operator (Expr);
+                     Pop_Frame_Context;
 
                   when others =>
                      Error ("unexpected operator");
@@ -1235,7 +1245,7 @@ package body Wrapping.Runtime.Analysis is
             end if;
 
          when Template_Token_Identifier | Template_Identifier =>
-            Push_Frame_Context_No_Pick;
+            Push_Frame_Context_No_Outer;
             Handle_Identifier (Expr.Node);
             Pop_Frame_Context;
 
@@ -1243,7 +1253,7 @@ package body Wrapping.Runtime.Analysis is
             Push_Object (W_Object'(new W_Integer_Type'(Value => Expr.Number)));
 
          when Template_Str =>
-            Push_Frame_Context_No_Pick;
+            Push_Frame_Context_No_Outer;
             Evaluate_String (Expr);
             Pop_Frame_Context;
 
@@ -1296,7 +1306,7 @@ package body Wrapping.Runtime.Analysis is
             end if;
 
          when Template_Qualified_Match =>
-            --  We are on an expression like has'something or is'something.
+            --  We are on an expression like has (something) or is (something).
             --  Specify the kind of match we need to make, which will override
             --  the default.
 
@@ -1322,7 +1332,6 @@ package body Wrapping.Runtime.Analysis is
 
          when Template_Match_Expr =>
             Push_Frame_Context_No_Pick;
-
             Push_Match_Result (Top_Object, Expr.Match_Match_Expr);
 
             if Pop_Object /= Match_False then
@@ -1393,8 +1402,7 @@ package body Wrapping.Runtime.Analysis is
       Prev_Error := Error_Callback;
       Error_Callback := On_Error'Unrestricted_Access;
 
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Push_Frame_Context_No_Match;
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
       for Str of Expr.Str loop
@@ -1905,11 +1913,9 @@ package body Wrapping.Runtime.Analysis is
       --  with the outer context, hence setting the match flag to
       --  none.
 
-      Push_Frame_Context;
+      Push_Frame_Context_No_Match;
       Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
       Top_Frame.Top_Context.Expand_Action := null;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
-      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
 
       for I in Suffix.First_Index .. Suffix.Last_Index - 1 loop
          Suffix_Expression := Suffix.Element (I);
@@ -2082,9 +2088,8 @@ package body Wrapping.Runtime.Analysis is
          end Yield_Callback;
 
       begin
-         Push_Frame_Context;
+         Push_Frame_Context_No_Match;
          Top_Frame.Top_Context.Expand_Action := Yield_Callback'Unrestricted_Access;
-         Top_Frame.Top_Context.Match_Mode := Match_None;
 
          --  We may be called from an anchored context. However, this anchor
          --  should not be passed to the prefix, to which we're just getting
@@ -2109,8 +2114,7 @@ package body Wrapping.Runtime.Analysis is
       end Object_Generator;
 
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
+      Push_Frame_Context_No_Match;
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
       --  A filter expression is about calling the directly prefixing function
@@ -2214,19 +2218,19 @@ package body Wrapping.Runtime.Analysis is
             Delete_Object_At_Position (-2);
          end if;
 
-         --  Execute the outer action once per run of the suffix, which may be
-         --  a Outer_Expression_Pick call.
-         Initial_Context.Outer_Expr_Callback.all;
+         if Initial_Context.Outer_Expr_Callback /= null then
+            --  Execute the outer action once per run of the suffix, which may be
+            --  a Outer_Expression_Pick call.
+            Initial_Context.Outer_Expr_Callback.all;
+         end if;
 
          Pop_Frame_Context;
       end Expand_Action;
 
    begin
-      Push_Frame_Context;
+      Push_Frame_Context_No_Match;
 
       Top_Frame.Top_Context.Expand_Action := Expand_Action'Unrestricted_Access;
-      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
 
       Evaluate_Expression (Selector.Selector_Left);
 
@@ -2304,11 +2308,8 @@ package body Wrapping.Runtime.Analysis is
       end Handle_Create_Tree;
 
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_None;
-
+      Push_Frame_Context_No_Match;
       Push_Allocated_Entity (Handle_Create_Tree (Create_Tree, null));
-
       Pop_Frame_Context;
    end Handle_New;
 
@@ -2319,7 +2320,6 @@ package body Wrapping.Runtime.Analysis is
       Kind : Template_Node_Kind_Type :=
         Expr.Node.As_Binary_Expr.F_Op.Kind;
    begin
-      Push_Frame_Context_No_Pick;
       Top_Frame.Top_Context.Match_Mode := Match_Has;
 
       Left := Evaluate_Expression (Expr.Binary_Left);
@@ -2394,8 +2394,6 @@ package body Wrapping.Runtime.Analysis is
       end case;
 
       Push_Object (Result);
-
-      Pop_Frame_Context;
    end Handle_Arithmetic_Operator;
 
    function Capture_Closure (Names : Text_Sets.Set) return Closure is
