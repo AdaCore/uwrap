@@ -1,0 +1,13 @@
+children of A: B D C E F F1 F2 F3 F4 F5
+children of B: C
+children of C:
+children of D: E F F1 F2 F3 F4 F5
+children of E:
+children of F: F1 F2 F3 F4 F5
+children of F1: F2 F3 F4 F5
+children of F2: F3 F4 F5
+children of F3: F4 F5
+children of F4: F5
+children of F5:
+children of G:
+

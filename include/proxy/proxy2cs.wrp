@@ -31,7 +31,7 @@ template generate_proxy2cs pick origin do
          name => child (\ name ("name")).value,
          returned_type => ret_type_cs,
          call => defer (child (\ name ("symbol")).value & "(" 
-            & n.child (w: w_ParamCall ()).fold ("", @ & w.actual_value, @ & ", ") & ")"),
+            & n.child (w_ParamCall ()).fold ("", @ & actual_value, @ & ", ") & ")"),
          static => "static");
 
       match type ("void") do 
