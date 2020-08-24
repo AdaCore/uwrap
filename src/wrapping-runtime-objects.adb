@@ -533,19 +533,16 @@ package body Wrapping.Runtime.Objects is
       Params    : T_Arg_Vectors.Vector)
    is
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Outer_Object := W_Object (An_Entity);
-
       --  TODO: Should that be the high level call result?
       if Params.Length = 0 then
          Push_Match_True (An_Entity);
       elsif Params.Length = 1 then
+         Push_Frame_Context_Parameter_With_Match (W_Object (An_Entity));
          Evaluate_Expression (Params.Element (1).Expr);
+         Pop_Frame_Context;
       else
          Error ("string comparison takes one argument");
       end if;
-
-      Pop_Frame_Context;
    end Push_Call_Result;
 
    overriding
@@ -953,30 +950,18 @@ package body Wrapping.Runtime.Objects is
      (An_Entity : access W_Node_Type;
       Params    : T_Arg_Vectors.Vector)
    is
-      Result : W_Object;
    begin
-      Push_Frame_Context;
-      Top_Frame.Top_Context.Outer_Object := W_Object (An_Entity);
-
       --  TODO: this code is probably the generic call result code, not specific to
       --   node type.
       if Params.Length = 0 then
          Push_Match_True (An_Entity);
       elsif Params.Length = 1 then
          Push_Implicit_It (W_Object (An_Entity));
-         Result := Evaluate_Expression (Params.Element (1).Expr);
-         Pop_Object;
-
-         if Result = Match_False then
-            Push_Match_False;
-         else
-            Push_Object (W_Object (An_Entity));
-         end if;
+         Push_Match_Result (W_Object (An_Entity), Params.Element (1).Expr);
+         Delete_Object_At_Position (-2);
       else
          Error ("comparing with a node requires one parameter");
       end if;
-
-      Pop_Frame_Context;
    end Push_Call_Result;
 
    function Match_With_Top_Object
@@ -1285,13 +1270,6 @@ package body Wrapping.Runtime.Objects is
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.An_Allocate_Callback := null;
-
-      if Top_Frame.Top_Context.Outer_Object /= null then
-         --  TODO: THIS MAY NOT BE THE BEST FIX
-         --  PERHAPS WE SHOULD SET REF DEFAULT EARLIER?
-         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-      end if;
 
       Found := W_Node_Type'Class(An_Entity.all).Traverse
         (A_Mode, False, Result, Visitor'Access) = Stop;

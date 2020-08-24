@@ -189,11 +189,8 @@ package body Wrapping.Runtime.Structure is
       --  capture, as it would override the one we are capturing in this browsing
       --  iteration.
 
-      Push_Frame_Context_Parameter;
+      Push_Frame_Context_Parameter_With_Match (W_Object (Browsed));
       Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
-      Top_Frame.Top_Context.Outer_Object := W_Object (Browsed);
-      Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
       Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
       Top_Frame.Top_Context.Expand_Action := null;
 
@@ -719,10 +716,7 @@ package body Wrapping.Runtime.Structure is
       if Matching_Expression = null then
          Push_Object (Object);
       else
-         Push_Frame_Context;
-         Top_Frame.Top_Context.Outer_Object := Object;
-         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-         Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+         Push_Frame_Context_Parameter_With_Match (Object);
 
          Evaluate_Expression (Matching_Expression);
 
@@ -743,9 +737,7 @@ package body Wrapping.Runtime.Structure is
       if Matching_Expression = null then
          Push_Object (It);
       else
-         Push_Frame_Context;
-         Top_Frame.Top_Context.Outer_Object := It;
-         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+         Push_Frame_Context_Parameter_With_Match (It);
 
          Push_Implicit_It (It);
          Evaluate_Expression (Matching_Expression);

@@ -234,6 +234,15 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Is_Root_Selection := True;
    end Push_Frame_Context_Parameter;
 
+   procedure Push_Frame_Context_Parameter_With_Match (Object : W_Object) is
+   begin
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Is_Root_Selection := True;
+      Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+      Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+      Top_Frame.Top_Context.Outer_Object := Object;
+   end Push_Frame_Context_Parameter_With_Match;
+
    procedure Push_Frame_Context_No_Pick is
    begin
       Push_Frame_Context;
