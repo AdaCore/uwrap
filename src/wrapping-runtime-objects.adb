@@ -584,11 +584,11 @@ package body Wrapping.Runtime.Objects is
 
       if not An_Entity.Is_Generator then
          --  If this entity is a generator itself (e.g. child ()), it already
-         --  took care of the expansion. Otherwise, call the expanded action
+         --  took care of the expansion. Otherwise, call the yield callback
          --  on the one result
 
-         if Top_Frame.Top_Context.Expand_Action /= null then
-            Top_Frame.Top_Context.Expand_Action.all;
+         if Top_Frame.Top_Context.Yield_Callback /= null then
+            Top_Frame.Top_Context.Yield_Callback.all;
             Delete_Object_At_Position (-2);
          end if;
       end if;
@@ -629,13 +629,13 @@ package body Wrapping.Runtime.Objects is
          --      specific value picked, then go back fetching other values for
          --      the function.
 
-         if Calling_Frame.Top_Context.Expand_Action = null then
+         if Calling_Frame.Top_Context.Yield_Callback = null then
             Last_Picked := Object;
             Top_Frame.Interrupt_Program := True;
          else
             Push_Frame (Calling_Frame);
             Push_Implicit_It (Object);
-            Calling_Frame.Top_Context.Expand_Action.all;
+            Calling_Frame.Top_Context.Yield_Callback.all;
             Last_Picked := Pop_Object;
             Pop_Object;
             Pop_Frame;
@@ -654,7 +654,7 @@ package body Wrapping.Runtime.Objects is
       Push_Implicit_It (Prev_It);
       Top_Frame.Symbols.Move (Temp_Symbols);
       Top_Frame.Top_Context.Pick_Callback := Pick_Callback'Unrestricted_Access;
-      Top_Frame.Top_Context.Expand_Action := null;
+      Top_Frame.Top_Context.Yield_Callback := null;
 
       Handle_Command_Sequence (An_Entity.A_Function.Program.First_Element);
 
@@ -1269,7 +1269,7 @@ package body Wrapping.Runtime.Objects is
       Result : W_Object;
    begin
       Push_Frame_Context;
-      Top_Frame.Top_Context.An_Allocate_Callback := null;
+      Top_Frame.Top_Context.Allocate_Callback := null;
 
       Found := W_Node_Type'Class(An_Entity.all).Traverse
         (A_Mode, False, Result, Visitor'Access) = Stop;
@@ -1282,13 +1282,13 @@ package body Wrapping.Runtime.Objects is
          --  an allocator. If none is found and if there are allocators, then
          --  re-try, this time with allocators enabled.
 
-         if Top_Frame.Top_Context.Expand_Action /= null then
+         if Top_Frame.Top_Context.Yield_Callback /= null then
             --  TODO: it would be best to check that earlier in the system,
             --  as opposed to only when trying to call a folding function.
             Error ("allocators are not allowed in folding browsing functions");
          end if;
 
-         Top_Frame.Top_Context.An_Allocate_Callback := Allocate'Unrestricted_Access;
+         Top_Frame.Top_Context.Allocate_Callback := Allocate'Unrestricted_Access;
 
          Found := W_Node_Type'Class(An_Entity.all).Traverse
            (A_Mode, False, Result, Visitor'Access) = Stop;
@@ -1314,7 +1314,7 @@ package body Wrapping.Runtime.Objects is
       if not Found and then
         not
           (Top_Frame.Top_Context.Match_Mode /= Match_None
-           or else Top_Frame.Top_Context.Expand_Action /= null)
+           or else Top_Frame.Top_Context.Yield_Callback /= null)
       then
          Error ("no result found for browsing function");
       end if;
@@ -1480,5 +1480,11 @@ package body Wrapping.Runtime.Objects is
 
       return Last_Decision;
    end Traverse;
+
+   overriding
+   procedure Generate_Values (Object : access W_Regexpr_Result_Type; Expr : T_Expr) is
+   begin
+      Object.Result.Generate_Values (Expr);
+   end Generate_Values;
 
 end Wrapping.Runtime.Objects;

@@ -49,9 +49,13 @@ package Wrapping.Runtime.Structure is
    type Frame_Context_Type;
    type Frame_Context is access all Frame_Context_Type;
 
-   type Allocate_Callback is access procedure (E : access W_Object_Type'Class);
+   type Allocate_Callback_Type is access procedure (E : access W_Object_Type'Class);
 
    type Outer_Expr_Callback_Type is access procedure;
+
+   type Capture_Mode is (Capture, Rollback);
+
+   type Capture_Callback_Type is access procedure (Mode : Capture_Mode);
 
    type Match_Kind is
      (--  We're not doing any match
@@ -79,7 +83,7 @@ package Wrapping.Runtime.Structure is
       --  Force a match has, typically through a is', e.g. has (x.f_name ())
       Match_Has);
 
-   type Expand_Action_Type is access procedure;
+   type Yield_Callback_Type is access procedure;
 
    type Visit_Action_Ptr is access all Visit_Action;
 
@@ -112,14 +116,14 @@ package Wrapping.Runtime.Structure is
       --  that the capturing expression can update its value.
       Name_Captured : Unbounded_Text_Type;
 
-      --  When expanding, browsing functions need to perform this expression
-      --  upon all successful matches.
-      Expand_Action : Expand_Action_Type;
+      --  This is set by functions that iterate over generators, and called
+      --  by generators on each returned value.
+      Yield_Callback : Yield_Callback_Type;
 
       --  Callback used to record objects allocated through the new () function.
       --  This needs to be set in particular in browsing functions, in order to
       --  be able to capture things such as child (new ()).
-      An_Allocate_Callback : Allocate_Callback := null;
+      Allocate_Callback : Allocate_Callback_Type := null;
 
       --  When set, this identifies the value at the left of the expression.
       --  For example, in A (V => @ & "something"), @ is the left value refering
@@ -143,6 +147,8 @@ package Wrapping.Runtime.Structure is
       --  When set, this designates the callback to call upon pick. If the result
       --  is Stop, then stop the analysis, otherwise continues.
       Pick_Callback : Pick_Callback_Type;
+
+      Capture_Callback : Capture_Callback_Type;
 
       --  When iterating over wrappers, we can have several matches on the same
       --  node. During an iteration, this flag matches wether we're calling

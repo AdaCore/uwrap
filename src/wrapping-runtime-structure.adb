@@ -71,28 +71,28 @@ package body Wrapping.Runtime.Structure is
    is
       Visit_Decision : aliased Visit_Action := Unknown;
 
-      procedure Evaluate_Expand_Function
+      procedure Evaluate_Yield_Function
         with Post => Top_Frame.Data_Stack.Length =
           Top_Frame.Data_Stack.Length'Old
       is
-         Expand_Action : Expand_Action_Type := Top_Frame.Top_Context.Expand_Action;
+         Yield_Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback;
       begin
          --  In certain cases, there's no expression to be evaluated upon
-         --  expansion. E.g.:
+         --  yield. E.g.:
          --    x.all ()
          --  as opposed to:
          --    x.all().something().
-         if Expand_Action = null then
+         if Yield_Callback = null then
             return;
          end if;
 
-         --  When evaluating a expanding function in a browsing call, we need to
-         --  first deactivate expanding in the expression itself. We also we need
+         --  When evaluating a yield callback in a browsing call, we need to
+         --  first deactivate yield in the expression itself. We also we need
          --  to remove potential name capture, as it would override the one we
          --  are capturing in this browsing iteration. TODO: quite the opposite if we do fold (i : inti, i: acc);
 
          Push_Frame_Context_Parameter;
-         Top_Frame.Top_Context.Expand_Action := null;
+         Top_Frame.Top_Context.Yield_Callback := null;
          Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
          Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
          Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
@@ -100,10 +100,10 @@ package body Wrapping.Runtime.Structure is
          --  Then evaluate that folding expression
 
          Push_Implicit_It (Browsed);
-         Expand_Action.all;
+         Yield_Callback.all;
 
          --  The result of the evaluate expression is the result of the
-         --  expanding function, as opposed to the matching entity in normal
+         --  yield callback, as opposed to the matching entity in normal
          --  browsing.
          Result := Pop_Object;
          Pop_Object;
@@ -119,7 +119,7 @@ package body Wrapping.Runtime.Structure is
               (To_Text (Top_Frame.Top_Context.Name_Captured),
                Result);
          end if;
-      end Evaluate_Expand_Function;
+      end Evaluate_Yield_Function;
 
       Expression_Result : W_Object;
 
@@ -146,8 +146,8 @@ package body Wrapping.Runtime.Structure is
          Pop_Object;
          Pop_Frame_Context;
 
-         if Top_Frame.Top_Context.Expand_Action /= null then
-            Evaluate_Expand_Function;
+         if Top_Frame.Top_Context.Yield_Callback /= null then
+            Evaluate_Yield_Function;
 
             if Visit_Decision = Unknown then
                return Into;
@@ -177,7 +177,7 @@ package body Wrapping.Runtime.Structure is
       --  the folding expression will actually be what needs to be captured.
 
       if Top_Frame.Top_Context.Name_Captured /= ""
-        and then Top_Frame.Top_Context.Expand_Action = null
+        and then Top_Frame.Top_Context.Yield_Callback = null
       then
          Include_Symbol
            (To_Text (Top_Frame.Top_Context.Name_Captured),
@@ -192,7 +192,7 @@ package body Wrapping.Runtime.Structure is
       Push_Frame_Context_Parameter_With_Match (W_Object (Browsed));
       Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
       Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
-      Top_Frame.Top_Context.Expand_Action := null;
+      Top_Frame.Top_Context.Yield_Callback := null;
 
       Evaluate_Expression (Match_Expression);
 
@@ -217,14 +217,14 @@ package body Wrapping.Runtime.Structure is
             --  stop allocating). This case is supposed to have being taken
             --  care of earlier but raise an error here just in case.
 
-            if Top_Frame.Top_Context.Expand_Action /= null then
-               Error ("allocation in expanding browsing functions is illegal");
+            if Top_Frame.Top_Context.Yield_Callback /= null then
+               Error ("allocation in yield browsing functions is illegal");
             end if;
 
             return Stop;
          else
-            if Top_Frame.Top_Context.Expand_Action /= null then
-               Evaluate_Expand_Function;
+            if Top_Frame.Top_Context.Yield_Callback /= null then
+               Evaluate_Yield_Function;
 
                --  The result of the expansion can be calls to wrap functions,
                --  and one of this wrap function may be a visit decision. If
@@ -254,7 +254,9 @@ package body Wrapping.Runtime.Structure is
    is
       Quantifiers_Hit : Integer := 0;
 
-      Original_Expand_Function : Expand_Action_Type := Top_Frame.Top_Context.Expand_Action;
+      Original_Yield_Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback;
+
+      Capture_Variable : W_Regexpr_Result;
 
       procedure Yield_Action
         with Post => Top_Frame.Data_Stack.Length
@@ -262,25 +264,25 @@ package body Wrapping.Runtime.Structure is
 
       procedure Install_Yield_Capture is
       begin
-         Top_Frame.Top_Context.Expand_Action := Yield_Action'Unrestricted_Access;
+         Top_Frame.Top_Context.Yield_Callback := Yield_Action'Unrestricted_Access;
       end Install_Yield_Capture;
 
       procedure Restore_Yield_Capture is
       begin
-         Top_Frame.Top_Context.Expand_Action := Original_Expand_Function;
+         Top_Frame.Top_Context.Yield_Callback := Original_Yield_Callback;
       end Restore_Yield_Capture;
 
       procedure Process_Right_Action is
          Result : W_Object;
       begin
-
          --  If we are not on the wrapper, Is_First_Matching_Wrapper is always true.
          --
          --  If we are on a wrapper, we only want to look at the next step
          --  in the iteration if we're on the first one that matches.
          --  Ignore the others.
-         if Expr.Reg_Expr_Right /= null and then Top_Frame.Top_Context.Is_First_Matching_Wrapper then
 
+         if Expr.Reg_Expr_Right /= null and then Top_Frame.Top_Context.Is_First_Matching_Wrapper then
+            Top_Frame.Top_Context.Capture_Callback (Capture);
             Push_Frame_Context;
 
             Restore_Yield_Capture;
@@ -290,22 +292,24 @@ package body Wrapping.Runtime.Structure is
             Pop_Frame_Context;
 
             if Result = Match_False then
+               Top_Frame.Top_Context.Capture_Callback (Rollback);
                Top_Frame.Top_Context.Visit_Decision.all := Into;
             else
-               if Original_Expand_Function /= null then
+               if Original_Yield_Callback /= null then
                   Top_Frame.Top_Context.Visit_Decision.all := Into;
                else
                   Top_Frame.Top_Context.Visit_Decision.all := Stop;
                end if;
             end if;
          elsif Expr.Reg_Expr_Right = null then
-            --  We're at the end of the expression. Call the expand fonction
+            --  We're at the end of the expression. Call the yield fonction
             --  on all matches (even duplicate wrappers).
 
+            Top_Frame.Top_Context.Capture_Callback (Capture);
             Push_Object (Top_Object);
 
-            if Original_Expand_Function /= null then
-               Original_Expand_Function.all;
+            if Original_Yield_Callback /= null then
+               Original_Yield_Callback.all;
                Delete_Object_At_Position (-2);
                Top_Frame.Top_Context.Visit_Decision.all := Into;
             else
@@ -320,20 +324,20 @@ package body Wrapping.Runtime.Structure is
          end if;
       end Process_Right_Action;
 
-      --  TODO: we need to generalize this concept of generator / yield
-      --  instead of expand.
       procedure Yield_Action is
       begin
          Push_Frame_Context;
 
          if Expr.Kind = Template_Reg_Expr_Anchor then
-            Top_Frame.Top_Context.Expand_Action := null;
+            Top_Frame.Top_Context.Capture_Callback (Capture);
+            Top_Frame.Top_Context.Yield_Callback := null;
             --  If we're evaluating an anchor at this stage, this is a right
             --  anchor. There should not be any more element available.
 
             Generator (Top_Object, null);
 
             if Pop_Object /= Match_False then
+               Top_Frame.Top_Context.Capture_Callback (Rollback);
                Push_Match_False;
             else
                Push_Object (Root);
@@ -370,7 +374,7 @@ package body Wrapping.Runtime.Structure is
 
                            Pop_Object;
                            Process_Right_Action;
-                        elsif Original_Expand_Function /= null then
+                        elsif Original_Yield_Callback /= null then
                            --  If we're doing an expansion, then we need to
                            --  consider all cases of potential children
 
@@ -390,7 +394,7 @@ package body Wrapping.Runtime.Structure is
                            Generator
                              (Top_Object,
                               Expr.Reg_Expr_Left.Quantifier_Expr);
-                        elsif Original_Expand_Function /= null then
+                        elsif Original_Yield_Callback /= null then
                            --  If we're doing an expansion, then we need to
                            --  consider all cases of potential children
 
@@ -412,20 +416,44 @@ package body Wrapping.Runtime.Structure is
          Pop_Frame_Context;
       end Yield_Action;
 
+      procedure Capture_Callback (Mode : Capture_Mode) is
+      begin
+         if Mode = Capture then
+            Capture_Variable.Result.A_Vector.Append (Top_Object);
+         else
+            Capture_Variable.Result.A_Vector.Delete_Last;
+         end if;
+      end Capture_Callback;
+
       Result : W_Object;
    begin
+      Push_Frame_Context;
+
+      if Expr /= null and then Expr.Kind in Template_Reg_Expr then
+         if Top_Frame.Top_Context.Capture_Callback = null
+           or else not Expr.Node.As_Reg_Expr.F_Captured.Is_Null
+         then
+            Capture_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
+
+            if not Expr.Node.As_Reg_Expr.F_Captured.Is_Null then
+               Top_Frame.Symbols.Insert (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Capture_Variable));
+            end if;
+
+            Top_Frame.Top_Context.Capture_Callback := Capture_Callback'Unrestricted_Access;
+         end if;
+      end if;
+
       if Expr = null
         or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
       then
          Generator (Root, Expr);
+         Pop_Frame_Context;
 
          return;
       end if;
 
-      Push_Frame_Context;
-
       if Expr.Kind = Template_Reg_Expr_Anchor then
-         Top_Frame.Top_Context.Expand_Action := null;
+         Top_Frame.Top_Context.Yield_Callback := null;
 
          Generator (Root, null);
 
@@ -489,6 +517,11 @@ package body Wrapping.Runtime.Structure is
          end if;
       end if;
 
+      --  if Capture_Variable /= null and then Top_Object /= Match_False then
+      --     Pop_Object;
+      --     Push_Object (Capture_Variable);
+      --  end if;
+
       Pop_Frame_Context;
    end Evaluate_Generator_Regexp;
 
@@ -526,8 +559,8 @@ package body Wrapping.Runtime.Structure is
    begin
       Push_Match_Result (W_Object (Object), Expr);
 
-      if Top_Frame.Top_Context.Expand_Action /= null then
-         Top_Frame.Top_Context.Expand_Action.all;
+      if Top_Frame.Top_Context.Yield_Callback /= null then
+         Top_Frame.Top_Context.Yield_Callback.all;
          Delete_Object_At_Position (-2);
       end if;
    end Generate_Values;

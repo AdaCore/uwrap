@@ -187,8 +187,9 @@ class ElseSequence (TemplateNode):
    actions = Field()
 
 class RegExpr (TemplateNode):
-   left = Field()
-   right = Field()
+   captured = Field ()
+   left = Field(type=TemplateNode)
+   right = Field(type=TemplateNode)
 
 class RegExprAnchor (TemplateNode):
    token_node = True
@@ -281,30 +282,49 @@ template_grammar.add_rules(
 
    function=Function('function', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
    
-   root_expression=Or (      
-      G.regular_expression_with_suffix,
+   root_expression=Or (   
       RegExpr (
+         Null (G.identifier),
          RegExprAnchor ('\\'), 
          G.regular_expression),
-      G.expression),
-   regular_expression_with_suffix=RegExpr (
-      Or (
+      G.regular_expression),
+   regular_expression=Or(
+      RegExpr (
+         Opt (Pick (G.identifier, ':')),
          G.regular_expression_quantifier,
-         G.expression),
-      Or (Pick ('\\', G.regular_expression),
-         RegExprAnchor ('\\'))),  
-
-   regular_expression=RegExpr (
-      Or (
-         G.regular_expression_quantifier,
-         G.expression),
-      Opt (
-         Or (Pick ('\\', G.regular_expression),
-             RegExprAnchor ('\\')))),
+         Or (Pick ('\\', G.regular_expression), RegExprAnchor ('\\')),
+      ),
+      RegExpr (
+         Null (G.identifier),
+         G.expression,
+         Or (Pick ('\\', G.regular_expression), RegExprAnchor ('\\')),
+      ),
+      RegExpr (
+         Opt (Pick (G.identifier, ':')),
+         Pick ('(', G.regular_expression_no_terminal, ')'),
+         Opt (Or (Pick ('\\', G.regular_expression), RegExprAnchor ('\\'))),
+      ),
+      G.expression
+   ),
+   regular_expression_no_terminal=Or(
+      RegExpr (
+         Opt (Pick (G.identifier, ':')),
+         Or (
+            Pick ('(', G.regular_expression_no_terminal, ')'),
+            G.regular_expression_quantifier
+         ),
+         Pick ('\\', Or (G.regular_expression_no_terminal, G.expression)),
+      ),
+      RegExpr (
+         Null (G.identifier),
+         G.expression,
+         Pick ('\\', Or (G.regular_expression_no_terminal, G.expression)),
+      ),
+   ),
    regular_expression_quantifier=RegExprQuantifier (
       Or (Operator.alt_many('many'), Operator.alt_few('few')),
       '(', 
-      G.expression, 
+      G.regular_expression, 
       Opt (Pick (',', G.integer)),
       Opt (Pick (',', G.integer)),
       ')'), 

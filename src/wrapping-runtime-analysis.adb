@@ -271,14 +271,15 @@ package body Wrapping.Runtime.Analysis is
          Outer_Expr_Callback       => Context.Outer_Expr_Callback,
          Match_Mode                => Context.Match_Mode,
          Name_Captured             => Context.Name_Captured,
-         Expand_Action             => Context.Expand_Action,
-         An_Allocate_Callback      => Context.An_Allocate_Callback,
+         Yield_Callback            => Context.Yield_Callback,
+         Allocate_Callback         => Context.Allocate_Callback,
          Left_Value                => Context.Left_Value,
          Is_Root_Selection         => Context.Is_Root_Selection,
          Outer_Object              => Context.Outer_Object,
          Visit_Decision            => Context.Visit_Decision,
          Regexpr_Anchored          => Context.Regexpr_Anchored,
          Pick_Callback             => Context.Pick_Callback,
+         Capture_Callback          => Context.Capture_Callback,
          Is_First_Matching_Wrapper => Context.Is_First_Matching_Wrapper);
    end Push_Frame_Context;
 
@@ -319,9 +320,9 @@ package body Wrapping.Runtime.Analysis is
       New_Frame.Top_Context := new Frame_Context_Type;
 
       if Parent_Frame /= null then
-         New_Frame.Top_Context.An_Allocate_Callback := Top_Frame.Top_Context.An_Allocate_Callback;
+         New_Frame.Top_Context.Allocate_Callback := Top_Frame.Top_Context.Allocate_Callback;
          New_Frame.Top_Context.Visit_Decision := Top_Frame.Top_Context.Visit_Decision;
-         New_Frame.Top_Context.Expand_Action := Top_Frame.Top_Context.Expand_Action;
+         New_Frame.Top_Context.Yield_Callback := Top_Frame.Top_Context.Yield_Callback;
       end if;
 
       New_Frame.Temp_Names := new Text_Maps.Map;
@@ -548,7 +549,7 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Install_Command_Context (Command : T_Command) is
    begin
-      Top_Frame.Top_Context.An_Allocate_Callback := Allocate_Detached'Unrestricted_Access;
+      Top_Frame.Top_Context.Allocate_Callback := Allocate_Detached'Unrestricted_Access;
       Top_Frame.Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
       Top_Frame.Top_Context.Current_Command := Command;
       Top_Frame.Top_Context.Is_Root_Selection := True;
@@ -1288,7 +1289,7 @@ package body Wrapping.Runtime.Analysis is
             end;
 
          when Template_New_Expr =>
-            if Top_Frame.Top_Context.An_Allocate_Callback /= null then
+            if Top_Frame.Top_Context.Allocate_Callback /= null then
                Handle_New (Expr.Tree);
             else
                Push_Match_False;
@@ -1901,7 +1902,7 @@ package body Wrapping.Runtime.Analysis is
 
       Push_Frame_Context_No_Match;
       Top_Frame.Top_Context.Name_Captured := To_Unbounded_Text ("");
-      Top_Frame.Top_Context.Expand_Action := null;
+      Top_Frame.Top_Context.Yield_Callback := null;
 
       for I in Suffix.First_Index .. Suffix.Last_Index - 1 loop
          Suffix_Expression := Suffix.Element (I);
@@ -1922,9 +1923,9 @@ package body Wrapping.Runtime.Analysis is
 
       --  Run the terminal separately. In particular in the case of:
       --     x.y.z.child().all()
-      --  while x.y.z needs to be called outside of the expanding context,
+      --  while x.y.z needs to be called outside of the yield context,
       --  child () need to be called with the frame context set by all which
-      --  set in particular expanding context to true.
+      --  set in particular yiekd context to true.
 
       Evaluate_Expression (Terminal);
 
@@ -1974,7 +1975,7 @@ package body Wrapping.Runtime.Analysis is
 
       Current_Expression : W_Object;
 
-      procedure Expand_Action is
+      procedure Yield_Callback is
       begin
          if Is_First then
             Is_First := False;
@@ -1991,7 +1992,7 @@ package body Wrapping.Runtime.Analysis is
          Evaluate_Expression (Fold_Expr.Combine);
          Current_Expression := Top_Object;
          Pop_Frame_Context;
-      end Expand_Action;
+      end Yield_Callback;
 
 
    begin
@@ -2018,7 +2019,7 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
 
       Push_Frame_Context;
-      Top_Frame.Top_Context.Expand_Action := Expand_Action'Unrestricted_Access;
+      Top_Frame.Top_Context.Yield_Callback := Yield_Callback'Unrestricted_Access;
       Top_Frame.Top_Context.Match_Mode := Match_None;
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
@@ -2052,7 +2053,7 @@ package body Wrapping.Runtime.Analysis is
 
       procedure Generator (Node : access W_Object_Type'Class; Expr : T_Expr) is
 
-         Original_Yield : Expand_Action_Type := Top_Frame.Top_Context.Expand_Action;
+         Original_Yield : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback;
 
          procedure Yield_Callback is
          begin
@@ -2075,7 +2076,7 @@ package body Wrapping.Runtime.Analysis is
 
       begin
          Push_Frame_Context_No_Match;
-         Top_Frame.Top_Context.Expand_Action := Yield_Callback'Unrestricted_Access;
+         Top_Frame.Top_Context.Yield_Callback := Yield_Callback'Unrestricted_Access;
 
          --  We may be called from an anchored context. However, this anchor
          --  should not be passed to the prefix, to which we're just getting
@@ -2155,7 +2156,7 @@ package body Wrapping.Runtime.Analysis is
    is
       Initial_Context : Frame_Context := Top_Frame.Top_Context;
 
-      procedure Expand_Action is
+      procedure Yield_Callback is
          Visit_Decision : Visit_Action_Ptr;
       begin
          --  First try to run the all filter if any, and cancel the iteration
@@ -2199,8 +2200,8 @@ package body Wrapping.Runtime.Analysis is
          --  .all () may itself be in an expression such as .all().fold().
          --  In this case an expand action is set and needs to be executed.
 
-         if Initial_Context.Expand_Action /= null then
-            Initial_Context.Expand_Action.all;
+         if Initial_Context.Yield_Callback /= null then
+            Initial_Context.Yield_Callback.all;
             Delete_Object_At_Position (-2);
          end if;
 
@@ -2211,12 +2212,12 @@ package body Wrapping.Runtime.Analysis is
          end if;
 
          Pop_Frame_Context;
-      end Expand_Action;
+      end Yield_Callback;
 
    begin
       Push_Frame_Context_No_Match;
 
-      Top_Frame.Top_Context.Expand_Action := Expand_Action'Unrestricted_Access;
+      Top_Frame.Top_Context.Yield_Callback := Yield_Callback'Unrestricted_Access;
 
       Evaluate_Expression (Selector.Selector_Left);
 
@@ -2254,7 +2255,7 @@ package body Wrapping.Runtime.Analysis is
             --  for the form new (T() []), only the first one needs to be
             --  passed above.
 
-            Top_Frame.Top_Context.An_Allocate_Callback.all (New_Node);
+            Top_Frame.Top_Context.Allocate_Callback.all (New_Node);
          else
             Add_Wrapping_Child (Parent, New_Node);
          end if;

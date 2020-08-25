@@ -96,6 +96,9 @@ package Wrapping.Runtime.Objects is
    type W_Hollow_Node_Type;
    type W_Hollow_Node is access all W_Hollow_Node_Type'Class;
 
+   type W_Regexpr_Result_Type;
+   type W_Regexpr_Result is access all W_Regexpr_Result_Type'Class;
+
    type W_All_Type;
    type W_All is access all W_All_Type;
 
@@ -494,6 +497,13 @@ package Wrapping.Runtime.Objects is
 
    overriding
    function Language (An_Entity : W_Hollow_Node_Type) return Text_Type is ("hollow");
+
+   type W_Regexpr_Result_Type is new W_Object_Type with record
+      Result : W_Vector;
+   end record;
+
+   overriding
+   procedure Generate_Values (Object : access W_Regexpr_Result_Type; Expr : T_Expr);
 
    type W_All_Type is record
       Iterable : W_Object;
