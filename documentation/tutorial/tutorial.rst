@@ -86,13 +86,13 @@ Open the code under tutorial/access, and run the test:
 
 .. code-block:: text
 
-    $ uwrap -l ada -P prj.gpr -w names.wrp src/test.adb
+    $ uwrap -l ada -P prj.gpr -w access.wrp src/test.adb
 
 You should see:
 
 .. code-block:: text
 
-   V2:V2: access object should be out or in out
+   test.adb:0:18: V2: access object should be out or in out
 
 Indeed, that V2 parameter is only referenced through ``.all``, or said 
 otherwise, it is not referenced other than a ``.all`` reference. It's in
