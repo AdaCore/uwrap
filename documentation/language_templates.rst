@@ -10,20 +10,13 @@ process. It structure is:
 
 .. code-block:: text
 
-   template <some name> do
-      #TODO implement the default value syntax
-      var <field name> : <field type> => <default value>;
-      <other fields>
-   end;
+   template <some name> <command>
 
 or if the template is inheriting from a parent:
 
 .. code-block:: text
 
-   template <some name> extends <some parent> do
-      var <field name> : <field type>;
-      <other fields>
-   end;
+   template <some name> extends <some parent> <command>
 
 Field Types
 -----------
@@ -42,6 +35,79 @@ Fields can be declared of the following types:
 - map (string, [string|text|object|map|set]): this field is a map indexed by 
   strings
 
+Template Commands and Variables
+-------------------------------
+
+Template can contain arbitrary complex commands, in particular commands that
+contains themselves other commands and variables. For example:
+
+.. code-block:: text
+
+   template T do
+      var v1: text => "A";
+      var v2: text;
+
+      do
+         var v3: text;
+         
+         pick origin wrap T2 (v1 & v2 & v3);
+      end;
+   end;
+
+This command will be executed only once, at template instanciation. Through
+this execution, any variable declared will be stored as field in the template, 
+in the order of evaluation. In particular, in the above case, the template will 
+have a variable v1 and v2.
+
+Upon template instanciation, these values can be modified, using either 
+positional or named notation. For example:
+
+.. code-block:: text
+
+   match some_node ()
+   wrap T (v1 => "X", v3 => "Y");
+
+   match some_node ()
+   wrap T ("X", "Y");
+
+The left reference `@` is set during these parameter expressions, so that
+the previous value of the variable can be refered to. 
+
+Parameters expressions are computed in the calling context. If the wrapper
+is named upon instanciation, this name can be used to refer to the template
+already created variables. For example:
+
+.. code-block:: text
+
+   match some_node ()
+   wrap w: T (v1 => @ & "X", v3 => w.v1 & "Y");
+
+The specific creation of these variables will go as follow:
+
+- All variables for a given block are created
+- All default values for these variables are evaluated
+- If parameters have been provided for the variables
+
+In the above example, this will translate in:
+
+- create v1 and v2 (root block)
+- initialize v1 to "A"
+- apply v1 parameter expression, v1 now is "AX"
+- create v3 (nested block)
+- apply v3 parameter expression, v3 is now "AXY"
+
+Once a template has been instantiated (through a ``wrap`` or a ``weave`` clause),
+further calls will not execute the command, but instead update the variables,
+e.g.:
+
+.. code-block:: text
+
+   match some_node () do
+      wrap T (v1 => @ & "X1", v3 => v1 & "Y1");
+   then
+      weave T (v1 => @ & "X2", v3 => v1 & "Y2");
+   end;
+
 Template Predicates
 -------------------
 
@@ -49,9 +115,9 @@ Templates offer three kind of predicates:
 - type predicates, testing on the template type
 - field predicates, tested on the template fields
 - origin, which refers to the node that is wrapped by this template
-- peer, which allows to browse other templates
-- template, which allows to browse the templates of a given node (including and
-  source node).
+- peer, which allows to browse other templates (TODO: to implement)
+- wrapper, which allows to browse the wrappers of a given node 
+- kind, which provides a text-based version of the predicate type
 
 Type predicates for templates work like other type perdicates. They are
 is-predicates and can check if a template is of a given type. They allow for 
@@ -97,7 +163,7 @@ be used like fields or other references, for example:
 
    match A_Template (origin (DefiningName ()));
 
-``template`` works on any node, and allows to browsed the templates that have
+``wrapper`` works on any node, and allows to browsed wrappers that have
 been used to wrap this node so far. For example:
 
 .. code-block:: text
@@ -109,7 +175,7 @@ been used to wrap this node so far. For example:
    match BaseDecl ()
    wrap A_Template ();
 
-   match parent (template (A_Template));
+   match parent (wrapper (A_Template));
 
 TODO: peer needs to be implemented
 
@@ -119,10 +185,10 @@ to origin (template ()).
 Inheritance
 -----------
 
-A template inheriting from another template will inherit from all its fields. 
-It will however be a distinct type - in particular a given node can be wrapped
-with both a parent and its child templates, as well as different siblings. For
-example:
+A template inheriting from another template will call its parent command before
+its own. It will however be a distinct type - in particular a given node can be
+wrapped with both a parent and its child templates, as well as different 
+siblings. For example:
 
 .. code-block:: text
 
@@ -145,60 +211,6 @@ child of the type of the predicate. For example:
 .. code-block:: text
 
    match A () # will match for instances of A and B
-
-Creation through Wrap and Weave Clauses
----------------------------------------
-
-Nodes can be wrapped with templates through wrap and weave clauses. These 
-clauses can valuate one of several of the templates fields, either by position
-or through a named notation. Named notation doesn't require names to be in 
-order and can be introduced after a positional notation. Positional notation
-however cannot be re-introduced after switching to name notation. For example:
-
-.. code-block:: text
-
-   template A do
-      V1 : text;
-      V2 : text;
-   end;
-
-   match some_predicate
-   wrap A ("A", "B");
-
-   match some_other_predicate
-   wrap A (V1 => "A", V2 => "B");
-
-values of template variables can be computed with arbitrary expressions, in 
-particular using the currently iterated self element or any previously captured
-value. For example:
-
-.. code-block:: text
-
-   template w_Name do
-      name : text;
-   end;
-
-   match DefiningName ("A_Name_(.*)") 
-   wrap w_Name ("\1");
-
-When instantiating a template through a wrap or weave clause, or updating a 
-template through a weave clause, it is possible to reference fields of that
-template as it's being created / modified. In order to acheive that, the 
-template under creation need to have its value captured. For example:
-
-.. code-block:: text
-
-   template A do
-      V1 : text;
-      V2 : text;
-      V3 : text;
-   end;
-
-   match some_other_predicate
-   wrap a: A (
-      V1 => "A", 
-      V2 => "B",
-      V3 => a.V1 & "-" & a.V2);
 
 Text Reference Evaluation
 -------------------------
@@ -261,8 +273,6 @@ create an infinite recursion. The reference to V1 is replaced upon
 the string "_Weaved". Consequently, that old reference may itself still evolve
 over time if it was build after references to other text fields.
 
-# TODO string is not yet implemented
-
 The ``string ()`` conversion allows to force conversion of a text reference to
 a final string, for example:
 
@@ -290,7 +300,7 @@ Creation through new Functions
 
 In some cases, node creation through the wrapping is not enough, and allocation
 needs to be performed outside of the wrapped / wrapping system. This can be
-created through the new () operator. 
+created through the new () function. 
 
 new () can be invoked in match and pick clauses. In a match clauses, it's always
 return a reference to the object evaluated (and is therefore evaluated to true).
@@ -382,14 +392,14 @@ w_SubpDecl:
 
 .. code-block:: text
 
-   template w_PackageDecl do end;
-   template w_SubpDecl do end;
+   template w_PackageDecl;
+   template w_SubpDecl;
 
-   match PackageDecl do end;
-   wrap w_PackageDecl do end;
+   match PackageDecl
+   wrap w_PackageDecl ();
 
    match SubpDecl ()
-   wrap w_SubpDecl();
+   wrap w_SubpDecl ();
 
 There is a parent / child relationship between the w_PackageDecl and w_SubpDecl
 which can be retreived by the regular tree browsing predicates. For example, 
@@ -418,7 +428,6 @@ iterate over its instances:
 In the above example, the first instance of A that has a text "A" for V will
 be returned. This can also be used with an extension suffix:
 
-
 .. code-block:: text
 
-   pick A.find ().all ();
+   pick A.all (); #TODO to implement, right now the syntax needs to go through a filter, e.g. A.filter().all()

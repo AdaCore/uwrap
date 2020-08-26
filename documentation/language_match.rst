@@ -27,15 +27,16 @@ Actions conditioned by a match clause can be a sequence, a pick clause, a wrap
 clause or a weave clause.
 
 A match operates a comparison with the current element under iteration. This 
-element is available within the match as the standard ``self`` variable. The
-following for example is always true:
+element is available within the match as the standard ``it`` reference. It 
+stands for the pronoun "it", but can also be refered as the first two letters
+of the word "iterator". The following for example is always true:
 
 .. code-block:: text
 
    # TODO: add a test for the following
-   match self
+   match it
 
-Predicates can apply to the ``self`` object or to the environment. They can
+Predicates can apply to the ``it`` object or to the environment. They can
 also apply to a specific object by prefixing a reference with a dot notation.
 For example:
 
@@ -52,9 +53,9 @@ the value of the predicate itself:
 
 For example, the predicate can be checking for the existance of a field, and the
 subpredicate checking the form of that field. Within a match nested expression,
-the value of ``self`` is modified to the value currently tested. For example,
-outside of the ``some_predicate`` call above, ``self`` is the value of the 
-node currently being iterated, but within the parenthesis, `self` changes to be
+the value of ``it`` is modified to the value currently tested. For example,
+outside of the ``some_predicate`` call above, ``it`` is the value of the 
+node currently being iterated, but within the parenthesis, ```it` changes to be
 the value tested by the predicate (for example a field).
 
 match clauses can be followed by a block that contains an else section:
@@ -87,8 +88,8 @@ is-predicates and has-predicates
 Expressing in match clauses are composed of predicates. There are two main types
 of predicates:
 
-- predicate that compare to ``self``, known as is-predicates.
-- predicates verify that a given expression can be computed under the ``self``
+- predicate that compare to ``it``, known as is-predicates.
+- predicates verify that a given expression can be computed under the ``it``
   element environment, known as has-predicates.
 
 There is no syntactical difference between has-predicates and is-predicates. 
@@ -99,7 +100,7 @@ Generally speaking, predicates that look like calls, such as:
    match some_predicates ()
 
 tend to be has-predicates. They check that an expression exists / can be 
-computed in the ``self`` enviroment. Conversedly, predicates that look like 
+computed in the ``it`` enviroment. Conversedly, predicates that look like 
 references such as:
 
 .. code-block:: text
@@ -107,7 +108,7 @@ references such as:
    match some_predicates
 
 tend to be is-predicates. They check that an expression corresponds to the
-``self`` object.
+``it`` object.
 
 It is possible to force a predicate to act as an is-predicate or an 
 has-predicate by explicitely converting them:
@@ -150,12 +151,12 @@ can be named to the captured expression and referenced within that test.
 This value is a temporary valuation. If the predicate happens not to match,
 it will be reversed to its previous value upon exiting the predicate.
 
-Capturing can also be used to keep track of various values of the self reference
+Capturing can also be used to keep track of various values of the it reference
 through match expressions. For example:
 
 .. code-block:: text
 
-   match outer_self: self and some_property (self.something and outer_self.something);
+   match outer_it: it and some_property (it.something and outer_it.something);
 
 Boolean Expressions
 -------------------
@@ -195,7 +196,7 @@ The value of the entire expression can be captured through parenthesis:
 In that case, the value captured is the value of the last operand, so that
 in the above example, v1 is a if a is true, b if a is false and b is true. v2
 is always d if c and d are true. The not boolean expression will valuate to 
-``self`` if returning true. For example
+``it`` if returning true. For example
 
 .. code-block:: text
 
@@ -296,7 +297,7 @@ A type matcher can also accomodate a nested expression:
 
    match DefiningName (a or b)
 
-In this case, the predicate will be true if the self node is of kind 
+In this case, the predicate will be true if the it node is of kind 
 DefiningName and ``a or b`` is true. The above is equivalent to:
 
 .. code-block:: text
@@ -312,7 +313,7 @@ currently iterated on. So that:
    match v1: DefiningName
    match v2: DefiningName (a or b)
 
-both value v1 and v2 to ``self`` if the predicate is true. 
+both value v1 and v2 to ``it`` if the predicate is true. 
 
 When nodes types are themselves hierarchical, type predicate will value to true
 if the node type hierarchy includes that type. For example, in Ada, on a 
@@ -336,7 +337,7 @@ predicates act as is-predicates when they're directly reference, as in:
 
    match f_something
 
-Meaning "check that the ``self`` element correspond to f_something. 
+Meaning "check that the ``it`` element correspond to f_something. 
 
 They act as has-predicate when providing a nested expression, as in:
 
@@ -345,7 +346,7 @@ They act as has-predicate when providing a nested expression, as in:
    match f_something ()
    match f_something (a or b)
 
-Meaning "check that the ``self`` element has a field named f_something that is
+Meaning "check that the ``it`` element has a field named f_something that is
 of a given form.
 
 The value returned by a field predicate is the value of that field, so that:
@@ -356,7 +357,7 @@ The value returned by a field predicate is the value of that field, so that:
 
 f has the value of f_something if it exist.
 
-Within a field predicate, the value of self is switched the value of that 
+Within a field predicate, the value of ``it`` is switched the value of that 
 field. For example:
 
 .. code-block:: text
@@ -379,7 +380,7 @@ matching expression, and captured through a capture expression. For example:
 
 .. code-block:: text
 
-   match l: to_lower (self)
+   match l: to_lower (it)
 
 Tree Browsing Predicates
 ------------------------
@@ -396,7 +397,8 @@ testing its structure:
 - sibling (<match expression) is true if an node at the same level before or 
   after the current node maches the expression
 
-The expression is optional, so that:
+All of the above are generators (see later sections on how generators can be
+called to iterate over all values). The expression is optional, so that:
 
 .. code-block:: text
 
@@ -404,7 +406,7 @@ The expression is optional, so that:
 
 only matches if there is a node before the current one.
 
-Within the matching nested expression, ``self`` take the value of the node
+Within the matching nested expression, ``it`` take the value of the node
 currently being tested. The expression will be tested for all value that can
 be browed up until one matches, and will then returned this value that can be
 captured. For example:
@@ -475,7 +477,7 @@ Note that child predicate isn't meant to describe the entire descendance of
 a node directly - it checks for the existence of at least one chain of 
 descendants matching a given pattern.
 
-The ``self`` value is modified in each subset of the sequence, and takes the
+The ``it`` value is modified in each subset of the sequence, and takes the
 value of the currently analyzed node. It can be captured. The result of a 
 sequence is the last element being matched. For example:
 
@@ -486,3 +488,8 @@ sequence is the last element being matched. For example:
 
 In the above, is matched, r is the value of the grandchild. last is the value
 of the last element being matched by the many predicate.
+
+Match Expressions
+-----------------
+
+TODO

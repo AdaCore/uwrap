@@ -39,11 +39,11 @@ node it operates on
    pick <some epression>
    weave <some expression>;
 
-It can stand on its own, in which case it unconditionally operates on self:
+It can stand on its own, in which case it unconditionally operates on ``it``:
 
 .. code-block:: text
 
-   wrap <some expression>;
+   wrap <some expression>
    weave <some expression>;
 
 A wrap or a weave clause is always terminating a command, and is always followed

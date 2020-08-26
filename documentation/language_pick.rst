@@ -29,11 +29,11 @@ In this case, no action is applied, but the pick clause can still have side
 effects that are executed under the above syntax.
 
 By default, a command operates on the element currently being iterated which is 
-referend to as ``self``, so that:
+referend to as ``it``, so that:
 
 .. code-block:: text
 
-   pick self
+   pick it
 
 is equivalent to not having a pick clause.
 
@@ -44,7 +44,7 @@ Picking Expressions
 -------------------
 
 A pick expression can be build as a match expression, and will switch the 
-``self`` value to the rest of the command. For example:
+``it`` value to the rest of the command. For example:
 
 .. code-block:: text
 
@@ -106,7 +106,7 @@ concerned by this. In particular, nested matching expression will not, so that:
    pick DefiningName (a or b)
 
 the above expression only resolve to one element, which is the current element
-``self``.
+``it``.
 
 It is an error to have a pick expression that resolves to false. So if in:
 
@@ -117,11 +117,11 @@ It is an error to have a pick expression that resolves to false. So if in:
 The overall result of this is false, then an error will be displayed on the 
 output.
 
-The Expansion Suffix ".all()"
+Picking Results of Generators
 -----------------------------
 
-The ".all()" suffix allows to consider all values that match a given browsing
-function prefix. Recall that:
+The ".all()" suffix allows to go over all values that are yielded by 
+a prefix. A good example of such a generator function is child () Recall that:
 
 .. code-block:: text
 
@@ -148,11 +148,11 @@ The following will pick the first child of all children which contain the letter
 
 .. code-block:: text
 
-   pick child( "A").all ().child ()
+   pick child ("A").all ().child ()
 
 #TODO: as before, the following doesn't currently completely works:
 
-the expansion suffix all() also works with boolean operators, for example:
+the generator suffix all() also works with boolean operators, for example:
 
 .. code-block:: text
 
