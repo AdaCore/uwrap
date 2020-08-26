@@ -3,16 +3,16 @@ import ada.transformations;
 
 wrap wrap_ada_specs ();
 
-match DefiningName ("(.*)_h")
+match DefiningName (x"(.*)_h")
 wrap w_DefiningName ("\1_Wrapped");
 
 match ParamSpec() 
    and p_type_expression ("Interfaces.C.Strings.chars_ptr")
-   and not p_defining_name ("^leaveMeAlone$")
+   and not p_defining_name ("leaveMeAlone")
 wrap chars_into_string ();
 
 match SubpDecl
    (f_subp_spec
-      ("^function" 
+      (x"^function" 
       and p_returns ("Interfaces.C.Strings.chars_ptr"))) 
 wrap chars_into_string ();

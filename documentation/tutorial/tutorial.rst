@@ -14,7 +14,7 @@ as a mean to generate a tree.
 Displaying names
 ================
 
-The initial setp is to retreive an Ada application that we're going to feed to 
+The initial step is to retreive an Ada application that we're going to feed to 
 uwrap. The project <link to ada tutorial repo> will do. Once you get this 
 project, to to its directory and run:
 
@@ -33,7 +33,7 @@ The file tutorial.wrp looks like this:
 .. code-block:: text
 
    match DefiningName ()
-   wrap standard.out (self & "\n");
+   wrap standard.out (it & "\n");
 
 The above represent a UWrap command. It's composed in three parts: a matching
 expression, the identificaton of a node to wrap, and then a wrapping operation.
@@ -44,7 +44,7 @@ expression, the identificaton of a node to wrap, and then a wrapping operation.
    [wrap <wrapping operation>];
 
 Each section surrounded by [] in the description above can be omitted. Here, 
-we're ommiting the "node to wrap" section, which is automatically set to self.
+we're ommiting the "node to wrap" section, which is automatically set to ``it``.
 
 UWrap will traverse the tree node by node, through a depth traversal, examining
 the parent before its children. Understanding the order of the traverse is
@@ -63,8 +63,8 @@ case, ``standard.out`` is a pre-existing template provided by the standard UWrap
 libray.
 
 ``standard.out`` has a unique field that corresponds to a text to display at the
-end of the wrapping process. In this case, the expression ``self & "\n"`` will
-convert self to a string - which for Ada nodes means extracting the text of the
+end of the wrapping process. In this case, the expression ``it & "\n"`` will
+convert ``it`` to a string - which for Ada nodes means extracting the text of the
 node - and then concatenating it with a end of line.
 
 It's useful to undersand that ``standard.out`` is not an operation that is 
@@ -91,6 +91,7 @@ Open the code under tutorial/access, and run the test:
 You should see:
 
 .. code-block:: text
+
    V2:V2: access object should be out or in out
 
 Indeed, that V2 parameter is only referenced through ``.all``, or said 
@@ -101,14 +102,14 @@ Let's open access.wrp and see how this is done:
 
 .. code-block:: text
 
-   match param: ParamSpec (" access ") and parent (subp: SubpBody()) do
+   match param: ParamSpec (x" access ") and parent (subp: SubpBody()) do
       match not subp.child (
          Identifier () 
          and not parent (DefiningName())
          and not parent (ExplicitDeref())
          and p_referenced_decl (param))
       wrap standard.out 
-         ("\e<sloc>\e<self.child (DefiningName())> access object should be out or in out\n");
+         ("\e<sloc>\e<it.child (DefiningName())> access object should be out or in out\n");
    end;
 
 Looks a lot more comprehensive that the previous one, right? Thankfully, it's 
@@ -120,19 +121,20 @@ First:
 
 .. code-block:: text
 
-   match param: ParamSpec (" access ") and parent (subp: SubpBody ())
+   match param: ParamSpec (x" access ") and parent (subp: SubpBody ())
 
 We want to only match param specifications, hence ``ParamSpec``. Furthermore,
 the potentially problematic specifications are access mode. There are various
-ways to detect these. Here, we're using a textual matching. ``(" access ")``. So
-any parameter specification that contains the text access will potentially be
-flagged. This is potentially weak (e.g. it doesn't match ``ACCESS`` or 
-``:access`` ) but that'll do for the purpose fo the demonstration.
+ways to detect these. Here, we're using a textual matching. ``(x" access ")``.
+Notice the x in front of the string, which signals that it should be interpreted
+as a regular expression. So any parameter specification that contains the text 
+"access" will potentially be flagged. This is potentially weak (e.g. it doesn't 
+match ``ACCESS`` or ``:access`` ) but that'll do for the purpose fo the demonstration.
 
 We are going to need to use the value of that node later on the analysis. So
 we're capturing it under the ``param`` name. The expression 
-``param: ParamSpec (" access ")`` check self against the ParamSpec predicate, 
-then stores self in param if matched.
+``param: ParamSpec (x" access ")`` check ``it`` against the ParamSpec predicate, 
+then stores ``it`` in param if matched.
 
 We then need to concentrate only on subprogram bodies - our analysis is going
 to cover the usage of these parameters. The second part of the condition is
@@ -176,7 +178,7 @@ A few notes here:
   operate on declarations, which is the reason why we have to guard on 
   ``DefiningNames`` before.
 * Within a browsing predicate such as ``child`` or ``parent``, the value of
-  ``self`` is switched to the sub-nodes being browsed. So in that second
+  ``it`` is switched to the sub-nodes being browsed. So in that second
   child query, p_referenced_decl operates on the child being analyzed, not the
   top level node which is a parameter specification. This is the reason why we
   had to capture the value in the top level matched, then to re-inject it in
@@ -189,7 +191,7 @@ we will create a message wrapper:
 .. code-block:: text
 
    wrap standard.out 
-      ("\e<sloc>\e<self.child (DefiningName())> access object should be out or in out\n");
+      ("\e<sloc>\e<it.child (DefiningName())> access object should be out or in out\n");
 
 The above demonstrates the usage of the "\e<>" expression in strings."\e<" 
 introduces a section of expression, which allows to include in long string
@@ -229,10 +231,10 @@ Let's open wrap_names.wrp and see how this is done:
 
    wrap wrap_ada_specs ();
 
-   match DefiningName ("Some_(.*)")
+   match DefiningName (x"Some_(.*)")
    wrap w_DefiningName ("My_\1");
 
-   match DefiningName ("Some_(?<a>.*)") and parent (ParamSpec ())
+   match DefiningName (x"Some_(?<a>.*)") and parent (ParamSpec ())
    wrap w_DefiningName ("A_Param_\e<a>");
 
 First, you'll notice ``import ada.wrappers`` which references a module from
@@ -264,7 +266,7 @@ line is instructing to alter the way the default wrapper works:
 
 .. code-block:: text
 
-   match DefiningName ("Some_(.*)")
+   match DefiningName (x"Some_(.*)")
    wrap w_DefiningName ("My_\1");
 
 The matcher here introduces regular expressions - we're matching any 
@@ -290,22 +292,22 @@ file:
 
 .. code-block:: text
 
-   match DefiningName ("Some_(.*)")
+   match DefiningName (x"Some_(.*)")
    wrap w_DefiningName ("My_\1");
 
-   match DefiningName ("Some_(?<a>.*)") and parent (ParamSpec ())
+   match DefiningName (x"Some_(?<a>.*)") and parent (ParamSpec ())
    wrap w_DefiningName ("A_Param_\e<a>");
 
 In this sequence, we will first evaluate wether we are on a defining name
 child of a parameter which matches Some\_. If that's the case, we'll wrap the
-name to "A_Param\e<a>" and the wrapper above will not be executed. If we're
+name to x"A_Param\e<a>" and the wrapper above will not be executed. If we're
 not on a parameter of the correct name, then we'll check if the matcher above
 can be executed. And if not, the top one in ``wrap_ada_specs`` will be.
 
 Also note the alternative syntax to capture a name in a regexp on the second
 command. Often with wrapping programs, many regexps needs to work in conjunction
 with the other with many pieces to match. It can be difficult to track the 
-group numbers, so the form "(?<some name>some pattern>)" allows to name a given
+group numbers, so the form x"(?<some name>some pattern>)" allows to name a given
 group, for re-use in expressions later on.
 
 Wrapping C strings into Ada Strings
@@ -344,17 +346,17 @@ few places C strings with Ada strings. Let's look at the wrapper code:
 
    wrap wrap_ada_specs ();
 
-   match DefiningName ("(.*)_h")
+   match DefiningName (x"(.*)_h")
    wrap w_DefiningName ("\1_Wrapped");
 
    match ParamSpec() 
       and p_type_expression ("Interfaces.C.Strings.chars_ptr")
-      and not p_defining_name ("^leaveMeAlone$")
+      and not p_defining_name ("leaveMeAlone")
    wrap chars_into_string ();
 
    match SubpDecl
       (f_subp_spec
-         ("^function" 
+         (x"^function" 
          and p_returns ("Interfaces.C.Strings.chars_ptr"))) 
    wrap chars_into_string ();
 
@@ -379,7 +381,7 @@ The first command reads:
 
   match ParamSpec() 
       and p_type_expression ("Interfaces.C.Strings.chars_ptr")
-      and not p_defining_name ("^leaveMeAlone$")
+      and not p_defining_name ("leaveMeAlone")
    wrap chars_into_string ();
 
 This matches a parameter specification, then looks at a property 
@@ -387,7 +389,7 @@ This matches a parameter specification, then looks at a property
 we're performing a textual check to the full name of the C char type, which
 corresponds to the pattern generated by fdump-ada-specs. We're also then 
 describing a condition where we don't want to apply this transformation, if the
-defining name of the parameter is exactly "leaveMeAlone". If all these conditions
+defining name of the parameter is exactly x"leaveMeAlone". If all these conditions
 match, then ``wrap chars_into_string ()`` will apply the preset 
 transformation from C string to Ada string.
 
@@ -398,7 +400,7 @@ subprogram itself. This is the role of the code
 
    match SubpDecl
       (f_subp_spec
-         ("^function" 
+         (x"^function" 
          and p_returns ("Interfaces.C.Strings.chars_ptr"))) 
    wrap chars_into_string ();
 

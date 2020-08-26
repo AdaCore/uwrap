@@ -1,2 +1,2 @@
 match DefiningName ()
-wrap standard.out (self & "\n");
+wrap standard.out (it & "\n");
