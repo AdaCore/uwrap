@@ -1,6 +1,7 @@
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Containers.Vectors;
+with Ada.Containers; use Ada.Containers;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
@@ -504,6 +505,49 @@ package Wrapping.Runtime.Objects is
 
    overriding
    procedure Generate_Values (Object : access W_Regexpr_Result_Type; Expr : T_Expr);
+
+   function As_Singleton
+     (Object : W_Regexpr_Result_Type)
+      return W_Object is
+     (if Object.Result.A_Vector.Length >= 1 then
+         Object.Result.A_Vector.Last_Element
+      else
+         Match_False);
+
+   function Push_Value
+     (An_Entity : access W_Regexpr_Result_Type;
+      Name      : Text_Type) return Boolean is
+     (An_Entity.As_Singleton.Push_Value (Name));
+
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Regexpr_Result_Type;
+      Params    : T_Arg_Vectors.Vector);
+
+   function Match_With_Top_Object
+     (An_Entity : access W_Regexpr_Result_Type) return Boolean is
+      (An_Entity.As_Singleton.Match_With_Top_Object);
+
+   overriding
+   function Traverse
+     (An_Entity    : access W_Regexpr_Result_Type;
+      A_Mode       : Browse_Mode;
+      Include_It : Boolean;
+      Final_Result : out W_Object;
+      Visitor      : access function
+        (E      : access W_Object_Type'Class;
+         Result : out W_Object) return Visit_Action)
+      return Visit_Action;
+
+   overriding
+   procedure Evaluate_Bowse_Functions
+     (An_Entity        : access W_Regexpr_Result_Type;
+      A_Mode           : Browse_Mode;
+      Match_Expression : T_Expr);
+
+   overriding
+   function To_String (Object : W_Regexpr_Result_Type) return Text_Type is
+     (Object.As_Singleton.To_String);
 
    type W_All_Type is record
       Iterable : W_Object;

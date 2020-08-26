@@ -246,7 +246,66 @@ package body Wrapping.Runtime.Structure is
       end if;
    end Browse_Entity;
 
+   procedure Handle_Regexpr
+     (Root      : access W_Object_Type'Class;
+      Generator : access procedure
+        (Node : access W_Object_Type'Class; Expr : T_Expr);
+      Expr      : T_Expr)
+     with Post => Top_Frame.Data_Stack.Length
+       = Top_Frame.Data_Stack.Length'Old + 1;
+
    procedure Evaluate_Generator_Regexp
+     (Root      : access W_Object_Type'Class;
+      Generator : access procedure
+        (Node : access W_Object_Type'Class; Expr : T_Expr);
+      Expr      : T_Expr)
+   is
+      Result_Variable : W_Regexpr_Result;
+
+      procedure Capture_Callback (Mode : Capture_Mode) is
+      begin
+         if Mode = Capture then
+            Result_Variable.Result.A_Vector.Append (Top_Object);
+         else
+            Result_Variable.Result.A_Vector.Delete_Last;
+         end if;
+      end Capture_Callback;
+
+   begin
+      --  There is no regexpr, just one expression. Compute it and return.
+
+      if Expr = null
+        or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
+      then
+         Generator (Root, Expr);
+
+         return;
+      end if;
+
+      --  We are on an actual regexpr. Install the result capture handler, and
+      --  then process the expression
+
+      Push_Frame_Context;
+
+      Result_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
+
+      if not Expr.Node.As_Reg_Expr.F_Captured.Is_Null then
+         Top_Frame.Symbols.Insert (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Result_Variable));
+      end if;
+
+      Top_Frame.Top_Context.Capture_Callback := Capture_Callback'Unrestricted_Access;
+
+      Handle_Regexpr (Root, Generator, Expr);
+
+      Pop_Frame_Context;
+
+      if Top_Object /= Match_False then
+         Pop_Object;
+         Push_Object (Result_Variable);
+      end if;
+   end Evaluate_Generator_Regexp;
+
+   procedure Handle_Regexpr
      (Root      : access W_Object_Type'Class;
       Generator : access procedure
         (Node : access W_Object_Type'Class; Expr : T_Expr);
@@ -256,9 +315,11 @@ package body Wrapping.Runtime.Structure is
 
       Original_Yield_Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback;
 
-      Capture_Variable : W_Regexpr_Result;
-
       procedure Yield_Action
+        with Post => Top_Frame.Data_Stack.Length
+          = Top_Frame.Data_Stack.Length'Old + 1;
+
+      procedure Process_Right_Action
         with Post => Top_Frame.Data_Stack.Length
           = Top_Frame.Data_Stack.Length'Old + 1;
 
@@ -286,7 +347,7 @@ package body Wrapping.Runtime.Structure is
             Push_Frame_Context;
 
             Restore_Yield_Capture;
-            Evaluate_Generator_Regexp (W_Node_Type (Top_Object.Dereference.all)'Access, Generator, Expr.Reg_Expr_Right);
+            Handle_Regexpr (Top_Object, Generator, Expr.Reg_Expr_Right);
             Result := Top_Object.Dereference;
 
             Pop_Frame_Context;
@@ -340,7 +401,8 @@ package body Wrapping.Runtime.Structure is
                Top_Frame.Top_Context.Capture_Callback (Rollback);
                Push_Match_False;
             else
-               Push_Object (Root);
+               Push_Object (Root);-- TODO: Should probably not be root, but the
+               --  result array instead
             end if;
          else
             Top_Frame.Top_Context.Regexpr_Anchored := True;
@@ -416,37 +478,19 @@ package body Wrapping.Runtime.Structure is
          Pop_Frame_Context;
       end Yield_Action;
 
-      procedure Capture_Callback (Mode : Capture_Mode) is
-      begin
-         if Mode = Capture then
-            Capture_Variable.Result.A_Vector.Append (Top_Object);
-         else
-            Capture_Variable.Result.A_Vector.Delete_Last;
-         end if;
-      end Capture_Callback;
-
       Result : W_Object;
    begin
       Push_Frame_Context;
-
-      if Expr /= null and then Expr.Kind in Template_Reg_Expr then
-         if Top_Frame.Top_Context.Capture_Callback = null
-           or else not Expr.Node.As_Reg_Expr.F_Captured.Is_Null
-         then
-            Capture_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
-
-            if not Expr.Node.As_Reg_Expr.F_Captured.Is_Null then
-               Top_Frame.Symbols.Insert (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Capture_Variable));
-            end if;
-
-            Top_Frame.Top_Context.Capture_Callback := Capture_Callback'Unrestricted_Access;
-         end if;
-      end if;
 
       if Expr = null
         or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
       then
          Generator (Root, Expr);
+
+         if Top_Object /= Match_False then
+            Top_Frame.Top_Context.Capture_Callback (Capture);
+         end if;
+
          Pop_Frame_Context;
 
          return;
@@ -469,7 +513,7 @@ package body Wrapping.Runtime.Structure is
       else
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
             Top_Frame.Top_Context.Regexpr_Anchored := True;
-            Evaluate_Generator_Regexp (Root, Generator, Expr.Reg_Expr_Right);
+            Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Right);
          elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
             case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                when Template_Operator_Many =>
@@ -483,7 +527,7 @@ package body Wrapping.Runtime.Structure is
 
                      if Expr.Reg_Expr_Left.Min = 0 then
                         Pop_Object;
-                        Evaluate_Generator_Regexp (Root, Generator, Expr.Reg_Expr_Right);
+                        Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Right);
                      end if;
                   end if;
 
@@ -492,7 +536,7 @@ package body Wrapping.Runtime.Structure is
                      --  We are on a lazy quantifier and are accepting no matches.
                      --  First see if we can avoid the quantifier altogether
 
-                     Evaluate_Generator_Regexp (Root, Generator, Expr.Reg_Expr_Right);
+                     Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Right);
 
                      if Top_Object = Match_False then
                         Pop_Object;
@@ -523,7 +567,7 @@ package body Wrapping.Runtime.Structure is
       --  end if;
 
       Pop_Frame_Context;
-   end Evaluate_Generator_Regexp;
+   end Handle_Regexpr;
 
    procedure Push_Match_True (An_Entity : access W_Object_Type'Class) is
    begin

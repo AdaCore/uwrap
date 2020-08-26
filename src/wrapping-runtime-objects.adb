@@ -1487,4 +1487,39 @@ package body Wrapping.Runtime.Objects is
       Object.Result.Generate_Values (Expr);
    end Generate_Values;
 
+   overriding
+   procedure Push_Call_Result
+     (An_Entity : access W_Regexpr_Result_Type;
+      Params    : T_Arg_Vectors.Vector)
+   is
+   begin
+      An_Entity.As_Singleton.Push_Call_Result (Params);
+   end Push_Call_Result;
+
+   overriding
+   function Traverse
+     (An_Entity    : access W_Regexpr_Result_Type;
+      A_Mode       : Browse_Mode;
+      Include_It : Boolean;
+      Final_Result : out W_Object;
+      Visitor      : access function
+        (E      : access W_Object_Type'Class;
+         Result : out W_Object) return Visit_Action)
+      return Visit_Action
+   is
+   begin
+      return An_Entity.As_Singleton.Traverse
+        (A_Mode, Include_It, Final_Result, Visitor);
+   end Traverse;
+
+   overriding
+   procedure Evaluate_Bowse_Functions
+     (An_Entity        : access W_Regexpr_Result_Type;
+      A_Mode           : Browse_Mode;
+      Match_Expression : T_Expr)
+   is
+   begin
+      An_Entity.As_Singleton.Evaluate_Bowse_Functions (A_Mode, Match_Expression);
+   end Evaluate_Bowse_Functions;
+
 end Wrapping.Runtime.Objects;

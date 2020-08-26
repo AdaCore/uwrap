@@ -2025,16 +2025,11 @@ package body Wrapping.Runtime.Analysis is
 
       Evaluate_Expression (Selector.Selector_Left);
 
-      --  Keep the result of the evaluate expression. If the result is false,
-      --  this means that nothing was actually found. In that case, the init
-      --  value needs to be pused.
-      --  TODO: This will not work for folding evaluating booleans, where
-      --  the init value may be true, but the result is false.
+      --  The prefix will have pushed its own result which needs to be
+      --  disregarded at this stage. Push the fold result instead.
 
-      if Top_Frame.Data_Stack.Last_Element = Match_False then
-         Pop_Object;
-         Push_Object (Current_Expression);
-      end if;
+      Pop_Object;
+      Push_Object (Current_Expression);
 
       Pop_Frame_Context;
 
