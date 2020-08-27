@@ -251,7 +251,7 @@ package body Wrapping.Runtime.Structure is
       Generator : access procedure
         (Node : access W_Object_Type'Class; Expr : T_Expr);
       Expr      : T_Expr;
-      Parent_Process_Right : access procedure := null)
+      Outer_Process_Right : access procedure)
      with Post => Top_Frame.Data_Stack.Length
        = Top_Frame.Data_Stack.Length'Old + 1;
 
@@ -296,7 +296,7 @@ package body Wrapping.Runtime.Structure is
 
       Top_Frame.Top_Context.Capture_Callback := Capture_Callback'Unrestricted_Access;
 
-      Handle_Regexpr (Root, Generator, Expr);
+      Handle_Regexpr (Root, Generator, Expr, null);
 
       Pop_Frame_Context;
 
@@ -311,7 +311,7 @@ package body Wrapping.Runtime.Structure is
       Generator : access procedure
         (Node : access W_Object_Type'Class; Expr : T_Expr);
       Expr      : T_Expr;
-      Parent_Process_Right : access procedure := null)
+      Outer_Process_Right : access procedure)
    is
       Quantifiers_Hit : Integer := 0;
 
@@ -349,6 +349,38 @@ package body Wrapping.Runtime.Structure is
          Top_Frame.Top_Context.Yield_Callback := Original_Yield_Callback;
       end Restore_Yield_Callback;
 
+      procedure Process_End_Of_Sub_Expression is
+      begin
+         --  This function has to be called when we reached the end of either
+         --  an expression or a sub expression (which would be identified by the
+         --  right prenthesis. If it's a sub-expression, it has an
+         --  outer_process_right value, for example in
+         --     x: (A \ B) \ C
+         --  Reaching \ B) requires to call the outer right identified by \C
+         --  Otherwise, we reached the end of the entire regular expression. If
+         --  there is a function that has been set as a receiving values from
+         --  a generator, e.g.:
+         --     child (x: (A \ B) \ C).all()
+         --  Then call that function (the original yield callback is set).
+         --  Otherwise (the original yield callback is not set) stop the
+         --  value generation by marking the visit decision to Stop.
+
+         if Outer_Process_Right /= null then
+            Outer_Process_Right.all;
+         else
+            Top_Frame.Top_Context.Capture_Callback (Capture);
+            Push_Object (Top_Object);
+
+            if Original_Yield_Callback /= null then
+               Original_Yield_Callback.all;
+               Delete_Object_At_Position (-2);
+               Top_Frame.Top_Context.Visit_Decision.all := Into;
+            else
+               Top_Frame.Top_Context.Visit_Decision.all := Stop;
+            end if;
+         end if;
+      end Process_End_Of_Sub_Expression;
+
       procedure Process_Right_Action is
          Result : W_Object;
       begin
@@ -370,7 +402,7 @@ package body Wrapping.Runtime.Structure is
             end if;
 
             Restore_Yield_Callback;
-            Handle_Regexpr (Top_Object, Generator, Expr.Reg_Expr_Right, Parent_Process_Right);
+            Handle_Regexpr (Top_Object, Generator, Expr.Reg_Expr_Right, Outer_Process_Right);
             Result := Top_Object.Dereference;
 
             Pop_Frame_Context;
@@ -386,19 +418,7 @@ package body Wrapping.Runtime.Structure is
                end if;
             end if;
          elsif Expr.Reg_Expr_Right = null then
-            --  We're at the end of the expression. Call the yield fonction
-            --  on all matches (even duplicate wrappers).
-
-            Top_Frame.Top_Context.Capture_Callback (Capture);
-            Push_Object (Top_Object);
-
-            if Original_Yield_Callback /= null then
-               Original_Yield_Callback.all;
-               Delete_Object_At_Position (-2);
-               Top_Frame.Top_Context.Visit_Decision.all := Into;
-            else
-               Top_Frame.Top_Context.Visit_Decision.all := Stop;
-            end if;
+            Process_End_Of_Sub_Expression;
          else
             --  We're not at the end of the iteration but are not on the first
             --  mathing wrapper anymore. Don't continue the processing on this
@@ -497,20 +517,7 @@ package body Wrapping.Runtime.Structure is
                Process_Right_Action;
             end if;
          else
-            if Parent_Process_Right /= null then
-               Parent_Process_Right.all;
-            else
-               Top_Frame.Top_Context.Capture_Callback (Capture);
-               Push_Object (Top_Object);
-
-               if Original_Yield_Callback /= null then
-                  Original_Yield_Callback.all;
-                  Delete_Object_At_Position (-2);
-                  Top_Frame.Top_Context.Visit_Decision.all := Into;
-               else
-                  Top_Frame.Top_Context.Visit_Decision.all := Stop;
-               end if;
-            end if;
+            Process_End_Of_Sub_Expression;
          end if;
 
          Pop_Frame_Context;
@@ -523,6 +530,13 @@ package body Wrapping.Runtime.Structure is
       if Expr = null
         or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
       then
+         --  We are at the end of a subexpression, for example in
+         --     x: (A \ B) \ C
+         --  We reached either B or C. Generate the value for the expression to
+         --  search for B in the first case, C in the second one. The yield
+         --  callback will then drive either the end of the analysis or the
+         --  processing of the rest of the expression.
+
          Install_Yield_Callback;
          Generator (Root, Expr);
          Restore_Yield_Callback;
@@ -558,7 +572,7 @@ package body Wrapping.Runtime.Structure is
       else
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
             Top_Frame.Top_Context.Regexpr_Anchored := True;
-            Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Right);
+            Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Right, Outer_Process_Right);
          elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
             case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                when Template_Operator_Many =>
@@ -572,7 +586,7 @@ package body Wrapping.Runtime.Structure is
 
                      if Expr.Reg_Expr_Left.Min = 0 then
                         Pop_Object;
-                        Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Right);
+                        Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Right, Outer_Process_Right);
                      end if;
                   end if;
 
@@ -581,7 +595,7 @@ package body Wrapping.Runtime.Structure is
                      --  We are on a lazy quantifier and are accepting no matches.
                      --  First see if we can avoid the quantifier altogether
 
-                     Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Right);
+                     Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Right, Outer_Process_Right);
 
                      if Top_Object = Match_False then
                         Pop_Object;
@@ -600,6 +614,14 @@ package body Wrapping.Runtime.Structure is
                   Error ("unexpected quantifier kind");
             end case;
          elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr then
+            --  We contain on a subexpression, for example in
+            --     x: (A \ B) \ C
+            --  We're on the regexpr that has "x: (A \ B)" on the left and "\ C"
+            --  on the right. Call handle of the expression "x: (A \ B)" while
+            --  passing a pointer to the "Process_Right_Action" call in order
+            --  for the underlying expression analysis to call back into it
+            --  at the end of its processing and carry on the analysis to \ C
+
             Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Left, Process_Right_Action'Access);
          else
             Install_Yield_Callback;

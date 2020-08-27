@@ -1,0 +1,14 @@
+T 5: Entity E, TestNodeList
+Z 5: Entity D, TestNodeList
+Y 5: Entity D, TestNodeList, Entity E, TestNodeList, Entity F
+X 5: Entity D, TestNodeList, Entity E, TestNodeList, Entity F, Identifier
+Z 4: Entity E, TestNodeList
+Y 4: Entity D, TestNodeList, Entity E, TestNodeList, Entity F
+X 4: Entity D, TestNodeList, Entity E, TestNodeList, Entity F, Identifier
+Z 3: Entity E, TestNodeList
+Y 3: Entity D, TestNodeList, Entity E, TestNodeList
+X 3: Entity D, TestNodeList, Entity E, TestNodeList, Entity F
+Y 2: Entity B, TestNodeList
+X 2: Entity B, TestNodeList, Entity C
+X 1: Entity B, TestNodeList, Entity C
+

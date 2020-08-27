@@ -1,0 +1,26 @@
+match Entity (x"A") and x: child (Entity () \ true \ Entity ())
+weave standard.out (@ & "X 1: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+
+match Entity (x"A") and x: child (y: (Entity () \ true ) \ Entity ()) do
+    weave standard.out (@ & "X 2: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "Y 2: " & y.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+end;
+
+match Entity (x"A") and x: child (y: (Entity () \ true \ z: (Entity () \ true)) \ Entity ()) do
+    weave standard.out (@ & "X 3: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "Y 3: " & y.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "Z 3: " & z.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+end;
+
+match Entity (x"A") and x: child (y: (Entity () \ true \ z: (Entity () \ true) \ Entity ()) \ true) do
+    weave standard.out (@ & "X 4: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "Y 4: " & y.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "Z 4: " & z.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+end;
+
+match Entity (x"A") and x: child (y: (z: (Entity () \ true) \ t: (Entity () \ true) \ Entity ()) \ true) do
+    weave standard.out (@ & "X 5: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "Y 5: " & y.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "Z 5: " & z.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "T 5: " & t.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
+end;
