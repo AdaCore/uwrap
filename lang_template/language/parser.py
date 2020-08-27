@@ -295,14 +295,14 @@ template_grammar.add_rules(
          Or (Pick ('\\', G.regular_expression), RegExprAnchor ('\\')),
       ),
       RegExpr (
-         Null (G.identifier),
-         G.expression,
-         Or (Pick ('\\', G.regular_expression), RegExprAnchor ('\\')),
-      ),
-      RegExpr (
          Opt (Pick (G.identifier, ':')),
          Pick ('(', G.regular_expression_no_terminal, ')'),
          Opt (Or (Pick ('\\', G.regular_expression), RegExprAnchor ('\\'))),
+      ),
+      RegExpr (
+         Null (G.identifier),
+         G.expression,
+         Or (Pick ('\\', G.regular_expression), RegExprAnchor ('\\')),
       ),
       G.expression
    ),
@@ -313,7 +313,7 @@ template_grammar.add_rules(
             Pick ('(', G.regular_expression_no_terminal, ')'),
             G.regular_expression_quantifier
          ),
-         Pick ('\\', Or (G.regular_expression_no_terminal, G.expression)),
+         Opt (Pick ('\\', Or (G.regular_expression_no_terminal, G.expression))),
       ),
       RegExpr (
          Null (G.identifier),

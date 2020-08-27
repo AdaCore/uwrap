@@ -250,7 +250,8 @@ package body Wrapping.Runtime.Structure is
      (Root      : access W_Object_Type'Class;
       Generator : access procedure
         (Node : access W_Object_Type'Class; Expr : T_Expr);
-      Expr      : T_Expr)
+      Expr      : T_Expr;
+      Parent_Process_Right : access procedure := null)
      with Post => Top_Frame.Data_Stack.Length
        = Top_Frame.Data_Stack.Length'Old + 1;
 
@@ -309,11 +310,26 @@ package body Wrapping.Runtime.Structure is
      (Root      : access W_Object_Type'Class;
       Generator : access procedure
         (Node : access W_Object_Type'Class; Expr : T_Expr);
-      Expr      : T_Expr)
+      Expr      : T_Expr;
+      Parent_Process_Right : access procedure := null)
    is
       Quantifiers_Hit : Integer := 0;
 
       Original_Yield_Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback;
+
+      Initial_Capture_Callback : Capture_Callback_Type;
+      Captured_Variable : W_Regexpr_Result;
+
+      procedure Capture_Callback (Mode : Capture_Mode) is
+      begin
+         Initial_Capture_Callback (Mode);
+
+         if Mode = Capture then
+            Captured_Variable.Result.A_Vector.Append (Top_Object);
+         else
+            Captured_Variable.Result.A_Vector.Delete_Last;
+         end if;
+      end Capture_Callback;
 
       procedure Yield_Action
         with Post => Top_Frame.Data_Stack.Length
@@ -323,15 +339,15 @@ package body Wrapping.Runtime.Structure is
         with Post => Top_Frame.Data_Stack.Length
           = Top_Frame.Data_Stack.Length'Old + 1;
 
-      procedure Install_Yield_Capture is
+      procedure Install_Yield_Callback is
       begin
          Top_Frame.Top_Context.Yield_Callback := Yield_Action'Unrestricted_Access;
-      end Install_Yield_Capture;
+      end Install_Yield_Callback;
 
-      procedure Restore_Yield_Capture is
+      procedure Restore_Yield_Callback is
       begin
          Top_Frame.Top_Context.Yield_Callback := Original_Yield_Callback;
-      end Restore_Yield_Capture;
+      end Restore_Yield_Callback;
 
       procedure Process_Right_Action is
          Result : W_Object;
@@ -346,8 +362,15 @@ package body Wrapping.Runtime.Structure is
             Top_Frame.Top_Context.Capture_Callback (Capture);
             Push_Frame_Context;
 
-            Restore_Yield_Capture;
-            Handle_Regexpr (Top_Object, Generator, Expr.Reg_Expr_Right);
+            --  If this expression is of the form "x (a \ b) \ c", when starting
+            --  to analyze  c, the capturing function for x needs to be removed
+
+            if Captured_Variable /= null then
+               Top_Frame.Top_Context.Capture_Callback := Initial_Capture_Callback;
+            end if;
+
+            Restore_Yield_Callback;
+            Handle_Regexpr (Top_Object, Generator, Expr.Reg_Expr_Right, Parent_Process_Right);
             Result := Top_Object.Dereference;
 
             Pop_Frame_Context;
@@ -404,9 +427,9 @@ package body Wrapping.Runtime.Structure is
                Push_Object (Root);-- TODO: Should probably not be root, but the
                --  result array instead
             end if;
-         else
+         elsif Expr.Kind = Template_Reg_Expr then
             Top_Frame.Top_Context.Regexpr_Anchored := True;
-            Install_Yield_Capture;
+            Install_Yield_Callback;
 
             if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
                Quantifiers_Hit := Quantifiers_Hit + 1;
@@ -473,6 +496,21 @@ package body Wrapping.Runtime.Structure is
             else
                Process_Right_Action;
             end if;
+         else
+            if Parent_Process_Right /= null then
+               Parent_Process_Right.all;
+            else
+               Top_Frame.Top_Context.Capture_Callback (Capture);
+               Push_Object (Top_Object);
+
+               if Original_Yield_Callback /= null then
+                  Original_Yield_Callback.all;
+                  Delete_Object_At_Position (-2);
+                  Top_Frame.Top_Context.Visit_Decision.all := Into;
+               else
+                  Top_Frame.Top_Context.Visit_Decision.all := Stop;
+               end if;
+            end if;
          end if;
 
          Pop_Frame_Context;
@@ -485,15 +523,22 @@ package body Wrapping.Runtime.Structure is
       if Expr = null
         or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
       then
+         Install_Yield_Callback;
          Generator (Root, Expr);
-
-         if Top_Object /= Match_False then
-            Top_Frame.Top_Context.Capture_Callback (Capture);
-         end if;
+         Restore_Yield_Callback;
 
          Pop_Frame_Context;
 
          return;
+      end if;
+
+      if Expr.Kind = Template_Reg_Expr then
+         if not Expr.Node.As_Reg_Expr.F_Captured.Is_Null then
+            Initial_Capture_Callback := Top_Frame.Top_Context.Capture_Callback;
+            Captured_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
+            Top_Frame.Symbols.Include (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Captured_Variable));
+            Top_Frame.Top_Context.Capture_Callback := Capture_Callback'Unrestricted_Access;
+         end if;
       end if;
 
       if Expr.Kind = Template_Reg_Expr_Anchor then
@@ -517,9 +562,9 @@ package body Wrapping.Runtime.Structure is
          elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
             case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                when Template_Operator_Many =>
-                  Install_Yield_Capture;
+                  Install_Yield_Callback;
                   Generator (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
-                  Restore_Yield_Capture;
+                  Restore_Yield_Callback;
 
                   if Top_Object = Match_False then
                      --  If we didn't find a match but the minimum requested is 0,
@@ -541,30 +586,27 @@ package body Wrapping.Runtime.Structure is
                      if Top_Object = Match_False then
                         Pop_Object;
 
-                        Install_Yield_Capture;
+                        Install_Yield_Callback;
                         Generator (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
-                        Restore_Yield_Capture;
+                        Restore_Yield_Callback;
                      end if;
                   else
-                     Install_Yield_Capture;
+                     Install_Yield_Callback;
                      Generator (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
-                     Restore_Yield_Capture;
+                     Restore_Yield_Callback;
                   end if;
 
                when others =>
                   Error ("unexpected quantifier kind");
             end case;
+         elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr then
+            Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Left, Process_Right_Action'Access);
          else
-            Install_Yield_Capture;
+            Install_Yield_Callback;
             Generator (Root, Expr.Reg_Expr_Left);
-            Restore_Yield_Capture;
+            Restore_Yield_Callback;
          end if;
       end if;
-
-      --  if Capture_Variable /= null and then Top_Object /= Match_False then
-      --     Pop_Object;
-      --     Push_Object (Capture_Variable);
-      --  end if;
 
       Pop_Frame_Context;
    end Handle_Regexpr;
