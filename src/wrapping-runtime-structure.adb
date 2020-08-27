@@ -349,6 +349,38 @@ package body Wrapping.Runtime.Structure is
          Top_Frame.Top_Context.Yield_Callback := Original_Yield_Callback;
       end Restore_Yield_Callback;
 
+      procedure Process_Left_Expression (Object : access W_Object_Type'Class; Left_Expr : T_Expr) is
+      begin
+         --  This function is used to process the left side of a regular expression,
+         --  which can be either a single expression, as in:
+         --     A \ B (left is A)
+         --  A subexpression as in:
+         --     (A \ B) \ C (left is A \ B)
+         --  Or a the expression of a quantifier
+         --     many (A \ B) \ C (left is A \ B).
+         --  It will call the generator on the left expression and trigger a
+         --  yield of it result, calling then the yeild callback to process the
+         --  right part.
+
+         if Left_Expr.Kind = Template_Reg_Expr then
+            --  We contain on a subexpression, for example in
+            --     x: (A \ B) \ C
+            --  We're on the regexpr that has "x: (A \ B)" on the left and "\ C"
+            --  on the right. Call handle of the expression "x: (A \ B)" while
+            --  passing a pointer to the "Process_Right_Action" call in order
+            --  for the underlying expression analysis to call back into it
+            --  at the end of its processing and carry on the analysis to \ C
+
+            --  TODO: We're not using the value of Object. May not need it nor
+            --  need the value of Root altogether.
+            Handle_Regexpr (Top_Object, Generator, Left_Expr, Process_Right_Action'Access);
+         else
+            Install_Yield_Callback;
+            Generator (Top_Object, Left_Expr);
+            Restore_Yield_Callback;
+         end if;
+      end Process_Left_Expression;
+
       procedure Process_End_Of_Sub_Expression is
       begin
          --  This function has to be called when we reached the end of either
@@ -457,9 +489,7 @@ package body Wrapping.Runtime.Structure is
                if Quantifiers_Hit < Expr.Reg_Expr_Left.Min then
                   --  First, no matter the quantifier, try to reach the minimum
                   --  value
-                  Generator
-                    (Top_Object,
-                     Expr.Reg_Expr_Left.Quantifier_Expr);
+                  Process_Left_Expression (Top_Object, Expr.Reg_Expr_Left.Quantifier_Expr);
                elsif Quantifiers_Hit = Expr.Reg_Expr_Left.Max then
                   -- Second, if we hit the max, move on to the right action
                   Process_Right_Action;
@@ -469,9 +499,7 @@ package body Wrapping.Runtime.Structure is
 
                   case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                      when Template_Operator_Many =>
-                        Generator
-                          (Top_Object,
-                           Expr.Reg_Expr_Left.Quantifier_Expr);
+                        Process_Left_Expression (Top_Object, Expr.Reg_Expr_Left.Quantifier_Expr);
 
                         if Top_Object = Match_False then
                            --  If the result is false, we went one element too
@@ -496,16 +524,12 @@ package body Wrapping.Runtime.Structure is
                            --  current condition
 
                            Pop_Object;
-                           Generator
-                             (Top_Object,
-                              Expr.Reg_Expr_Left.Quantifier_Expr);
+                           Process_Left_Expression (Top_Object, Expr.Reg_Expr_Left.Quantifier_Expr);
                         elsif Original_Yield_Callback /= null then
                            --  If we're doing an expansion, then we need to
                            --  consider all cases of potential children
 
-                           Generator
-                             (Top_Object,
-                              Expr.Reg_Expr_Left.Quantifier_Expr);
+                           Process_Left_Expression (Top_Object, Expr.Reg_Expr_Left.Quantifier_Expr);
                            Delete_Object_At_Position (-2);
                         end if;
 
@@ -576,9 +600,7 @@ package body Wrapping.Runtime.Structure is
          elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
             case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                when Template_Operator_Many =>
-                  Install_Yield_Callback;
-                  Generator (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
-                  Restore_Yield_Callback;
+                  Process_Left_Expression (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
 
                   if Top_Object = Match_False then
                      --  If we didn't find a match but the minimum requested is 0,
@@ -600,33 +622,17 @@ package body Wrapping.Runtime.Structure is
                      if Top_Object = Match_False then
                         Pop_Object;
 
-                        Install_Yield_Callback;
-                        Generator (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
-                        Restore_Yield_Callback;
+                        Process_Left_Expression (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
                      end if;
                   else
-                     Install_Yield_Callback;
-                     Generator (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
-                     Restore_Yield_Callback;
+                     Process_Left_Expression (Root, Expr.Reg_Expr_Left.Quantifier_Expr);
                   end if;
 
                when others =>
                   Error ("unexpected quantifier kind");
             end case;
-         elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr then
-            --  We contain on a subexpression, for example in
-            --     x: (A \ B) \ C
-            --  We're on the regexpr that has "x: (A \ B)" on the left and "\ C"
-            --  on the right. Call handle of the expression "x: (A \ B)" while
-            --  passing a pointer to the "Process_Right_Action" call in order
-            --  for the underlying expression analysis to call back into it
-            --  at the end of its processing and carry on the analysis to \ C
-
-            Handle_Regexpr (Root, Generator, Expr.Reg_Expr_Left, Process_Right_Action'Access);
          else
-            Install_Yield_Callback;
-            Generator (Root, Expr.Reg_Expr_Left);
-            Restore_Yield_Callback;
+            Process_Left_Expression (Root, Expr.Reg_Expr_Left);
          end if;
       end if;
 

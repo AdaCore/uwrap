@@ -291,12 +291,10 @@ template_grammar.add_rules(
    regular_expression=Or(
       RegExpr (
          Opt (Pick (G.identifier, ':')),
-         G.regular_expression_quantifier,
-         Or (Pick ('\\', G.regular_expression), RegExprAnchor ('\\')),
-      ),
-      RegExpr (
-         Opt (Pick (G.identifier, ':')),
-         Pick ('(', G.regular_expression_no_terminal, ')'),
+         Or (
+            Pick ('(', G.regular_expression_no_terminal, ')'),
+            G.regular_expression_quantifier,
+         ),
          Opt (Or (Pick ('\\', G.regular_expression), RegExprAnchor ('\\'))),
       ),
       RegExpr (
@@ -324,7 +322,7 @@ template_grammar.add_rules(
    regular_expression_quantifier=RegExprQuantifier (
       Or (Operator.alt_many('many'), Operator.alt_few('few')),
       '(', 
-      G.regular_expression, 
+      Or (G.regular_expression_no_terminal, G.expression), 
       Opt (Pick (',', G.integer)),
       Opt (Pick (',', G.integer)),
       ')'), 
