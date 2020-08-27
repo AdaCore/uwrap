@@ -157,6 +157,10 @@ package Wrapping.Runtime.Objects is
    function To_String (Object : W_Reference_Type) return Text_Type is
      (if Object.Value /= null then Object.Value.To_String else "");
 
+   overriding
+   function To_Debug_String (Object : W_Reference_Type) return Text_Type is
+     (if Object.Value /= null then Object.Value.To_Debug_String else "");
+
    procedure Generate_Values (Object : access W_Reference_Type; Expr : T_Expr);
 
    --  This type is record vector of runtime objects. In the context of
