@@ -18,6 +18,7 @@ class Token(LexerToken):
     End        = WithText()
     Weave      = WithText()
     Wrap       = WithText()    
+    Walk       = WithText()
     Pick       = WithText()
     
     Function   = WithText()
@@ -99,6 +100,7 @@ template_lexer.add_rules(
     (Literal("end"), Token.End),
     (Literal("wrap"), Token.Wrap),
     (Literal("weave"), Token.Weave),
+    (Literal("walk"), Token.Walk),
     (Literal("function"), Token.Function),
     (Literal("and"), Token.And),
     (Literal("or"), Token.Or),

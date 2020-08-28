@@ -305,13 +305,13 @@ template ada_to_wrappers pick origin do
       do
          wrap w: w_SubpDeclCall ();
       then
-         pick w weave build_subprogram (sb);
+         pick w walk build_subprogram (sb);
       end;
       
       do 
          wrap w: w_SubpDeclCallback();
       then 
-         pick w weave build_subprogram (sb);
+         pick w walk build_subprogram (sb);
       end;
    end;
    
@@ -343,7 +343,7 @@ template ada_to_wrappers pick origin do
       );
 
       match s: it () and r: p_get_enum_representation_clause ()
-      pick r.child().all () wrap visit_EnumRepClause (s);
+      pick r.child().all () walk visit_EnumRepClause (s);
    end;
 
    match EnumLiteralDecl ()
@@ -628,7 +628,7 @@ template wrap_ada_specs do
    wrap null (wrap_ada_specs);
 
    pick origin do
-      match AdaNode () wrap ada_to_wrappers ();
-      match w_Ada () wrap wrappers_post_process ();
+      match AdaNode () walk ada_to_wrappers ();
+      match w_Ada () walk wrappers_post_process ();
    end;
 end;

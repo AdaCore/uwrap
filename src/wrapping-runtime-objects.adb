@@ -826,8 +826,9 @@ package body Wrapping.Runtime.Objects is
    end Add_Wrapping_Child;
 
    function Create_Template_Instance
-     (An_Entity : access W_Node_Type'Class;
-      A_Template : T_Template) return W_Template_Instance
+     (An_Entity  : access W_Node_Type'Class;
+      A_Template : T_Template;
+      Register   : Boolean) return W_Template_Instance
    is
       New_Template : W_Template_Instance;
       Template_Class : W_Template_Instance;
@@ -840,9 +841,11 @@ package body Wrapping.Runtime.Objects is
       if An_Entity /= null then
          New_Template.Origin := W_Node (An_Entity);
 
-         An_Entity.Templates_By_Name.Insert (A_Template.Name_Node.Text, New_Template);
-         An_Entity.Templates_By_Full_Id.Insert (A_Template.Full_Name, New_Template);
-         An_Entity.Templates_Ordered.Append (New_Template);
+         if Register then
+            An_Entity.Templates_By_Name.Insert (A_Template.Name_Node.Text, New_Template);
+            An_Entity.Templates_By_Full_Id.Insert (A_Template.Full_Name, New_Template);
+            An_Entity.Templates_Ordered.Append (New_Template);
+         end if;
       end if;
 
       Current_Template := A_Template;
@@ -850,15 +853,19 @@ package body Wrapping.Runtime.Objects is
       while Current_Template /= null loop
          Template_Class := W_Template_Instance (Get_Object_For_Entity (A_Template));
 
-         W_Vector
-           (W_Reference
-              (Template_Class.Indexed_Variables.Element ("_registry")).Value).
-             A_Vector.Append (W_Object (New_Template));
+         if Register then
+            W_Vector
+              (W_Reference
+                 (Template_Class.Indexed_Variables.Element ("_registry")).Value).
+                A_Vector.Append (W_Object (New_Template));
+         end if;
 
          Current_Template := Current_Template.Extends;
       end loop;
 
-      Templates_To_Traverse.Append (New_Template);
+      if Register then
+         Templates_To_Traverse.Append (New_Template);
+      end if;
 
       return New_Template;
    end Create_Template_Instance;

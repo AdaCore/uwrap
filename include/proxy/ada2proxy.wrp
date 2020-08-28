@@ -245,7 +245,7 @@ end;
 ################################################################################
 
 template generate_ada2proxy pick origin do
-   wrap wrap_ada_specs ();
+   walk wrap_ada_specs ();
 
    match DefiningName (x"(.*)")
    wrap w_DefiningName ("Proxy_\1");

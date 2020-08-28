@@ -400,7 +400,7 @@ package body Wrapping.Runtime.Analysis is
    end Match;
 
    procedure Apply_Template_Action
-     (It : W_Node; Template_Clause : T_Weave_Or_Wrap)
+     (It : W_Node; Template_Clause : T_Template_Section)
    is
       A_Template_Instance : W_Template_Instance;
       Self_Weave : Boolean := False;
@@ -448,7 +448,7 @@ package body Wrapping.Runtime.Analysis is
          if Template_Clause.Call.Reference = null then
             --  No name to the call, that means that we're expecting to self-weave
             --  the current template.
-            if Template_Clause.all not in Weave_Type'Class then
+            if Template_Clause.Kind /= Weave_Kind then
                Error ("self wrap not allowed, either weave or provide a template or visitor name");
             elsif It.all in W_Template_Instance_Type'Class then
                A_Template_Instance := W_Template_Instance (It);
@@ -461,7 +461,10 @@ package body Wrapping.Runtime.Analysis is
             A_Template_Instance := It.Get_Template_Instance
               (T_Template (Template_Clause.Call.Reference));
 
-            if (Template_Clause.all in Weave_Type'Class
+            if Template_Clause.Kind = Walk_Kind then
+               A_Template_Instance := It.Create_Template_Instance
+                 (T_Template (Template_Clause.Call.Reference), False);
+            elsif (Template_Clause.Kind = Weave_Kind
                 or else A_Template_Instance = null
                 or else A_Template_Instance.Is_Wrapping = False)
               and then not It.Forbidden_Template_Names.Contains
@@ -469,15 +472,17 @@ package body Wrapping.Runtime.Analysis is
             then
                if A_Template_Instance = null then
                   A_Template_Instance := It.Create_Template_Instance
-                    (T_Template (Template_Clause.Call.Reference));
+                    (T_Template (Template_Clause.Call.Reference), True);
                end if;
 
-               if Template_Clause.all in Wrap_Type'Class then
+               if Template_Clause.Kind = Wrap_Kind then
                   A_Template_Instance.Is_Wrapping := True;
                end if;
             else
                A_Template_Instance := null;
             end if;
+         else
+            Error ("unexpected template call reference type");
          end if;
 
          if A_Template_Instance /= null then
@@ -2234,7 +2239,7 @@ package body Wrapping.Runtime.Analysis is
       begin
          Push_Error_Location (New_Tree.Node);
          New_Node := Create_Template_Instance
-           (null, T_Template (New_Tree.Call.Reference));
+           (null, T_Template (New_Tree.Call.Reference), True);
 
          if Captured /= "" then
             Include_Symbol

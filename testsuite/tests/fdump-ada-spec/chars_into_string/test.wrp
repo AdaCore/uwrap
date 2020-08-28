@@ -1,7 +1,7 @@
 import ada.wrappers;
 import ada.transformations;
 
-wrap wrap_ada_specs ();
+walk wrap_ada_specs ();
 
 match DefiningName (x"(.*)_h")
 wrap w_DefiningName ("\1_Wrapped");
@@ -9,7 +9,7 @@ wrap w_DefiningName ("\1_Wrapped");
 match ParamSpec() 
    and child (SubtypeIndication(x"Interfaces.C.Strings.chars_ptr")) 
    and not child (DefiningName (x"^leaveMeAlone$"))
-wrap chars_into_string ();
+walk chars_into_string ();
 
 match SubpDecl() and child (f_subp_kind ("function")) and child (SubtypeIndication(x"Interfaces.C.Strings.chars_ptr")) 
-wrap chars_into_string ();
+walk chars_into_string ();

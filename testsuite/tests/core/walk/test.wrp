@@ -1,0 +1,19 @@
+template T do
+   var t: text;
+   pick origin weave standard.out (@ & t & ": " & f_name & "\n"); 
+end;
+
+match Entity () walk T (@ & "A");
+
+match Entity () weave T (@ & "B");
+
+match Entity () walk T (@ & "C");
+
+match Entity () weave T (@ & "D");
+
+match Entity () walk T (@ & "E");
+
+match Entity () wrap T (@ & "F");
+
+match Entity () walk T (@ & "G");
+

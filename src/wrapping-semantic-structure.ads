@@ -69,10 +69,10 @@ package Wrapping.Semantic.Structure is
    type T_Template_Call_Type;
    type T_Template_Call is access all T_Template_Call_Type'Class;
 
-   type T_Weave_Or_Wrap_Type;
-   type T_Weave_Or_Wrap is access all T_Weave_Or_Wrap_Type'Class;
-   package T_Weave_Or_Wrap_Vectors is new Ada.Containers.Vectors (Positive, T_Weave_Or_Wrap);
-   use T_Weave_Or_Wrap_Vectors;
+   type T_Template_Section_Type;
+   type T_Template_Section is access all T_Template_Section_Type'Class;
+   package T_Template_Section_Vectors is new Ada.Containers.Vectors (Positive, T_Template_Section);
+   use T_Template_Section_Vectors;
 
    type T_Command_Type;
    type T_Command is access all T_Command_Type'Class;
@@ -213,17 +213,12 @@ package Wrapping.Semantic.Structure is
    overriding
    procedure Resolve_References (An_Entity : access T_Template_Call_Type);
 
-   type T_Weave_Or_Wrap_Type is new T_Entity_Type with record
+   type Template_Section_Kind is (Wrap_Kind, Weave_Kind, Walk_Kind);
+
+   type T_Template_Section_Type is new T_Entity_Type with record
       Call           : T_Template_Call;
+      Kind           : Template_Section_Kind;
       A_Visit_Action : Visit_Action := Unknown;
-   end record;
-
-   type Wrap_Type is new T_Weave_Or_Wrap_Type with record
-      null;
-   end record;
-
-   type Weave_Type is new T_Weave_Or_Wrap_Type with record
-      null;
    end record;
 
    type Import_Type is new T_Entity_Type with record
@@ -237,7 +232,7 @@ package Wrapping.Semantic.Structure is
 
       Match_Expression : T_Expr;
       Pick_Expression  : T_Expr;
-      Template_Section : T_Weave_Or_Wrap;
+      Template_Section : T_Template_Section;
 
       Command_Sequence : T_Command_Sequence;
    end Record;

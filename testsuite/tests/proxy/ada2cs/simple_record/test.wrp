@@ -3,7 +3,7 @@ import proxy.proxy2cs;
 import cs.wrappers;
 
 match language ("json")
-wrap generate_proxy2cs ();
+walk generate_proxy2cs ();
 
 match w_CS ()
-wrap wrappers2cs ();
+walk wrappers2cs ();

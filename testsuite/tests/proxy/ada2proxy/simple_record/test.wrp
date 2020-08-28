@@ -3,7 +3,7 @@ import proxy.ada2proxy;
 import ada.wrappers;
 
 match AdaNode () or w_Ada()
-wrap generate_ada2proxy ();
+walk generate_ada2proxy ();
 
 match wp_Proxy ()
-wrap generate_proxy2json ();
+walk generate_proxy2json ();

@@ -1,7 +1,7 @@
 import ada.wrappers;
 import ada.transformations;
 
-wrap wrap_ada_specs ();
+walk wrap_ada_specs ();
 
 match DefiningName (x"(?<a>.*)_h")
 wrap w_DefiningName ("\e<a>_Wrapped");
@@ -22,4 +22,4 @@ match DefiningName (x"(?<a>.*)_h") do
 end;
 
 match ParamSpec(x"length")
-wrap parameter_into_computed_expression ("Arr'Length");
+walk parameter_into_computed_expression ("Arr'Length");

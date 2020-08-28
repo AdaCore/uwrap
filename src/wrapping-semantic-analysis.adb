@@ -301,17 +301,18 @@ package body Wrapping.Semantic.Analysis is
 
                return Over;
 
-            when Template_Wrap_Section | Template_Weave_Section =>
+            when Template_Wrap_Section | Template_Weave_Section | Template_Walk_Section =>
                if Node.Kind = Template_Wrap_Section then
-                  A_Command.Template_Section := new Wrap_Type;
+                  A_Command.Template_Section := new T_Template_Section_Type'(Kind => Wrap_Kind, others => <>);
+               elsif Node.Kind = Template_Weave_Section then
+                  A_Command.Template_Section := new T_Template_Section_Type'(Kind => Weave_Kind, others => <>);
                else
-                  A_Command.Template_Section := new Weave_Type;
+                  A_Command.Template_Section := new T_Template_Section_Type'(Kind => Walk_Kind, others => <>);
                end if;
 
                Push_Entity (A_Command.Template_Section, Node);
 
-               Node.As_Template_Section.F_Actions.Traverse
-                 (Visit'Access);
+               Node.As_Template_Section.F_Actions.Traverse (Visit'Access);
 
                Pop_Entity;
 

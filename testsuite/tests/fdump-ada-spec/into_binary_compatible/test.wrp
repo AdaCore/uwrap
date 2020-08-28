@@ -1,7 +1,7 @@
 import ada.wrappers;
 import ada.transformations;
 
-wrap wrap_ada_specs ();
+walk wrap_ada_specs ();
 
 match DefiningName (x"(?<a>.*)_h") do
    wrap w_DefiningName ("\e<a>_Wrapped");
@@ -17,4 +17,4 @@ match DefiningName (x"(?<a>.*)_h") do
 end;
 
 match SubpDecl (x"return System.Address") or ParamSpec (x"System.Address")
-wrap into_binary_compatible ("Ptr");
+walk into_binary_compatible ("Ptr");

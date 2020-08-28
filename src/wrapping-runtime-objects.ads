@@ -378,8 +378,9 @@ package Wrapping.Runtime.Objects is
    --  Child.
 
    function Create_Template_Instance
-     (An_Entity : access W_Node_Type'Class;
-      A_Template : T_Template) return W_Template_Instance;
+     (An_Entity  : access W_Node_Type'Class;
+      A_Template : T_Template;
+      Register   : Boolean) return W_Template_Instance;
 
    function Get_Template_Instance
      (An_Entity : access W_Node_Type'Class;

@@ -45,12 +45,15 @@ class PickSection (TemplateNode):
 
 @abstract
 class TemplateSection(TemplateNode):
-   actions = Field()
+   actions = Field(type=TemplateNode)
 
 class WrapSection(TemplateSection):
    pass
 
 class WeaveSection(TemplateSection):
+   pass
+
+class WalkSection(TemplateSection):
    pass
 
 class TemplateCall(TemplateNode):
@@ -220,6 +223,7 @@ template_grammar.add_rules(
          G.pick_section,
          G.wrap_section, 
          G.weave_section,
+         G.walk_section,
          G.command_sequence
       )
    ),
@@ -230,6 +234,7 @@ template_grammar.add_rules(
          G.pick_section,
          G.wrap_section, 
          G.weave_section,
+         G.walk_section,
          G.command_sequence
       )
    ),
@@ -239,6 +244,7 @@ template_grammar.add_rules(
          G.pick_section,
          G.wrap_section,
          G.weave_section,
+         G.walk_section,
          G.conditionned_command_sequence,
          Pick (Null (G.command_sequence), ';'))
    ),
@@ -247,6 +253,7 @@ template_grammar.add_rules(
       Or (
          G.wrap_section,
          G.weave_section,
+         G.walk_section,
          G.command_sequence,
          Pick (Null (G.command_sequence), ';'))
    ),
@@ -263,6 +270,7 @@ template_grammar.add_rules(
          G.template_call,
          G.traverse_decision), 
       ';'),
+   walk_section=WalkSection('walk', G.template_call, ';'),
    command_sequence=CommandSequence ('do', G.command_sequence_element, 'end', ';'),
    command_sequence_element=CommandSequenceElement (
       List (G.var, empty_valid = True), 
