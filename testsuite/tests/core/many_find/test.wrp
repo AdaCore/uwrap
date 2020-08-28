@@ -1,0 +1,30 @@
+match Entity (x"A") and x: child (true \ many (true)) do
+    weave standard.out (@ & "X1: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else match Identifier pick " " & it else pick ""), @ & ", ") & "\n");
+end;
+
+match Entity (x"A") and x: child (true \ many (true, 1)) do
+    weave standard.out (@ & "X2: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else match Identifier pick " " & it else pick ""), @ & ", ") & "\n");
+end;
+
+match Entity (x"A") and x: child (true \ y: many (true, 1)) do
+    weave standard.out (@ & "X3: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else match Identifier pick " " & it else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "Y3: " & y.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else match Identifier pick " " & it else pick ""), @ & ", ") & "\n");
+end;
+
+match Entity (x"A") and x: child (true \ many (true) \ true) do
+    weave standard.out (@ & "X4: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else match Identifier pick " " & it else pick ""), @ & ", ") & "\n");
+end;
+
+match Entity (x"A") and x: child (true \ y: many (true, 1) \ true) do
+    weave standard.out (@ & "X5: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else match Identifier pick " " & it else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "Y5: " & y.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else match Identifier pick " " & it else pick ""), @ & ", ") & "\n");
+end;
+
+match Entity (x"A") and x: child (true \ many (true \ true, 1)) do
+    weave standard.out (@ & "X6: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else match Identifier pick " " & it else pick ""), @ & ", ") & "\n");
+end;
+
+match Entity (x"A") and x: child (true \ y: many (true \ true, 1) \ true) do
+    weave standard.out (@ & "X7: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else match Identifier pick " " & it else pick ""), @ & ", ") & "\n");
+    weave standard.out (@ & "Y7: " & y.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else match Identifier pick " " & it else pick ""), @ & ", ") & "\n");
+end;

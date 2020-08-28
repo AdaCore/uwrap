@@ -1,0 +1,11 @@
+Y7: Entity B, TestNodeList
+X7: TestNodeList, Entity B, TestNodeList, Entity C
+X6: TestNodeList, Entity B, Identifier B
+Y5: Entity B, TestNodeList, Entity C
+X5: TestNodeList, Entity B, TestNodeList, Entity C, Identifier C
+X4: TestNodeList, Entity B, TestNodeList, Entity C, Identifier C
+Y3: Entity B, Identifier B
+X3: TestNodeList, Entity B, Identifier B
+X2: TestNodeList, Entity B, Identifier B
+X1: Identifier A
+
