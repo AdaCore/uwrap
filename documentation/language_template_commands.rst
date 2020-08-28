@@ -1,15 +1,16 @@
-Wrap and Weave Clauses
-======================
+Template Commands
+=================
 
 Overall Structure
 -----------------
 
-A wrap or a weave clause allows to perform an operation to a node. This 
+Wrap, weave and walk clause allows to perform an operation to a node. This 
 operation can be:
 
-- Instancate a template on the current node
+- Instanciate a template on the current node
 - Update a template instance of the current node
 - Control the remainder of the iteration from that node
+- Execute operations on a node
 
 It's written:
 
@@ -17,6 +18,7 @@ It's written:
 
    wrap <an optional capture> <a static reference to a template> <parameters>;
    weave <an optional capture> <a static reference to a template> <parameters>;
+   walk <an optional capture> <a static reference to a template> <parameters>;
 
 or when controlling the iteration:
 
@@ -38,6 +40,10 @@ node it operates on
    match <some expression>
    pick <some epression>
    weave <some expression>;
+
+   match <some expression>
+   pick <some epression>
+   walk <some expression>;
 
 It can stand on its own, in which case it unconditionally operates on ``it``:
 
@@ -127,6 +133,38 @@ will work the same as the code above even if weave is executed first:
 
 At the time of its creation, a template instance will execute its sequence of
 commands, if any.
+
+Walking over a Template
+-----------------------
+
+The `walk` command is similar to `weave` and `wrap` in the sense that it allows
+to execute a template. However, contrary to `weave` and `wrap`, the resulting
+associated instance will not be associated to the original node or stored
+after completion of the operation. For all intent and purposes, it will be lost.
+Unlike wrap and weave which manipulate a template that can only be instantiated
+one on a given node, walk can be called several times on the same node, even
+if that node also have a template instantiation. A template instantiated through
+a walk command does not get scheduled for iteration.
+
+Walk can be used when it's useful to factorize a series of commands to be 
+executed on a node without the need to remembering that this series of commands
+have been ran or any data that has been manipulated. However, it can lead to
+the creation of other instantiations and has a pointer to its origin.
+
+So for example:
+
+.. code-block:: text
+
+   template T1;
+
+   template T2 do
+      pick origin wrap T1 ();
+   end;
+
+   match x"A"
+   walk T2 ();
+
+Walking over T2 in the command will lead to the creation of an T1 wrapper.
 
 Wrapping and weaving Template Instances
 ---------------------------------------

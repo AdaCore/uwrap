@@ -8,7 +8,7 @@ Contents:
 
    language_match
    language_pick
-   language_wrap_and_weave
+   language_template_commands
    language_command_sequences
    language_template
    language_function

@@ -229,7 +229,7 @@ Let's open wrap_names.wrp and see how this is done:
 
    import ada.wrappers;
 
-   wrap wrap_ada_specs ();
+   walk wrap_ada_specs ();
 
    match DefiningName (x"Some_(.*)")
    wrap w_DefiningName ("My_\1");
@@ -248,13 +248,16 @@ The next call is:
 
 .. code-block:: text
 
-   wrap wrap_ada_specs ();
+   walk wrap_ada_specs ();
 
-This is a conditionless wrapper. This means that every node will be potentially
-wrapped by this action. Here, wrap_ada_specs is actually not a template, it is 
-a visitor declared in ada.wrappers. Its role is to further explore the current
-node and position many default wrappers to it, in order to sustain the generation
-of the overall Ada code. This is a good demonstrator of some of the most advanced
+This command is a conditionless execution over the template ``wrap_ada_specs``, 
+without storing the resulting object. This is needed here as we're only 
+interested in executing the commands declared in the wrap_ada_specs template 
+without storing its result or recording that it has been applied.
+
+``wrap_ada_specs`` role is to further explore the current node and position many
+default wrappers to it, in order to sustain the generation of the overall Ada 
+code. This is a good demonstrator of some of the most advanced
 capabilities of UWrap - you can open the file [link to include/templates] for
 more information. Note that as of today, it is primarily designed to be used
 in conjunction to -fdump-ada-spec, and only supports the subset of specification
@@ -344,7 +347,7 @@ few places C strings with Ada strings. Let's look at the wrapper code:
    import ada.wrappers;
    import ada.transformations;
 
-   wrap wrap_ada_specs ();
+   walk wrap_ada_specs ();
 
    match DefiningName (x"(.*)_h")
    wrap w_DefiningName ("\1_Wrapped");
@@ -352,18 +355,18 @@ few places C strings with Ada strings. Let's look at the wrapper code:
    match ParamSpec() 
       and p_type_expression ("Interfaces.C.Strings.chars_ptr")
       and not p_defining_name ("leaveMeAlone")
-   wrap chars_into_string ();
+   walk chars_into_string ();
 
    match SubpDecl
       (f_subp_spec
          (x"^function" 
          and p_returns ("Interfaces.C.Strings.chars_ptr"))) 
-   wrap chars_into_string ();
+   walk chars_into_string ();
 
 
 As before, we're going to use ``ada.wrappers`` to invoke ``wrap_ada_specs``. This
 time however, we're also going to use ``ada.transformations``. This module
-provides a number of pre-set visitors, that are able to do complex modifications
+provides a number of pre-set templates, that are able to do complex modifications
 on the generated bound code. Note that it's perfecly fine to describe the fine
 behavior of these transformation yourself. However, this requires a deep 
 understanding of the way Ada wrapping is setup, while the already provided 
@@ -382,7 +385,7 @@ The first command reads:
   match ParamSpec() 
       and p_type_expression ("Interfaces.C.Strings.chars_ptr")
       and not p_defining_name ("leaveMeAlone")
-   wrap chars_into_string ();
+   walk chars_into_string ();
 
 This matches a parameter specification, then looks at a property 
 ``p_type_expression``, which would be the type of the parameter. Here,
@@ -402,7 +405,7 @@ subprogram itself. This is the role of the code
       (f_subp_spec
          (x"^function" 
          and p_returns ("Interfaces.C.Strings.chars_ptr"))) 
-   wrap chars_into_string ();
+   walk chars_into_string ();
 
 For illustration purposes, the style of this condition is different from the 
 previous one (both are possible, and can be more or less convenient depending
@@ -412,8 +415,8 @@ this SubpDecl should look like - it should have a field f_subp_spec. Instead
 of that field predicate, we're describing hot this field should look like. Its
 text should start with "function" (so it is a function), and it must have a 
 property p_returns which textually matches "Interfaces.C.Strings.chars_ptr" (it
-returns a C string. We can then call the visitor ``chars_into_string``. It is
-versatile enough and knows how to handle both parameters and visitors.
+returns a C string. We can then walk over the template ``chars_into_string``. It is
+versatile enough and knows how to handle both parameters and functions.
 
 Some careful reader may have noticed the usage of the predicate ``f_subp_spec``
 with a different prefix than the ``p_`` one seen before. This is actually 
