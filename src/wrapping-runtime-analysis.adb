@@ -2046,7 +2046,7 @@ package body Wrapping.Runtime.Analysis is
 
       Object_Mode : Boolean;
 
-      procedure Generator (Node : access W_Object_Type'Class; Expr : T_Expr) is
+      procedure Generator (Expr : T_Expr) is
 
          Original_Yield : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback;
 
@@ -2082,7 +2082,7 @@ package body Wrapping.Runtime.Analysis is
             --  Calling with a null expression - the expression will be checked
             --  in the Yield callback.
 
-            Node.Generate_Values (null);
+            Top_Object.Generate_Values (null);
          else
             Evaluate_Expression (Prefix_Function);
          end if;

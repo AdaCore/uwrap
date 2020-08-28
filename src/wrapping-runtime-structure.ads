@@ -266,9 +266,8 @@ package Wrapping.Runtime.Structure is
 
    procedure Evaluate_Generator_Regexp
      (Root      : access W_Object_Type'Class;
-      Generator : access procedure
-        (Node : access W_Object_Type'Class; Expr : T_Expr);
-      Expr      : T_Expr);
+      Expr      : T_Expr;
+      Generator : access procedure (Expr : T_Expr));
 
    procedure Push_Match_True (An_Entity : access W_Object_Type'Class);
 

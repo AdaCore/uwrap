@@ -147,12 +147,11 @@ package body Wrapping.Input.Kit is
 
       Last_Ref : Token_Reference;
 
-      procedure Generator
-        (Node : access W_Object_Type'Class; Expr : T_Expr)
+      procedure Generator (Expr : T_Expr)
       is
          Result : W_Object;
          A_Visit_Action : Visit_Action := Into;
-         Cur_Token : W_Kit_Node_Token := W_Kit_Node_Token (Node.Dereference);
+         Cur_Token : W_Kit_Node_Token := W_Kit_Node_Token (Top_Object.Dereference);
       begin
          if Analyzed_First then
             Cur_Token := W_Kit_Node_Token (Cur_Token.Next);
@@ -204,7 +203,7 @@ package body Wrapping.Input.Kit is
 
          Last_Ref := Token_End (Prefix.Node);
 
-         Evaluate_Generator_Regexp (First_Token, Generator'Access, Match_Expr);
+         Evaluate_Generator_Regexp (First_Token, Match_Expr, Generator'Access);
       end;
    end Call_Token;
 

@@ -1,9 +1,9 @@
-match Entity (x"A") and x: child (true \ y: many (Entity () \ true)) do
+match Entity (x"A") and x: child (true \ y: many (Entity () \ true, 1)) do
     weave standard.out (@ & "X1: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
     weave standard.out (@ & "Y1: " & y.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
 end;
 
-match Entity (x"A") and x: child (true \ y: many (Entity () \ true \ Entity ())) do
+match Entity (x"A") and x: child (true \ y: many (Entity () \ true \ Entity (), 1)) do
     weave standard.out (@ & "X2: " & x.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
     weave standard.out (@ & "Y2: " & y.filter (true).fold ("", @ & kind & (match f_name () pick " " & f_name else pick ""), @ & ", ") & "\n");
 end;

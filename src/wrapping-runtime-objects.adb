@@ -39,17 +39,15 @@ package body Wrapping.Runtime.Objects is
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
    is
-      procedure Generator
-        (Node : access W_Object_Type'Class; Expr : T_Expr)
-      is
+      procedure Generator (Expr : T_Expr) is
       begin
-         Evaluate_Bowse_Functions (Node, A_Mode, Expr);
+         Evaluate_Bowse_Functions (Top_Object, A_Mode, Expr);
       end Generator;
    begin
       if Params.Length = 0 then
-         Evaluate_Generator_Regexp (Object, Generator'Access, null);
+         Evaluate_Generator_Regexp (Object, null, Generator'Access);
       elsif Params.Length = 1 then
-         Evaluate_Generator_Regexp (Object, Generator'Access, Params.Element (1).Expr);
+         Evaluate_Generator_Regexp (Object, Params.Element (1).Expr, Generator'Access);
       elsif Params.Length > 1 then
          Error ("matcher takes only 1 argument");
       end if;
