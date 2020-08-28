@@ -327,6 +327,7 @@ package body Wrapping.Runtime.Structure is
       --  callback in which values should generate to.
       Overall_Yield_Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback;
 
+      --  TODO: Why is this not used anymore? How do we get back the outer visit decision
       --  We need to protect iteration control in the expression process (it should
       --  not stop the overall iteration) and restore it once going to the overall
       --  yield callback (this callback may have wrap over / wrap into directives
@@ -365,7 +366,7 @@ package body Wrapping.Runtime.Structure is
          Top_Frame.Top_Context.Yield_Callback := Overall_Yield_Callback;
       end Restore_Overall_Yield_Callback;
 
-      procedure Process_Left_Expression (Left_Expr : T_Expr) is
+      procedure Process_Left_Expression (Left_Expr : T_Expr; Generator_Decision : Visit_Action_Ptr) is
       begin
          --  This function is used to process the left side of a regular expression,
          --  which can be either a single expression, as in:
@@ -415,7 +416,6 @@ package body Wrapping.Runtime.Structure is
          if Outer_Right_Expression /= null then
             Outer_Right_Expression.all (Generator_Decision);
          else
-            Top_Frame.Top_Context.Capture_Callback (Capture);
             Push_Object (Top_Object);
 
             if Overall_Yield_Callback /= null then
@@ -438,7 +438,6 @@ package body Wrapping.Runtime.Structure is
          --  Ignore the others.
 
          if Expr.Reg_Expr_Right /= null and then Top_Frame.Top_Context.Is_First_Matching_Wrapper then
-            Top_Frame.Top_Context.Capture_Callback (Capture);
             Push_Frame_Context;
 
             --  If this expression is of the form "x (a \ b) \ c", when starting
@@ -475,12 +474,21 @@ package body Wrapping.Runtime.Structure is
          end if;
       end Process_Right_Expression;
 
+      --  This variable stores the visit decision for this expression section.
+      --  In case of quantifiers, there can be multiple generators stacked one
+      --  on top of the other. In case a decision is taken by the last one, it
+      --  needs to be transmitted to all all generators for that expression, so
+      --  all recursive calls to "Yield_Action", not just the last one. This
+      --  variable will be used to store that result and then set the top
+      --  frame decision through the stack.
+      Local_Yield_Decision : aliased Visit_Action := Unknown;
+
       procedure Yield_Action is
       begin
          Push_Frame_Context;
+         Top_Frame.Top_Context.Capture_Callback (Capture);
 
          if Expr.Kind = Template_Reg_Expr_Anchor then
-            Top_Frame.Top_Context.Capture_Callback (Capture);
             Top_Frame.Top_Context.Yield_Callback := null;
             --  If we're evaluating an anchor at this stage, this is a right
             --  anchor. There should not be any more element available.
@@ -488,7 +496,7 @@ package body Wrapping.Runtime.Structure is
             Generator (null);
 
             if Pop_Object /= Match_False then
-               Top_Frame.Top_Context.Capture_Callback (Rollback);
+               Top_Frame.Top_Context.Capture_Callback (Rollback); -- TODO: to remove???
                Push_Match_False;
             else
                Push_Object (Root);-- TODO: Should probably not be root, but the
@@ -498,12 +506,16 @@ package body Wrapping.Runtime.Structure is
             Top_Frame.Top_Context.Regexpr_Anchored := True;
 
             if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
+
+               --  When reaching this, the generator has found an additional
+               --  match. Update the quantifier counter.
                Quantifiers_Hit := Quantifiers_Hit + 1;
 
                if Quantifiers_Hit < Expr.Reg_Expr_Left.Min then
                   --  First, no matter the quantifier, try to reach the minimum
                   --  value
-                  Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr);
+
+                  Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
                elsif Quantifiers_Hit = Expr.Reg_Expr_Left.Max then
                   -- Second, if we hit the max, move on to the right action
                   Process_Right_Expression (Top_Frame.Top_Context.Visit_Decision);
@@ -513,14 +525,14 @@ package body Wrapping.Runtime.Structure is
 
                   case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                      when Template_Operator_Many =>
-                        Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr);
+                        Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
 
                         if Top_Object = Match_False then
                            --  If the result is false, we went one element too
                            --  far. Pop it and process the right action.
 
                            Pop_Object;
-                           Process_Right_Expression (Top_Frame.Top_Context.Visit_Decision);
+                           Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
                         elsif Overall_Yield_Callback /= null then
                            --  If there's an original Yield callback, then
                            --  even if this matches and we're going to look to
@@ -528,7 +540,7 @@ package body Wrapping.Runtime.Structure is
                            --  expression from this point to provide one of the
                            --  possible solutions.
 
-                           Process_Right_Expression (Top_Frame.Top_Context.Visit_Decision);
+                           Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
                            Delete_Object_At_Position (-2);
                         end if;
 
@@ -541,7 +553,7 @@ package body Wrapping.Runtime.Structure is
                            --  current condition
 
                            Pop_Object;
-                           Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr);
+                           Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
                         elsif Overall_Yield_Callback /= null then
                            --  If there's an original Yield callback, then
                            --  even if this matches and we're going to look to
@@ -549,7 +561,7 @@ package body Wrapping.Runtime.Structure is
                            --  expression from this point to provide one of the
                            --  possible solutions.
 
-                           Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr);
+                           Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
                            Delete_Object_At_Position (-2);
                         end if;
 
@@ -558,11 +570,13 @@ package body Wrapping.Runtime.Structure is
                   end case;
                end if;
             else
-               Process_Right_Expression (Top_Frame.Top_Context.Visit_Decision);
+               Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
             end if;
          else
-            Process_End_Of_Sub_Expression (Top_Frame.Top_Context.Visit_Decision);
+            Process_End_Of_Sub_Expression (Local_Yield_Decision'Unchecked_Access);
          end if;
+
+         Top_Frame.Top_Context.Visit_Decision.all := Local_Yield_Decision;
 
          Pop_Frame_Context;
       end Yield_Action;
@@ -618,7 +632,7 @@ package body Wrapping.Runtime.Structure is
          elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
             case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                when Template_Operator_Many =>
-                  Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr);
+                  Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Generator_Decision);
 
                   if Top_Object = Match_False then
                      --  If we didn't find a match but the minimum requested is 0,
@@ -640,17 +654,17 @@ package body Wrapping.Runtime.Structure is
                      if Top_Object = Match_False then
                         Pop_Object;
 
-                        Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr);
+                        Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Generator_Decision);
                      end if;
                   else
-                     Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr);
+                     Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Generator_Decision);
                   end if;
 
                when others =>
                   Error ("unexpected quantifier kind");
             end case;
          else
-            Process_Left_Expression (Expr.Reg_Expr_Left);
+            Process_Left_Expression (Expr.Reg_Expr_Left, Generator_Decision);
          end if;
       end if;
 
