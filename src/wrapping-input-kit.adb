@@ -164,11 +164,10 @@ package body Wrapping.Input.Kit is
 
             A_Visit_Action := Browse_Entity (Cur_Token, Expr, Result);
 
-            exit when A_Visit_Action in Stop | Over;
+            exit when A_Visit_Action in Stop | Over
+              or else Cur_Token.Node = Last_Ref;
 
             Cur_Token := W_Kit_Node_Token (Cur_Token.Next);
-
-            exit when Cur_Token = null or else Cur_Token.Node = Last_Ref;
          end loop;
 
          if Result /= null then
@@ -196,9 +195,9 @@ package body Wrapping.Input.Kit is
 
             return;
          elsif Is_Trivia (Ref) then
-            First_Token := Prefix.Trivia_Tokens.Element (Index (Ref));
+            First_Token := Prefix.Trivia_Tokens.Element (Index (Ref) - 1);
          else
-            First_Token := Prefix.Tokens.Element (Index (Ref));
+            First_Token := Prefix.Tokens.Element (Index (Ref) - 1);
          end if;
 
          Last_Ref := Token_End (Prefix.Node);
@@ -456,6 +455,14 @@ package body Wrapping.Input.Kit is
            (W_Object'(
             new W_Integer_Type'(
               Value => Integer (Sloc_Range (Data (An_Entity.Node)).End_Column))));
+
+         return True;
+      elsif Name = "is_trivia" then
+         if not Is_Trivia (An_Entity.Node) then
+            Push_Match_False;
+         else
+            Push_Match_True (An_Entity);
+         end if;
 
          return True;
       end if;

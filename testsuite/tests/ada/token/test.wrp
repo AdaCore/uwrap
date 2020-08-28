@@ -1,0 +1,5 @@
+match SubpDecl ()
+weave standard.out (@ & token ().fold ("", @ & it) & "\n");
+
+match SubpDecl () and p: token().prev (\ many (is_trivia ()))
+weave standard.out (@ & p.filter (Comment ()).fold ("", it & "\n" & @) & "\n");

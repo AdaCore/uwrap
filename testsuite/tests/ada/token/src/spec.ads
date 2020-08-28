@@ -1,0 +1,11 @@
+-- Spec --
+
+package Spec is
+
+    --***--
+    -- P --
+    -------
+
+    procedure P (P1 : Integer; P2 : Y; P3 : Y; P4 : Y; P5 : Y; P6 : Y; P7 : Y; P8 : Y; P9 : Y);
+
+end Spec;
