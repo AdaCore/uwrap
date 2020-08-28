@@ -518,7 +518,7 @@ package body Wrapping.Runtime.Structure is
                   Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
                elsif Quantifiers_Hit = Expr.Reg_Expr_Left.Max then
                   -- Second, if we hit the max, move on to the right action
-                  Process_Right_Expression (Top_Frame.Top_Context.Visit_Decision);
+                  Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
                else
                   --  Then if the quantifier is many, try to reach as many
                   --  as possible. If few, see if one is necessary.
@@ -545,7 +545,7 @@ package body Wrapping.Runtime.Structure is
                         end if;
 
                      when Template_Operator_Few =>
-                        Process_Right_Expression (Top_Frame.Top_Context.Visit_Decision);
+                        Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
 
                         if Top_Object = Match_False then
                            --  If the result is false, the right action didn't
