@@ -1,0 +1,10 @@
+function F1 () do
+   pick it.filter (true);
+end;
+
+function F2 () do
+   pick it.child (Entity ()).fold ("", @ & f_name, @ & ",");
+end;
+
+match Entity (f_name ("A"))
+weave standard.out (F1 () & " => " & F2 ());

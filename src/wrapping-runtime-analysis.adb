@@ -1132,9 +1132,9 @@ package body Wrapping.Runtime.Analysis is
             end;
 
             --  Never match the result of a selection. Matching happened
-            --  before, when evaluating the right operand. At this stage,
-            --  we may also not be in the right match mode anymore (e.g.
-            --  we don't know if we match a reference or a call result).
+            --  in Handle_Selector, when evaluating the right operand.
+            --  At this stage, we may also not be in the right match mode
+            --  anymore (e.g we don't know if we match a reference or a call result).
             Run_Outer_Callback := False;
 
          when Template_Binary_Expr =>
@@ -2026,6 +2026,7 @@ package body Wrapping.Runtime.Analysis is
       Push_Frame_Context;
       Top_Frame.Top_Context.Yield_Callback := Yield_Callback'Unrestricted_Access;
       Top_Frame.Top_Context.Match_Mode := Match_None;
+      Top_Frame.Top_Context.Outer_Expr_Callback := null;
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
       Evaluate_Expression (Selector.Selector_Left);
@@ -2041,6 +2042,16 @@ package body Wrapping.Runtime.Analysis is
       if Suffix.Length > 0 then
          Compute_Selector_Suffix (Suffix);
          Delete_Object_At_Position (-2);
+      elsif Top_Frame.Top_Context.Outer_Expr_Callback /= null then
+         Push_Frame_Context;
+
+         if Top_Frame.Top_Context.Match_Mode = Match_Ref_Default then
+            Top_Frame.Top_Context.Match_Mode := Match_Call_Default;
+         end if;
+
+         Top_Frame.Top_Context.Outer_Expr_Callback.all;
+
+         Pop_Frame_Context;
       end if;
    end Handle_Fold;
 
@@ -2149,6 +2160,16 @@ package body Wrapping.Runtime.Analysis is
       if Suffix.Length > 0 then
          Compute_Selector_Suffix (Suffix);
          Delete_Object_At_Position (-2);
+      elsif Top_Frame.Top_Context.Outer_Expr_Callback /= null then
+         Push_Frame_Context;
+
+         if Top_Frame.Top_Context.Match_Mode = Match_Ref_Default then
+            Top_Frame.Top_Context.Match_Mode := Match_Call_Default;
+         end if;
+
+         Top_Frame.Top_Context.Outer_Expr_Callback.all;
+
+         Pop_Frame_Context;
       end if;
    end Handle_Filter;
 
