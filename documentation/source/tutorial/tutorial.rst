@@ -129,7 +129,8 @@ ways to detect these. Here, we're using a textual matching. ``(x" access ")``.
 Notice the x in front of the string, which signals that it should be interpreted
 as a regular expression. So any parameter specification that contains the text 
 "access" will potentially be flagged. This is potentially weak (e.g. it doesn't 
-match ``ACCESS`` or ``:access`` ) but that'll do for the purpose fo the demonstration.
+match ``ACCESS`` or ``:access`` ) but that'll do for the purpose of the
+demonstration.
 
 We are going to need to use the value of that node later on the analysis. So
 we're capturing it under the ``param`` name. The expression 
