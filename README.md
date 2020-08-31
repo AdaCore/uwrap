@@ -38,7 +38,7 @@ make
 cd ../lang_template
 make
 cd ..
-. env.sh
+source env.sh
 gprbuild
 ~~~
 
