@@ -146,10 +146,10 @@ variable, which can be done either on the return of parent, or in the condition
 of parent on the return of the predicate SubpBody () (the second option is
 retained here).
 
-The curly bracket introduce a list of sub-commands. If the top command is
-valid, then the subcommand are executed. Subcommands can be used to describe
+The ``do`` keyword introduces a list of sub-commands. If the top command is
+valid, then the subcommands are executed. Subcommands can be used to describe
 more complex logic (there may be more than one command) or just for organization
-purposes. Here, it allows to clearly differenciate the parameter that we check
+purposes. Here, it allows to clearly differentiate the parameter that we check
 from the analysis of its usage, but is not stricly necessary (we could have
 a unique and larger match expression instead).
 
@@ -179,11 +179,11 @@ A few notes here:
   operate on declarations, which is the reason why we have to guard on
   ``DefiningNames`` before.
 * Within a browsing predicate such as ``child`` or ``parent``, the value of
-  ``it`` is switched to the sub-nodes being browsed. So in that second
-  child query, p_referenced_decl operates on the child being analyzed, not the
-  top level node which is a parameter specification. This is the reason why we
-  had to capture the value in the top level matched, then to re-inject it in
-  the ``referenced_decl`` call for comparison.
+  ``it`` is switched to the sub-nodes being browsed. So in that second child
+  query, p_referenced_decl operates on the child being analyzed, not the top
+  level node which is a parameter specification. This is the reason why we had
+  to capture the value in the top level matched, then to re-inject it in the
+  ``referenced_decl`` call for comparison.
 
 If any node of the form above is found, we're good. There is indeed a reference
 to this parameter as an access value, and access mode can be justified. If not,
@@ -238,12 +238,12 @@ Let's open wrap_names.wrp and see how this is done:
    match DefiningName (x"Some_(?<a>.*)") and parent (ParamSpec ())
    wrap w_DefiningName ("A_Param_\e<a>");
 
-First, you'll notice ``import ada.wrappers`` which references a module from
-the standard UWrap library. As for languages such as Java, a UWrap scrip always
-has access to all its standard library. As a matter of fact, we've been using
-it when writing ``standard.out`` before, using the ``out`` template of the module
-``standard``. Using an ``import`` clause allows to refer to the entities declared
-in that module without having to prefix.
+First, you'll notice ``import ada.wrappers`` which references a module from the
+standard UWrap library. As for languages such as Java, a UWrap script always
+has access to all of its standard library. As a matter of fact, we've been
+using it when writing ``standard.out`` before, using the ``out`` template of
+the module ``standard``. Using an ``import`` clause allows to refer to the
+entities declared in that module without having to prefix.
 
 The next call is:
 
@@ -278,12 +278,13 @@ DefiningName that has Some\_ in its name followed by zero or more characters.
 This name is then captured as the first captured element, to be re-used later
 on with the "\1" string reference.
 
-We then wrap w_DefiningName, providing a value "My\_\1", so essentially
-changing Some\_ by My\_, and ignoring any character before Some\_.
-``w_DefiningName`` is a template defined in ``ada.wrappers`` which gets analyzed
-at the end of the wrapping process to generate a new name for a given entity.
+We then wrap ``w_DefiningName``, providing a value ``My_1``, so essentially
+changing ``Some\_`` by ``My\_``, and ignoring any character before ``Some_``.
+``w_DefiningName`` is a template defined in ``ada.wrappers`` which gets
+analyzed at the end of the wrapping process to generate a new name for a given
+entity.
 
-Writing our own wraping with ``w_DefiningName`` has for effect to override the
+Writing our own wrapping with ``w_DefiningName`` has for effect to override the
 default behavior of the standard wrappers. Indeed, there is also a command to
 wrap ``DefiningName`` with ``w_DefiningName`` in ``wrap_ada_specs``. However,
 wrapping operations are evaluated from last to first - with a rule that a given

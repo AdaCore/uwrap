@@ -1,6 +1,6 @@
 match param: ParamSpec (x" access ") and parent (subp: SubpBody()) do
     match not subp.child (
-       Identifier () 
+       Identifier ()
        and not parent (DefiningName())
        and not parent (ExplicitDeref())
        and p_referenced_decl (param))
