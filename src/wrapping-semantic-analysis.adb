@@ -55,10 +55,18 @@ package body Wrapping.Semantic.Analysis is
       Load_Module (Unit, Name);
    end Load_Module;
 
+   -------------
+   -- Analyze --
+   -------------
+
    procedure Analyze is
    begin
       Root.Resolve_References;
    end Analyze;
+
+   -----------------
+   -- Load_Module --
+   -----------------
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String) is
       File_Module : Structure.T_Module;
@@ -67,6 +75,10 @@ package body Wrapping.Semantic.Analysis is
       File_Module := Build_Module (Unit.Root, To_Text (Name));
       Entity_Stack.Delete_Last;
    end Load_Module;
+
+   -------------------------
+   -- Push_Error_Location --
+   -------------------------
 
    procedure Push_Error_Location (Node : Template_Node'Class) is
    begin
@@ -79,6 +91,10 @@ package body Wrapping.Semantic.Analysis is
       end if;
    end Push_Error_Location;
 
+   -----------------
+   -- Push_Entity --
+   -----------------
+
    procedure Push_Entity (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class) is
    begin
       Push_Error_Location (Node);
@@ -87,6 +103,10 @@ package body Wrapping.Semantic.Analysis is
       An_Entity.Node := Template_Node (Node);
       Entity_Stack.Append (T_Entity (An_Entity));
    end Push_Entity;
+
+   -----------------------
+   -- Push_Named_Entity --
+   -----------------------
 
    procedure Push_Named_Entity
      (An_Entity : access T_Entity_Type'Class;
@@ -100,6 +120,10 @@ package body Wrapping.Semantic.Analysis is
       Entity_Stack.Append (T_Entity (An_Entity));
    end Push_Named_Entity;
 
+   -----------------------
+   -- Push_Named_Entity --
+   -----------------------
+
    procedure Push_Named_Entity (An_Entity : access T_Named_Entity_Type'Class; Node : Template_Node'Class; Name_Node : Template_Node'Class) is
    begin
       Push_Error_Location (Node);
@@ -109,17 +133,29 @@ package body Wrapping.Semantic.Analysis is
       An_Entity.Name_Node := Template_Node (Name_Node);
    end Push_Named_Entity;
 
+   ----------------
+   -- Pop_Entity --
+   ----------------
+
    procedure Pop_Entity is
    begin
       Entity_Stack.Delete_Last;
       Pop_Error_Location;
    end Pop_Entity;
 
+   ------------------------------
+   -- Pop_Lexical_Scope_Entity --
+   ------------------------------
+
    procedure Pop_Lexical_Scope_Entity is
    begin
       Pop_Entity;
       Lexical_Scope_Stack.Delete_Last;
    end Pop_Lexical_Scope_Entity;
+
+   ------------------
+   -- Build_Module --
+   ------------------
 
    function Build_Module
      (Node        : Template_Node;
@@ -181,6 +217,10 @@ package body Wrapping.Semantic.Analysis is
       return A_Module;
    end Build_Module;
 
+   --------------------
+   -- Build_Template --
+   --------------------
+
    function Build_Template (Node : Template_Node) return Structure.T_Template is
       A_Template : T_Template := new T_Template_Type;
    begin
@@ -195,6 +235,10 @@ package body Wrapping.Semantic.Analysis is
       return A_Template;
    end Build_Template;
 
+   ----------------------------
+   -- Build_Command_Sequence --
+   ----------------------------
+
    function Build_Command_Sequence (Node : Command_Sequence'Class) return T_Command_Sequence is
       Sequence : T_Command_Sequence := new T_Command_Sequence_Type;
    begin
@@ -208,6 +252,10 @@ package body Wrapping.Semantic.Analysis is
 
       return Sequence;
    end Build_Command_Sequence;
+
+   ------------------------------------
+   -- Build_Command_Sequence_Element --
+   ------------------------------------
 
    function Build_Command_Sequence_Element (Node : Command_Sequence_Element'Class) return T_Command_Sequence_Element is
       Sequence_Element : T_Command_Sequence_Element := new T_Command_Sequence_Element_Type;
@@ -251,6 +299,10 @@ package body Wrapping.Semantic.Analysis is
       return Sequence_Element;
    end Build_Command_Sequence_Element;
 
+   -------------------------
+   -- Build_Template_Call --
+   -------------------------
+
    function Build_Template_Call (Node : Template_Call'Class) return T_Template_Call is
       A_Template_Call : T_Template_Call := new T_Template_Call_Type;
    begin
@@ -272,6 +324,10 @@ package body Wrapping.Semantic.Analysis is
 
    function Build_Command (Node : Template_Node'Class) return T_Command is
       A_Command : T_Command := new T_Command_Type;
+
+      -----------
+      -- Visit --
+      -----------
 
       function Visit (Node : Template_Node'Class) return Visit_Status is
       begin
@@ -347,6 +403,10 @@ package body Wrapping.Semantic.Analysis is
       return A_Command;
    end Build_Command;
 
+   --------------------
+   -- Build_Function --
+   --------------------
+
    function Build_Function (Node : Template_Node) return T_Function is
       A_Function : T_Function := new T_Function_Type;
    begin
@@ -372,6 +432,10 @@ package body Wrapping.Semantic.Analysis is
 
       return A_Function;
    end Build_Function;
+
+   --------------------
+   -- Build_Variable --
+   --------------------
 
    function Build_Variable (Node : Var'Class) return T_Var is
       A_Var : Structure.T_Var := new T_Var_Type;
@@ -441,6 +505,10 @@ package body Wrapping.Semantic.Analysis is
 
       return A_Var;
    end Build_Variable;
+
+   ----------------
+   -- Build_Expr --
+   ----------------
 
    function Build_Expr (Node : Template_Node'Class) return T_Expr is
       Expr : T_Expr;
@@ -812,6 +880,10 @@ package body Wrapping.Semantic.Analysis is
 
       Error_Callback := Prev_Error;
    end Analyze_String;
+
+   -----------------------
+   -- Build_Create_Tree --
+   -----------------------
 
    function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree is
       New_Tree : T_Create_Tree := new T_Create_Tree_Type;
