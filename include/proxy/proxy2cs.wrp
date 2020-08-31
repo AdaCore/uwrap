@@ -30,11 +30,11 @@ template generate_proxy2cs pick origin do
       wrap n: w_FunctionCall (
          name => child (\ name ("name")).value,
          returned_type => ret_type_cs,
-         call => defer (child (\ name ("symbol")).value & "(" 
+         call => defer (child (\ name ("symbol")).value & "("
             & n.child (w_ParamCall ()).fold ("", @ & actual_value, @ & ", ") & ")"),
          static => "static");
 
-      match type ("void") do 
+      match type ("void") do
          weave w: w_FunctionCall (call_stmt => "\e<w.call>;");
       elsmatch type ("int32") do
          weave w: w_FunctionCall (call_stmt => "return \e<w.call>;");

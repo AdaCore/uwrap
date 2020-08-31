@@ -1,4 +1,4 @@
-# instances of this template will be written on disk at the end of the 
+# instances of this template will be written on disk at the end of the
 # wrapping process. Users can either use this template directly, or
 # derive it in multiple template (in particular if a given language entity
 # needs to be wrapped to files multiple times),
@@ -16,5 +16,5 @@ end;
 # this visitor represents the root of the wrapping program. Commands can wrap
 # and weave into it in order to control the flow of the iteration.
 template root do
-    
+
 end;
