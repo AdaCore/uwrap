@@ -111,6 +111,11 @@ package body Wrapping.Run is
    begin
       -- Step 1, load the templates
 
+      if Args.Template_File.Get = "" then
+         Put_Line ("Error: missing template file");
+         return;
+      end if;
+
       declare
          Input_Directories : Args.Input_Directories.Result_Array :=
            Args.Input_Directories.Get;
