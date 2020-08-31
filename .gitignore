@@ -19,3 +19,4 @@ build/**
 
 testsuite/tests/**/out/*
 documentation/build
+.gdb_history
