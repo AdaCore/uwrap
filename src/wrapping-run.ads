@@ -28,7 +28,7 @@ package Wrapping.Run is
          Unbounded_String, Default_Val => Null_Unbounded_String);
 
       package Input_Directories is new Parse_Option_List
-        (App.Args.Parser, "-I", "",
+        (App.Args.Parser, "-I", "--input-dir",
          "Input file directory",
          Arg_Type => Unbounded_String,
          Accumulate => True);
