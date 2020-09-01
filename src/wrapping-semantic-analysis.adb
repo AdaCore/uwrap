@@ -48,8 +48,10 @@ package body Wrapping.Semantic.Analysis is
 
       if Has_Diagnostics (Unit) then
          for D of Libtemplatelang.Analysis.Diagnostics (Unit) loop
-            Put_Line (Path & ":" & To_Pretty_String (D));
+            Put_Line (Path & ": " & To_Pretty_String (D));
          end loop;
+         Put_Line ("Errors during syntactic analysis.");
+         return;
       end if;
 
       Load_Module (Unit, Name);
