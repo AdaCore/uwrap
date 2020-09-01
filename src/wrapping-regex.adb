@@ -3,12 +3,20 @@ with Ada.Text_IO; use Ada.Text_IO;
 
 package body Wrapping.Regex is
 
+   -------------
+   -- Compile --
+   -------------
+
    function Compile (Pattern : String) return Basic_Regex
    is
       Ret : Basic_Regex;
       Proc_Str : Unbounded_String := To_Unbounded_String (Pattern);
 
       procedure Process_Pattern_Groups;
+
+      ----------------------------
+      -- Process_Pattern_Groups --
+      ----------------------------
 
       procedure Process_Pattern_Groups
       is
@@ -23,6 +31,10 @@ package body Wrapping.Regex is
          Real_Current : Natural := Data_Str'First;
 
          procedure Find_Capture_Group;
+
+         ------------------------
+         -- Find_Capture_Group --
+         ------------------------
 
          procedure Find_Capture_Group
          is
@@ -88,6 +100,10 @@ package body Wrapping.Regex is
       return Ret;
    end Compile;
 
+   -----------
+   -- Match --
+   -----------
+
    function Match (Self : Basic_Regex;
                    Str  : String)
                    return Match_Obj
@@ -104,17 +120,29 @@ package body Wrapping.Regex is
                         Original_String => To_Unbounded_String (Str));
    end Match;
 
+   --------------
+   -- No_Match --
+   --------------
+
    function No_Match (Self : Match_Obj) return Boolean
    is
    begin
       return Self.Matches.Element (0) = GNAT.Regpat.No_Match;
    end No_Match;
 
+   ------------
+   -- Length --
+   ------------
+
    function Length (Self : Match_Obj) return Natural
    is
    begin
       return Self.Matches.Element'Length;
    end Length;
+
+   ------------------
+   -- Get_Noexcept --
+   ------------------
 
    function Get_Noexcept (Self : Match_Obj;
                           Index : String)
@@ -132,6 +160,10 @@ package body Wrapping.Regex is
       return No_Group_Name;
    end Get_Noexcept;
 
+   ---------
+   -- Get --
+   ---------
+
    function Get (Self  : Match_Obj;
                  Index : String)
                  return String
@@ -146,6 +178,10 @@ package body Wrapping.Regex is
       return Ret;
    end Get;
 
+   ---------
+   -- Get --
+   ---------
+
    function Get (Self  : Match_Obj;
                  Index : Natural)
                  return String
@@ -156,6 +192,10 @@ package body Wrapping.Regex is
                     Low    => Loc.First,
                     High   => Loc.Last);
    end Get;
+
+   ----------------------
+   -- Get_Capture_Name --
+   ----------------------
 
    function Get_Capture_Name
      (Self  : Match_Obj;

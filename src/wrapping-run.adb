@@ -104,6 +104,10 @@ package body Wrapping.Run is
          Value_Constraint_Array     => Libadalang.Common.Value_Constraint_Array);
    end Adalang;
 
+   ----------------------
+   -- App_Post_Process --
+   ----------------------
+
    procedure App_Post_Process
      (Context : Libadalang.Helpers.App_Context;
       Jobs    : Libadalang.Helpers.App_Job_Context_Array)
@@ -111,9 +115,18 @@ package body Wrapping.Run is
    begin
       -- Step 1, load the templates
 
+      if Args.Template_File.Get = "" then
+         Put_Line ("Error: missing template file");
+         return;
+      end if;
+
       declare
          Input_Directories : Args.Input_Directories.Result_Array :=
            Args.Input_Directories.Get;
+
+         -----------------------
+         -- Analyze_Directory --
+         -----------------------
 
          procedure Analyze_Directory
            (Base_Module_Name : String;

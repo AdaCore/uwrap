@@ -18,15 +18,27 @@ package body Wrapping.Runtime.Structure is
 
    Root_Language_Entities : W_Node_Maps.Map;
 
+   ----------------
+   -- Lt_Wrapper --
+   ----------------
+
    function Lt_Wrapper (Left, Right : W_Object) return Boolean is
    begin
       return Left.Lt (Right);
    end Lt_Wrapper;
 
+   ----------------
+   -- Eq_Wrapper --
+   ----------------
+
    function Eq_Wrapper (Left, Right : W_Object) return Boolean is
    begin
       return Left.Eq (Right);
    end Eq_Wrapper;
+
+   ------------------------
+   -- Get_Visible_Symbol --
+   ------------------------
 
    function Get_Visible_Symbol (A_Frame: Data_Frame_Type; Name : Text_Type) return W_Object is
    begin
@@ -36,6 +48,10 @@ package body Wrapping.Runtime.Structure is
 
       return null;
    end Get_Visible_Symbol;
+
+   ----------------
+   -- Get_Module --
+   ----------------
 
    function Get_Module (A_Frame : Data_Frame_Type) return Semantic.Structure.T_Module is
       use Semantic.Structure;
@@ -48,6 +64,10 @@ package body Wrapping.Runtime.Structure is
 
       return Semantic.Structure.T_Module (Scope);
    end Get_Module;
+
+   --------------
+   -- Traverse --
+   --------------
 
    function Traverse
      (An_Entity    : access W_Object_Type;
@@ -64,12 +84,20 @@ package body Wrapping.Runtime.Structure is
       return Into;
    end Traverse;
 
+   -------------------
+   -- Browse_Entity --
+   -------------------
+
    function Browse_Entity
      (Browsed : access W_Object_Type'Class;
       Match_Expression : T_Expr;
       Result : out W_Object) return Visit_Action
    is
       Visit_Decision : aliased Visit_Action := Unknown;
+
+      -----------------------------
+      -- Evaluate_Yield_Function --
+      -----------------------------
 
       procedure Evaluate_Yield_Function
         with Post => Top_Frame.Data_Stack.Length =
@@ -254,12 +282,20 @@ package body Wrapping.Runtime.Structure is
      with Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1
        and Top_Frame.Top_Context = Top_Frame.Top_Context'Old;
 
+   -------------------------------
+   -- Evaluate_Generator_Regexp --
+   -------------------------------
+
    procedure Evaluate_Generator_Regexp
      (Root      : access W_Object_Type'Class;
       Expr      : T_Expr;
       Generator : access procedure (Expr : T_Expr))
    is
       Result_Variable : W_Regexpr_Result;
+
+      ----------------------
+      -- Capture_Callback --
+      ----------------------
 
       procedure Capture_Callback (Mode : Capture_Mode) is
       begin
@@ -313,6 +349,10 @@ package body Wrapping.Runtime.Structure is
       end if;
    end Evaluate_Generator_Regexp;
 
+   --------------------
+   -- Handle_Regexpr --
+   --------------------
+
    procedure Handle_Regexpr
      (Expr      : T_Expr;
       Generator : access procedure (Expr : T_Expr);
@@ -337,6 +377,10 @@ package body Wrapping.Runtime.Structure is
       Initial_Capture_Callback : Capture_Callback_Type;
       Captured_Variable : W_Regexpr_Result;
 
+      ----------------------
+      -- Capture_Callback --
+      ----------------------
+
       procedure Capture_Callback (Mode : Capture_Mode) is
       begin
          Initial_Capture_Callback (Mode);
@@ -356,15 +400,27 @@ package body Wrapping.Runtime.Structure is
         with Post => Top_Frame.Data_Stack.Length
           = Top_Frame.Data_Stack.Length'Old + 1;
 
+      ----------------------------------
+      -- Install_Local_Yield_Callback --
+      ----------------------------------
+
       procedure Install_Local_Yield_Callback is
       begin
          Top_Frame.Top_Context.Yield_Callback := Yield_Action'Unrestricted_Access;
       end Install_Local_Yield_Callback;
 
+      ------------------------------------
+      -- Restore_Overall_Yield_Callback --
+      ------------------------------------
+
       procedure Restore_Overall_Yield_Callback is
       begin
          Top_Frame.Top_Context.Yield_Callback := Overall_Yield_Callback;
       end Restore_Overall_Yield_Callback;
+
+      -----------------------------
+      -- Process_Left_Expression --
+      -----------------------------
 
       procedure Process_Left_Expression (Left_Expr : T_Expr; Generator_Decision : Visit_Action_Ptr) is
       begin
@@ -397,6 +453,10 @@ package body Wrapping.Runtime.Structure is
          end if;
       end Process_Left_Expression;
 
+      -----------------------------------
+      -- Process_End_Of_Sub_Expression --
+      -----------------------------------
+
       procedure Process_End_Of_Sub_Expression (Generator_Decision : Visit_Action_Ptr) is
       begin
          --  This function has to be called when we reached the end of either
@@ -427,6 +487,10 @@ package body Wrapping.Runtime.Structure is
             end if;
          end if;
       end Process_End_Of_Sub_Expression;
+
+      ------------------------------
+      -- Process_Right_Expression --
+      ------------------------------
 
       procedure Process_Right_Expression (Generator_Decision : Visit_Action_Ptr) is
          Result : W_Object;
@@ -482,6 +546,10 @@ package body Wrapping.Runtime.Structure is
       --  variable will be used to store that result and then set the top
       --  frame decision through the stack.
       Local_Yield_Decision : aliased Visit_Action := Unknown;
+
+      ------------------
+      -- Yield_Action --
+      ------------------
 
       procedure Yield_Action is
       begin
@@ -671,17 +739,29 @@ package body Wrapping.Runtime.Structure is
       Pop_Frame_Context;
    end Handle_Regexpr;
 
+   ---------------------
+   -- Push_Match_True --
+   ---------------------
+
    procedure Push_Match_True (An_Entity : access W_Object_Type'Class) is
    begin
       Push_Object (An_Entity);
    end Push_Match_True;
+
+   ----------------------
+   -- Push_Match_False --
+   ----------------------
 
    procedure Push_Match_False is
    begin
       Push_Object (Match_False);
    end Push_Match_False;
 
-   procedure Include_Symbol (Name : Text_Type; Object : W_Object) is
+   --------------------
+   -- Include_Symbol --
+   --------------------
+
+   procedure Include_Symbol (Name : Text_Type; Object : not null W_Object) is
    begin
       pragma Assert
         (if Object.all in W_Reference_Type'Class
@@ -689,6 +769,10 @@ package body Wrapping.Runtime.Structure is
 
       Top_Frame.Symbols.Include (Name, Object);
    end Include_Symbol;
+
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
 
    procedure Push_Call_Result
      (An_Entity : access W_Object_Type;
@@ -701,6 +785,10 @@ package body Wrapping.Runtime.Structure is
                 (W_Object_Type'Class (An_Entity.all)'Tag)));
    end Push_Call_Result;
 
+   ---------------------
+   -- Generate_Values --
+   ---------------------
+
    procedure Generate_Values (Object : access W_Object_Type; Expr : T_Expr) is
    begin
       Push_Match_Result (W_Object (Object), Expr);
@@ -710,6 +798,10 @@ package body Wrapping.Runtime.Structure is
          Delete_Object_At_Position (-2);
       end if;
    end Generate_Values;
+
+   ---------------------------
+   -- Match_With_Top_Object --
+   ---------------------------
 
    function Match_With_Top_Object
      (An_Entity : access W_Object_Type) return Boolean
@@ -746,6 +838,10 @@ package body Wrapping.Runtime.Structure is
       return False;
    end Match_With_Top_Object;
 
+   --------
+   -- Lt --
+   --------
+
    function Lt
      (Left : access W_Object_Type; Right : access W_Object_Type'Class)
       return Boolean
@@ -762,6 +858,10 @@ package body Wrapping.Runtime.Structure is
       end if;
    end Lt;
 
+   --------
+   -- Eq --
+   --------
+
    function Eq (Left : access W_Object_Type; Right : access W_Object_Type'Class) return Boolean is
    begin
       return Left = Right;
@@ -769,11 +869,19 @@ package body Wrapping.Runtime.Structure is
 
    Object_For_Entity_Registry : W_Object_Maps.Map;
 
+   ---------------------------
+   -- Get_Object_For_Entity --
+   ---------------------------
+
    function Get_Object_For_Entity
      (An_Entity : access T_Entity_Type'Class) return W_Object
    is
       Result : W_Template_Instance;
       Name : Text_Type := An_Entity.Full_Name;
+
+      -----------------------
+      -- Allocate_Variable --
+      -----------------------
 
       procedure Allocate_Variable (Var : T_Var) is
       begin
@@ -827,6 +935,10 @@ package body Wrapping.Runtime.Structure is
       end if;
    end Get_Object_For_Entity;
 
+   --------------------
+   -- Make_Parameter --
+   --------------------
+
    function Make_Parameter
      (Name : Text_Type; Is_Optional : Boolean) return Parameter
    is
@@ -835,6 +947,10 @@ package body Wrapping.Runtime.Structure is
         (Name        => To_Unbounded_Text (Name),
          Is_Optional => Is_Optional);
    end Make_Parameter;
+
+   ------------------------
+   -- Process_Parameters --
+   ------------------------
 
    function Process_Parameters
      (Profile : Parameter_Profile; Arg : T_Arg_Vectors.Vector) return Actuals_Type
@@ -887,6 +1003,10 @@ package body Wrapping.Runtime.Structure is
       return Result;
    end Process_Parameters;
 
+   -----------------------
+   -- Push_Match_Result --
+   -----------------------
+
    procedure Push_Match_Result
      (Object              : W_Object;
       Matching_Expression : T_Expr)
@@ -908,6 +1028,10 @@ package body Wrapping.Runtime.Structure is
          Pop_Frame_Context;
       end if;
    end Push_Match_Result;
+
+   --------------------------
+   -- Push_Match_It_Result --
+   --------------------------
 
    procedure Push_Match_It_Result
      (It                : W_Object;
@@ -932,6 +1056,10 @@ package body Wrapping.Runtime.Structure is
          Pop_Frame_Context;
       end if;
    end Push_Match_It_Result;
+
+   ----------------------------
+   -- Handle_Call_Parameters --
+   ----------------------------
 
    procedure Handle_Call_Parameters
      (Args : T_Arg_Vectors.Vector;

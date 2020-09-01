@@ -91,13 +91,13 @@ class Operator(TemplateNode):
       'or',
       'not',
       'amp',
-      'is', 
-      'has', 
-      'many', 
-      'few', 
-      'plus', 
-      'minus', 
-      'multiply', 
+      'is',
+      'has',
+      'many',
+      'few',
+      'plus',
+      'minus',
+      'multiply',
       'divide',
       'eq',
       'neq',
@@ -209,19 +209,19 @@ G = template_grammar
 template_grammar.add_rules(
    main_rule=Module (List (G.import_clause, empty_valid=True), G.module_scope),
    import_clause=Import('import', G.dotted_name, ';'),
-    
+
    module_scope=List(Or (G.template, G.command, G.function, G.var), empty_valid=True),
 
    template=Template('template', G.identifier, Opt ('extends', G.dotted_name), Or (G.command, Pick (Null (G.command), ';'))),
-    
-   var=Var('var', G.identifier, ':', G.identifier, Opt ('(', G.arg_list, ')'), Opt ('=>', G.expression), ';'), 
+
+   var=Var('var', G.identifier, ':', G.identifier, Opt ('(', G.arg_list, ')'), Opt ('=>', G.expression), ';'),
 
    command=Command(
       Or(
          G.defer_section,
          G.match_section,
          G.pick_section,
-         G.wrap_section, 
+         G.wrap_section,
          G.weave_section,
          G.walk_section,
          G.command_sequence
@@ -232,7 +232,7 @@ template_grammar.add_rules(
       Or(
          G.match_section,
          G.pick_section,
-         G.wrap_section, 
+         G.wrap_section,
          G.weave_section,
          G.walk_section,
          G.command_sequence
@@ -265,22 +265,22 @@ template_grammar.add_rules(
          G.traverse_decision),
       ';'),
    wrap_section=WrapSection(
-      'wrap', 
+      'wrap',
       Or (
          G.template_call,
-         G.traverse_decision), 
+         G.traverse_decision),
       ';'),
    walk_section=WalkSection('walk', G.template_call, ';'),
    command_sequence=CommandSequence ('do', G.command_sequence_element, 'end', ';'),
    command_sequence_element=CommandSequenceElement (
-      List (G.var, empty_valid = True), 
-      List (G.command, empty_valid = True), 
+      List (G.var, empty_valid = True),
+      List (G.command, empty_valid = True),
       Opt (ThenSequence ('then', G.command_sequence_element))
    ),
    conditionned_command_sequence=CommandSequence ('do', G.conditionned_command_sequence_element, 'end', ';'),
    conditionned_command_sequence_element=CommandSequenceElement (
-      List (G.var, empty_valid = True), 
-      List (G.command, empty_valid = True), 
+      List (G.var, empty_valid = True),
+      List (G.command, empty_valid = True),
       Opt (Or (
          ThenSequence ('then', G.conditionned_command_sequence_element),
          ElsmatchSequence ('elsmatch', G.expression, 'do', G.conditionned_command_sequence_element),
@@ -289,11 +289,11 @@ template_grammar.add_rules(
    traverse_decision=Or(TraverseInto ('into'), TraverseOver ('over')),
 
    function=Function('function', G.identifier, '(', Opt (List (G.identifier, sep = ',', empty_valid = True)), ')', G.command_sequence),
-   
-   root_expression=Or (   
+
+   root_expression=Or (
       RegExpr (
          Null (G.identifier),
-         RegExprAnchor ('\\'), 
+         RegExprAnchor ('\\'),
          G.regular_expression),
       G.regular_expression),
    regular_expression=Or(
@@ -329,28 +329,28 @@ template_grammar.add_rules(
    ),
    regular_expression_quantifier=RegExprQuantifier (
       Or (Operator.alt_many('many'), Operator.alt_few('few')),
-      '(', 
-      Or (G.regular_expression_no_terminal, G.expression), 
+      '(',
+      Or (G.regular_expression_no_terminal, G.expression),
       Opt (Pick (',', G.integer)),
       Opt (Pick (',', G.integer)),
-      ')'), 
+      ')'),
    expression=Or (
       BinaryExpr (G.relation, Or (Operator.alt_and('and'), Operator.alt_or('or')), G.expression),
       G.relation),
    relation=Or (
       BinaryExpr (G.simple_expression, Or (
-         Operator.alt_eq('='), 
-         Operator.alt_neq('/='), 
-         Operator.alt_lt('<'), 
-         Operator.alt_gt('>'), 
-         Operator.alt_lte('<='), 
+         Operator.alt_eq('='),
+         Operator.alt_neq('/='),
+         Operator.alt_lt('<'),
+         Operator.alt_gt('>'),
+         Operator.alt_lte('<='),
          Operator.alt_gte('>=')), G.simple_expression),
       G.simple_expression),
    simple_expression=Or (BinaryExpr (G.term, Or (Operator.alt_amp('&'), Operator.alt_minus('-'), Operator.alt_plus('+')), G.simple_expression), G.term),
    term=Or (BinaryExpr (G.factor, Or (Operator.alt_multiply('*'), Operator.alt_divide('/')), G.term), G.factor),
    factor=Or(
       MatchCapture(G.identifier, ':', G.factor),
-      UnaryExpr (Operator.alt_not('not'), G.qualified_primary), 
+      UnaryExpr (Operator.alt_not('not'), G.qualified_primary),
       G.qualified_primary),
    qualified_primary=Or (QualifiedMatch (Or (Operator.alt_is('is'), Operator.alt_has ('has')), '(', G.primary, ')'), G.primary),
    primary=Or(
@@ -373,15 +373,15 @@ template_grammar.add_rules(
       G.single_name
    ),
    single_name=Or (
-      G.at_ref, 
-      G.new_expr, 
+      G.at_ref,
+      G.new_expr,
       G.fold_expr,
       G.filter_expr,
       G.all_expr,
       G.call_expr,
       G.identifier),
-   selected_component=Selector (G.prefix, '.', G.suffix), 
-   prefix=Or (  
+   selected_component=Selector (G.prefix, '.', G.suffix),
+   prefix=Or (
       G.name
    ),
    suffix=Or (

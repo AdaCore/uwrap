@@ -4,7 +4,7 @@ from langkit.lexer import Lexer, LexerToken, Literal, WithText, Pattern, Ignore,
 class Token(LexerToken):
     Module     = WithText()
     Import     = WithText()
-    
+
     Template   = WithText()
     Extends    = WithText()
     Var        = WithText()
@@ -17,16 +17,16 @@ class Token(LexerToken):
     Else       = WithText()
     End        = WithText()
     Weave      = WithText()
-    Wrap       = WithText()    
+    Wrap       = WithText()
     Walk       = WithText()
     Pick       = WithText()
-    
+
     Function   = WithText()
-    
+
     And        = WithText()
     Or         = WithText()
     Not        = WithText()
-    
+
     New        = WithText()
     Fold       = WithText()
     Filter     = WithText()
@@ -34,7 +34,7 @@ class Token(LexerToken):
 
     Into       = WithText()
     Over       = WithText()
-    
+
     Is         = WithText()
     Has        = WithText()
     Many       = WithText()
@@ -86,7 +86,7 @@ template_lexer.add_rules(
     (Pattern(r"#(.?)+"),     Token.Comment),
 
     (Literal("import"), Token.Import),
-    
+
     (Literal ("template"), Token.Template),
     (Literal ("extends"), Token.Extends),
     (Literal ("var"), Token.Var),
@@ -113,12 +113,12 @@ template_lexer.add_rules(
 
     (Literal("into"), Token.Into),
     (Literal("over"), Token.Over),
-    
+
     (Literal("is"), Token.Is),
     (Literal("has"), Token.Has),
     (Literal("many"), Token.Many),
     (Literal("few"), Token.Few),
-    
+
     (Literal("pick"), Token.Pick),
     (Literal("("), Token.LPar),
     (Literal(")"), Token.RPar),

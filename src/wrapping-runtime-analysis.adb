@@ -66,6 +66,10 @@ package body Wrapping.Runtime.Analysis is
      with Post =>
        Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
 
+   --------------------------
+   -- Call_Convert_To_Text --
+   --------------------------
+
    procedure Call_Convert_To_Text
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
@@ -90,6 +94,10 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Call_Convert_To_Text;
 
+   ----------------------------
+   -- Call_Convert_To_String --
+   ----------------------------
+
    procedure Call_Convert_To_String
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
@@ -112,19 +120,31 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Call_Convert_To_String;
 
+   -------------------------
+   -- Push_Error_Location --
+   -------------------------
+
    procedure Push_Error_Location
      (An_Entity : access T_Entity_Type'Class)
    is
    begin
-      Wrapping.Push_Error_Location
+      Push_Error_Location
         (An_Entity.Unit.Get_Filename,
-         (An_Entity.Sloc.Start_Line, An_Entity.Sloc.Start_Column));
+         Start_Sloc (An_Entity.Sloc));
    end Push_Error_Location;
+
+   ------------------------
+   -- Pop_Error_Location --
+   ------------------------
 
    procedure Pop_Error_Location is
    begin
       Wrapping.Pop_Error_Location;
    end Pop_Error_Location;
+
+   -------------------
+   -- Update_Object --
+   -------------------
 
    procedure Update_Object is
    begin
@@ -133,11 +153,19 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Update_Object;
 
+   -----------------
+   -- Push_Object --
+   -----------------
+
    procedure Push_Object (Object : access W_Object_Type'Class) is
    begin
       Top_Frame.Data_Stack.Append (W_Object (Object));
       Update_Object;
    end Push_Object;
+
+   ----------------------
+   -- Push_Implicit_It --
+   ----------------------
 
    procedure Push_Implicit_It (Object : access W_Object_Type'Class) is
    begin
@@ -148,6 +176,10 @@ package body Wrapping.Runtime.Analysis is
               others           => <>)));
    end Push_Implicit_It;
 
+   ---------------------------
+   -- Push_Allocated_Entity --
+   ---------------------------
+
    procedure Push_Allocated_Entity (Object : access W_Object_Type'Class) is
    begin
       Push_Object
@@ -156,6 +188,10 @@ package body Wrapping.Runtime.Analysis is
               Is_Allocated => True,
               others       => <>)));
    end Push_Allocated_Entity;
+
+   -------------------------
+   -- Push_Temporary_Name --
+   -------------------------
 
    procedure Push_Temporary_Name (Name : Text_Type; Counter : in out Integer) is
    begin
@@ -176,6 +212,10 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Push_Temporary_Name;
 
+   -----------------------------
+   -- Push_Intrinsic_Function --
+   -----------------------------
+
    procedure Push_Intrinsic_Function (Prefix : W_Object; A_Call : Call_Access) is
    begin
       Push_Object
@@ -186,11 +226,19 @@ package body Wrapping.Runtime.Analysis is
                  others => <>)));
    end Push_Intrinsic_Function;
 
+   ----------------
+   -- Pop_Object --
+   ----------------
+
    procedure Pop_Object (Number : Positive := 1) is
    begin
       Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
       Update_Object;
    end Pop_Object;
+
+   -------------------------------
+   -- Delete_Object_At_Position --
+   -------------------------------
 
    procedure Delete_Object_At_Position (Position : Integer) is
    begin
@@ -203,6 +251,10 @@ package body Wrapping.Runtime.Analysis is
       Update_Object;
    end Delete_Object_At_Position;
 
+   ----------------
+   -- Pop_Object --
+   ----------------
+
    function Pop_Object return W_Object is
       Result : W_Object;
    begin
@@ -213,6 +265,10 @@ package body Wrapping.Runtime.Analysis is
       return Result;
    end Pop_Object;
 
+   ---------------------
+   -- Top_Is_Implicit --
+   ---------------------
+
    function Top_Is_Implicit return Boolean is
       Top : W_Object := Top_Object;
    begin
@@ -220,16 +276,28 @@ package body Wrapping.Runtime.Analysis is
         and then W_Reference (Top).Is_Implicit;
    end Top_Is_Implicit;
 
+   ------------------------
+   -- Push_Frame_Context --
+   ------------------------
+
    procedure Push_Frame_Context is
    begin
       Push_Frame_Context (Top_Frame.Top_Context.all);
    end Push_Frame_Context;
+
+   ----------------------------------
+   -- Push_Frame_Context_Parameter --
+   ----------------------------------
 
    procedure Push_Frame_Context_Parameter is
    begin
       Push_Frame_Context_No_Match;
       Top_Frame.Top_Context.Is_Root_Selection := True;
    end Push_Frame_Context_Parameter;
+
+   ---------------------------------------------
+   -- Push_Frame_Context_Parameter_With_Match --
+   ---------------------------------------------
 
    procedure Push_Frame_Context_Parameter_With_Match (Object : W_Object) is
    begin
@@ -240,6 +308,10 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Outer_Object := Object;
    end Push_Frame_Context_Parameter_With_Match;
 
+   ---------------------------------
+   -- Push_Frame_Context_No_Outer --
+   ---------------------------------
+
    procedure Push_Frame_Context_No_Outer is
    begin
       Push_Frame_Context;
@@ -247,6 +319,10 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Outer_Expr_Callback := null;
       Top_Frame.Top_Context.Outer_Object := null;
    end Push_Frame_Context_No_Outer;
+
+   ---------------------------------
+   -- Push_Frame_Context_No_Match --
+   ---------------------------------
 
    procedure Push_Frame_Context_No_Match is
    begin
@@ -256,12 +332,20 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Outer_Object := null;
    end Push_Frame_Context_No_Match;
 
+   --------------------------------
+   -- Push_Frame_Context_No_Pick --
+   --------------------------------
+
    procedure Push_Frame_Context_No_Pick is
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.Pick_Callback := null;
       Top_Frame.Top_Context.Outer_Expr_Callback := null;
    end Push_Frame_Context_No_Pick;
+
+   ------------------------
+   -- Push_Frame_Context --
+   ------------------------
 
    procedure Push_Frame_Context (Context : Frame_Context_Type) is
    begin
@@ -283,20 +367,36 @@ package body Wrapping.Runtime.Analysis is
          Is_First_Matching_Wrapper => Context.Is_First_Matching_Wrapper);
    end Push_Frame_Context;
 
+   -----------------------
+   -- Pop_Frame_Context --
+   -----------------------
+
    procedure Pop_Frame_Context is
    begin
       Top_Frame.Top_Context := Top_Frame.Top_Context.Parent_Context;
    end Pop_Frame_Context;
+
+   -------------------------------
+   -- Push_Match_Groups_Section --
+   -------------------------------
 
    procedure Push_Match_Groups_Section is
    begin
       Top_Frame.Group_Sections.Append (new Matched_Groups_Type);
    end Push_Match_Groups_Section;
 
+   ------------------------------
+   -- Pop_Match_Groups_Section --
+   ------------------------------
+
    procedure Pop_Match_Groups_Section is
    begin
       Top_Frame.Group_Sections.Delete_Last;
    end Pop_Match_Groups_Section;
+
+   -------------------
+   -- Update_Frames --
+   -------------------
 
    procedure Update_Frames is
    begin
@@ -312,6 +412,10 @@ package body Wrapping.Runtime.Analysis is
          Parent_Frame := null;
       end if;
    end Update_Frames;
+
+   ----------------
+   -- Push_Frame --
+   ----------------
 
    procedure Push_Frame (Lexical_Scope : access T_Entity_Type'Class) is
       New_Frame : Data_Frame := new Data_Frame_Type;
@@ -331,11 +435,19 @@ package body Wrapping.Runtime.Analysis is
       Update_Frames;
    end Push_Frame;
 
+   ----------------
+   -- Push_Frame --
+   ----------------
+
    procedure Push_Frame (Frame : Data_Frame) is
    begin
       Data_Frame_Stack.Append (Frame);
       Update_Frames;
    end Push_Frame;
+
+   ----------------
+   -- Push_Frame --
+   ----------------
 
    procedure Push_Frame (A_Closure : Closure) is
       Copy_Symbols : W_Object_Maps.Map;
@@ -351,11 +463,19 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Push_Frame;
 
+   ---------------
+   -- Pop_Frame --
+   ---------------
+
    procedure Pop_Frame is
    begin
       Data_Frame_Stack.Delete_Last;
       Update_Frames;
    end Pop_Frame;
+
+   ---------------------
+   -- Get_Implicit_It --
+   ---------------------
 
    function Get_Implicit_It (From : Data_Frame := Top_Frame) return W_Object is
    begin
@@ -369,6 +489,10 @@ package body Wrapping.Runtime.Analysis is
 
       return null;
    end Get_Implicit_It;
+
+   -----------
+   -- Match --
+   -----------
 
    function Match (Pattern, Text : Text_Type) return Boolean is
       Text_Str : String := To_String (Text);
@@ -398,6 +522,10 @@ package body Wrapping.Runtime.Analysis is
 
       return True;
    end Match;
+
+   ---------------------------
+   -- Apply_Template_Action --
+   ---------------------------
 
    procedure Apply_Template_Action
      (It : W_Node; Template_Clause : T_Template_Section)
@@ -516,6 +644,10 @@ package body Wrapping.Runtime.Analysis is
      with Post => Top_Frame.Data_Stack.Length =
        Top_Frame.Data_Stack.Length'Old;
 
+   --------------------
+   -- Handle_Command --
+   --------------------
+
    procedure Handle_Command (Command : T_Command; It : W_Node) is
    begin
       --  The command is the enclosing scope for all of its clauses. It
@@ -529,6 +661,10 @@ package body Wrapping.Runtime.Analysis is
       Pop_Object; -- Pop It.
       Pop_Frame;
    end Handle_Command;
+
+   -------------------------------
+   -- Evaluate_Match_Expression --
+   -------------------------------
 
    function Evaluate_Match_Expression (Expr : T_Expr) return Boolean is
    begin
@@ -545,12 +681,20 @@ package body Wrapping.Runtime.Analysis is
    end Evaluate_Match_Expression;
 
 
+   -----------------------
+   -- Allocate_Detached --
+   -----------------------
+
    procedure Allocate_Detached (E : access W_Object_Type'Class) is
    begin
       --  when allocating an object outside of a browsing function, nothign
       --  special to do
       null;
    end Allocate_Detached;
+
+   -----------------------------
+   -- Install_Command_Context --
+   -----------------------------
 
    procedure Install_Command_Context (Command : T_Command) is
    begin
@@ -563,10 +707,18 @@ package body Wrapping.Runtime.Analysis is
       Push_Match_Groups_Section;
    end Install_Command_Context;
 
+   -------------------------------
+   -- Uninstall_Command_Context --
+   -------------------------------
+
    procedure Uninstall_Command_Context is
    begin
       Pop_Match_Groups_Section;
    end Uninstall_Command_Context;
+
+   --------------------------
+   -- Handle_Command_Front --
+   --------------------------
 
    procedure Handle_Command_Front (Command : T_Command) is
    begin
@@ -589,6 +741,10 @@ package body Wrapping.Runtime.Analysis is
          Uninstall_Command_Context;
       end if;
    end Handle_Command_Front;
+
+   ----------------------------------
+   -- Handle_Command_Front_Nodefer --
+   ----------------------------------
 
    procedure Handle_Command_Front_Nodefer (Command : T_Command) is
    begin
@@ -634,6 +790,10 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Command_Front_Nodefer;
 
+   -------------------------
+   -- Handle_Command_Back --
+   -------------------------
+
    procedure Handle_Command_Back (Command : T_Command) is
       Top : W_Object := Top_Object.Dereference;
       It : W_Node;
@@ -678,6 +838,10 @@ package body Wrapping.Runtime.Analysis is
       Pop_Object;
    end Handle_Command_Back;
 
+   ----------------------------
+   -- Handle_Defered_Command --
+   ----------------------------
+
    function Handle_Defered_Command (Command : Deferred_Command) return Boolean is
       Result : Boolean := False;
    begin
@@ -698,6 +862,10 @@ package body Wrapping.Runtime.Analysis is
 
       return Result;
    end Handle_Defered_Command;
+
+   -----------------------------
+   -- Handle_Command_Sequence --
+   -----------------------------
 
    procedure Handle_Command_Sequence (Sequence : T_Command_Sequence_Element) is
       Seq  : T_Command_Sequence_Element := Sequence;
@@ -838,6 +1006,10 @@ package body Wrapping.Runtime.Analysis is
       end loop;
    end Handle_Command_Sequence;
 
+   ----------------------------
+   -- Apply_Wrapping_Program --
+   ----------------------------
+
    procedure Apply_Wrapping_Program
      (It          : W_Node;
       Lexical_Scope : access T_Entity_Type'Class)
@@ -857,6 +1029,10 @@ package body Wrapping.Runtime.Analysis is
 
       Pop_Frame;
    end Apply_Wrapping_Program;
+
+   ---------------------
+   -- Analyze_Visitor --
+   ---------------------
 
    function Analyze_Visitor
      (E : access W_Object_Type'Class;
@@ -920,6 +1096,10 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Analyze_Visitor;
 
+   -------------------
+   -- Analyse_Input --
+   -------------------
+
    procedure Analyse_Input (Root_Entity : W_Node) is
       Dummy_Action : Visit_Action;
       Traverse_Result : W_Object;
@@ -933,6 +1113,10 @@ package body Wrapping.Runtime.Analysis is
         (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
       Pop_Frame;
    end Analyse_Input;
+
+   -----------------------
+   -- Analyze_Templates --
+   -----------------------
 
    procedure Analyze_Templates is
       A_Template_Instance : W_Template_Instance;
@@ -1058,12 +1242,20 @@ package body Wrapping.Runtime.Analysis is
       end loop;
    end Analyze_Templates;
 
+   -------------------------
+   -- Evaluate_Expression --
+   -------------------------
+
    function Evaluate_Expression (Expr : T_Expr) return W_Object is
    begin
       Evaluate_Expression (Expr);
 
       return Pop_Object;
    end Evaluate_Expression;
+
+   -------------------------
+   -- Evaluate_Expression --
+   -------------------------
 
    procedure Evaluate_Expression (Expr : T_Expr)
    is
@@ -1375,6 +1567,10 @@ package body Wrapping.Runtime.Analysis is
 
    Expression_Unit_Number : Integer := 1;
 
+   ---------------------
+   -- Evaluate_String --
+   ---------------------
+
    procedure Evaluate_String
      (Expr          : T_Expr;
       On_Group      : access procedure (Index : Integer; Value : W_Object) := null;
@@ -1382,10 +1578,18 @@ package body Wrapping.Runtime.Analysis is
    is
       Result : W_Text_Vector := new W_Text_Vector_Type;
 
+      -----------------
+      -- Append_Text --
+      -----------------
+
       procedure Append_Text (Text : Text_Type) is
       begin
          Result.A_Vector.Append (W_Object (To_W_String (Text)));
       end Append_Text;
+
+      --------------
+      -- On_Error --
+      --------------
 
       procedure On_Error
         (Message : Text_Type; Filename : String; Loc : Source_Location)
@@ -1393,8 +1597,7 @@ package body Wrapping.Runtime.Analysis is
       begin
          Push_Error_Location
            (Expr.Node.Unit.Get_Filename,
-            (Expr.Node.Sloc_Range.Start_Line,
-             Expr.Node.Sloc_Range.Start_Column));
+            Start_Sloc (Expr.Node.Sloc_Range));
 
          Put_Line
            (To_Text (Get_Sloc_Str)
@@ -1478,6 +1681,10 @@ package body Wrapping.Runtime.Analysis is
       Error_Callback := Prev_Error;
       Pop_Frame_Context;
    end Evaluate_String;
+
+   ----------------------------
+   -- Push_Global_Identifier --
+   ----------------------------
 
    function Push_Global_Identifier (Name : Text_Type) return Boolean
      with Post => Top_Frame.Data_Stack.Length'Old =
@@ -1601,6 +1808,10 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Push_Global_Identifier;
 
+   ------------------------------
+   -- Handle_Global_Identifier --
+   ------------------------------
+
    procedure Handle_Global_Identifier (Name : Text_Type) is
    begin
       if not Push_Global_Identifier (Name) then
@@ -1608,11 +1819,19 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Global_Identifier;
 
+   -----------------------
+   -- Handle_Identifier --
+   -----------------------
+
    procedure Handle_Identifier (Node : Template_Node'Class) is
       procedure Handle_Language_Entity_Selection
         with Post =>
           Top_Frame.Data_Stack.Length =
             Top_Frame.Data_Stack.Length'Old + 1;
+
+      ------------------------------------
+      -- Handle_Static_Entity_Selection --
+      ------------------------------------
 
       procedure Handle_Static_Entity_Selection
         with Post =>
@@ -1631,6 +1850,10 @@ package body Wrapping.Runtime.Analysis is
             end if;
          end if;
       end Handle_Static_Entity_Selection;
+
+      --------------------------------------
+      -- Handle_Language_Entity_Selection --
+      --------------------------------------
 
       procedure Handle_Language_Entity_Selection is
          Name : Text_Type := Node.Text;
@@ -1707,6 +1930,10 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Identifier;
 
+   --------------------------
+   -- Handle_Template_Call --
+   --------------------------
+
    function Handle_Template_Call
      (A_Template_Instance : W_Template_Instance;
       Args : T_Arg_Vectors.Vector) return Visit_Action
@@ -1739,6 +1966,10 @@ package body Wrapping.Runtime.Analysis is
       --   If the template has already been evaluated, then we only update its
       --   variables.
 
+      ---------------------
+      -- Store_Parameter --
+      ---------------------
+
       procedure Store_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr)
       is
@@ -1749,6 +1980,10 @@ package body Wrapping.Runtime.Analysis is
             Top_Frame.Template_Parameters_Names.Insert (Name, Value);
          end if;
       end Store_Parameter;
+
+      ----------------------
+      -- Update_Parameter --
+      ----------------------
 
       procedure Update_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr)
@@ -1776,6 +2011,10 @@ package body Wrapping.Runtime.Analysis is
 
          Pop_Frame_Context;
       end Update_Parameter;
+
+      ------------------------------------
+      -- Handle_Template_Call_Recursive --
+      ------------------------------------
 
       procedure Handle_Template_Call_Recursive (A_Template : T_Template) is
       begin
@@ -1830,6 +2069,10 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Template_Call;
 
+   -----------------
+   -- Handle_Call --
+   -----------------
+
    procedure Handle_Call (Expr : T_Expr) is
       Called : W_Object;
    begin
@@ -1872,6 +2115,10 @@ package body Wrapping.Runtime.Analysis is
          Called.Push_Call_Result (Expr.Args);
       end if;
    end Handle_Call;
+
+   -----------------------------
+   -- Compute_Selector_Suffix --
+   -----------------------------
 
    procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector)
      with Post =>
@@ -1941,6 +2188,10 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Compute_Selector_Suffix;
 
+   ---------------------
+   -- Handle_Selector --
+   ---------------------
+
    procedure Handle_Selector (Expr : T_Expr; Suffix : in out T_Expr_Vectors.Vector) is
    begin
       --  In a selector, we compute the left object, build the right
@@ -1972,6 +2223,10 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Selector;
 
+   -----------------
+   -- Handle_Fold --
+   -----------------
+
    procedure Handle_Fold (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector) is
 
       Fold_Expr : T_Expr := Selector.Selector_Right;
@@ -1979,6 +2234,10 @@ package body Wrapping.Runtime.Analysis is
       Is_First : Boolean := True;
 
       Current_Expression : W_Object;
+
+      --------------------
+      -- Yield_Callback --
+      --------------------
 
       procedure Yield_Callback is
       begin
@@ -2055,6 +2314,10 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Fold;
 
+   -------------------
+   -- Handle_Filter --
+   -------------------
+
    procedure Handle_Filter (Selector : T_Expr;  Suffix : T_Expr_Vectors.Vector) is
 
       Filtered_Expr : T_Expr := Selector.Selector_Right.Filter_Expr;
@@ -2062,9 +2325,17 @@ package body Wrapping.Runtime.Analysis is
 
       Object_Mode : Boolean;
 
+      ---------------
+      -- Generator --
+      ---------------
+
       procedure Generator (Expr : T_Expr) is
 
          Original_Yield : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback;
+
+         --------------------
+         -- Yield_Callback --
+         --------------------
 
          procedure Yield_Callback is
          begin
@@ -2105,6 +2376,10 @@ package body Wrapping.Runtime.Analysis is
 
          Pop_Frame_Context;
       end Generator;
+
+      ----------------------
+      -- Object_Generator --
+      ----------------------
 
       procedure Object_Generator (Node : access W_Object_Type'Class; Expr : T_Expr) is
       begin
@@ -2173,9 +2448,17 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Handle_Filter;
 
+   ----------------
+   -- Handle_All --
+   ----------------
+
    procedure Handle_All (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector)
    is
       Initial_Context : Frame_Context := Top_Frame.Top_Context;
+
+      --------------------
+      -- Yield_Callback --
+      --------------------
 
       procedure Yield_Callback is
          Visit_Decision : Visit_Action_Ptr;
@@ -2245,7 +2528,15 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame_Context;
    end Handle_All;
 
+   ----------------
+   -- Handle_New --
+   ----------------
+
    procedure Handle_New (Create_Tree : T_Create_Tree) is
+
+      ----------------------------
+      -- Handle_Create_Template --
+      ----------------------------
 
       function Handle_Create_Template
         (New_Tree : T_Create_Tree;
@@ -2287,6 +2578,10 @@ package body Wrapping.Runtime.Analysis is
          return New_Node;
       end Handle_Create_Template;
 
+      ------------------------
+      -- Handle_Create_Tree --
+      ------------------------
+
       function Handle_Create_Tree
         (A_Tree : T_Create_Tree;
          Parent : W_Template_Instance) return W_Template_Instance
@@ -2320,6 +2615,10 @@ package body Wrapping.Runtime.Analysis is
       Push_Allocated_Entity (Handle_Create_Tree (Create_Tree, null));
       Pop_Frame_Context;
    end Handle_New;
+
+   --------------------------------
+   -- Handle_Arithmetic_Operator --
+   --------------------------------
 
    procedure Handle_Arithmetic_Operator (Expr : T_Expr) is
       Left, Right : W_Object;
@@ -2404,6 +2703,10 @@ package body Wrapping.Runtime.Analysis is
       Push_Object (Result);
    end Handle_Arithmetic_Operator;
 
+   ---------------------
+   -- Capture_Closure --
+   ---------------------
+
    function Capture_Closure (Names : Text_Sets.Set) return Closure is
       A_Closure : Closure := new Closure_Type;
    begin
@@ -2442,11 +2745,19 @@ package body Wrapping.Runtime.Analysis is
       return A_Closure;
    end Capture_Closure;
 
+   ----------------------------------
+   -- Capture_Deferred_Environment --
+   ----------------------------------
+
    procedure Capture_Deferred_Environment (Deferred_Expr : W_Deferred_Expr; Expr : T_Expr) is
    begin
       Deferred_Expr.A_Closure := Capture_Closure (Expr.Deferred_Closure);
       Deferred_Expr.Expr := Expr.Deferred_Expr;
    end Capture_Deferred_Environment;
+
+   -----------------------
+   -- Run_Deferred_Expr --
+   -----------------------
 
    procedure Run_Deferred_Expr (Deferred_Expr : W_Deferred_Expr_Type) is
       Result : W_Object;
@@ -2457,6 +2768,10 @@ package body Wrapping.Runtime.Analysis is
       Pop_Frame;
       Push_Object (Result);
    end Run_Deferred_Expr;
+
+   ----------------------------
+   -- Outer_Expression_Match --
+   ----------------------------
 
    procedure Outer_Expression_Match is
    begin
@@ -2470,6 +2785,10 @@ package body Wrapping.Runtime.Analysis is
          end if;
       end if;
    end Outer_Expression_Match;
+
+   ---------------------------
+   -- Outer_Expression_Pick --
+   ---------------------------
 
    procedure Outer_Expression_Pick is
    begin

@@ -11,8 +11,16 @@ package body Wrapping.Runtime.Objects is
      (Node.all in W_Template_Instance_Type'Class
       and then W_Template_Instance (Node).Origin /= null);
 
+   -------------------
+   -- Has_Allocator --
+   -------------------
+
    function Has_Allocator (Node : Template_Node'Class) return Boolean is
       Found : Boolean := False;
+
+      -----------
+      -- Visit --
+      -----------
 
       function Visit (Node : Template_Node'Class) return Visit_Status is
       begin
@@ -35,10 +43,18 @@ package body Wrapping.Runtime.Objects is
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector);
 
+   ---------------------
+   -- Call_Gen_Browse --
+   ---------------------
+
    procedure Call_Gen_Browse
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
    is
+      ---------------
+      -- Generator --
+      ---------------
+
       procedure Generator (Expr : T_Expr) is
       begin
          Evaluate_Bowse_Functions (Top_Object, A_Mode, Expr);
@@ -60,6 +76,10 @@ package body Wrapping.Runtime.Objects is
    procedure Call_Browse_Sibling is new Call_Gen_Browse (Sibling);
    procedure Call_Browse_Wrapper is new Call_Gen_Browse (Wrapping.Runtime.Structure.Wrapper);
 
+   --------------------
+   -- Call_Browse_It --
+   --------------------
+
    procedure Call_Browse_It
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
@@ -77,6 +97,10 @@ package body Wrapping.Runtime.Objects is
          Error ("'it' only takes 1 argument");
       end if;
    end Call_Browse_It;
+
+   --------------
+   -- Call_Tmp --
+   --------------
 
    procedure Call_Tmp
      (Object : access W_Object_Type'Class;
@@ -97,6 +121,10 @@ package body Wrapping.Runtime.Objects is
          Error ("tmp only accepts one argument");
       end if;
    end Call_Tmp;
+
+   -----------------
+   -- Call_Insert --
+   -----------------
 
    procedure Call_Insert
      (Object : access W_Object_Type'Class;
@@ -126,6 +154,10 @@ package body Wrapping.Runtime.Objects is
       Push_Object (W_Object (Object));
    end Call_Insert;
 
+   ------------------
+   -- Call_Include --
+   ------------------
+
    procedure Call_Include
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
@@ -154,6 +186,10 @@ package body Wrapping.Runtime.Objects is
       Push_Object (W_Object (Object));
    end Call_Include;
 
+   -----------------
+   -- Call_Append --
+   -----------------
+
    procedure Call_Append
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
@@ -172,6 +208,10 @@ package body Wrapping.Runtime.Objects is
 
       Push_Object (W_Object (Object));
    end Call_Append;
+
+   --------------
+   -- Call_Get --
+   --------------
 
    procedure Call_Get
      (Object : access W_Object_Type'Class;
@@ -224,6 +264,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Call_Get;
 
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
+
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Reference_Type;
@@ -233,12 +277,20 @@ package body Wrapping.Runtime.Objects is
       An_Entity.Value.Push_Call_Result (Params);
    end Push_Call_Result;
 
+   ---------------------------
+   -- Match_With_Top_Object --
+   ---------------------------
+
    overriding
    function Match_With_Top_Object
      (An_Entity : access W_Reference_Type) return Boolean is
    begin
       return Match_With_Top_Object (An_Entity.Value);
    end Match_With_Top_Object;
+
+   --------------
+   -- Traverse --
+   --------------
 
    overriding
    function Traverse
@@ -259,6 +311,10 @@ package body Wrapping.Runtime.Objects is
          Visitor      => Visitor);
    end Traverse;
 
+   ------------------------------
+   -- Evaluate_Bowse_Functions --
+   ------------------------------
+
    overriding
    procedure Evaluate_Bowse_Functions
      (An_Entity        : access W_Reference_Type;
@@ -271,11 +327,19 @@ package body Wrapping.Runtime.Objects is
          Match_Expression => Match_Expression);
    end Evaluate_Bowse_Functions;
 
+   ---------------------
+   -- Generate_Values --
+   ---------------------
+
    overriding
    procedure Generate_Values (Object : access W_Reference_Type; Expr : T_Expr) is
    begin
       Object.Value.Generate_Values (Expr);
    end;
+
+   -----------------------
+   -- Is_Text_Container --
+   -----------------------
 
    function Is_Text_Container (Container : W_Vector_Type) return Boolean is
    begin
@@ -291,6 +355,10 @@ package body Wrapping.Runtime.Objects is
 
       return True;
    end Is_Text_Container;
+
+   ----------------
+   -- Push_Value --
+   ----------------
 
    overriding
    function Push_Value
@@ -316,6 +384,10 @@ package body Wrapping.Runtime.Objects is
          return False;
       end if;
    end Push_Value;
+
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
 
    overriding
    procedure Push_Call_Result
@@ -345,6 +417,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Push_Call_Result;
 
+   ---------------
+   -- To_String --
+   ---------------
+
    function To_String (Object : W_Vector_Type) return Text_Type is
       Result : Unbounded_Text_Type;
    begin
@@ -354,6 +430,10 @@ package body Wrapping.Runtime.Objects is
 
       return To_Text (Result);
    end To_String;
+
+   ---------------------
+   -- Generate_Values --
+   ---------------------
 
    procedure Generate_Values (Object : access W_Vector_Type; Expr : T_Expr) is
       Result : W_Object;
@@ -375,6 +455,10 @@ package body Wrapping.Runtime.Objects is
          end if;
       end if;
    end Generate_Values;
+
+   ----------------
+   -- Push_Value --
+   ----------------
 
    overriding
    function Push_Value
@@ -403,6 +487,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Push_Value;
 
+   ---------------------
+   -- Generate_Values --
+   ---------------------
+
    procedure Generate_Values (Object : access W_Set_Type; Expr : T_Expr) is
       Result : W_Object;
       Action : Visit_Action;
@@ -423,6 +511,10 @@ package body Wrapping.Runtime.Objects is
          end if;
       end if;
    end Generate_Values;
+
+   ----------------
+   -- Push_Value --
+   ----------------
 
    overriding
    function Push_Value
@@ -451,6 +543,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Push_Value;
 
+   ---------------------
+   -- Generate_Values --
+   ---------------------
+
    procedure Generate_Values (Object : access W_Map_Type; Expr : T_Expr) is
       Result : W_Object;
       Action : Visit_Action;
@@ -472,6 +568,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Generate_Values;
 
+   ---------------
+   -- To_String --
+   ---------------
+
    overriding
    function To_String (Object : W_Integer_Type) return Text_Type
    is
@@ -479,11 +579,19 @@ package body Wrapping.Runtime.Objects is
       return Object.Value'Wide_Wide_Image;
    end To_String;
 
+   ---------------
+   -- To_String --
+   ---------------
+
    overriding
    function To_String (Object : W_String_Type) return Text_Type is
    begin
       return To_Text (Object.Value);
    end To_String;
+
+   --------
+   -- Lt --
+   --------
 
    overriding
    function Lt
@@ -500,6 +608,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Lt;
 
+   --------
+   -- Eq --
+   --------
+
    overriding
    function Eq
      (Left : access W_String_Type; Right : access W_Object_Type'Class)
@@ -515,15 +627,27 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Eq;
 
+   -----------------
+   -- To_W_String --
+   -----------------
+
    function To_W_String (Str : Text_Type) return W_String is
    begin
       return new W_String_Type'(Value => To_Unbounded_Text (Str));
    end To_W_String;
 
+   -----------------
+   -- To_W_String --
+   -----------------
+
    function To_W_String (Str : Unbounded_Text_Type) return W_String is
    begin
       return new W_String_Type'(Value => Str);
    end To_W_String;
+
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
 
    overriding
    procedure Push_Call_Result
@@ -543,17 +667,29 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Push_Call_Result;
 
+   ---------------
+   -- To_String --
+   ---------------
+
    overriding
    function To_String (Object : W_Regexp_Type) return Text_Type is
    begin
       return Object.Value.To_String;
    end To_String;
 
+   ---------------
+   -- To_String --
+   ---------------
+
    overriding
    function To_String (Object : W_Text_Conversion_Type) return Text_Type is
    begin
       return Object.An_Object.To_String;
    end To_String;
+
+   ---------------
+   -- To_String --
+   ---------------
 
    function To_String (Object : W_Text_Vector_Type) return Text_Type is
       Result : Unbounded_Text_Type;
@@ -565,11 +701,19 @@ package body Wrapping.Runtime.Objects is
       return To_Text (Result);
    end To_String;
 
+   ---------------
+   -- To_String --
+   ---------------
+
    overriding
    function To_String (Object : W_Text_Reindent_Type) return Text_Type is
    begin
       return Reindent (Object.Indent, Object.Content.To_String, False);
    end To_String;
+
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
 
    overriding
    procedure Push_Call_Result
@@ -592,6 +736,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Push_Call_Result;
 
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
+
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Function_Type;
@@ -600,6 +748,10 @@ package body Wrapping.Runtime.Objects is
       Calling_Frame : Data_Frame;
       Called_Frame : Data_Frame;
       Temp_Symbols : W_Object_Maps.Map;
+
+      ------------------------
+      -- Evaluate_Parameter --
+      ------------------------
 
       procedure Evaluate_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr)
@@ -614,6 +766,10 @@ package body Wrapping.Runtime.Objects is
       end Evaluate_Parameter;
 
       Last_Picked : W_Object;
+
+      -------------------
+      -- Pick_Callback --
+      -------------------
 
       procedure Pick_Callback (Object : W_Object)
       is
@@ -665,6 +821,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Push_Call_Result;
 
+   ----------------
+   -- Push_Value --
+   ----------------
+
    overriding
    function Push_Value
      (An_Entity : access W_Static_Entity_Type;
@@ -691,6 +851,10 @@ package body Wrapping.Runtime.Objects is
 
       return False;
    end Push_Value;
+
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
 
    overriding
    procedure Push_Call_Result
@@ -747,6 +911,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Push_Call_Result;
 
+   ---------------------
+   -- Generate_Values --
+   ---------------------
+
    overriding
    procedure Generate_Values (Object : access W_Static_Entity_Type; Expr : T_Expr) is
       A_Template : W_Template_Instance;
@@ -761,6 +929,10 @@ package body Wrapping.Runtime.Objects is
       A_Template.Indexed_Variables.Element ("_registry").Generate_Values (Expr);
    end Generate_Values;
 
+   ---------------
+   -- To_String --
+   ---------------
+
    overriding
    function To_String (Object : W_Deferred_Expr_Type) return Text_Type
    is
@@ -769,6 +941,10 @@ package body Wrapping.Runtime.Objects is
 
       return Pop_Object.To_String;
    end To_String;
+
+   ---------------
+   -- Add_Child --
+   ---------------
 
    procedure Add_Child (Parent, Child : access W_Node_Type'Class) is
    begin
@@ -782,11 +958,19 @@ package body Wrapping.Runtime.Objects is
       Parent.Children_Ordered.Append (W_Node (Child));
    end Add_Child;
 
+   ---------------
+   -- Add_Child --
+   ---------------
+
    procedure Add_Child (Parent, Child : access W_Node_Type'Class; Name : Text_Type) is
    begin
       Add_Child (Parent, Child);
       Parent.Children_Indexed.Insert (Name, W_Node (Child));
    end Add_Child;
+
+   --------------
+   -- Add_Next --
+   --------------
 
    procedure Add_Next (Cur, Next : access W_Node_Type'Class) is
       Found : Boolean := False with Ghost;
@@ -808,6 +992,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Add_Next;
 
+   ------------------------
+   -- Add_Wrapping_Child --
+   ------------------------
+
    procedure Add_Wrapping_Child (Parent, Child : access W_Node_Type'Class) is
       Wrapped : W_Node;
    begin
@@ -824,6 +1012,10 @@ package body Wrapping.Runtime.Objects is
          Add_Child (Parent, Child);
       end if;
    end Add_Wrapping_Child;
+
+   ------------------------------
+   -- Create_Template_Instance --
+   ------------------------------
 
    function Create_Template_Instance
      (An_Entity  : access W_Node_Type'Class;
@@ -870,6 +1062,10 @@ package body Wrapping.Runtime.Objects is
       return New_Template;
    end Create_Template_Instance;
 
+   ---------------------------
+   -- Get_Template_Instance --
+   ---------------------------
+
    function Get_Template_Instance
      (An_Entity : access W_Node_Type'Class;
       Name      : Text_Type) return W_Template_Instance
@@ -881,6 +1077,10 @@ package body Wrapping.Runtime.Objects is
          return null;
       end if;
    end Get_Template_Instance;
+
+   ---------------------------
+   -- Get_Template_Instance --
+   ---------------------------
 
    function Get_Template_Instance
      (An_Entity  : access W_Node_Type'Class;
@@ -894,6 +1094,10 @@ package body Wrapping.Runtime.Objects is
          return null;
       end if;
    end Get_Template_Instance;
+
+   ----------------
+   -- Push_Value --
+   ----------------
 
    overriding
    function Push_Value
@@ -950,6 +1154,10 @@ package body Wrapping.Runtime.Objects is
       return False;
    end Push_Value;
 
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
+
    overriding
    procedure Push_Call_Result
      (An_Entity : access W_Node_Type;
@@ -968,6 +1176,10 @@ package body Wrapping.Runtime.Objects is
          Error ("comparing with a node requires one parameter");
       end if;
    end Push_Call_Result;
+
+   ---------------------------
+   -- Match_With_Top_Object --
+   ---------------------------
 
    function Match_With_Top_Object
      (An_Entity : access W_Node_Type) return Boolean
@@ -996,6 +1208,10 @@ package body Wrapping.Runtime.Objects is
       return False;
    end Match_With_Top_Object;
 
+   --------------
+   -- Traverse --
+   --------------
+
    function Traverse
      (An_Entity    : access W_Node_Type;
       A_Mode       : Browse_Mode;
@@ -1012,6 +1228,10 @@ package body Wrapping.Runtime.Objects is
 
       -- Wraps the default traverse function, capturing the result if not
       -- null or false.
+      ----------------------
+      -- Traverse_Wrapper --
+      ----------------------
+
       function Traverse_Wrapper
         (Entity : access W_Object_Type'Class; A_Mode : Browse_Mode)
          return Visit_Action
@@ -1030,6 +1250,10 @@ package body Wrapping.Runtime.Objects is
 
       -- Wraps the default visit function, capturing the result if not
       -- null or false.
+      -------------------
+      -- Visit_Wrapper --
+      -------------------
+
       function Visit_Wrapper
         (Entity : access W_Object_Type'Class) return Visit_Action
       is
@@ -1228,17 +1452,29 @@ package body Wrapping.Runtime.Objects is
       return Into;
    end Traverse;
 
+   ------------------------------
+   -- Evaluate_Bowse_Functions --
+   ------------------------------
+
    procedure Evaluate_Bowse_Functions
      (An_Entity         : access W_Node_Type;
       A_Mode            : Browse_Mode;
       Match_Expression  : T_Expr)
    is
+      -------------
+      -- Visitor --
+      -------------
+
       function Visitor
         (E      : access W_Object_Type'Class;
          Result : out W_Object) return Visit_Action is
       begin
          return Browse_Entity (E, Match_Expression, Result);
       end Visitor;
+
+      ------------------------
+      -- Create_Hollow_Next --
+      ------------------------
 
       function Create_Hollow_Next (Prev : access W_Node_Type'Class) return W_Hollow_Node is
          Wrapped : W_Hollow_Node;
@@ -1255,6 +1491,10 @@ package body Wrapping.Runtime.Objects is
 
          return New_Node;
       end;
+
+      --------------
+      -- Allocate --
+      --------------
 
       procedure Allocate (E : access W_Object_Type'Class) is
       begin
@@ -1333,6 +1573,10 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Evaluate_Bowse_Functions;
 
+   -----------
+   -- Print --
+   -----------
+
    procedure Print (An_Entity : W_Node_Type; Indent : Text_Type := "") is
    begin
       Put_Line (Indent & An_Entity.To_String);
@@ -1341,6 +1585,10 @@ package body Wrapping.Runtime.Objects is
          Print (E.all, Indent & "-");
       end loop;
    end Print;
+
+   ----------------
+   -- Push_Value --
+   ----------------
 
    function Push_Value
      (An_Entity : access W_Template_Instance_Type;
@@ -1371,6 +1619,10 @@ package body Wrapping.Runtime.Objects is
 
       return False;
    end Push_Value;
+
+   ---------------------------
+   -- Match_With_Top_Object --
+   ---------------------------
 
    overriding
    function Match_With_Top_Object
@@ -1406,6 +1658,10 @@ package body Wrapping.Runtime.Objects is
       return False;
    end Match_With_Top_Object;
 
+   --------------
+   -- Traverse --
+   --------------
+
    overriding
    function Traverse
      (An_Entity    : access W_Template_Instance_Type;
@@ -1417,6 +1673,10 @@ package body Wrapping.Runtime.Objects is
          Result : out W_Object) return Visit_Action)
       return Visit_Action
    is
+      ----------------------
+      -- Template_Visitor --
+      ----------------------
+
       function Template_Visitor
         (E      : access W_Object_Type'Class;
          Result : out W_Object)
@@ -1486,11 +1746,19 @@ package body Wrapping.Runtime.Objects is
       return Last_Decision;
    end Traverse;
 
+   ---------------------
+   -- Generate_Values --
+   ---------------------
+
    overriding
    procedure Generate_Values (Object : access W_Regexpr_Result_Type; Expr : T_Expr) is
    begin
       Object.Result.Generate_Values (Expr);
    end Generate_Values;
+
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
 
    overriding
    procedure Push_Call_Result
@@ -1500,6 +1768,10 @@ package body Wrapping.Runtime.Objects is
    begin
       An_Entity.As_Singleton.Push_Call_Result (Params);
    end Push_Call_Result;
+
+   --------------
+   -- Traverse --
+   --------------
 
    overriding
    function Traverse
@@ -1516,6 +1788,10 @@ package body Wrapping.Runtime.Objects is
       return An_Entity.As_Singleton.Traverse
         (A_Mode, Include_It, Final_Result, Visitor);
    end Traverse;
+
+   ------------------------------
+   -- Evaluate_Bowse_Functions --
+   ------------------------------
 
    overriding
    procedure Evaluate_Bowse_Functions

@@ -10,6 +10,10 @@ package body Wrapping.Runtime.Functions is
    P_Normalize_Ada_Name : Parameter_Profile :=
       (1 => Make_Parameter ("str", False));
 
+   -----------------------------
+   -- Call_Normalize_Ada_Name --
+   -----------------------------
+
    procedure Call_Normalize_Ada_Name
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
@@ -64,6 +68,10 @@ package body Wrapping.Runtime.Functions is
        Make_Parameter ("pattern", False),
        Make_Parameter ("replace", False));
 
+   -----------------------
+   -- Call_Replace_Text --
+   -----------------------
+
    procedure Call_Replace_Text
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
@@ -86,6 +94,10 @@ package body Wrapping.Runtime.Functions is
    P_To_Lower : Parameter_Profile :=
       (1 => Make_Parameter ("str", False));
 
+   -------------------
+   -- Call_To_Lower --
+   -------------------
+
    procedure Call_To_Lower
     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
@@ -101,6 +113,10 @@ package body Wrapping.Runtime.Functions is
    P_Unindent : Parameter_Profile :=
      (Make_Parameter ("ident", False),
       Make_Parameter ("str", False));
+
+   -------------------
+   -- Call_Reindent --
+   -------------------
 
    procedure Call_Reindent
     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)

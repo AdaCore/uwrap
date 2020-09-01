@@ -20,6 +20,10 @@ package body Wrapping is
 
    Error_Stack : Error_Location_Vector.Vector;
 
+   ------------------
+   -- Get_Sloc_Str --
+   ------------------
+
    function Get_Sloc_Str return String is
    begin
        if Error_Stack.Length > 0 then
@@ -33,6 +37,10 @@ package body Wrapping is
    end Get_Sloc_Str;
 
    Error_Message : Unbounded_Text_Type;
+
+   -----------
+   -- Error --
+   -----------
 
    procedure Error (Message : Text_Type) is
    begin
@@ -56,6 +64,10 @@ package body Wrapping is
       end if;
    end Error;
 
+   -------------------------
+   -- Push_Error_Location --
+   -------------------------
+
    procedure Push_Error_Location (Filename : String; Loc : Source_Location) is
    begin
       Error_Stack.Append
@@ -63,6 +75,10 @@ package body Wrapping is
            (To_Unbounded_String (Ada.Directories.Simple_Name
             (Filename)), Loc));
    end Push_Error_Location;
+
+   ------------------------
+   -- Pop_Error_Location --
+   ------------------------
 
    procedure Pop_Error_Location is
    begin

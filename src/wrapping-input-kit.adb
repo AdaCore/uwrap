@@ -15,6 +15,10 @@ package body Wrapping.Input.Kit is
 
    function Get_Entity_For_Node (Node : Kit_Node) return W_Kit_Node;
 
+   ------------------
+   -- Analyze_File --
+   ------------------
+
    procedure Analyze_File (File : String) is
       Unit : Analysis_Unit;
       Context : Analysis_Context := Create_Context;
@@ -32,12 +36,20 @@ package body Wrapping.Input.Kit is
       Analyze_Templates;
    end Analyze_File;
 
+   ------------------
+   -- Analyze_Unit --
+   ------------------
+
    procedure Analyze_Unit (Unit : Analysis_Unit) is
       Root_Entity : W_Node;
    begin
       Root_Entity := W_Node (Get_Entity_For_Node (Unit.Root));
       Wrapping.Runtime.Analysis.Analyse_Input (Root_Entity);
    end Analyze_Unit;
+
+   -------------------
+   -- Create_Tokens --
+   -------------------
 
    procedure Create_Tokens (Node : W_Kit_Node) is
       Token : Token_Reference;
@@ -73,6 +85,10 @@ package body Wrapping.Input.Kit is
          end loop;
       end;
    end Create_Tokens;
+
+   --------
+   -- Lt --
+   --------
 
    function Lt (Left, Right : Kit_Node) return Boolean is
    begin
@@ -115,10 +131,18 @@ package body Wrapping.Input.Kit is
       end if;
    end Lt;
 
+   --------
+   -- Eq --
+   --------
+
    function Eq (Left, Right : W_Kit_Node) return Boolean is
    begin
       return Left = Right;
    end Eq;
+
+   ---------------------------
+   -- Call_Check_Expression --
+   ---------------------------
 
    procedure Call_Check_Expression
      (Object : access W_Object_Type'Class;
@@ -136,6 +160,10 @@ package body Wrapping.Input.Kit is
       end if;
    end Call_Check_Expression;
 
+   ----------------
+   -- Call_Token --
+   ----------------
+
    procedure Call_Token
      (Object : access W_Object_Type'Class;
       Params : T_Arg_Vectors.Vector)
@@ -146,6 +174,10 @@ package body Wrapping.Input.Kit is
       Analyzed_First : Boolean := False;
 
       Last_Ref : Token_Reference;
+
+      ---------------
+      -- Generator --
+      ---------------
 
       procedure Generator (Expr : T_Expr)
       is
@@ -206,6 +238,10 @@ package body Wrapping.Input.Kit is
       end;
    end Call_Token;
 
+   ---------------
+   -- Pre_Visit --
+   ---------------
+
    procedure Pre_Visit (An_Entity : access W_Kit_Node_Type) is
       New_Entity : W_Node;
    begin
@@ -231,6 +267,10 @@ package body Wrapping.Input.Kit is
       end if;
    end Pre_Visit;
 
+   ----------------
+   -- Eval_Field --
+   ----------------
+
    function Eval_Field (Node : Kit_Node; Name : Text_Type) return W_Object is
       Field_Node : Any_Node_Data_Reference;
    begin
@@ -250,6 +290,10 @@ package body Wrapping.Input.Kit is
 
       return null;
    end Eval_Field;
+
+   -------------------------
+   -- Get_Entity_For_Node --
+   -------------------------
 
    function Get_Entity_For_Node (Node : Kit_Node) return W_Kit_Node is
       Parent : W_Kit_Node;
@@ -274,6 +318,10 @@ package body Wrapping.Input.Kit is
          return New_Entity;
       end if;
    end Get_Entity_For_Node;
+
+   -------------------
+   -- Eval_Property --
+   -------------------
 
    function Eval_Property (Node : Kit_Node; Name : Text_Type) return W_Object is
       Property_Node : Any_Node_Data_Reference;
@@ -323,6 +371,10 @@ package body Wrapping.Input.Kit is
 
       return null;
    end Eval_Property;
+
+   ----------------
+   -- Push_Value --
+   ----------------
 
    overriding
    function Push_Value
@@ -407,11 +459,19 @@ package body Wrapping.Input.Kit is
       return False;
    end Push_Value;
 
+   ---------------
+   -- To_String --
+   ---------------
+
    overriding
    function To_String (Object : W_Kit_Node_Type) return Text_Type is
    begin
       return Object.Node.Text;
    end To_String;
+
+   ---------------------
+   -- To_Debug_String --
+   ---------------------
 
    overriding
    function To_Debug_String (Object : W_Kit_Node_Type) return Text_Type is
@@ -419,6 +479,10 @@ package body Wrapping.Input.Kit is
       return Object.Node.Kind'Wide_Wide_Image & ": "
         & W_Kit_Node_Type'Class (Object).To_String;
    end To_Debug_String;
+
+   ----------------
+   -- Push_Value --
+   ----------------
 
    overriding
    function Push_Value
@@ -499,11 +563,19 @@ package body Wrapping.Input.Kit is
       return False;
    end Push_Value;
 
+   ---------------
+   -- To_String --
+   ---------------
+
    overriding
    function To_String (Object : W_Kit_Node_Token_Type) return Text_Type is
    begin
       return Text (Object.Node);
    end To_String;
+
+   ---------------------
+   -- To_Debug_String --
+   ---------------------
 
    overriding
    function To_Debug_String (Object : W_Kit_Node_Token_Type) return Text_Type is
