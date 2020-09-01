@@ -7,6 +7,10 @@ with GNAT.Regpat; use GNAT.Regpat;
 
 package body Wrapping.Utils is
 
+   -------------------
+   -- Remove_Quotes --
+   -------------------
+
    function Remove_Quotes (Text : Text_Type) return Text_Type is
    begin
       if Text'Length = 0 then
@@ -19,6 +23,10 @@ package body Wrapping.Utils is
          return Text (Text'First + 1 .. Text'Last - 1);
       end if;
    end Remove_Quotes;
+
+   --------------
+   -- Reindent --
+   --------------
 
    function Reindent
      (New_Indent        : Integer;
@@ -101,6 +109,10 @@ package body Wrapping.Utils is
       end;
    end Reindent;
 
+   ------------
+   -- Suffix --
+   ------------
+
    function Suffix (Text : Text_Type) return Text_Type is
    begin
       for C in reverse Text'Range loop
@@ -115,6 +127,10 @@ package body Wrapping.Utils is
 
       return Text;
    end Suffix;
+
+   --------------------
+   -- Replace_String --
+   --------------------
 
    function Replace_String
      (Source, Pattern, Replace : Text_Type) return Text_Type

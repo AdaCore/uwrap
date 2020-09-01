@@ -8,6 +8,10 @@ package body Wrapping.Semantic.Structure is
 
    procedure Compute_Closure (Root : T_Entity; Closure : in out Text_Sets.Set);
 
+   ---------------
+   -- Add_Child --
+   ---------------
+
    procedure Add_Child (Parent, Child : access T_Entity_Type'Class) is
    begin
       Child.Parent := T_Entity (Parent);
@@ -20,17 +24,29 @@ package body Wrapping.Semantic.Structure is
       Parent.Children_Ordered.Append (T_Entity (Child));
    end Add_Child;
 
+   ---------------
+   -- Add_Child --
+   ---------------
+
    procedure Add_Child (Parent, Child : access T_Entity_Type'Class; Name_Node : Template_Node'Class) is
    begin
       Add_Child (Parent, Child);
       Parent.Children_Indexed.Insert (Name_Node.Text, T_Entity (Child));
    end Add_Child;
 
+   ---------------
+   -- Add_Child --
+   ---------------
+
    procedure Add_Child (Parent, Child : access T_Entity_Type'Class; Name : Text_Type) is
    begin
       Add_Child (Parent, Child);
       Parent.Children_Indexed.Insert (Name, T_Entity (Child));
    end Add_Child;
+
+   ---------------
+   -- Full_Name --
+   ---------------
 
    function Full_Name (An_Entity : T_Entity_Type) return Text_Type is
    begin
@@ -40,6 +56,10 @@ package body Wrapping.Semantic.Structure is
          return An_Entity.Parent.Full_Name;
       end if;
    end Full_Name;
+
+   -------------------------
+   -- Find_Visible_Entity --
+   -------------------------
 
    function Find_Visible_Entity (An_Entity : T_Entity_Type'Class; Name : Text_Type) return T_Entity
    is
@@ -52,6 +72,10 @@ package body Wrapping.Semantic.Structure is
          return null;
       end if;
    end Find_Visible_Entity;
+
+   ---------------
+   -- Full_Name --
+   ---------------
 
    function Full_Name (An_Entity : T_Named_Entity_Type) return Text_Type is
    begin
@@ -78,6 +102,10 @@ package body Wrapping.Semantic.Structure is
       end if;
    end Full_Name;
 
+   ----------------------------
+   -- Resolve_Module_By_Name --
+   ----------------------------
+
    function Resolve_Module_By_Name (Name : Text_Type) return T_Module is
       Result : T_Entity;
       A_Namespace : T_Namespace;
@@ -96,6 +124,10 @@ package body Wrapping.Semantic.Structure is
       return null;
    end Resolve_Module_By_Name;
 
+   ---------------
+   -- Full_Name --
+   ---------------
+
    function Full_Name (An_Entity : T_Module_Type) return Text_Type is
    begin
       if An_Entity.Parent = null then
@@ -113,10 +145,18 @@ package body Wrapping.Semantic.Structure is
       end if;
    end Full_Name;
 
+   -------------------
+   -- Get_Component --
+   -------------------
+
    function Get_Component (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity is
    begin
       return An_Entity.Children_Indexed (Name);
    end Get_Component;
+
+   -----------------
+   -- Instance_Of --
+   -----------------
 
    function Instance_Of (Child, Parent : T_Template) return Boolean is
    begin
@@ -131,6 +171,10 @@ package body Wrapping.Semantic.Structure is
       end if;
    end Instance_Of;
 
+   -------------------
+   -- Get_Component --
+   -------------------
+
    function Get_Component (A_Template : T_Template_Type; Name : Text_Type) return T_Entity is
    begin
       if A_Template.Children_Indexed.Contains (Name) then
@@ -142,7 +186,12 @@ package body Wrapping.Semantic.Structure is
       end if;
    end Get_Component;
 
-   function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return T_Namespace is
+   --------------------------
+   -- Get_Namespace_Prefix --
+   --------------------------
+
+   function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return T_Namespace
+   is
       First, Dot : Integer;
       Tentative : T_Entity;
       Current : T_Namespace := Wrapping.Semantic.Analysis.Root;
@@ -182,7 +231,16 @@ package body Wrapping.Semantic.Structure is
       end loop;
    end Get_Namespace_Prefix;
 
-    function Get_Static_Entity_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity is
+   -------------------------------
+   -- Get_Static_Entity_By_Name --
+   -------------------------------
+
+   function Get_Static_Entity_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity
+   is
+
+      ------------------------
+      -- Get_Visible_Entity --
+      ------------------------
 
       function Get_Visible_Entity (An_Entity : T_Entity; Name : Text_Type) return Structure.T_Entity is
       begin
@@ -214,7 +272,7 @@ package body Wrapping.Semantic.Structure is
       end Get_Visible_Entity;
 
       Extending_Module : Structure.T_Module;
-      Result : Structure.T_Entity;
+      Result           : Structure.T_Entity;
    begin
       Push_Error_Location (Name);
 
@@ -241,6 +299,10 @@ package body Wrapping.Semantic.Structure is
       return Result;
    end Get_Static_Entity_By_Name;
 
+   --------------------------
+   -- Get_Template_By_Name --
+   --------------------------
+
    function Get_Template_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity is
       An_Entity : T_Entity;
    begin
@@ -257,6 +319,10 @@ package body Wrapping.Semantic.Structure is
       return An_Entity;
    end Get_Template_By_Name;
 
+   ------------------------
+   -- Resolve_References --
+   ------------------------
+
    procedure Resolve_References (An_Entity : access T_Entity_Type) is
    begin
       for C of An_Entity.Children_Ordered loop
@@ -266,8 +332,12 @@ package body Wrapping.Semantic.Structure is
       end loop;
    end Resolve_References;
 
-   overriding
-   procedure Resolve_References (An_Entity : access T_Template_Type) is
+   ------------------------
+   -- Resolve_References --
+   ------------------------
+
+   overriding procedure Resolve_References (An_Entity : access T_Template_Type)
+   is
       Extending : T_Entity;
    begin
       if not An_Entity.Node.As_Template.F_Extending.Is_Null then
@@ -292,8 +362,13 @@ package body Wrapping.Semantic.Structure is
       T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
-   overriding
-   procedure Resolve_References (An_Entity : access T_Template_Call_Type) is
+   ------------------------
+   -- Resolve_References --
+   ------------------------
+
+   overriding procedure Resolve_References
+     (An_Entity : access T_Template_Call_Type)
+   is
       Name : Text_Type :=
         (if An_Entity.Node.As_Template_Call.F_Name.Is_Null then
             ""
@@ -326,8 +401,12 @@ package body Wrapping.Semantic.Structure is
       T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
-   overriding
-   procedure Resolve_References (An_Entity : access T_Command_Type) is
+   ------------------------
+   -- Resolve_References --
+   ------------------------
+
+   overriding procedure Resolve_References (An_Entity : access T_Command_Type)
+   is
    begin
       if An_Entity.Defer then
          Compute_Closure (T_Entity (An_Entity), An_Entity.Deferred_Closure);
@@ -352,8 +431,12 @@ package body Wrapping.Semantic.Structure is
       T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
-   overriding
-   procedure Resolve_References (An_Entity : access T_Module_Type) is
+   ------------------------
+   -- Resolve_References --
+   ------------------------
+
+   overriding procedure Resolve_References (An_Entity : access T_Module_Type)
+   is
    begin
       for C of An_Entity.Node.As_Module.F_Import_Clauses.Children loop
          Push_Error_Location (C);
@@ -377,8 +460,11 @@ package body Wrapping.Semantic.Structure is
       T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
-   overriding
-   procedure Resolve_References (An_Entity : access T_Expr_Type) is
+   ------------------------
+   -- Resolve_References --
+   ------------------------
+
+   overriding procedure Resolve_References (An_Entity : access T_Expr_Type) is
    begin
       if An_Entity.Kind = Template_Defer_Expr then
          Compute_Closure (T_Entity (An_Entity.Deferred_Expr), An_Entity.Deferred_Closure);
@@ -390,12 +476,20 @@ package body Wrapping.Semantic.Structure is
       T_Entity_Type (An_Entity.all).Resolve_References;
    end Resolve_References;
 
+   ---------------------
+   -- Compute_Closure --
+   ---------------------
+
    procedure Compute_Closure (Root : T_Entity; Closure : in out Text_Sets.Set) is
       Local_Symbols : Text_Sets.Set;
 
       procedure Not_Capture_Identifiers (Expr : T_Expr);
 
       procedure Capture_Identifiers (Expr : T_Expr);
+
+      -------------
+      -- Capture --
+      -------------
 
       procedure Capture (Name : Text_Type) is
       begin
@@ -409,6 +503,10 @@ package body Wrapping.Semantic.Structure is
             Closure.Include (Name);
          end if;
       end Capture;
+
+      -------------------------
+      -- Capture_Identifiers --
+      -------------------------
 
       procedure Capture_Identifiers (Expr : T_Expr) is
       begin
@@ -428,6 +526,10 @@ package body Wrapping.Semantic.Structure is
 
          Pop_Error_Location;
       end Capture_Identifiers;
+
+      -----------------------------
+      -- Not_Capture_Identifiers --
+      -----------------------------
 
       procedure Not_Capture_Identifiers (Expr : T_Expr) is
       begin
@@ -508,6 +610,10 @@ package body Wrapping.Semantic.Structure is
 
          Pop_Error_Location;
       end Not_Capture_Identifiers;
+
+      ----------------------------------------
+      -- Capture_Identifiers_In_Expressions --
+      ----------------------------------------
 
       procedure Capture_Identifiers_In_Expressions (Entity : T_Entity) is
       begin

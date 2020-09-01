@@ -14,6 +14,10 @@ with Ada.Strings.UTF_Encoding; use Ada.Strings.UTF_Encoding;
 
 package body Wrapping.Input.JSON is
 
+   ----------------
+   -- Push_Value --
+   ----------------
+
    overriding
    function Push_Value
      (An_Entity : access W_JSON_Node_Type;
@@ -75,17 +79,29 @@ package body Wrapping.Input.JSON is
       return False;
    end Push_Value;
 
+   ---------------
+   -- To_String --
+   ---------------
+
    overriding
    function To_String (Object : W_JSON_Node_Type) return Text_Type is
    begin
       return "";
    end To_String;
 
+   ---------------------
+   -- To_Debug_String --
+   ---------------------
+
    overriding
    function To_Debug_String (Object : W_JSON_Node_Type) return Text_Type is
    begin
       return "";
    end To_Debug_String;
+
+   ------------------
+   -- Analyze_File --
+   ------------------
 
    procedure Analyze_File (Filename : String) is
       File : Mapped_File;
@@ -94,6 +110,10 @@ package body Wrapping.Input.JSON is
 
       Root_Node : W_JSON_Node;
       Current_Node : W_JSON_Node := new W_JSON_Node_Type;
+
+      ----------------------
+      -- Iterate_On_Value --
+      ----------------------
 
       procedure Iterate_On_Value (Name : UTF8_String; Value : JSON_Value) is
          Parent : W_JSON_Node := Current_Node;

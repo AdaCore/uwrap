@@ -41,6 +41,10 @@ package body Wrapping.Semantic.Analysis is
 
    Context : constant Analysis_Context := Create_Context;
 
+   -----------------
+   -- Load_Module --
+   -----------------
+
    procedure Load_Module (Path : String; Name : String) is
       Unit : Analysis_Unit;
    begin
@@ -323,6 +327,10 @@ package body Wrapping.Semantic.Analysis is
 
       return A_Template_Call;
    end Build_Template_Call;
+
+   -------------------
+   -- Build_Command --
+   -------------------
 
    function Build_Command (Node : Template_Node'Class) return T_Command is
       A_Command : T_Command := new T_Command_Type;
@@ -656,6 +664,10 @@ package body Wrapping.Semantic.Analysis is
       return Expr;
    end Build_Expr;
 
+   ---------------
+   -- Build_Arg --
+   ---------------
+
    function Build_Arg (Node : Template_Node'Class) return T_Arg is
       Arg : T_Arg := new T_Arg_Type;
    begin
@@ -676,6 +688,10 @@ package body Wrapping.Semantic.Analysis is
 
    Expression_Unit_Number : Integer := 1;
 
+   --------------------
+   -- Analyze_String --
+   --------------------
+
    procedure Analyze_String
      (Node   : Template_Node'Class;
       Result : T_Expr)
@@ -685,6 +701,10 @@ package body Wrapping.Semantic.Analysis is
 
       Next_Index : Integer;
       Current : Integer;
+
+      --------------
+      -- On_Error --
+      --------------
 
       procedure On_Error
         (Message : Text_Type;
