@@ -85,7 +85,7 @@ package body Wrapping.Semantic.Analysis is
    procedure Push_Error_Location (Node : Template_Node'Class) is
    begin
       if Node.Is_Null then
-         Push_Error_Location ("no source", (0, 0));
+         Push_Error_Location ("<no source>", (0, 0));
       else
          Push_Error_Location
            (Node.Unit.Get_Filename,
