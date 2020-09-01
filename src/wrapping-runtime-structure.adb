@@ -681,7 +681,7 @@ package body Wrapping.Runtime.Structure is
       Push_Object (Match_False);
    end Push_Match_False;
 
-   procedure Include_Symbol (Name : Text_Type; Object : W_Object) is
+   procedure Include_Symbol (Name : Text_Type; Object : not null W_Object) is
    begin
       pragma Assert
         (if Object.all in W_Reference_Type'Class

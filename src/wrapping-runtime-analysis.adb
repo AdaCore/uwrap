@@ -116,9 +116,9 @@ package body Wrapping.Runtime.Analysis is
      (An_Entity : access T_Entity_Type'Class)
    is
    begin
-      Wrapping.Push_Error_Location
+      Push_Error_Location
         (An_Entity.Unit.Get_Filename,
-         (An_Entity.Sloc.Start_Line, An_Entity.Sloc.Start_Column));
+         Start_Sloc (An_Entity.Sloc));
    end Push_Error_Location;
 
    procedure Pop_Error_Location is
@@ -1393,8 +1393,7 @@ package body Wrapping.Runtime.Analysis is
       begin
          Push_Error_Location
            (Expr.Node.Unit.Get_Filename,
-            (Expr.Node.Sloc_Range.Start_Line,
-             Expr.Node.Sloc_Range.Start_Column));
+            Start_Sloc (Expr.Node.Sloc_Range));
 
          Put_Line
            (To_Text (Get_Sloc_Str)
