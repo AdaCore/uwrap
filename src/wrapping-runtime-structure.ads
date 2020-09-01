@@ -319,6 +319,10 @@ package Wrapping.Runtime.Structure is
    function Process_Parameters
      (Profile : Parameter_Profile; Arg : T_Arg_Vectors.Vector) return Actuals_Type;
 
+   function Evaluate_Match_Result
+     (Object : W_Object;
+      Matching_Expression : T_Expr) return Boolean;
+
    procedure Push_Match_Result
      (Object : W_Object;
       Matching_Expression : T_Expr);

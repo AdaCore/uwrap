@@ -1003,6 +1003,20 @@ package body Wrapping.Runtime.Structure is
       return Result;
    end Process_Parameters;
 
+   ---------------------------
+   -- Evaluate_Match_Result --
+   ---------------------------
+
+   function Evaluate_Match_Result
+     (Object : W_Object;
+      Matching_Expression : T_Expr) return Boolean
+   is
+   begin
+      Push_Match_Result (Object, Matching_Expression);
+
+      return Pop_Object /= Match_False;
+   end Evaluate_Match_Result;
+
    -----------------------
    -- Push_Match_Result --
    -----------------------
