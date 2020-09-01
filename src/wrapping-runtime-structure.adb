@@ -551,6 +551,8 @@ package body Wrapping.Runtime.Structure is
       -- Yield_Action --
       ------------------
 
+      To_Backtrack : Boolean := False;
+
       procedure Yield_Action is
       begin
          Push_Frame_Context;
@@ -595,12 +597,18 @@ package body Wrapping.Runtime.Structure is
                      when Template_Operator_Many =>
                         Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
 
+                        if To_Backtrack then
+                           Pop_Object;
+                           Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
+                        end if;
+
                         if Top_Object = Match_False then
                            --  If the result is false, we went one element too
                            --  far. Pop it and process the right action.
 
-                           Pop_Object;
-                           Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
+                           To_Backtrack := True;
+                           --  Pop_Object;
+                           --  Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
                         elsif Overall_Yield_Callback /= null then
                            --  If there's an original Yield callback, then
                            --  even if this matches and we're going to look to
@@ -608,8 +616,11 @@ package body Wrapping.Runtime.Structure is
                            --  expression from this point to provide one of the
                            --  possible solutions.
 
-                           Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
-                           Delete_Object_At_Position (-2);
+                           --  Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
+                           --  Delete_Object_At_Position (-2);
+                           To_Backtrack := True;
+                        else
+                           To_Backtrack := False;
                         end if;
 
                      when Template_Operator_Few =>
