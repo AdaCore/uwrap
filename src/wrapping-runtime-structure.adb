@@ -343,12 +343,7 @@ package body Wrapping.Runtime.Structure is
 
          Result_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
 
-         if not Expr.Node.As_Reg_Expr.F_Captured.Is_Null then
-            Top_Frame.Symbols.Insert (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Result_Variable));
-            Matcher.Capture_Callback := Capture_Callback'Unrestricted_Access;
-         else
-            Matcher.Capture_Callback := null;
-         end if;
+         Matcher.Capture_Callback := Capture_Callback'Unrestricted_Access;
 
          Top_Frame.Top_Context.Yield_Callback := Handle_Regexpr'Access;
 
@@ -389,23 +384,24 @@ package body Wrapping.Runtime.Structure is
       --  --  to be taken into account in the overall iteration.
       --  Overall_Iteration_Control : Visit_Action_Ptr := Top_Frame.Top_Context.Visit_Decision;
       --
-      --  Initial_Capture_Callback : Capture_Callback_Type;
-      --  Captured_Variable : W_Regexpr_Result;
+      Initial_Capture_Callback : Capture_Callback_Type;
+      Captured_Variable : W_Regexpr_Result;
       --
-      --  ----------------------
-      --  -- Capture_Callback --
-      --  ----------------------
-      --
-      --  procedure Capture_Callback (Mode : Capture_Mode) is
-      --  begin
-      --     Initial_Capture_Callback (Mode);
-      --
-      --     if Mode = Capture then
-      --        Captured_Variable.Result.A_Vector.Append (Top_Object);
-      --     else
-      --        Captured_Variable.Result.A_Vector.Delete_Last;
-      --     end if;
-      --  end Capture_Callback;
+      ----------------------
+      -- Capture_Callback --
+      ----------------------
+
+      procedure Capture_Callback (Mode : Capture_Mode) is
+      begin
+         Initial_Capture_Callback (Mode);
+
+         if Mode = Capture then
+            Captured_Variable.Result.A_Vector.Append (Top_Object);
+         else
+            Captured_Variable.Result.A_Vector.Delete_Last;
+         end if;
+      end Capture_Callback;
+
       --
       --  procedure Yield_Action
       --    with Post => Top_Frame.Data_Stack.Length
@@ -673,7 +669,7 @@ package body Wrapping.Runtime.Structure is
 
       Matcher : Regexpr_Matcher := Top_Frame.Top_Context.Regexpr;
 
-      Sub_Matcher : aliased Regexpr_Matcher_Type := Matcher.all;
+      Sub_Matcher : aliased Regexpr_Matcher_Type;
       Expr : T_Expr := Matcher.Current_Expr;
       Object : W_Object := Top_Object;
 
@@ -699,7 +695,9 @@ package body Wrapping.Runtime.Structure is
 
       procedure Post_Process_Next_Result is
       begin
-         if Top_Frame.Top_Context.Regexpr.Current_Expr.Kind = Template_Reg_Expr_Anchor then
+         if Top_Frame.Top_Context.Regexpr /= null
+           and then Top_Frame.Top_Context.Regexpr.Current_Expr.Kind = Template_Reg_Expr_Anchor
+         then
             if Pop_Object = Match_False then
                Push_Match_True (Top_Object);
             else
@@ -743,6 +741,19 @@ package body Wrapping.Runtime.Structure is
 
          Push_Match_True (Top_Object);
       elsif Expr.Kind = Template_Reg_Expr then
+         if not Matcher.Capture_Callback_Installed
+           and then not Expr.Node.As_Reg_Expr.F_Captured.Is_Null
+         then
+            Matcher.Capture_Callback_Installed := True;
+            Initial_Capture_Callback := Matcher.Capture_Callback;
+            Captured_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
+            Top_Frame.Symbols.Include (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Captured_Variable));
+            Matcher.Capture_Callback := Capture_Callback'Unrestricted_Access;
+         end if;
+
+         Sub_Matcher := Matcher.all;
+         Sub_Matcher.Capture_Callback_Installed := False;
+
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
             Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit + 1;
 
@@ -844,12 +855,18 @@ package body Wrapping.Runtime.Structure is
             Post_Process_Next_Result;
             Pop_Frame_Context;
          end if;
+
+         if Initial_Capture_Callback /= null then
+            Matcher.Capture_Callback := Initial_Capture_Callback;
+            Matcher.Capture_Callback_Installed := False;
+            Initial_Capture_Callback := null;
+         end if;
       else
          if not Evaluate_Match_Result (Object, Expr) then
-            --Matcher.Capture_Callback (Rollback);
-            --Matcher.Generator_Decision.all := Into;
             Push_Match_False;
          else
+            Matcher.Capture_Callback (Capture);
+
             Push_Frame_Context;
             Top_Frame.Top_Context.Regexpr := Get_Right_Expression_Matcher;
 
@@ -857,8 +874,16 @@ package body Wrapping.Runtime.Structure is
                Top_Frame.Top_Context.Yield_Callback := Handle_Regexpr'Access;
                Matcher.Generator (null);
                Post_Process_Next_Result;
+
+               --  TODO: This may not be enough in the context of an all ()
+               --  generation as we'll also want to rollback when exploring
+               --  other
+               if Top_Object = Match_False then
+                  Matcher.Capture_Callback (Rollback);
+               end if;
             else
                Push_Match_True (Top_Object);
+               Post_Process_Next_Result;
 
                if Matcher.Overall_Yield_Callback /= null then
                   Matcher.Overall_Yield_Callback.all;
@@ -871,8 +896,6 @@ package body Wrapping.Runtime.Structure is
       end if;
 
       Depth := Depth - 2;
-
-      --  Top_Frame.Top_Context.Visit_Decision.all := Into;
       Pop_Frame_Context;
 
 
