@@ -1,3 +1,11 @@
 match f_name ("ROOT")
 pick child (\ few (true) \ a: Entity () \ many (true) \ b: Entity ()).all ()
-weave standard.out (@ & "a .. b " & a.sloc & a.f_name & ", " & b.sloc & b.f_name & "\n");
+weave standard.out (@ & "[1] a .. b " & a.sloc & a.f_name & ", " & b.sloc & b.f_name & "\n");
+
+match f_name ("ROOT")
+pick child (\ few (not Entity ()) \ a: Entity () \ many (true) \ b: Entity ()).all ()
+weave standard.out (@ & "[2] a .. b " & a.sloc & a.f_name & ", " & b.sloc & b.f_name & "\n");
+
+match f_name ("ROOT")
+pick child (\ many (true) \ b: Entity ()).all ()
+weave standard.out (@ & "[3] a .. b " & b.sloc & b.f_name & "\n");

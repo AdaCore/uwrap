@@ -363,7 +363,7 @@ package body Wrapping.Runtime.Analysis is
          Visit_Decision            => Context.Visit_Decision,
          Regexpr_Anchored          => Context.Regexpr_Anchored,
          Pick_Callback             => Context.Pick_Callback,
-         Capture_Callback          => Context.Capture_Callback,
+         Regexpr                   => Context.Regexpr,
          Is_First_Matching_Wrapper => Context.Is_First_Matching_Wrapper);
    end Push_Frame_Context;
 
@@ -2426,7 +2426,7 @@ package body Wrapping.Runtime.Analysis is
 
       Evaluate_Generator_Regexp
         (Root      => Top_Object,
-         Generator => Generator'Access,
+         Generator => Generator'Unrestricted_Access,
          Expr      => Filtered_Expr);
 
       Delete_Object_At_Position (-2);

@@ -61,9 +61,9 @@ package body Wrapping.Runtime.Objects is
       end Generator;
    begin
       if Params.Length = 0 then
-         Evaluate_Generator_Regexp (Object, null, Generator'Access);
+         Evaluate_Generator_Regexp (Object, null, Generator'Unrestricted_Access);
       elsif Params.Length = 1 then
-         Evaluate_Generator_Regexp (Object, Params.Element (1).Expr, Generator'Access);
+         Evaluate_Generator_Regexp (Object, Params.Element (1).Expr, Generator'Unrestricted_Access);
       elsif Params.Length > 1 then
          Error ("matcher takes only 1 argument");
       end if;

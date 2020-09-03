@@ -13,6 +13,7 @@ with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
 with Wrapping.Runtime.Functions; use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
+with System.Address_Image;
 
 package body Wrapping.Runtime.Structure is
 
@@ -275,12 +276,8 @@ package body Wrapping.Runtime.Structure is
    end Browse_Entity;
 
    procedure Handle_Regexpr
-     (Expr      : T_Expr;
-      Generator : access procedure (Expr : T_Expr);
-      Outer_Right_Expression : access procedure (Generator_Decision : Visit_Action_Ptr);
-      Generator_Decision : Visit_Action_Ptr)
      with Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1
-       and Top_Frame.Top_Context = Top_Frame.Top_Context'Old;
+     and Top_Frame.Top_Context = Top_Frame.Top_Context'Old;
 
    -------------------------------
    -- Evaluate_Generator_Regexp --
@@ -289,7 +286,7 @@ package body Wrapping.Runtime.Structure is
    procedure Evaluate_Generator_Regexp
      (Root      : access W_Object_Type'Class;
       Expr      : T_Expr;
-      Generator : access procedure (Expr : T_Expr))
+      Generator : Generator_Type)
    is
       Result_Variable : W_Regexpr_Result;
 
@@ -326,428 +323,704 @@ package body Wrapping.Runtime.Structure is
 
       --  We are on an actual regexpr. Install the result capture handler, and
       --  then process the expression
+      declare
+         Matcher : aliased Regexpr_Matcher_Type;
+      begin
+         Push_Frame_Context;
 
-      Push_Frame_Context;
+         Top_Frame.Top_Context.Regexpr := Matcher'Unchecked_Access;
 
-      Result_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
+         if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
+            Top_Frame.Top_Context.Regexpr_Anchored := True;
+            Matcher.Current_Expr := Expr.Reg_Expr_Right;
+         else
+            Matcher.Current_Expr := Expr;
+         end if;
 
-      if not Expr.Node.As_Reg_Expr.F_Captured.Is_Null then
-         Top_Frame.Symbols.Insert (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Result_Variable));
-      end if;
+         Matcher.Generator := Generator;
+         Matcher.Overall_Yield_Callback := Top_Frame.Top_Context.Yield_Callback;
+         Matcher.Generator_Decision := Dummy_Generator_Decision'Unchecked_Access;
 
-      Top_Frame.Top_Context.Capture_Callback := Capture_Callback'Unrestricted_Access;
+         Result_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
 
-      Push_Object (Root);
-      Handle_Regexpr (Expr, Generator, null, Dummy_Generator_Decision'Unchecked_Access);
-      Delete_Object_At_Position (-2);
+         if not Expr.Node.As_Reg_Expr.F_Captured.Is_Null then
+            Top_Frame.Symbols.Insert (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Result_Variable));
+            Matcher.Capture_Callback := Capture_Callback'Unrestricted_Access;
+         else
+            Matcher.Capture_Callback := null;
+         end if;
 
-      Pop_Frame_Context;
+         Top_Frame.Top_Context.Yield_Callback := Handle_Regexpr'Access;
 
-      if Top_Object /= Match_False then
-         Pop_Object;
-         Push_Object (Result_Variable);
-      end if;
+         Push_Object (Root);
+         Generator (null);
+         Delete_Object_At_Position (-2);
+
+         Pop_Frame_Context;
+
+         if Top_Object /= Match_False then
+            Pop_Object;
+            Push_Object (Result_Variable);
+         end if;
+      end;
    end Evaluate_Generator_Regexp;
 
    --------------------
    -- Handle_Regexpr --
    --------------------
 
-   procedure Handle_Regexpr
-     (Expr      : T_Expr;
-      Generator : access procedure (Expr : T_Expr);
-      Outer_Right_Expression : access procedure (Generator_Decision : Visit_Action_Ptr);
-      Generator_Decision : Visit_Action_Ptr)
-   is
-      Root : W_Object := Top_Object;
-      Quantifiers_Hit : Integer := 0;
+   Depth : Integer := 0;
 
-      --  Handle_Regexps should always be called with the top yeld callback being
-      --  the callback for the overall regular expression, if any. This is the
-      --  callback in which values should generate to.
-      Overall_Yield_Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback;
+   function P return Wide_Wide_String is (Wide_Wide_String'(1 .. Depth => ' '));
 
-      --  TODO: Why is this not used anymore? How do we get back the outer visit decision
-      --  We need to protect iteration control in the expression process (it should
-      --  not stop the overall iteration) and restore it once going to the overall
-      --  yield callback (this callback may have wrap over / wrap into directives
-      --  to be taken into account in the overall iteration.
-      Overall_Iteration_Control : Visit_Action_Ptr := Top_Frame.Top_Context.Visit_Decision;
+   procedure Handle_Regexpr is
+      --  Root : W_Object := Top_Object;
+      --  Quantifiers_Hit : Integer := 0;
+      --
+      --  --  Handle_Regexps should always be called with the top yeld callback being
+      --  --  the callback for the overall regular expression, if any. This is the
+      --  --  callback in which values should generate to.
+      --  Overall_Yield_Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback;
+      --
+      --  --  TODO: Why is this not used anymore? How do we get back the outer visit decision
+      --  --  We need to protect iteration control in the expression process (it should
+      --  --  not stop the overall iteration) and restore it once going to the overall
+      --  --  yield callback (this callback may have wrap over / wrap into directives
+      --  --  to be taken into account in the overall iteration.
+      --  Overall_Iteration_Control : Visit_Action_Ptr := Top_Frame.Top_Context.Visit_Decision;
+      --
+      --  Initial_Capture_Callback : Capture_Callback_Type;
+      --  Captured_Variable : W_Regexpr_Result;
+      --
+      --  ----------------------
+      --  -- Capture_Callback --
+      --  ----------------------
+      --
+      --  procedure Capture_Callback (Mode : Capture_Mode) is
+      --  begin
+      --     Initial_Capture_Callback (Mode);
+      --
+      --     if Mode = Capture then
+      --        Captured_Variable.Result.A_Vector.Append (Top_Object);
+      --     else
+      --        Captured_Variable.Result.A_Vector.Delete_Last;
+      --     end if;
+      --  end Capture_Callback;
+      --
+      --  procedure Yield_Action
+      --    with Post => Top_Frame.Data_Stack.Length
+      --      = Top_Frame.Data_Stack.Length'Old + 1;
+      --
+      --  procedure Process_Right_Expression (Generator_Decision : Visit_Action_Ptr)
+      --    with Post => Top_Frame.Data_Stack.Length
+      --      = Top_Frame.Data_Stack.Length'Old + 1;
+      --
+      --  ----------------------------------
+      --  -- Install_Local_Yield_Callback --
+      --  ----------------------------------
+      --
+      --  procedure Install_Local_Yield_Callback is
+      --  begin
+      --     Top_Frame.Top_Context.Yield_Callback := Yield_Action'Unrestricted_Access;
+      --  end Install_Local_Yield_Callback;
+      --
+      --  ------------------------------------
+      --  -- Restore_Overall_Yield_Callback --
+      --  ------------------------------------
+      --
+      --  procedure Restore_Overall_Yield_Callback is
+      --  begin
+      --     Top_Frame.Top_Context.Yield_Callback := Overall_Yield_Callback;
+      --  end Restore_Overall_Yield_Callback;
+      --
+      --  -----------------------------
+      --  -- Process_Left_Expression --
+      --  -----------------------------
+      --
+      --  procedure Process_Left_Expression (Left_Expr : T_Expr; Generator_Decision : Visit_Action_Ptr) is
+      --  begin
+      --     --  This function is used to process the left side of a regular expression,
+      --     --  which can be either a single expression, as in:
+      --     --     A \ B (left is A)
+      --     --  A subexpression as in:
+      --     --     (A \ B) \ C (left is A \ B)
+      --     --  Or a the expression of a quantifier
+      --     --     many (A \ B) \ C (left is A \ B).
+      --     --  It will call the generator on the left expression and trigger a
+      --     --  yield of it result, calling then the yeild callback to process the
+      --     --  right part.
+      --
+      --     if Left_Expr.Kind = Template_Reg_Expr then
+      --        --  We contain on a subexpression, for example in
+      --        --     x: (A \ B) \ C
+      --        --  We're on the regexpr that has "x: (A \ B)" on the left and "\ C"
+      --        --  on the right. Call handle of the expression "x: (A \ B)" while
+      --        --  passing a pointer to the "Process_Right_Action" call in order
+      --        --  for the underlying expression analysis to call back into it
+      --        --  at the end of its processing and carry on the analysis to \ C
+      --
+      --        Handle_Regexpr (Left_Expr, Generator, Process_Right_Expression'Access, Generator_Decision);
+      --     else
+      --        Push_Frame_Context;
+      --        Install_Local_Yield_Callback;
+      --        Generator (Left_Expr);
+      --        Pop_Frame_Context;
+      --     end if;
+      --  end Process_Left_Expression;
+      --
+      --  -----------------------------------
+      --  -- Process_End_Of_Sub_Expression --
+      --  -----------------------------------
+      --
+      --  procedure Process_End_Of_Sub_Expression (Generator_Decision : Visit_Action_Ptr) is
+      --  begin
+      --     --  This function has to be called when we reached the end of either
+      --     --  an expression or a sub expression (which would be identified by the
+      --     --  right prenthesis. If it's a sub-expression, it has an
+      --     --  outer_process_right value, for example in
+      --     --     x: (A \ B) \ C
+      --     --  Reaching \ B) requires to call the outer right identified by \C
+      --     --  Otherwise, we reached the end of the entire regular expression. If
+      --     --  there is a function that has been set as a receiving values from
+      --     --  a generator, e.g.:
+      --     --     child (x: (A \ B) \ C).all()
+      --     --  Then call that function (the original yield callback is set).
+      --     --  Otherwise (the original yield callback is not set) stop the
+      --     --  value generation by marking the visit decision to Stop.
+      --
+      --     if Outer_Right_Expression /= null then
+      --        Outer_Right_Expression.all (Generator_Decision);
+      --     else
+      --        Push_Object (Top_Object);
+      --
+      --        if Overall_Yield_Callback /= null then
+      --           Overall_Yield_Callback.all;
+      --           Delete_Object_At_Position (-2);
+      --           Generator_Decision.all := Into;
+      --        else
+      --           Generator_Decision.all := Stop;
+      --        end if;
+      --     end if;
+      --  end Process_End_Of_Sub_Expression;
+      --
+      --  ------------------------------
+      --  -- Process_Right_Expression --
+      --  ------------------------------
+      --
+      --  procedure Process_Right_Expression (Generator_Decision : Visit_Action_Ptr) is
+      --     Result : W_Object;
+      --  begin
+      --     --  If we are not on the wrapper, Is_First_Matching_Wrapper is always true.
+      --     --
+      --     --  If we are on a wrapper, we only want to look at the next step
+      --     --  in the iteration if we're on the first one that matches.
+      --     --  Ignore the others.
+      --
+      --     if Expr.Reg_Expr_Right /= null and then Top_Frame.Top_Context.Is_First_Matching_Wrapper then
+      --        Push_Frame_Context;
+      --
+      --        --  If this expression is of the form "x (a \ b) \ c", when starting
+      --        --  to analyze  c, the capturing function for x needs to be removed
+      --
+      --        if Captured_Variable /= null then
+      --           Top_Frame.Top_Context.Capture_Callback := Initial_Capture_Callback;
+      --        end if;
+      --
+      --        Restore_Overall_Yield_Callback;
+      --        Handle_Regexpr (Expr.Reg_Expr_Right, Generator, Outer_Right_Expression, Generator_Decision);
+      --        Result := Top_Object;
+      --
+      --        Pop_Frame_Context;
+      --
+      --        if Result = Match_False then
+      --           Top_Frame.Top_Context.Capture_Callback (Rollback);
+      --           Generator_Decision.all := Into;
+      --        else
+      --           if Overall_Yield_Callback /= null then
+      --              Generator_Decision.all := Into;
+      --           else
+      --              Generator_Decision.all := Stop;
+      --           end if;
+      --        end if;
+      --     elsif Expr.Reg_Expr_Right = null then
+      --        Process_End_Of_Sub_Expression (Generator_Decision);
+      --     else
+      --        --  We're not at the end of the iteration but are not on the first
+      --        --  mathing wrapper anymore. Don't continue the processing on this
+      --        --  wrapper node, the next onces have already been processed.
+      --
+      --        Push_Match_False;
+      --     end if;
+      --  end Process_Right_Expression;
+      --
+      --  --  This variable stores the visit decision for this expression section.
+      --  --  In case of quantifiers, there can be multiple generators stacked one
+      --  --  on top of the other. In case a decision is taken by the last one, it
+      --  --  needs to be transmitted to all all generators for that expression, so
+      --  --  all recursive calls to "Yield_Action", not just the last one. This
+      --  --  variable will be used to store that result and then set the top
+      --  --  frame decision through the stack.
+      --  Local_Yield_Decision : aliased Visit_Action := Unknown;
+      --
+      --  ------------------
+      --  -- Yield_Action --
+      --  ------------------
+      --
+      --  To_Backtrack : Boolean := False;
+      --
+      --  procedure Yield_Action is
+      --  begin
+      --     Push_Frame_Context;
+      --     Top_Frame.Top_Context.Capture_Callback (Capture);
+      --
+      --     if Expr.Kind = Template_Reg_Expr_Anchor then
+      --        Top_Frame.Top_Context.Yield_Callback := null;
+      --        --  If we're evaluating an anchor at this stage, this is a right
+      --        --  anchor. There should not be any more element available.
+      --
+      --        Generator (null);
+      --
+      --        if Pop_Object /= Match_False then
+      --           Top_Frame.Top_Context.Capture_Callback (Rollback); -- TODO: to remove???
+      --           Push_Match_False;
+      --        else
+      --           Push_Object (Root);-- TODO: Should probably not be root, but the
+      --           --  result array instead
+      --        end if;
+      --     elsif Expr.Kind = Template_Reg_Expr then
+      --        Top_Frame.Top_Context.Regexpr_Anchored := True;
+      --
+      --        if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
+      --
+      --           --  When reaching this, the generator has found an additional
+      --           --  match. Update the quantifier counter.
+      --           Quantifiers_Hit := Quantifiers_Hit + 1;
+      --
+      --           if Quantifiers_Hit < Expr.Reg_Expr_Left.Min then
+      --              --  First, no matter the quantifier, try to reach the minimum
+      --              --  value
+      --
+      --              Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
+      --           elsif Quantifiers_Hit = Expr.Reg_Expr_Left.Max then
+      --              -- Second, if we hit the max, move on to the right action
+      --              Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
+      --           else
+      --              --  Then if the quantifier is many, try to reach as many
+      --              --  as possible. If few, see if one is necessary.
+      --
+      --              case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
+      --                 when Template_Operator_Many =>
+      --                    Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
+      --
+      --                    if To_Backtrack then
+      --                       Pop_Object;
+      --                       Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
+      --                    end if;
+      --
+      --                 when Template_Operator_Few =>
+      --                    Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
+      --
+      --                    if To_Backtrack then
+      --                       Pop_Object;
+      --                       Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
+      --                    end if;
+      --
+      --                 when others =>
+      --                    Error ("unexpected quantifier kind");
+      --              end case;
+      --
+      --              if Top_Object = Match_False then
+      --                 --  If the result is false, we went one element too
+      --                 --  far. Pop it and process the right action.
+      --
+      --                 To_Backtrack := True;
+      --                 --  Pop_Object;
+      --                 --  Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
+      --              --  elsif Overall_Yield_Callback /= null then
+      --              --     --  If there's an original Yield callback, then
+      --              --     --  even if this matches and we're going to look to
+      --              --     --  consume the next entity, try to process the whole
+      --              --     --  expression from this point to provide one of the
+      --              --     --  possible solutions.
+      --              --
+      --              --     --  Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
+      --              --     --  Delete_Object_At_Position (-2);
+      --              --     To_Backtrack := True;
+      --              else
+      --                 To_Backtrack := False;
+      --              end if;
+      --           end if;
+      --        else
+      --           Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
+      --        end if;
+      --     else
+      --        Process_End_Of_Sub_Expression (Local_Yield_Decision'Unchecked_Access);
+      --     end if;
+      --
+      --     Top_Frame.Top_Context.Visit_Decision.all := Local_Yield_Decision;
+      --
+      --     Pop_Frame_Context;
+      --  end Yield_Action;
+      --
+      --  Result : W_Object;
 
-      Initial_Capture_Callback : Capture_Callback_Type;
-      Captured_Variable : W_Regexpr_Result;
 
-      ----------------------
-      -- Capture_Callback --
-      ----------------------
 
-      procedure Capture_Callback (Mode : Capture_Mode) is
+
+
+
+
+
+      Matcher : Regexpr_Matcher := Top_Frame.Top_Context.Regexpr;
+
+      Sub_Matcher : aliased Regexpr_Matcher_Type := Matcher.all;
+      Expr : T_Expr := Matcher.Current_Expr;
+      Object : W_Object := Top_Object;
+
+      Next_Matcher : aliased Regexpr_Matcher_Type := Matcher.all;
+
+      Local_Decision : aliased Visit_Action;
+
+      function Get_Right_Expression_Matcher return Regexpr_Matcher is
+         Expr : T_Expr;
       begin
-         Initial_Capture_Callback (Mode);
-
-         if Mode = Capture then
-            Captured_Variable.Result.A_Vector.Append (Top_Object);
-         else
-            Captured_Variable.Result.A_Vector.Delete_Last;
+         if Matcher = null then
+            Top_Frame.Top_Context.Regexpr := null;
+            return null;
          end if;
-      end Capture_Callback;
 
-      procedure Yield_Action
-        with Post => Top_Frame.Data_Stack.Length
-          = Top_Frame.Data_Stack.Length'Old + 1;
+         Expr := Matcher.Current_Expr;
 
-      procedure Process_Right_Expression (Generator_Decision : Visit_Action_Ptr)
-        with Post => Top_Frame.Data_Stack.Length
-          = Top_Frame.Data_Stack.Length'Old + 1;
-
-      ----------------------------------
-      -- Install_Local_Yield_Callback --
-      ----------------------------------
-
-      procedure Install_Local_Yield_Callback is
-      begin
-         Top_Frame.Top_Context.Yield_Callback := Yield_Action'Unrestricted_Access;
-      end Install_Local_Yield_Callback;
-
-      ------------------------------------
-      -- Restore_Overall_Yield_Callback --
-      ------------------------------------
-
-      procedure Restore_Overall_Yield_Callback is
-      begin
-         Top_Frame.Top_Context.Yield_Callback := Overall_Yield_Callback;
-      end Restore_Overall_Yield_Callback;
-
-      -----------------------------
-      -- Process_Left_Expression --
-      -----------------------------
-
-      procedure Process_Left_Expression (Left_Expr : T_Expr; Generator_Decision : Visit_Action_Ptr) is
-      begin
-         --  This function is used to process the left side of a regular expression,
-         --  which can be either a single expression, as in:
-         --     A \ B (left is A)
-         --  A subexpression as in:
-         --     (A \ B) \ C (left is A \ B)
-         --  Or a the expression of a quantifier
-         --     many (A \ B) \ C (left is A \ B).
-         --  It will call the generator on the left expression and trigger a
-         --  yield of it result, calling then the yeild callback to process the
-         --  right part.
-
-         if Left_Expr.Kind = Template_Reg_Expr then
-            --  We contain on a subexpression, for example in
-            --     x: (A \ B) \ C
-            --  We're on the regexpr that has "x: (A \ B)" on the left and "\ C"
-            --  on the right. Call handle of the expression "x: (A \ B)" while
-            --  passing a pointer to the "Process_Right_Action" call in order
-            --  for the underlying expression analysis to call back into it
-            --  at the end of its processing and carry on the analysis to \ C
-
-            Handle_Regexpr (Left_Expr, Generator, Process_Right_Expression'Access, Generator_Decision);
+         if Expr.Kind not in Template_Reg_Expr or else Expr.Reg_Expr_Right = null then
+            return Matcher.Outer_Next_Expr;
          else
-            Push_Frame_Context;
-            Install_Local_Yield_Callback;
-            Generator (Left_Expr);
-            Pop_Frame_Context;
+            Next_Matcher.Current_Expr := Expr.Reg_Expr_Right;
+            return Next_Matcher'Unchecked_Access;
          end if;
-      end Process_Left_Expression;
+      end Get_Right_Expression_Matcher;
 
-      -----------------------------------
-      -- Process_End_Of_Sub_Expression --
-      -----------------------------------
-
-      procedure Process_End_Of_Sub_Expression (Generator_Decision : Visit_Action_Ptr) is
+      procedure Post_Process_Right_Anchor is
       begin
-         --  This function has to be called when we reached the end of either
-         --  an expression or a sub expression (which would be identified by the
-         --  right prenthesis. If it's a sub-expression, it has an
-         --  outer_process_right value, for example in
-         --     x: (A \ B) \ C
-         --  Reaching \ B) requires to call the outer right identified by \C
-         --  Otherwise, we reached the end of the entire regular expression. If
-         --  there is a function that has been set as a receiving values from
-         --  a generator, e.g.:
-         --     child (x: (A \ B) \ C).all()
-         --  Then call that function (the original yield callback is set).
-         --  Otherwise (the original yield callback is not set) stop the
-         --  value generation by marking the visit decision to Stop.
-
-         if Outer_Right_Expression /= null then
-            Outer_Right_Expression.all (Generator_Decision);
-         else
-            Push_Object (Top_Object);
-
-            if Overall_Yield_Callback /= null then
-               Overall_Yield_Callback.all;
-               Delete_Object_At_Position (-2);
-               Generator_Decision.all := Into;
+         if Top_Frame.Top_Context.Regexpr.Current_Expr.Kind = Template_Reg_Expr_Anchor then
+            if Pop_Object = Match_False then
+               Push_Match_True (Top_Object);
             else
-               Generator_Decision.all := Stop;
-            end if;
-         end if;
-      end Process_End_Of_Sub_Expression;
-
-      ------------------------------
-      -- Process_Right_Expression --
-      ------------------------------
-
-      procedure Process_Right_Expression (Generator_Decision : Visit_Action_Ptr) is
-         Result : W_Object;
-      begin
-         --  If we are not on the wrapper, Is_First_Matching_Wrapper is always true.
-         --
-         --  If we are on a wrapper, we only want to look at the next step
-         --  in the iteration if we're on the first one that matches.
-         --  Ignore the others.
-
-         if Expr.Reg_Expr_Right /= null and then Top_Frame.Top_Context.Is_First_Matching_Wrapper then
-            Push_Frame_Context;
-
-            --  If this expression is of the form "x (a \ b) \ c", when starting
-            --  to analyze  c, the capturing function for x needs to be removed
-
-            if Captured_Variable /= null then
-               Top_Frame.Top_Context.Capture_Callback := Initial_Capture_Callback;
-            end if;
-
-            Restore_Overall_Yield_Callback;
-            Handle_Regexpr (Expr.Reg_Expr_Right, Generator, Outer_Right_Expression, Generator_Decision);
-            Result := Top_Object;
-
-            Pop_Frame_Context;
-
-            if Result = Match_False then
-               Top_Frame.Top_Context.Capture_Callback (Rollback);
-               Generator_Decision.all := Into;
-            else
-               if Overall_Yield_Callback /= null then
-                  Generator_Decision.all := Into;
-               else
-                  Generator_Decision.all := Stop;
-               end if;
-            end if;
-         elsif Expr.Reg_Expr_Right = null then
-            Process_End_Of_Sub_Expression (Generator_Decision);
-         else
-            --  We're not at the end of the iteration but are not on the first
-            --  mathing wrapper anymore. Don't continue the processing on this
-            --  wrapper node, the next onces have already been processed.
-
-            Push_Match_False;
-         end if;
-      end Process_Right_Expression;
-
-      --  This variable stores the visit decision for this expression section.
-      --  In case of quantifiers, there can be multiple generators stacked one
-      --  on top of the other. In case a decision is taken by the last one, it
-      --  needs to be transmitted to all all generators for that expression, so
-      --  all recursive calls to "Yield_Action", not just the last one. This
-      --  variable will be used to store that result and then set the top
-      --  frame decision through the stack.
-      Local_Yield_Decision : aliased Visit_Action := Unknown;
-
-      ------------------
-      -- Yield_Action --
-      ------------------
-
-      To_Backtrack : Boolean := False;
-
-      procedure Yield_Action is
-      begin
-         Push_Frame_Context;
-         Top_Frame.Top_Context.Capture_Callback (Capture);
-
-         if Expr.Kind = Template_Reg_Expr_Anchor then
-            Top_Frame.Top_Context.Yield_Callback := null;
-            --  If we're evaluating an anchor at this stage, this is a right
-            --  anchor. There should not be any more element available.
-
-            Generator (null);
-
-            if Pop_Object /= Match_False then
-               Top_Frame.Top_Context.Capture_Callback (Rollback); -- TODO: to remove???
                Push_Match_False;
-            else
-               Push_Object (Root);-- TODO: Should probably not be root, but the
-               --  result array instead
             end if;
-         elsif Expr.Kind = Template_Reg_Expr then
-            Top_Frame.Top_Context.Regexpr_Anchored := True;
-
-            if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
-
-               --  When reaching this, the generator has found an additional
-               --  match. Update the quantifier counter.
-               Quantifiers_Hit := Quantifiers_Hit + 1;
-
-               if Quantifiers_Hit < Expr.Reg_Expr_Left.Min then
-                  --  First, no matter the quantifier, try to reach the minimum
-                  --  value
-
-                  Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
-               elsif Quantifiers_Hit = Expr.Reg_Expr_Left.Max then
-                  -- Second, if we hit the max, move on to the right action
-                  Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
-               else
-                  --  Then if the quantifier is many, try to reach as many
-                  --  as possible. If few, see if one is necessary.
-
-                  case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
-                     when Template_Operator_Many =>
-                        Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
-
-                        if To_Backtrack then
-                           Pop_Object;
-                           Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
-                        end if;
-
-                        if Top_Object = Match_False then
-                           --  If the result is false, we went one element too
-                           --  far. Pop it and process the right action.
-
-                           To_Backtrack := True;
-                           --  Pop_Object;
-                           --  Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
-                        elsif Overall_Yield_Callback /= null then
-                           --  If there's an original Yield callback, then
-                           --  even if this matches and we're going to look to
-                           --  consume the next entity, try to process the whole
-                           --  expression from this point to provide one of the
-                           --  possible solutions.
-
-                           --  Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
-                           --  Delete_Object_At_Position (-2);
-                           To_Backtrack := True;
-                        else
-                           To_Backtrack := False;
-                        end if;
-
-                     when Template_Operator_Few =>
-                        Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
-
-                        if Top_Object = Match_False then
-                           --  If the result is false, the right action didn't
-                           --  work, try to process another node under the
-                           --  current condition
-
-                           Pop_Object;
-                           Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
-                        elsif Overall_Yield_Callback /= null then
-                           --  If there's an original Yield callback, then
-                           --  even if this matches and we're going to look to
-                           --  consume the next entity, try to process the whole
-                           --  expression from this point to provide one of the
-                           --  possible solutions.
-
-                           Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Local_Yield_Decision'Unchecked_Access);
-                           Delete_Object_At_Position (-2);
-                        end if;
-
-                     when others =>
-                        Error ("unexpected quantifier kind");
-                  end case;
-               end if;
-            else
-               Process_Right_Expression (Local_Yield_Decision'Unchecked_Access);
-            end if;
-         else
-            Process_End_Of_Sub_Expression (Local_Yield_Decision'Unchecked_Access);
          end if;
+      end Post_Process_Right_Anchor;
 
-         Top_Frame.Top_Context.Visit_Decision.all := Local_Yield_Decision;
-
-         Pop_Frame_Context;
-      end Yield_Action;
-
-      Result : W_Object;
    begin
-      Push_Frame_Context;
+      if Top_Frame.Top_Context.Regexpr = null then
+         Push_Match_True (Top_Object);
 
-      if Expr = null -- TODO: We should not accept Expr = null at all
-        or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
-      then
-         --  We are at the end of a subexpression, for example in
-         --     x: (A \ B) \ C
-         --  We reached either B or C. Generate the value for the expression to
-         --  search for B in the first case, C in the second one. The yield
-         --  callback will then drive either the end of the analysis or the
-         --  processing of the rest of the expression.
-
-         Install_Local_Yield_Callback;
-         Generator (Expr);
-         Pop_Frame_Context;
+         if Matcher.Overall_Yield_Callback /= null then
+            Matcher.Overall_Yield_Callback.all;
+         end if;
 
          return;
       end if;
 
-      if Expr.Kind = Template_Reg_Expr then
-         if not Expr.Node.As_Reg_Expr.F_Captured.Is_Null then
-            Initial_Capture_Callback := Top_Frame.Top_Context.Capture_Callback;
-            Captured_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
-            Top_Frame.Symbols.Include (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Captured_Variable));
-            Top_Frame.Top_Context.Capture_Callback := Capture_Callback'Unrestricted_Access;
-         end if;
-      end if;
+      Depth := Depth + 2;
+
+      Push_Frame_Context;
+      Top_Frame.Top_Context.Regexpr_Anchored := True;
 
       if Expr.Kind = Template_Reg_Expr_Anchor then
-         Top_Frame.Top_Context.Yield_Callback := null;
+         --  We reached a right anchor. We should not have reached this stage.
+         --  Push true inconditially. The outer call will then convert this
+         --  into false. Note that we can't just push false here, otherwise
+         --  the outer call could not be able to differenciate cases where
+         --  false is received because an element has been found and cases where
+         --  false is received because no element has been extracted (which
+         --  would be correct).
 
-         Generator (null);
+         Push_Match_True (Top_Object);
+      elsif Expr.Kind = Template_Reg_Expr then
 
-         Result := Pop_Object.Dereference;
 
-         if Result = Match_False then
-            Push_Object (Root);
+         if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
+            Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit + 1;
+
+            if Matcher.Quantifiers_Hit <= Expr.Reg_Expr_Left.Min then
+               --  First, no matter the quantifier, try to reach the minimum
+               --  value
+
+               Push_Frame_Context;
+               Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left.Quantifier_Expr;
+               Sub_Matcher.Outer_Next_Expr := Matcher;
+               Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
+               Handle_Regexpr;
+               Pop_Frame_Context;
+            elsif Expr.Reg_Expr_Left.Max > 0 and then Matcher.Quantifiers_Hit > Expr.Reg_Expr_Left.Max then
+               -- If we hit the max, move on to the right action
+
+               Push_Frame_Context;
+               Top_Frame.Top_Context.Regexpr := Get_Right_Expression_Matcher;
+
+               if Top_Frame.Top_Context.Regexpr /= null then
+                  Handle_Regexpr;
+                  Post_Process_Right_Anchor;
+               end if;
+
+               Pop_Frame_Context;
+            else
+               case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
+                  when Template_Operator_Many =>
+                     Put_Line (P & "MANY " & Expr.Node.Text & " ON " & Top_Object.To_Debug_String);
+                     Push_Frame_Context;
+                     Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left.Quantifier_Expr;
+                     Sub_Matcher.Outer_Next_Expr := Matcher;
+                     Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
+                     Handle_Regexpr;
+                     Pop_Frame_Context;
+
+                     Put_Line (P & "RESULT: " & Top_Object.To_Debug_String);
+
+                     if Top_Object = Match_False
+                       or else Matcher.Overall_Yield_Callback /= null
+                     then
+                        Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit - 1;
+
+                        Push_Frame_Context;
+                        Top_Frame.Top_Context.Regexpr := Get_Right_Expression_Matcher;
+
+                        if Top_Frame.Top_Context.Regexpr /= null then
+                           Pop_Object;
+                           Handle_Regexpr;
+                           Post_Process_Right_Anchor;
+                        else
+                           if Matcher.Overall_Yield_Callback /= null then
+                              Matcher.Overall_Yield_Callback.all;  -- DO WE NEED THIS HERE???? SHOULDNT IT BE BELOW IN CASE OF (STILL) FALSE?
+                              Delete_Object_At_Position (-2);
+                           end if;
+                        end if;
+
+                        Pop_Frame_Context;
+                     end if;
+
+                  when Template_Operator_Few =>
+                     Push_Frame_Context;
+                     Top_Frame.Top_Context.Regexpr := Get_Right_Expression_Matcher;
+
+                     if Top_Frame.Top_Context.Regexpr /= null then
+                        Handle_Regexpr;
+                        Post_Process_Right_Anchor;
+                     end if;
+
+                     Pop_Frame_Context;
+
+                     if Top_Object = Match_False
+                       or else Matcher.Overall_Yield_Callback /= null
+                     then
+                        Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit - 1;
+
+                        Pop_Object;
+                        Push_Frame_Context;
+                        Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left.Quantifier_Expr;
+                        Sub_Matcher.Outer_Next_Expr := Matcher;
+                        Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
+                        Handle_Regexpr;
+                        Pop_Frame_Context;
+
+                        if Matcher.Overall_Yield_Callback /= null then  -- DO WE NEED THIS HERE???? SHOULDNT IT BE BELOW IN CASE OF (STILL) FALSE?
+                           Matcher.Overall_Yield_Callback.all;
+                           Delete_Object_At_Position (-2);
+                        end if;
+                     end if;
+
+                  when others =>
+                     Error ("unexpected quantifier");
+
+               end case;
+            end if;
          else
-            Push_Match_False;
+            Push_Frame_Context;
+            Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left;
+            Sub_Matcher.Outer_Next_Expr := Get_Right_Expression_Matcher;
+            Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
+            Handle_Regexpr;
+            Post_Process_Right_Anchor;
+            Pop_Frame_Context;
          end if;
-
-         Top_Frame.Top_Context.Visit_Decision.all := Stop;
       else
-         if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
-            Top_Frame.Top_Context.Regexpr_Anchored := True;
-            Process_Right_Expression (Generator_Decision);
-         elsif Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
-            case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
-               when Template_Operator_Many =>
-                  Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Generator_Decision);
+         Put_Line (P & "EVALUATE " & Expr.Node.Text & " ON " & Top_Object.To_Debug_String);
 
-                  if Top_Object = Match_False then
-                     --  If we didn't find a match but the minimum requested is 0,
-                     --  try to evaluate the result bypassing the quantifier.
-
-                     if Expr.Reg_Expr_Left.Min = 0 then
-                        Pop_Object;
-                        Process_Right_Expression (Generator_Decision);
-                     end if;
-                  end if;
-
-               when Template_Operator_Few =>
-                  if Expr.Reg_Expr_Left.Min = 0 then
-                     --  We are on a lazy quantifier and are accepting no matches.
-                     --  First see if we can avoid the quantifier altogether
-
-                     Process_Right_Expression (Generator_Decision);
-
-                     if Top_Object = Match_False then
-                        Pop_Object;
-
-                        Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Generator_Decision);
-                     end if;
-                  else
-                     Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Generator_Decision);
-                  end if;
-
-               when others =>
-                  Error ("unexpected quantifier kind");
-            end case;
+         if not Evaluate_Match_Result (Object, Expr) then
+            Put_Line (P & "FALSE");
+            --Matcher.Capture_Callback (Rollback);
+            --Matcher.Generator_Decision.all := Into;
+            Push_Match_False;
          else
-            Process_Left_Expression (Expr.Reg_Expr_Left, Generator_Decision);
+            Put_Line (P & "TRUE");
+
+
+
+
+
+            if Matcher.Overall_Yield_Callback /= null then
+               Matcher.Generator_Decision.all := Into;
+            else
+               Matcher.Generator_Decision.all := Stop;
+            end if;
+
+
+
+
+
+
+            Push_Frame_Context;
+            Top_Frame.Top_Context.Regexpr := Get_Right_Expression_Matcher;
+
+            if Top_Frame.Top_Context.Regexpr /= null then
+               Top_Frame.Top_Context.Yield_Callback := Handle_Regexpr'Access;
+               Matcher.Generator (null);
+               Post_Process_Right_Anchor;
+            else
+               Push_Match_True (Top_Object);
+
+               if Matcher.Overall_Yield_Callback /= null then
+                  Matcher.Overall_Yield_Callback.all;
+                  Delete_Object_At_Position (-2);
+               end if;
+            end if;
+
+            Pop_Frame_Context;
          end if;
       end if;
 
+      Depth := Depth - 2;
+
+      Top_Frame.Top_Context.Visit_Decision.all := Matcher.Generator_Decision.all;
       Pop_Frame_Context;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      --  if Expr = null -- TODO: We should not accept Expr = null at all
+      --    or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
+      --  then
+      --     --  We are at the end of a subexpression, for example in
+      --     --     x: (A \ B) \ C
+      --     --  We reached either B or C. Generate the value for the expression to
+      --     --  search for B in the first case, C in the second one. The yield
+      --     --  callback will then drive either the end of the analysis or the
+      --     --  processing of the rest of the expression.
+      --
+      --     Install_Local_Yield_Callback;
+      --     Generator (Expr);
+      --     Pop_Frame_Context;
+      --
+      --     return;
+      --  end if;
+      --
+      --  if Expr.Kind = Template_Reg_Expr then
+      --     if not Expr.Node.As_Reg_Expr.F_Captured.Is_Null then
+      --        Initial_Capture_Callback := Top_Frame.Top_Context.Capture_Callback;
+      --        Captured_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
+      --        Top_Frame.Symbols.Include (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Captured_Variable));
+      --        Top_Frame.Top_Context.Capture_Callback := Capture_Callback'Unrestricted_Access;
+      --     end if;
+      --  end if;
+      --
+      --  if Expr.Kind = Template_Reg_Expr_Anchor then
+      --     Top_Frame.Top_Context.Yield_Callback := null;
+      --
+      --     Generator (null);
+      --
+      --     Result := Pop_Object.Dereference;
+      --
+      --     if Result = Match_False then
+      --        Push_Object (Root);
+      --     else
+      --        Push_Match_False;
+      --     end if;
+      --
+      --     Top_Frame.Top_Context.Visit_Decision.all := Stop;
+      --  else
+      --     if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
+      --        case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
+      --           when Template_Operator_Many =>
+      --              Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Generator_Decision);
+      --
+      --              if Top_Object = Match_False then
+      --                 --  If we didn't find a match but the minimum requested is 0,
+      --                 --  try to evaluate the result bypassing the quantifier.
+      --
+      --                 if Expr.Reg_Expr_Left.Min = 0 then
+      --                    Pop_Object;
+      --                    Process_Right_Expression (Generator_Decision);
+      --                 end if;
+      --              end if;
+      --
+      --           when Template_Operator_Few =>
+      --              if Expr.Reg_Expr_Left.Min = 0 then
+      --                 --  We are on a lazy quantifier and are accepting no matches.
+      --                 --  First see if we can avoid the quantifier altogether
+      --
+      --                 Process_Right_Expression (Generator_Decision);
+      --
+      --                 if Top_Object = Match_False then
+      --                    Pop_Object;
+      --
+      --                    Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Generator_Decision);
+      --                 end if;
+      --              else
+      --                 Process_Left_Expression (Expr.Reg_Expr_Left.Quantifier_Expr, Generator_Decision);
+      --              end if;
+      --
+      --           when others =>
+      --              Error ("unexpected quantifier kind");
+      --        end case;
+      --     else
+      --        Process_Left_Expression (Expr.Reg_Expr_Left, Generator_Decision);
+      --     end if;
+      --  end if;
+      --
+      --  Pop_Frame_Context;
    end Handle_Regexpr;
 
    ---------------------
