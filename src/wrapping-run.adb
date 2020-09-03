@@ -181,14 +181,20 @@ package body Wrapping.Run is
             end loop;
 
             Close (Dir);
+         exception
+            when GNAT.Directory_Operations.Directory_Error =>
+               Warning ("Cannot find the uwrap runtime");
          end Analyze_Directory;
 
       begin
+         --  Lookup the "stdlib": look into the hardcoded "../include"
+         --  directory, used during development. TODO??? we'll probably need
+         --  to do something more clever than this at some stage.
          Analyze_Directory
            ("",
-            GNATCOLL.Utils.Executable_Location & ".." &
-            GNATCOLL.OS.Constants.Dir_Sep & "include" &
-            GNATCOLL.OS.Constants.Dir_Sep);
+            GNATCOLL.Utils.Executable_Location & ".."
+            & GNATCOLL.OS.Constants.Dir_Sep & "include"
+            & GNATCOLL.OS.Constants.Dir_Sep);
 
          for Dir_Path of Input_Directories loop
             Analyze_Directory ("", To_String (Dir_Path));

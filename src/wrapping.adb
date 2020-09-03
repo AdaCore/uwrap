@@ -61,6 +61,19 @@ package body Wrapping is
       end if;
    end Error;
 
+   -------------
+   -- Warning --
+   -------------
+
+   procedure Warning (Message : Text_Type) is
+   begin
+      if Error_Stack.Length > 0 then
+         Put_Line (To_Text (Get_Sloc_Str) & ": warning: " & Message);
+      else
+         Put_Line ("warning: " & Message);
+      end if;
+   end Warning;
+
    -------------------------
    -- Push_Error_Location --
    -------------------------
