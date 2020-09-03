@@ -70,10 +70,16 @@ package body Wrapping is
 
    procedure Push_Error_Location (Filename : String; Loc : Source_Location) is
    begin
-      Error_Stack.Append
-        (Error_Location'
-           (To_Unbounded_String (Ada.Directories.Simple_Name
-            (Filename)), Loc));
+      if Filename = "<no source>" then
+         Error_Stack.Append
+           (Error_Location'
+              (To_Unbounded_String ("<no source>"), Loc));
+      else
+         Error_Stack.Append
+           (Error_Location'
+              (To_Unbounded_String (Ada.Directories.Simple_Name
+               (Filename)), Loc));
+      end if;
    end Push_Error_Location;
 
    ------------------------
