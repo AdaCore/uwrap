@@ -7,6 +7,8 @@ package Wrapping is
 
    procedure Error (Message : Text_Type);
 
+   procedure Warning (Message : Text_Type);
+
    procedure Push_Error_Location (Filename : String; Loc : Source_Location);
 
    procedure Pop_Error_Location;
