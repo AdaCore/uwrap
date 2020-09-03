@@ -4,9 +4,9 @@ with Libtemplatelang;
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
-with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
-with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
-with Wrapping.Utils; use Wrapping.Utils;
+with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
+with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
+with Wrapping.Utils;              use Wrapping.Utils;
 
 package Wrapping.Runtime.Analysis is
 
@@ -18,15 +18,15 @@ package Wrapping.Runtime.Analysis is
 
    procedure Analyze_Templates;
 
-   procedure Evaluate_Expression (Expr : T_Expr)
-     with Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1;
+   procedure Evaluate_Expression (Expr : T_Expr) with
+      Post => Top_Frame.Data_Stack.Length =
+      Top_Frame.Data_Stack.Length'Old + 1;
 
    function Evaluate_Expression (Expr : T_Expr) return W_Object;
 
    function Analyze_Visitor
-     (E : access W_Object_Type'Class;
-      Result : out W_Object) return Wrapping.Semantic.Structure.Visit_Action;
+     (E : access W_Object_Type'Class; Result : out W_Object)
+      return Wrapping.Semantic.Structure.Visit_Action;
 
    function Match (Pattern, Text : Text_Type) return Boolean;
    --  Match a pattern with a text, adding group and captured variables on the
@@ -52,8 +52,8 @@ package Wrapping.Runtime.Analysis is
 
    procedure Push_Frame_Context_No_Match;
 
-   --  Many expression part need to deactivate being picked as function results.
-   --  For example, while in:
+   --  Many expression part need to deactivate being picked as function
+   --  results. For example, while in:
    --     function f do
    --        pick a and b;
    --     end;
@@ -61,8 +61,8 @@ package Wrapping.Runtime.Analysis is
    --     function f do
    --        pick a & b;
    --     end;
-   --  we only want to pick the result of a & b.
-   --  The following function pushes a new context with the proper flags.
+   --  we only want to pick the result of a & b. The following function pushes
+   --  a new context with the proper flags.
    procedure Push_Frame_Context_No_Pick;
 
    procedure Pop_Frame_Context;
@@ -71,9 +71,10 @@ package Wrapping.Runtime.Analysis is
 
    procedure Pop_Match_Groups_Section;
 
-   procedure Push_Object (Object : access W_Object_Type'Class)
-     with Pre =>
-       (if Object.all in W_Reference_Type'Class then W_Reference (Object).Value /= null);
+   procedure Push_Object (Object : access W_Object_Type'Class) with
+      Pre =>
+      (if Object.all in W_Reference_Type'Class then
+         W_Reference (Object).Value /= null);
 
    procedure Push_Implicit_It (Object : access W_Object_Type'Class);
 
@@ -87,8 +88,8 @@ package Wrapping.Runtime.Analysis is
 
    --  Deletes a specific object. Negative deletes from end, positives delete
    --  from start
-   procedure Delete_Object_At_Position (Position : Integer)
-     with Pre => Position /= 0;
+   procedure Delete_Object_At_Position (Position : Integer) with
+      Pre => Position /= 0;
 
    function Pop_Object return W_Object;
 
@@ -102,27 +103,28 @@ package Wrapping.Runtime.Analysis is
 
    function Capture_Closure (Names : Text_Sets.Set) return Closure;
 
-   procedure Capture_Deferred_Environment (Deferred_Expr : W_Deferred_Expr; Expr : T_Expr);
+   procedure Capture_Deferred_Environment
+     (Deferred_Expr : W_Deferred_Expr; Expr : T_Expr);
 
    procedure Run_Deferred_Expr (Deferred_Expr : W_Deferred_Expr_Type);
 
    --  This is the counter of visitor. Every time a visitor is started
-   --  (including the main one), it is to be incremented. This provdes a
-   --  unique id to each visit execution, which later allows to check that
-   --  a language entity isn't visited twice by the same visitor invokation.
+   --  (including the main one), it is to be incremented. This provdes a unique
+   --  id to each visit execution, which later allows to check that a language
+   --  entity isn't visited twice by the same visitor invokation.
    Visitor_Counter : Integer := 0;
 
-   --  The Id for the current visitor, updated when entering a vistor invokation.
-   --  Note that the main iteration is always id 0.
-   --  TODO: maybe this should be frame information?
+   --  The Id for the current visitor, updated when entering a vistor
+   --  invokation. Note that the main iteration is always id 0. TODO:
+   --  maybe this should be frame information?
    Current_Visitor_Id : Integer := 0;
 
    procedure Outer_Expression_Match;
 
    procedure Outer_Expression_Pick;
 
-   procedure Handle_Command_Sequence (Sequence : T_Command_Sequence_Element)
-     with Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old;
+   procedure Handle_Command_Sequence
+     (Sequence : T_Command_Sequence_Element) with
+      Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
 
 end Wrapping.Runtime.Analysis;

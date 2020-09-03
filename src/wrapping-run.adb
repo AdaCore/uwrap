@@ -5,7 +5,7 @@ with GNAT.OS_Lib; use GNAT.OS_Lib;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
 with GNATCOLL.OS.Constants; use GNATCOLL.OS.Constants;
-with GNATCOLL.Utils; use GNATCOLL.Utils;
+with GNATCOLL.Utils;        use GNATCOLL.Utils;
 
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 
@@ -17,11 +17,11 @@ with Libadalang.Analysis;
 with Libadalang.Common;
 with Libadalang.Introspection;
 
-with Wrapping.Semantic; use Wrapping.Semantic;
+with Wrapping.Semantic;          use Wrapping.Semantic;
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
-with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Analysis;  use Wrapping.Runtime.Analysis;
 with Wrapping.Input.Kit;
-with Wrapping.Input.JSON; use Wrapping.Input.JSON;
+with Wrapping.Input.JSON;        use Wrapping.Input.JSON;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 
 package body Wrapping.Run is
@@ -36,25 +36,30 @@ package body Wrapping.Run is
          Kit_Node                   => Libtestlang.Analysis.Test_Node,
          Kit_Unit                   => Libtestlang.Analysis.Analysis_Unit,
          Kit_Node_Array             => Libtestlang.Analysis.Test_Node_Array,
-         Any_Node_Data_Reference    => Libtestlang.Common.Any_Node_Data_Reference,
+         Any_Node_Data_Reference    =>
+            Libtestlang.Common.Any_Node_Data_Reference,
          Any_Node_Type_Id           => Libtestlang.Common.Any_Node_Type_Id,
          Kit_Node_Kind_Type         => Libtestlang.Common.Test_Node_Kind_Type,
          Analysis_Unit              => Libtestlang.Analysis.Analysis_Unit,
          Analysis_Context           => Libtestlang.Analysis.Analysis_Context,
          Grammar_Rule               => Libtestlang.Common.Grammar_Rule,
-         Unit_Provider_Reference    => Libtestlang.Analysis.Unit_Provider_Reference,
+         Unit_Provider_Reference    =>
+            Libtestlang.Analysis.Unit_Provider_Reference,
          Token_Reference            => Libtestlang.Common.Token_Reference,
          Token_Data_Type            => Libtestlang.Common.Token_Data_Type,
          Token_Kind                 => Libtestlang.Common.Token_Kind,
-         Token_Index                => Libtestlang.Common.Token_Data_Handlers.Token_Index,
+         Token_Index                =>
+            Libtestlang.Common.Token_Data_Handlers.Token_Index,
          None                       => Libtestlang.Common.None,
          No_Kit_Node                => Libtestlang.Analysis.No_Test_Node,
          Default_Grammar_Rule       => Libtestlang.Common.Default_Grammar_Rule,
          Default_Charset            => Libtestlang.Common.Default_Charset,
-         No_Unit_Provider_Reference => Libtestlang.Analysis.No_Unit_Provider_Reference,
+         No_Unit_Provider_Reference =>
+            Libtestlang.Analysis.No_Unit_Provider_Reference,
          No_Node_Type_Id            => Libtestlang.Common.None,
          Any_Value_Kind             => Libtestlang.Common.Any_Value_Kind,
-         Value_Type                 => Libtestlang.Introspection.Any_Value_Type,
+         Value_Type                 =>
+            Libtestlang.Introspection.Any_Value_Type,
          Value_Array                => Libtestlang.Introspection.Value_Array,
          Root                       => Libtestlang.Analysis.Root,
          Text_Type_Value            => Libtestlang.Common.Text_Type_Value,
@@ -62,7 +67,8 @@ package body Wrapping.Run is
          Boolean_Value              => Libtestlang.Common.Boolean_Value,
          No_Token                   => Libtestlang.Common.No_Token,
          Value_Constraint           => Libtestlang.Common.Value_Constraint,
-         Value_Constraint_Array     => Libtestlang.Common.Value_Constraint_Array);
+         Value_Constraint_Array     =>
+            Libtestlang.Common.Value_Constraint_Array);
    end Testlang;
 
    package Adalang is
@@ -75,22 +81,26 @@ package body Wrapping.Run is
          Kit_Node                   => Libadalang.Analysis.Ada_Node,
          Kit_Unit                   => Libadalang.Analysis.Analysis_Unit,
          Kit_Node_Array             => Libadalang.Analysis.Ada_Node_Array,
-         Any_Node_Data_Reference    => Libadalang.Common.Any_Node_Data_Reference,
+         Any_Node_Data_Reference    =>
+            Libadalang.Common.Any_Node_Data_Reference,
          Any_Node_Type_Id           => Libadalang.Common.Any_Node_Type_Id,
          Kit_Node_Kind_Type         => Libadalang.Common.Ada_Node_Kind_Type,
          Analysis_Unit              => Libadalang.Analysis.Analysis_Unit,
          Analysis_Context           => Libadalang.Analysis.Analysis_Context,
          Grammar_Rule               => Libadalang.Common.Grammar_Rule,
-         Unit_Provider_Reference    => Libadalang.Analysis.Unit_Provider_Reference,
+         Unit_Provider_Reference    =>
+            Libadalang.Analysis.Unit_Provider_Reference,
          Token_Reference            => Libadalang.Common.Token_Reference,
          Token_Data_Type            => Libadalang.Common.Token_Data_Type,
          Token_Kind                 => Libadalang.Common.Token_Kind,
-         Token_Index                => Libadalang.Common.Token_Data_Handlers.Token_Index,
+         Token_Index                =>
+            Libadalang.Common.Token_Data_Handlers.Token_Index,
          None                       => Libadalang.Common.None,
          No_Kit_Node                => Libadalang.Analysis.No_Ada_Node,
          Default_Grammar_Rule       => Libadalang.Common.Default_Grammar_Rule,
          Default_Charset            => Libadalang.Common.Default_Charset,
-         No_Unit_Provider_Reference => Libadalang.Analysis.No_Unit_Provider_Reference,
+         No_Unit_Provider_Reference =>
+            Libadalang.Analysis.No_Unit_Provider_Reference,
          No_Node_Type_Id            => Libadalang.Common.None,
          Any_Value_Kind             => Libadalang.Common.Any_Value_Kind,
          Value_Type                 => Libadalang.Introspection.Any_Value_Type,
@@ -101,7 +111,8 @@ package body Wrapping.Run is
          Boolean_Value              => Libadalang.Common.Boolean_Value,
          No_Token                   => Libadalang.Common.No_Token,
          Value_Constraint           => Libadalang.Common.Value_Constraint,
-         Value_Constraint_Array     => Libadalang.Common.Value_Constraint_Array);
+         Value_Constraint_Array     =>
+            Libadalang.Common.Value_Constraint_Array);
    end Adalang;
 
    ----------------------
@@ -113,7 +124,7 @@ package body Wrapping.Run is
       Jobs    : Libadalang.Helpers.App_Job_Context_Array)
    is
    begin
-      -- Step 1, load the templates
+      --  Step 1, load the templates
 
       if Args.Template_File.Get = "" then
          Put_Line ("Error: missing template file");
@@ -129,11 +140,10 @@ package body Wrapping.Run is
          -----------------------
 
          procedure Analyze_Directory
-           (Base_Module_Name : String;
-            Dir_Path         : String)
+           (Base_Module_Name : String; Dir_Path : String)
          is
-            Dir : Dir_Type;
-            File : String (1 .. 2048);
+            Dir      : Dir_Type;
+            File     : String (1 .. 2_048);
             Name_Len : Integer;
 
             Container_Module : String :=
@@ -147,12 +157,15 @@ package body Wrapping.Run is
                exit when Name_Len = 0;
 
                declare
-                  Full_Path : String := Dir_Path & File (File'First .. Name_Len);
+                  Full_Path : String :=
+                    Dir_Path & File (File'First .. Name_Len);
                begin
-                  if File_Extension (File (File'First .. Name_Len)) = ".wrp" then
+                  if File_Extension (File (File'First .. Name_Len)) = ".wrp"
+                  then
                      declare
                         Module_Name : String :=
-                          Container_Module & Base_Name (File (File'First .. Name_Len), ".wrp");
+                          Container_Module &
+                          Base_Name (File (File'First .. Name_Len), ".wrp");
                      begin
                         Load_Module (Full_Path, Module_Name);
                      end;
@@ -161,34 +174,34 @@ package body Wrapping.Run is
                     and then Is_Directory (Full_Path)
                   then
                      Analyze_Directory
-                       (Container_Module
-                        & File (File'First .. Name_Len),
+                       (Container_Module & File (File'First .. Name_Len),
                         Full_Path & GNAT.OS_Lib.Directory_Separator);
                   end if;
                end;
             end loop;
 
             Close (Dir);
-         end;
+         end Analyze_Directory;
 
       begin
          Analyze_Directory
            ("",
-            GNATCOLL.Utils.Executable_Location
-            & ".." & GNATCOLL.OS.Constants.Dir_Sep
-            & "include" & GNATCOLL.OS.Constants.Dir_Sep);
+            GNATCOLL.Utils.Executable_Location & ".." &
+            GNATCOLL.OS.Constants.Dir_Sep & "include" &
+            GNATCOLL.OS.Constants.Dir_Sep);
 
          for Dir_Path of Input_Directories loop
             Analyze_Directory ("", To_String (Dir_Path));
          end loop;
 
          Load_Module
-           (To_String (Args.Template_File.Get), Base_Name (To_String (Args.Template_File.Get), ".wrp"));
+           (To_String (Args.Template_File.Get),
+            Base_Name (To_String (Args.Template_File.Get), ".wrp"));
 
          Wrapping.Semantic.Analysis.Analyze;
       end;
 
-      -- Step 2, run the template on the selected languages
+      --  Step 2, run the template on the selected languages
 
       declare
          Language : String := To_String (Args.Input_Language.Get);

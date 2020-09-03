@@ -1,10 +1,9 @@
-with Ada.Containers.Vectors;
-use Ada.Containers;
+with Ada.Containers.Vectors;     use Ada.Containers;
 with Ada.Directories;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
-with Ada.Strings; use Ada.Strings;
-with Ada.Strings.Fixed; use Ada.Strings.Fixed;
+with Ada.Strings.Unbounded;      use Ada.Strings.Unbounded;
+with Ada.Wide_Wide_Text_IO;      use Ada.Wide_Wide_Text_IO;
+with Ada.Strings;                use Ada.Strings;
+with Ada.Strings.Fixed;          use Ada.Strings.Fixed;
 with Ada.Characters.Conversions; use Ada.Characters.Conversions;
 
 with Langkit_Support.Slocs; use Langkit_Support.Slocs;
@@ -13,10 +12,11 @@ package body Wrapping is
 
    type Error_Location is record
       Filename : Unbounded_String;
-      Loc : Source_Location;
+      Loc      : Source_Location;
    end record;
 
-   package Error_Location_Vector is new Ada.Containers.Vectors (Positive, Error_Location);
+   package Error_Location_Vector is new Ada.Containers.Vectors
+     (Positive, Error_Location);
 
    Error_Stack : Error_Location_Vector.Vector;
 
@@ -26,11 +26,11 @@ package body Wrapping is
 
    function Get_Sloc_Str return String is
    begin
-       if Error_Stack.Length > 0 then
+      if Error_Stack.Length > 0 then
          return
-           To_String (Error_Stack.Last_Element.Filename)
-           & ":" & Trim (Error_Stack.Last_Element.Loc.Line'Image, Left)
-           & ":" & Trim (Error_Stack.Last_Element.Loc.Column'Image, Left);
+           To_String (Error_Stack.Last_Element.Filename) & ":" &
+           Trim (Error_Stack.Last_Element.Loc.Line'Image, Left) & ":" &
+           Trim (Error_Stack.Last_Element.Loc.Column'Image, Left);
       else
          return "";
       end if;
@@ -48,14 +48,11 @@ package body Wrapping is
 
       if Error_Callback /= null then
          Error_Callback.all
-           (Message,
-            To_String (Error_Stack.Last_Element.Filename),
+           (Message, To_String (Error_Stack.Last_Element.Filename),
             Error_Stack.Last_Element.Loc);
       else
          if Error_Stack.Length > 0 then
-            Put_Line
-              (To_Text (Get_Sloc_Str)
-               & ": " & Message);
+            Put_Line (To_Text (Get_Sloc_Str) & ": " & Message);
          else
             Put_Line (Message);
          end if;
@@ -72,13 +69,12 @@ package body Wrapping is
    begin
       if Filename = "<no source>" then
          Error_Stack.Append
-           (Error_Location'
-              (To_Unbounded_String ("<no source>"), Loc));
+           (Error_Location'(To_Unbounded_String ("<no source>"), Loc));
       else
          Error_Stack.Append
            (Error_Location'
-              (To_Unbounded_String (Ada.Directories.Simple_Name
-               (Filename)), Loc));
+              (To_Unbounded_String (Ada.Directories.Simple_Name (Filename)),
+               Loc));
       end if;
    end Push_Error_Location;
 

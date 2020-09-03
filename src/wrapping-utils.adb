@@ -1,7 +1,7 @@
-with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
+with Ada.Wide_Wide_Text_IO;            use Ada.Wide_Wide_Text_IO;
 with Ada.Wide_Wide_Characters.Unicode; use Ada.Wide_Wide_Characters.Unicode;
-with Ada.Characters.Conversions; use Ada.Characters.Conversions;
-with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
+with Ada.Characters.Conversions;       use Ada.Characters.Conversions;
+with Ada.Strings.Wide_Wide_Unbounded;  use Ada.Strings.Wide_Wide_Unbounded;
 
 with GNAT.Regpat; use GNAT.Regpat;
 
@@ -17,7 +17,9 @@ package body Wrapping.Utils is
          return "";
       elsif Text (Text'First) /= '"' and then Text (Text'First) /= ''' then
          return Text;
-      elsif Text'Length >= 6 and then Text (Text'First .. Text'First + 2) = """""""" then
+      elsif Text'Length >= 6
+        and then Text (Text'First .. Text'First + 2) = """"""""
+      then
          return Text (Text'First + 3 .. Text'Last - 3);
       else
          return Text (Text'First + 1 .. Text'Last - 1);
@@ -29,16 +31,15 @@ package body Wrapping.Utils is
    --------------
 
    function Reindent
-     (New_Indent        : Integer;
-      Text              : Text_Type;
-      Indent_First_Line : Boolean) return Text_Type
+     (New_Indent : Integer; Text : Text_Type; Indent_First_Line : Boolean)
+      return Text_Type
    is
-      Space_Count : Integer := 0;
-      Spaces_To_Remove : Integer := Integer'Last;
+      Space_Count        : Integer := 0;
+      Spaces_To_Remove   : Integer := Integer'Last;
       Skip_To_Terminator : Boolean := False;
 
-      Indent : Wide_Wide_String (1 .. New_Indent) := (others => ' ');
-      Line_Count : Integer := 1;
+      Indent     : Wide_Wide_String (1 .. New_Indent) := (others => ' ');
+      Line_Count : Integer                            := 1;
    begin
       for C of Text loop
          if C = ' ' then
@@ -46,9 +47,9 @@ package body Wrapping.Utils is
                Space_Count := Space_Count + 1;
             end if;
          elsif Is_Line_Terminator (C) then
-            Space_Count := 0;
+            Space_Count        := 0;
             Skip_To_Terminator := False;
-            Line_Count := Line_Count + 1;
+            Line_Count         := Line_Count + 1;
          else
             if Space_Count < Spaces_To_Remove then
                Spaces_To_Remove := Space_Count;
@@ -60,13 +61,14 @@ package body Wrapping.Utils is
 
       declare
          Result : Text_Type (1 .. Text'Length + Line_Count * New_Indent);
-         Result_Index : Integer := Result'First - 1;
+         Result_Index      : Integer := Result'First - 1;
          Characters_Before : Boolean := False;
-         C : Wide_Wide_Character;
+         C                 : Wide_Wide_Character;
       begin
          if Indent_First_Line then
             Result_Index := Result_Index + 1;
-            Result (Result_Index .. Result_Index + Indent'Length - 1) := Indent;
+            Result (Result_Index .. Result_Index + Indent'Length - 1) :=
+              Indent;
             Result_Index := Result_Index + Indent'Length - 1;
          end if;
 
@@ -79,31 +81,31 @@ package body Wrapping.Utils is
                Space_Count := Space_Count + 1;
 
                if Space_Count > Spaces_To_Remove then
-                  Result_Index := Result_Index + 1;
+                  Result_Index          := Result_Index + 1;
                   Result (Result_Index) := C;
                end if;
             elsif Is_Line_Terminator (C) then
-               Space_Count := 0;
-               Result_Index := Result_Index + 1;
+               Space_Count           := 0;
+               Result_Index          := Result_Index + 1;
                Result (Result_Index) := C;
 
                if I < Text'Last then
                   Result_Index := Result_Index + 1;
-                  Result (Result_Index .. Result_Index + Indent'Length - 1) := Indent;
+                  Result (Result_Index .. Result_Index + Indent'Length - 1) :=
+                    Indent;
                   Result_Index := Result_Index + Indent'Length - 1;
                end if;
             elsif C /= ' ' then
-               Result_Index := Result_Index + 1;
+               Result_Index          := Result_Index + 1;
                Result (Result_Index) := C;
             end if;
          end loop;
 
-         --  Put_Line ("----------------------------------------");
-         --  Put_Line ("INDENT " & New_Indent'Wide_Wide_Image & ", SPACES TO REMOVE " & Spaces_To_Remove'Wide_Wide_Image);
-         --  Put_Line (Text);
-         --  Put_Line ("TO");
-         --  Put_Line (Result (Result'First .. Result_Index));
-         --  Put_Line ("----------------------------------------");
+         --  Put_Line ("----------------------------------------"); Put_Line
+         --  ("INDENT " & New_Indent'Wide_Wide_Image & ", SPACES TO REMOVE "
+         --  & Spaces_To_Remove'Wide_Wide_Image); Put_Line (Text); Put_Line
+         --  ("TO"); Put_Line (Result (Result'First .. Result_Index)); Put_Line
+         --  ("----------------------------------------");
 
          return Result (Result'First .. Result_Index);
       end;
@@ -137,16 +139,13 @@ package body Wrapping.Utils is
    is
       Matcher : Pattern_Matcher := Compile (To_String (Pattern));
       Result  : Unbounded_Text_Type;
-      Prev    : Integer := Source'First;
+      Prev    : Integer         := Source'First;
       Matches : Match_Array (0 .. Paren_Count (Matcher));
 
       Source_Str : String := To_String (Source);
    begin
       while Prev in Source'Range loop
-         Match
-           (Matcher,
-            Source_Str (Prev .. Source'Last),
-            Matches);
+         Match (Matcher, Source_Str (Prev .. Source'Last), Matches);
 
          if Matches (0) = No_Match then
             Append (Result, Source (Prev .. Source'Last));

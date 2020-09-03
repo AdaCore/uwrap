@@ -1,8 +1,8 @@
 with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
-with Ada.Containers; use Ada.Containers;
+with Ada.Containers;              use Ada.Containers;
 
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
-with Wrapping.Utils; use Wrapping.Utils;
+with Wrapping.Utils;             use Wrapping.Utils;
 
 package body Wrapping.Semantic.Structure is
 
@@ -28,7 +28,10 @@ package body Wrapping.Semantic.Structure is
    -- Add_Child --
    ---------------
 
-   procedure Add_Child (Parent, Child : access T_Entity_Type'Class; Name_Node : Template_Node'Class) is
+   procedure Add_Child
+     (Parent, Child : access T_Entity_Type'Class;
+      Name_Node     : Template_Node'Class)
+   is
    begin
       Add_Child (Parent, Child);
       Parent.Children_Indexed.Insert (Name_Node.Text, T_Entity (Child));
@@ -38,7 +41,9 @@ package body Wrapping.Semantic.Structure is
    -- Add_Child --
    ---------------
 
-   procedure Add_Child (Parent, Child : access T_Entity_Type'Class; Name : Text_Type) is
+   procedure Add_Child
+     (Parent, Child : access T_Entity_Type'Class; Name : Text_Type)
+   is
    begin
       Add_Child (Parent, Child);
       Parent.Children_Indexed.Insert (Name, T_Entity (Child));
@@ -61,7 +66,8 @@ package body Wrapping.Semantic.Structure is
    -- Find_Visible_Entity --
    -------------------------
 
-   function Find_Visible_Entity (An_Entity : T_Entity_Type'Class; Name : Text_Type) return T_Entity
+   function Find_Visible_Entity
+     (An_Entity : T_Entity_Type'Class; Name : Text_Type) return T_Entity
    is
    begin
       if An_Entity.Children_Indexed.Contains (Name) then
@@ -107,9 +113,9 @@ package body Wrapping.Semantic.Structure is
    ----------------------------
 
    function Resolve_Module_By_Name (Name : Text_Type) return T_Module is
-      Result : T_Entity;
+      Result      : T_Entity;
       A_Namespace : T_Namespace;
-      A_Suffix : Text_Type := Suffix (Name);
+      A_Suffix    : Text_Type := Suffix (Name);
    begin
       A_Namespace := Get_Namespace_Prefix (Name);
 
@@ -149,7 +155,9 @@ package body Wrapping.Semantic.Structure is
    -- Get_Component --
    -------------------
 
-   function Get_Component (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity is
+   function Get_Component
+     (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity
+   is
    begin
       return An_Entity.Children_Indexed (Name);
    end Get_Component;
@@ -175,7 +183,9 @@ package body Wrapping.Semantic.Structure is
    -- Get_Component --
    -------------------
 
-   function Get_Component (A_Template : T_Template_Type; Name : Text_Type) return T_Entity is
+   function Get_Component
+     (A_Template : T_Template_Type; Name : Text_Type) return T_Entity
+   is
    begin
       if A_Template.Children_Indexed.Contains (Name) then
          return A_Template.Children_Indexed.Element (Name);
@@ -190,11 +200,13 @@ package body Wrapping.Semantic.Structure is
    -- Get_Namespace_Prefix --
    --------------------------
 
-   function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return T_Namespace
+   function Get_Namespace_Prefix
+     (Full_Name : Text_Type; Create_If_Null : Boolean := False)
+      return T_Namespace
    is
-      First, Dot : Integer;
-      Tentative : T_Entity;
-      Current : T_Namespace := Wrapping.Semantic.Analysis.Root;
+      First, Dot    : Integer;
+      Tentative     : T_Entity;
+      Current       : T_Namespace := Wrapping.Semantic.Analysis.Root;
       New_Namespace : T_Namespace;
    begin
       First := Full_Name'First;
@@ -235,27 +247,36 @@ package body Wrapping.Semantic.Structure is
    -- Get_Static_Entity_By_Name --
    -------------------------------
 
-   function Get_Static_Entity_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity
+   function Get_Static_Entity_By_Name
+     (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity
    is
 
       ------------------------
       -- Get_Visible_Entity --
       ------------------------
 
-      function Get_Visible_Entity (An_Entity : T_Entity; Name : Text_Type) return Structure.T_Entity is
+      function Get_Visible_Entity
+        (An_Entity : T_Entity; Name : Text_Type) return Structure.T_Entity
+      is
       begin
          if An_Entity.all in T_Module_Type then
             declare
                Potential_Entity : Structure.T_Entity;
             begin
-               if T_Module_Type (An_Entity.all).Children_Indexed.Contains (Name) then
-                  Potential_Entity := T_Module_Type (An_Entity.all).Children_Indexed.Element (Name);
+               if T_Module_Type (An_Entity.all).Children_Indexed.Contains
+                   (Name)
+               then
+                  Potential_Entity :=
+                    T_Module_Type (An_Entity.all).Children_Indexed.Element
+                      (Name);
                end if;
 
                for M of T_Module_Type (An_Entity.all).Imported_Modules loop
                   if M.Children_Indexed.Contains (Name) then
                      if Potential_Entity /= null then
-                        Error ("entity name ambiguous, multiple import clauses hiding");
+                        Error
+                          ("entity name ambiguous, "
+                           & "multiple import clauses hiding");
                      else
                         Potential_Entity := M.Children_Indexed.Element (Name);
                      end if;
@@ -277,18 +298,15 @@ package body Wrapping.Semantic.Structure is
       Push_Error_Location (Name);
 
       if not Name.F_Left.Is_Null then
-         Extending_Module := Resolve_Module_By_Name
-           (Name.F_Left.Text);
+         Extending_Module := Resolve_Module_By_Name (Name.F_Left.Text);
 
          if Extending_Module = null then
             Error ("module '" & Name.F_Left.Text & "' not found");
          end if;
 
-         if Extending_Module.Children_Indexed.Contains
-           (Name.F_Right.Text)
-         then
-            Result := Extending_Module.Children_Indexed.Element
-              (Name.F_Right.Text);
+         if Extending_Module.Children_Indexed.Contains (Name.F_Right.Text) then
+            Result :=
+              Extending_Module.Children_Indexed.Element (Name.F_Right.Text);
          end if;
       else
          Result := Get_Visible_Entity (Current_Scope, Name.Text);
@@ -303,7 +321,9 @@ package body Wrapping.Semantic.Structure is
    -- Get_Template_By_Name --
    --------------------------
 
-   function Get_Template_By_Name (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity is
+   function Get_Template_By_Name
+     (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity
+   is
       An_Entity : T_Entity;
    begin
       An_Entity := Get_Static_Entity_By_Name (Current_Scope, Name);
@@ -348,7 +368,9 @@ package body Wrapping.Semantic.Structure is
              (An_Entity.Parent, An_Entity.Node.As_Template.F_Extending);
 
          if Extending = null then
-            Error ("template '" & An_Entity.Node.As_Template.F_Extending.Text & "' not found");
+            Error
+              ("template '" & An_Entity.Node.As_Template.F_Extending.Text &
+               "' not found");
          end if;
 
          if Extending.all not in T_Template_Type'Class then
@@ -370,8 +392,7 @@ package body Wrapping.Semantic.Structure is
      (An_Entity : access T_Template_Call_Type)
    is
       Name : Text_Type :=
-        (if An_Entity.Node.As_Template_Call.F_Name.Is_Null then
-            ""
+        (if An_Entity.Node.As_Template_Call.F_Name.Is_Null then ""
          else An_Entity.Node.As_Template_Call.F_Name.Text);
    begin
       if Name = "" then
@@ -379,19 +400,19 @@ package body Wrapping.Semantic.Structure is
             Error ("self-weaving requires can only be done in weave sections");
          end if;
       elsif Name = "null" then
-         --  In this case, we're creating a template cancellation
-         --  clause.
+         --  In this case, we're creating a template cancellation clause.
 
          if An_Entity.Parent.Node.Kind /= Template_Wrap_Section then
             Error
-              ("null template only allowed on wrap sections, not "
-               & An_Entity.Parent.Node.Kind'Wide_Wide_Image);
+              ("null template only allowed on wrap sections, not " &
+               An_Entity.Parent.Node.Kind'Wide_Wide_Image);
          end if;
 
          An_Entity.Is_Null := True;
       else
-         An_Entity.Reference := Get_Template_By_Name
-           (An_Entity.Parent, An_Entity.Node.As_Template_Call.F_Name);
+         An_Entity.Reference :=
+           Get_Template_By_Name
+             (An_Entity.Parent, An_Entity.Node.As_Template_Call.F_Name);
 
          if An_Entity.Reference = null then
             Error ("'" & Name & "' not found.");
@@ -413,8 +434,8 @@ package body Wrapping.Semantic.Structure is
       end if;
 
       if An_Entity.Template_Section /= null then
-         case An_Entity.Template_Section.Node.
-           As_Template_Section.F_Actions.Kind
+         case An_Entity.Template_Section.Node.As_Template_Section.F_Actions
+           .Kind
          is
             when Template_Traverse_Into =>
                An_Entity.Template_Section.A_Visit_Action := Into;
@@ -447,10 +468,12 @@ package body Wrapping.Semantic.Structure is
                  Resolve_Module_By_Name (C.As_Import.F_Name.Text);
             begin
                if Imported = null then
-                  Error ("can't find module '" & C.As_Import.F_Name.Text & "'");
+                  Error
+                    ("can't find module '" & C.As_Import.F_Name.Text & "'");
                end if;
 
-               An_Entity.Imported_Modules.Insert (C.As_Import.F_Name.Text, Imported);
+               An_Entity.Imported_Modules.Insert
+                 (C.As_Import.F_Name.Text, Imported);
             end;
          end if;
 
@@ -467,7 +490,8 @@ package body Wrapping.Semantic.Structure is
    overriding procedure Resolve_References (An_Entity : access T_Expr_Type) is
    begin
       if An_Entity.Kind = Template_Defer_Expr then
-         Compute_Closure (T_Entity (An_Entity.Deferred_Expr), An_Entity.Deferred_Closure);
+         Compute_Closure
+           (T_Entity (An_Entity.Deferred_Expr), An_Entity.Deferred_Closure);
       end if;
 
       --  TODO: There are a few cases where names can be resolved statically,
@@ -480,7 +504,8 @@ package body Wrapping.Semantic.Structure is
    -- Compute_Closure --
    ---------------------
 
-   procedure Compute_Closure (Root : T_Entity; Closure : in out Text_Sets.Set) is
+   procedure Compute_Closure (Root : T_Entity; Closure : in out Text_Sets.Set)
+   is
       Local_Symbols : Text_Sets.Set;
 
       procedure Not_Capture_Identifiers (Expr : T_Expr);
@@ -495,7 +520,7 @@ package body Wrapping.Semantic.Structure is
       begin
          if Local_Symbols.Contains (Name) then
             --  If the symbol is local to the deferred structure, then there's
-            -- nothing to capture.
+            --  nothing to capture.
             return;
          else
             --  Otherwise, record this symbol to be captured.
@@ -536,18 +561,16 @@ package body Wrapping.Semantic.Structure is
          Push_Error_Location (Expr.Node);
 
          case Expr.Kind is
-            when Template_Token_Identifier
-               | Template_Identifier
-               | Template_Literal
-               | Template_Number
-               | Template_At_Ref
-               | Template_Reg_Expr_Anchor =>
+            when Template_Token_Identifier | Template_Identifier |
+              Template_Literal | Template_Number | Template_At_Ref |
+              Template_Reg_Expr_Anchor =>
 
                null;
 
             when Template_Match_Capture =>
                declare
-                  Name : Text_Type := Expr.Node.As_Match_Capture.F_Captured.Text;
+                  Name : Text_Type :=
+                    Expr.Node.As_Match_Capture.F_Captured.Text;
                begin
                   --  If the name isn't already identified as a local name,
                   --  identify it as such for the remainder of the analysis.
@@ -581,18 +604,11 @@ package body Wrapping.Semantic.Structure is
                   end case;
                end loop;
 
-            when Template_Binary_Expr
-               | Template_Unary_Expr
-               | Template_Qualified_Match
-               | Template_All_Expr
-               | Template_Fold_Expr
-               | Template_Filter_Expr
-               | Template_Defer_Expr
-               | Template_Call_Expr
-               | Template_New_Expr
-               | Template_Reg_Expr
-               | Template_Reg_Expr_Quantifier
-               | Template_Match_Expr =>
+            when Template_Binary_Expr | Template_Unary_Expr |
+              Template_Qualified_Match | Template_All_Expr |
+              Template_Fold_Expr | Template_Filter_Expr | Template_Defer_Expr |
+              Template_Call_Expr | Template_New_Expr | Template_Reg_Expr |
+              Template_Reg_Expr_Quantifier | Template_Match_Expr =>
 
                for C of Expr.Children_Ordered loop
                   if C.all in T_Expr_Type'Class then
@@ -604,8 +620,8 @@ package body Wrapping.Semantic.Structure is
 
             when others =>
                Error
-                 ("unhandled expression kind in capture identifers: "
-                  & Expr.Kind'Wide_Wide_Image);
+                 ("unhandled expression kind in capture identifers: " &
+                  Expr.Kind'Wide_Wide_Image);
          end case;
 
          Pop_Error_Location;

@@ -1,69 +1,81 @@
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Vectors;
 
-with Langkit_Support.Text; use Langkit_Support.Text;
+with Langkit_Support.Text;  use Langkit_Support.Text;
 with Langkit_Support.Slocs; use Langkit_Support.Slocs;
 
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
-with Libtemplatelang.Common; use Libtemplatelang.Common;
+with Libtemplatelang.Common;   use Libtemplatelang.Common;
 
 with Wrapping.Utils; use Wrapping.Utils;
 
 package Wrapping.Semantic.Structure is
-   -- The purpose is to create the "program" of the wrapping.
+   --  The purpose is to create the "program" of the wrapping.
 
    type Visit_Action is (Over, Into, Into_Override_Anchor, Stop, Unknown);
 
    type T_Entity_Type;
    type T_Entity is access all T_Entity_Type'Class;
-   package T_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Entity);
+   package T_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+     (Text_Type, T_Entity);
    use T_Entity_Maps;
    package T_Entity_Vectors is new Ada.Containers.Vectors (Positive, T_Entity);
    use T_Entity_Vectors;
 
    type T_Named_Entity_Type;
    type T_Named_Entity is access all T_Named_Entity_Type'Class;
-   package T_Named_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Named_Entity);
+   package T_Named_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+     (Text_Type, T_Named_Entity);
    use T_Named_Entity_Maps;
-   package T_Named_Entity_Vectors is new Ada.Containers.Vectors (Positive, T_Named_Entity);
+   package T_Named_Entity_Vectors is new Ada.Containers.Vectors
+     (Positive, T_Named_Entity);
    use T_Named_Entity_Vectors;
 
    type T_Namespace_Type;
    type T_Namespace is access all T_Namespace_Type'Class;
-   package T_Namespace_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Namespace);
+   package T_Namespace_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+     (Text_Type, T_Namespace);
    use T_Namespace_Maps;
-   package T_Namespace_Vectors is new Ada.Containers.Vectors (Positive, T_Namespace);
+   package T_Namespace_Vectors is new Ada.Containers.Vectors
+     (Positive, T_Namespace);
    use T_Namespace_Vectors;
 
    type T_Module_Type;
    type T_Module is access all T_Module_Type'Class;
-   package T_Module_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Module);
+   package T_Module_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+     (Text_Type, T_Module);
    use T_Module_Maps;
    package T_Module_Vectors is new Ada.Containers.Vectors (Positive, T_Module);
    use T_Module_Vectors;
 
    type T_Template_Type;
    type T_Template is access all T_Template_Type'Class;
-   package T_Template_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Template);
+   package T_Template_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+     (Text_Type, T_Template);
    use T_Template_Maps;
-   package T_Template_Vectors is new Ada.Containers.Vectors (Positive, T_Template);
+   package T_Template_Vectors is new Ada.Containers.Vectors
+     (Positive, T_Template);
    use T_Template_Vectors;
 
    type T_Var_Type;
    type T_Var is access all T_Var_Type'Class;
-   package T_Var_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Var);
+   package T_Var_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+     (Text_Type, T_Var);
    use T_Var_Maps;
    package T_Var_Vectors is new Ada.Containers.Vectors (Positive, T_Var);
    use T_Var_Vectors;
 
    type T_Command_Sequence_Type;
    type T_Command_Sequence is access all T_Command_Sequence_Type'Class;
-   package Command_Sequence_Vectors is new Ada.Containers.Vectors (Positive, T_Command_Sequence);
+   package Command_Sequence_Vectors is new Ada.Containers.Vectors
+     (Positive, T_Command_Sequence);
    use Command_Sequence_Vectors;
 
    type T_Command_Sequence_Element_Type;
-   type T_Command_Sequence_Element is access all T_Command_Sequence_Element_Type'Class;
-   package Command_Sequence_Element_Vectors is new Ada.Containers.Vectors (Positive, T_Command_Sequence_Element);
+   type T_Command_Sequence_Element is
+     access all T_Command_Sequence_Element_Type'Class;
+   package Command_Sequence_Element_Vectors is new Ada.Containers.Vectors
+     (Positive, T_Command_Sequence_Element);
    use Command_Sequence_Element_Vectors;
 
    type T_Template_Call_Type;
@@ -71,26 +83,31 @@ package Wrapping.Semantic.Structure is
 
    type T_Template_Section_Type;
    type T_Template_Section is access all T_Template_Section_Type'Class;
-   package T_Template_Section_Vectors is new Ada.Containers.Vectors (Positive, T_Template_Section);
+   package T_Template_Section_Vectors is new Ada.Containers.Vectors
+     (Positive, T_Template_Section);
    use T_Template_Section_Vectors;
 
    type T_Command_Type;
    type T_Command is access all T_Command_Type'Class;
-   package T_Command_Vectors is new Ada.Containers.Vectors (Positive, T_Command);
+   package T_Command_Vectors is new Ada.Containers.Vectors
+     (Positive, T_Command);
    use T_Command_Vectors;
 
    type T_Function_Type;
    type T_Function is access all T_Function_Type'Class;
-   package T_Function_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Function);
+   package T_Function_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+     (Text_Type, T_Function);
    use T_Function_Maps;
-   package T_Function_Vectors is new Ada.Containers.Vectors (Positive, T_Function);
+   package T_Function_Vectors is new Ada.Containers.Vectors
+     (Positive, T_Function);
    use T_Function_Vectors;
 
    type T_Expr_Type (Kind : Template_Node_Kind_Type);
    type T_Expr is access all T_Expr_Type'Class;
    package T_Expr_Vectors is new Ada.Containers.Vectors (Positive, T_Expr);
    use T_Expr_Vectors;
-   package T_Expr_Maps is new Ada.Containers.Indefinite_Ordered_Maps (Text_Type, T_Expr);
+   package T_Expr_Maps is new Ada.Containers.Indefinite_Ordered_Maps
+     (Text_Type, T_Expr);
    use T_Expr_Maps;
 
    type T_Arg_Type;
@@ -99,7 +116,8 @@ package Wrapping.Semantic.Structure is
 
    type T_Create_Tree_Type;
    type T_Create_Tree is access all T_Create_Tree_Type'Class;
-   package T_Create_Tree_Vectors is new Ada.Containers.Vectors (Positive, T_Create_Tree);
+   package T_Create_Tree_Vectors is new Ada.Containers.Vectors
+     (Positive, T_Create_Tree);
 
    type T_Entity_Type is tagged record
       Node : Template_Node;
@@ -114,16 +132,21 @@ package Wrapping.Semantic.Structure is
 
    procedure Add_Child (Parent, Child : access T_Entity_Type'Class);
 
-   procedure Add_Child (Parent, Child : access T_Entity_Type'Class; Name_Node : Template_Node'Class);
+   procedure Add_Child
+     (Parent, Child : access T_Entity_Type'Class;
+      Name_Node     : Template_Node'Class);
 
-   procedure Add_Child (Parent, Child : access T_Entity_Type'Class; Name : Text_Type);
+   procedure Add_Child
+     (Parent, Child : access T_Entity_Type'Class; Name : Text_Type);
 
    function Full_Name (An_Entity : T_Entity_Type) return Text_Type;
 
-   function Find_Visible_Entity (An_Entity : T_Entity_Type'Class; Name : Text_Type) return T_Entity;
+   function Find_Visible_Entity
+     (An_Entity : T_Entity_Type'Class; Name : Text_Type) return T_Entity;
 
-   function Get_Component (An_Entity : T_Entity_Type; Name : Text_Type) return T_Entity
-   is (null);
+   function Get_Component
+     (An_Entity : T_Entity_Type; Name : Text_Type) return T_Entity is
+     (null);
 
    procedure Resolve_References (An_Entity : access T_Entity_Type);
 
@@ -151,13 +174,12 @@ package Wrapping.Semantic.Structure is
 
    function Resolve_Module_By_Name (Name : Text_Type) return T_Module;
 
-   overriding
-   function Full_Name (An_Entity : T_Module_Type) return Text_Type;
+   overriding function Full_Name (An_Entity : T_Module_Type) return Text_Type;
 
-   function Get_Component (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity;
+   function Get_Component
+     (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity;
 
-   overriding
-   procedure Resolve_References (An_Entity : access T_Module_Type);
+   overriding procedure Resolve_References (An_Entity : access T_Module_Type);
 
    type T_Template_Type is new T_Named_Entity_Type with record
       Extends : T_Template;
@@ -166,19 +188,22 @@ package Wrapping.Semantic.Structure is
 
    function Instance_Of (Child, Parent : T_Template) return Boolean;
 
-   function Get_Component (A_Template : T_Template_Type; Name : Text_Type) return T_Entity;
+   function Get_Component
+     (A_Template : T_Template_Type; Name : Text_Type) return T_Entity;
 
-   function Get_Namespace_Prefix (Full_Name : Text_Type; Create_If_Null : Boolean := False) return T_Namespace;
+   function Get_Namespace_Prefix
+     (Full_Name : Text_Type; Create_If_Null : Boolean := False)
+      return T_Namespace;
 
-   overriding
-   procedure Resolve_References (An_Entity : access T_Template_Type);
+   overriding procedure Resolve_References
+     (An_Entity : access T_Template_Type);
 
    type Var_Type_Kind is
      (Object_Kind, Integer_Kind, Text_Kind, Set_Kind, Map_Kind, Vector_Kind);
 
    type T_Var_Type is new T_Named_Entity_Type with record
-      Kind : Var_Type_Kind;
-      Args : T_Arg_Vectors.Vector;
+      Kind      : Var_Type_Kind;
+      Args      : T_Arg_Vectors.Vector;
       Init_Expr : T_Expr;
    end record;
 
@@ -187,20 +212,20 @@ package Wrapping.Semantic.Structure is
    end record;
 
    type T_Command_Sequence_Type is new T_Entity_Type with record
-      First_Element    : T_Command_Sequence_Element;
+      First_Element : T_Command_Sequence_Element;
    end record;
 
    type T_Command_Sequence_Element_Type is new T_Entity_Type with record
-      Is_Else          : Boolean;
+      Is_Else : Boolean;
       --  True if this element is an else or elsmatch element
 
       Match_Expression : T_Expr;
-      --  If this element is an elmatch element, provide the expression to match
-      --  against
+      --  If this element is an elmatch element, provide the expression to
+      --  match against
 
-      Vars             : T_Var_Vectors.Vector;
-      Commands         : T_Command_Vectors.Vector;
-      Next_Element     : T_Command_Sequence_Element;
+      Vars         : T_Var_Vectors.Vector;
+      Commands     : T_Command_Vectors.Vector;
+      Next_Element : T_Command_Sequence_Element;
    end record;
 
    type T_Template_Call_Type is new T_Entity_Type with record
@@ -210,8 +235,8 @@ package Wrapping.Semantic.Structure is
       Args          : T_Arg_Vectors.Vector;
    end record;
 
-   overriding
-   procedure Resolve_References (An_Entity : access T_Template_Call_Type);
+   overriding procedure Resolve_References
+     (An_Entity : access T_Template_Call_Type);
 
    type Template_Section_Kind is (Wrap_Kind, Weave_Kind, Walk_Kind);
 
@@ -222,7 +247,7 @@ package Wrapping.Semantic.Structure is
    end record;
 
    type Import_Type is new T_Entity_Type with record
-     Imported_Module : Unbounded_Text_Type;
+      Imported_Module : Unbounded_Text_Type;
    end record;
 
    type T_Command_Type is new T_Entity_Type with record
@@ -235,10 +260,9 @@ package Wrapping.Semantic.Structure is
       Template_Section : T_Template_Section;
 
       Command_Sequence : T_Command_Sequence;
-   end Record;
+   end record;
 
-   overriding
-   procedure Resolve_References (An_Entity : access T_Command_Type);
+   overriding procedure Resolve_References (An_Entity : access T_Command_Type);
 
    type T_Function_Type is new T_Named_Entity_Type with record
       Arguments_Ordered : T_Var_Vectors.Vector;
@@ -247,16 +271,10 @@ package Wrapping.Semantic.Structure is
       Program : T_Command_Sequence;
    end record;
 
-   type String_Part_Kind is
-     (Str_Kind,
-      Expr_Kind,
-      Group_Kind);
+   type String_Part_Kind is (Str_Kind, Expr_Kind, Group_Kind);
 
    type String_Kind is
-     (String_Simple,
-      String_Raw,
-      String_Indent,
-      String_Regexp);
+     (String_Simple, String_Raw, String_Indent, String_Regexp);
 
    type String_Part (Kind : String_Part_Kind := Str_Kind) is record
       Offset_Line, Offset_Column : Integer;
@@ -266,8 +284,8 @@ package Wrapping.Semantic.Structure is
             Value : Unbounded_Text_Type;
 
          when Expr_Kind =>
-            Indent    : Integer;
-            Expr      : T_Expr;
+            Indent : Integer;
+            Expr   : T_Expr;
 
          when Group_Kind =>
             Group_Number : Integer;
@@ -275,10 +293,12 @@ package Wrapping.Semantic.Structure is
       end case;
    end record;
 
-   package Processed_String_Vector is new Ada.Containers.Vectors (Positive, String_Part);
+   package Processed_String_Vector is new Ada.Containers.Vectors
+     (Positive, String_Part);
    use Processed_String_Vector;
 
-   type T_Expr_Type (Kind : Template_Node_Kind_Type) is new T_Entity_Type with record
+   type T_Expr_Type (Kind : Template_Node_Kind_Type) is new T_Entity_Type with
+   record
       Has_New : Boolean := False;
 
       case Kind is
@@ -305,14 +325,14 @@ package Wrapping.Semantic.Structure is
 
          when Template_Str =>
             Str_Kind : String_Kind;
-            Str : Processed_String_Vector.Vector;
+            Str      : Processed_String_Vector.Vector;
 
          when Template_Call_Expr =>
             Called : T_Expr;
             Args   : T_Arg_Vectors.Vector;
 
          when Template_Defer_Expr =>
-            Deferred_Expr : T_Expr;
+            Deferred_Expr    : T_Expr;
             Deferred_Closure : Text_Sets.Set;
 
          when Template_New_Expr =>
@@ -325,16 +345,16 @@ package Wrapping.Semantic.Structure is
             Qualified_Match_Expr : T_Expr;
 
          when Template_Fold_Expr =>
-            Default     : T_Expr;
-            Combine     : T_Expr;
-            Separator   : T_Expr;
+            Default   : T_Expr;
+            Combine   : T_Expr;
+            Separator : T_Expr;
 
          when Template_All_Expr =>
             All_Prefix : T_Expr;
             All_Match  : T_Expr;
 
          when Template_Reg_Expr =>
-            Reg_Expr_Left : T_Expr;
+            Reg_Expr_Left  : T_Expr;
             Reg_Expr_Right : T_Expr;
 
          when Template_Reg_Expr_Anchor =>
@@ -342,13 +362,13 @@ package Wrapping.Semantic.Structure is
 
          when Template_Reg_Expr_Quantifier =>
             Quantifier_Expr : T_Expr;
-            Min : Integer;
-            Max : Integer;
+            Min             : Integer;
+            Max             : Integer;
 
          when Template_Match_Expr =>
             Match_Match_Expr : T_Expr;
-            Match_Pick_Expr : T_Expr;
-            Match_Else_Expr : T_Expr;
+            Match_Pick_Expr  : T_Expr;
+            Match_Else_Expr  : T_Expr;
 
          when Template_Filter_Expr =>
             Filter_Expr : T_Expr;
@@ -358,13 +378,12 @@ package Wrapping.Semantic.Structure is
       end case;
    end record;
 
-   overriding
-   procedure Resolve_References (An_Entity : access T_Expr_Type);
+   overriding procedure Resolve_References (An_Entity : access T_Expr_Type);
 
    type T_Arg_Type is new T_Entity_Type with record
       Name_Node : Identifier;
-      Name : Unbounded_Text_Type;
-      Expr : T_Expr;
+      Name      : Unbounded_Text_Type;
+      Expr      : T_Expr;
    end record;
 
    type T_Create_Tree_Type is new T_Entity_Type with record

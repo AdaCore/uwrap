@@ -2,7 +2,7 @@ with Ada.Containers.Indefinite_Ordered_Maps;
 
 with GNATCOLL.JSON; use GNATCOLL.JSON;
 
-with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
+with Wrapping.Runtime.Objects;   use Wrapping.Runtime.Objects;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 
 package Wrapping.Input.JSON is
@@ -15,19 +15,16 @@ package Wrapping.Input.JSON is
       Name : Unbounded_Text_Type;
    end record;
 
-   overriding
-   function Push_Value
-     (An_Entity : access W_JSON_Node_Type;
-      Name      : Text_Type) return Boolean;
+   overriding function Push_Value
+     (An_Entity : access W_JSON_Node_Type; Name : Text_Type) return Boolean;
 
-   overriding
-   function To_String (Object : W_JSON_Node_Type) return Text_Type;
+   overriding function To_String (Object : W_JSON_Node_Type) return Text_Type;
 
-   overriding
-   function To_Debug_String (Object : W_JSON_Node_Type) return Text_Type;
+   overriding function To_Debug_String
+     (Object : W_JSON_Node_Type) return Text_Type;
 
-   overriding
-   function Language (Object : W_JSON_Node_Type) return Text_Type is ("json");
+   overriding function Language (Object : W_JSON_Node_Type) return Text_Type is
+     ("json");
 
    procedure Analyze_File (Filename : String);
 
