@@ -679,8 +679,6 @@ package body Wrapping.Runtime.Structure is
 
       Next_Matcher : aliased Regexpr_Matcher_Type := Matcher.all;
 
-      Local_Decision : aliased Visit_Action;
-
       function Get_Right_Expression_Matcher return Regexpr_Matcher is
          Expr : T_Expr;
       begin
@@ -699,7 +697,7 @@ package body Wrapping.Runtime.Structure is
          end if;
       end Get_Right_Expression_Matcher;
 
-      procedure Post_Process_Right_Anchor is
+      procedure Post_Process_Next_Result is
       begin
          if Top_Frame.Top_Context.Regexpr.Current_Expr.Kind = Template_Reg_Expr_Anchor then
             if Pop_Object = Match_False then
@@ -708,7 +706,15 @@ package body Wrapping.Runtime.Structure is
                Push_Match_False;
             end if;
          end if;
-      end Post_Process_Right_Anchor;
+
+         if Top_Object /= Match_False then
+            if Matcher.Overall_Yield_Callback /= null then
+               Top_Frame.Top_Context.Visit_Decision.all := Into;
+            else
+               Top_Frame.Top_Context.Visit_Decision.all := Stop;
+            end if;
+         end if;
+      end Post_Process_Next_Result;
 
    begin
       if Top_Frame.Top_Context.Regexpr = null then
@@ -737,8 +743,6 @@ package body Wrapping.Runtime.Structure is
 
          Push_Match_True (Top_Object);
       elsif Expr.Kind = Template_Reg_Expr then
-
-
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
             Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit + 1;
 
@@ -760,22 +764,19 @@ package body Wrapping.Runtime.Structure is
 
                if Top_Frame.Top_Context.Regexpr /= null then
                   Handle_Regexpr;
-                  Post_Process_Right_Anchor;
+                  Post_Process_Next_Result;
                end if;
 
                Pop_Frame_Context;
             else
                case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
                   when Template_Operator_Many =>
-                     Put_Line (P & "MANY " & Expr.Node.Text & " ON " & Top_Object.To_Debug_String);
                      Push_Frame_Context;
                      Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left.Quantifier_Expr;
                      Sub_Matcher.Outer_Next_Expr := Matcher;
                      Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
                      Handle_Regexpr;
                      Pop_Frame_Context;
-
-                     Put_Line (P & "RESULT: " & Top_Object.To_Debug_String);
 
                      if Top_Object = Match_False
                        or else Matcher.Overall_Yield_Callback /= null
@@ -788,7 +789,7 @@ package body Wrapping.Runtime.Structure is
                         if Top_Frame.Top_Context.Regexpr /= null then
                            Pop_Object;
                            Handle_Regexpr;
-                           Post_Process_Right_Anchor;
+                           Post_Process_Next_Result;
                         else
                            if Matcher.Overall_Yield_Callback /= null then
                               Matcher.Overall_Yield_Callback.all;  -- DO WE NEED THIS HERE???? SHOULDNT IT BE BELOW IN CASE OF (STILL) FALSE?
@@ -805,7 +806,7 @@ package body Wrapping.Runtime.Structure is
 
                      if Top_Frame.Top_Context.Regexpr /= null then
                         Handle_Regexpr;
-                        Post_Process_Right_Anchor;
+                        Post_Process_Next_Result;
                      end if;
 
                      Pop_Frame_Context;
@@ -840,42 +841,22 @@ package body Wrapping.Runtime.Structure is
             Sub_Matcher.Outer_Next_Expr := Get_Right_Expression_Matcher;
             Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
             Handle_Regexpr;
-            Post_Process_Right_Anchor;
+            Post_Process_Next_Result;
             Pop_Frame_Context;
          end if;
       else
-         Put_Line (P & "EVALUATE " & Expr.Node.Text & " ON " & Top_Object.To_Debug_String);
-
          if not Evaluate_Match_Result (Object, Expr) then
-            Put_Line (P & "FALSE");
             --Matcher.Capture_Callback (Rollback);
             --Matcher.Generator_Decision.all := Into;
             Push_Match_False;
          else
-            Put_Line (P & "TRUE");
-
-
-
-
-
-            if Matcher.Overall_Yield_Callback /= null then
-               Matcher.Generator_Decision.all := Into;
-            else
-               Matcher.Generator_Decision.all := Stop;
-            end if;
-
-
-
-
-
-
             Push_Frame_Context;
             Top_Frame.Top_Context.Regexpr := Get_Right_Expression_Matcher;
 
             if Top_Frame.Top_Context.Regexpr /= null then
                Top_Frame.Top_Context.Yield_Callback := Handle_Regexpr'Access;
                Matcher.Generator (null);
-               Post_Process_Right_Anchor;
+               Post_Process_Next_Result;
             else
                Push_Match_True (Top_Object);
 
@@ -891,7 +872,7 @@ package body Wrapping.Runtime.Structure is
 
       Depth := Depth - 2;
 
-      Top_Frame.Top_Context.Visit_Decision.all := Matcher.Generator_Decision.all;
+      --  Top_Frame.Top_Context.Visit_Decision.all := Into;
       Pop_Frame_Context;
 
 
