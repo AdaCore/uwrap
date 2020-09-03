@@ -1,16 +1,16 @@
 with Ada.Containers.Vectors;
-with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
-with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Strings.Wide_Wide_Fixed;       use Ada.Strings.Wide_Wide_Fixed;
+with Ada.Text_IO;                       use Ada.Text_IO;
 with Ada.Wide_Wide_Text_IO;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
-with Ada.Characters.Conversions; use Ada.Characters.Conversions;
-with Ada.Containers; use Ada.Containers;
+with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
+with Ada.Containers;                    use Ada.Containers;
 
-with Langkit_Support; use Langkit_Support;
+with Langkit_Support;             use Langkit_Support;
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
-with Libtemplatelang.Common; use Libtemplatelang.Common;
+with Libtemplatelang.Common;      use Libtemplatelang.Common;
 
-with Wrapping.Utils; use Wrapping.Utils;
+with Wrapping.Utils;       use Wrapping.Utils;
 with Langkit_Support.Text; use Langkit_Support.Text;
 
 package body Wrapping.Semantic.Analysis is
@@ -22,20 +22,23 @@ package body Wrapping.Semantic.Analysis is
    Entity_Stack : T_Entity_Vectors.Vector;
 
    function Build_Template (Node : Template_Node) return T_Template;
-   function Build_Module (Node : Template_Node; Module_Name : Text_Type) return T_Module;
+   function Build_Module
+     (Node : Template_Node; Module_Name : Text_Type) return T_Module;
    function Build_Command (Node : Template_Node'Class) return T_Command;
    function Build_Function (Node : Template_Node) return T_Function;
    function Build_Variable (Node : Var'Class) return T_Var;
    function Build_Expr (Node : Template_Node'Class) return T_Expr;
    function Build_Arg (Node : Template_Node'Class) return T_Arg;
-   function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree;
-   function Build_Command_Sequence (Node : Command_Sequence'Class) return T_Command_Sequence;
-   function Build_Command_Sequence_Element (Node : Command_Sequence_Element'Class) return T_Command_Sequence_Element;
-   function Build_Template_Call (Node : Template_Call'Class) return T_Template_Call;
+   function Build_Create_Tree
+     (Node : Template_Node'Class) return T_Create_Tree;
+   function Build_Command_Sequence
+     (Node : Command_Sequence'Class) return T_Command_Sequence;
+   function Build_Command_Sequence_Element
+     (Node : Command_Sequence_Element'Class) return T_Command_Sequence_Element;
+   function Build_Template_Call
+     (Node : Template_Call'Class) return T_Template_Call;
 
-   procedure Analyze_String
-     (Node   : Template_Node'Class;
-      Result : T_Expr);
+   procedure Analyze_String (Node : Template_Node'Class; Result : T_Expr);
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String);
 
@@ -101,7 +104,9 @@ package body Wrapping.Semantic.Analysis is
    -- Push_Entity --
    -----------------
 
-   procedure Push_Entity (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class) is
+   procedure Push_Entity
+     (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class)
+   is
    begin
       Push_Error_Location (Node);
       Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity));
@@ -115,9 +120,9 @@ package body Wrapping.Semantic.Analysis is
    -----------------------
 
    procedure Push_Named_Entity
-     (An_Entity : access T_Entity_Type'Class;
-      Node      : Template_Node'Class;
-      Name      : Text_Type) is
+     (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class;
+      Name      : Text_Type)
+   is
    begin
       Push_Error_Location (Node);
       Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity), Name);
@@ -130,7 +135,10 @@ package body Wrapping.Semantic.Analysis is
    -- Push_Named_Entity --
    -----------------------
 
-   procedure Push_Named_Entity (An_Entity : access T_Named_Entity_Type'Class; Node : Template_Node'Class; Name_Node : Template_Node'Class) is
+   procedure Push_Named_Entity
+     (An_Entity : access T_Named_Entity_Type'Class; Node : Template_Node'Class;
+      Name_Node : Template_Node'Class)
+   is
    begin
       Push_Error_Location (Node);
       Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity), Name_Node);
@@ -164,22 +172,20 @@ package body Wrapping.Semantic.Analysis is
    ------------------
 
    function Build_Module
-     (Node        : Template_Node;
-      Module_Name : Text_Type)
-      return T_Module
+     (Node : Template_Node; Module_Name : Text_Type) return T_Module
    is
-      A_Module : T_Module := new T_Module_Type;
+      A_Module    : T_Module := new T_Module_Type;
       A_Namespace : T_Namespace;
 
-      Dummy_Command : T_Command;
+      Dummy_Command  : T_Command;
       Dummy_Function : T_Function;
 
       Program_Node : Template_Node;
    begin
       A_Namespace := Get_Namespace_Prefix (Module_Name, True);
 
-      --  The module needs to be stacked manually, as it's not a child of
-      --  the currently stacked entity (the root node) but of the namespace.
+      --  The module needs to be stacked manually, as it's not a child of the
+      --  currently stacked entity (the root node) but of the namespace.
       Add_Child (A_Namespace, A_Module, Suffix (Module_Name));
       A_Module.Name := To_Unbounded_Text (Suffix (Module_Name));
       A_Module.Node := Node;
@@ -190,8 +196,7 @@ package body Wrapping.Semantic.Analysis is
       for C of Program_Node.Children loop
          case C.Kind is
             when Template_Template =>
-               A_Module.Templates_Ordered.Append
-                 (Build_Template (C));
+               A_Module.Templates_Ordered.Append (Build_Template (C));
                A_Module.Templates_Indexed.Insert
                  (C.As_Template.F_Name.Text,
                   A_Module.Templates_Ordered.Last_Element);
@@ -200,21 +205,22 @@ package body Wrapping.Semantic.Analysis is
                Dummy_Command := Build_Command (C);
 
             when Template_Var =>
-               A_Module.Variables_Ordered.Append
-                 (Build_Variable (C.As_Var));
+               A_Module.Variables_Ordered.Append (Build_Variable (C.As_Var));
                A_Module.Variables_Indexed.Insert
                  (C.As_Var.F_Name.Text,
                   A_Module.Variables_Ordered.Last_Element);
 
             when Template_Import | Template_Import_List =>
                null;
-               -- To be analyzed when resolving names
+               --  To be analyzed when resolving names
 
             when Template_Function_Node =>
                Dummy_Function := Build_Function (C);
 
             when others =>
-               Error ("unsupported node for modules: '" & C.Kind'Wide_Wide_Image & "'");
+               Error
+                 ("unsupported node for modules: '" & C.Kind'Wide_Wide_Image &
+                  "'");
          end case;
       end loop;
 
@@ -227,7 +233,8 @@ package body Wrapping.Semantic.Analysis is
    -- Build_Template --
    --------------------
 
-   function Build_Template (Node : Template_Node) return Structure.T_Template is
+   function Build_Template (Node : Template_Node) return Structure.T_Template
+   is
       A_Template : T_Template := new T_Template_Type;
    begin
       Push_Named_Entity (A_Template, Node, Node.As_Template.F_Name);
@@ -245,13 +252,16 @@ package body Wrapping.Semantic.Analysis is
    -- Build_Command_Sequence --
    ----------------------------
 
-   function Build_Command_Sequence (Node : Command_Sequence'Class) return T_Command_Sequence is
+   function Build_Command_Sequence
+     (Node : Command_Sequence'Class) return T_Command_Sequence
+   is
       Sequence : T_Command_Sequence := new T_Command_Sequence_Type;
    begin
       Push_Entity (Sequence, Node);
 
       if not Node.F_Sequence.Is_Null then
-         Sequence.First_Element := Build_Command_Sequence_Element (Node.F_Sequence);
+         Sequence.First_Element :=
+           Build_Command_Sequence_Element (Node.F_Sequence);
       end if;
 
       Pop_Entity;
@@ -263,13 +273,16 @@ package body Wrapping.Semantic.Analysis is
    -- Build_Command_Sequence_Element --
    ------------------------------------
 
-   function Build_Command_Sequence_Element (Node : Command_Sequence_Element'Class) return T_Command_Sequence_Element is
-      Sequence_Element : T_Command_Sequence_Element := new T_Command_Sequence_Element_Type;
+   function Build_Command_Sequence_Element
+     (Node : Command_Sequence_Element'Class) return T_Command_Sequence_Element
+   is
+      Sequence_Element : T_Command_Sequence_Element :=
+        new T_Command_Sequence_Element_Type;
    begin
       Push_Entity (Sequence_Element, Node);
 
-      --  By default, sequence elements are not else. Can be switched to true if
-      --  created from an elsmatch or else.
+      --  By default, sequence elements are not else. Can be switched to true
+      --  if created from an elsmatch or else.
       Sequence_Element.Is_Else := False;
 
       for V of Node.F_Vars loop
@@ -283,15 +296,22 @@ package body Wrapping.Semantic.Analysis is
       if not Node.F_Next.Is_Null then
          case Node.F_Next.Kind is
             when Template_Then_Sequence =>
-               Sequence_Element.Next_Element := Build_Command_Sequence_Element (Node.F_Next.As_Then_Sequence.F_Actions);
+               Sequence_Element.Next_Element :=
+                 Build_Command_Sequence_Element
+                   (Node.F_Next.As_Then_Sequence.F_Actions);
 
             when Template_Elsmatch_Sequence =>
-               Sequence_Element.Next_Element := Build_Command_Sequence_Element (Node.F_Next.As_Elsmatch_Sequence.F_Actions);
-               Sequence_Element.Next_Element.Is_Else := True;
-               Sequence_Element.Next_Element.Match_Expression := Build_Expr (Node.F_Next.As_Elsmatch_Sequence.F_Expression);
+               Sequence_Element.Next_Element :=
+                 Build_Command_Sequence_Element
+                   (Node.F_Next.As_Elsmatch_Sequence.F_Actions);
+               Sequence_Element.Next_Element.Is_Else          := True;
+               Sequence_Element.Next_Element.Match_Expression :=
+                 Build_Expr (Node.F_Next.As_Elsmatch_Sequence.F_Expression);
 
             when Template_Else_Sequence =>
-               Sequence_Element.Next_Element := Build_Command_Sequence_Element (Node.F_Next.As_Else_Sequence.F_Actions);
+               Sequence_Element.Next_Element :=
+                 Build_Command_Sequence_Element
+                   (Node.F_Next.As_Else_Sequence.F_Actions);
                Sequence_Element.Next_Element.Is_Else := True;
 
             when others =>
@@ -309,7 +329,9 @@ package body Wrapping.Semantic.Analysis is
    -- Build_Template_Call --
    -------------------------
 
-   function Build_Template_Call (Node : Template_Call'Class) return T_Template_Call is
+   function Build_Template_Call
+     (Node : Template_Call'Class) return T_Template_Call
+   is
       A_Template_Call : T_Template_Call := new T_Template_Call_Type;
    begin
       Push_Entity (A_Template_Call, Node);
@@ -346,15 +368,16 @@ package body Wrapping.Semantic.Analysis is
                A_Command.Defer := True;
 
                if not Node.As_Defer_Section.F_Expression.Is_Null then
-                  A_Command.Defer_Expression := Build_Expr (Node.As_Defer_Section.F_Expression);
+                  A_Command.Defer_Expression :=
+                    Build_Expr (Node.As_Defer_Section.F_Expression);
                end if;
 
                Node.As_Defer_Section.F_Actions.Traverse (Visit'Access);
 
                return Over;
             when Template_Match_Section =>
-               A_Command.Match_Expression := Build_Expr
-                 (Node.As_Match_Section.F_Expression);
+               A_Command.Match_Expression :=
+                 Build_Expr (Node.As_Match_Section.F_Expression);
 
                Node.As_Match_Section.F_Actions.Traverse (Visit'Access);
 
@@ -367,13 +390,20 @@ package body Wrapping.Semantic.Analysis is
 
                return Over;
 
-            when Template_Wrap_Section | Template_Weave_Section | Template_Walk_Section =>
+            when Template_Wrap_Section | Template_Weave_Section |
+              Template_Walk_Section =>
                if Node.Kind = Template_Wrap_Section then
-                  A_Command.Template_Section := new T_Template_Section_Type'(Kind => Wrap_Kind, others => <>);
+                  A_Command.Template_Section :=
+                    new T_Template_Section_Type'
+                      (Kind => Wrap_Kind, others => <>);
                elsif Node.Kind = Template_Weave_Section then
-                  A_Command.Template_Section := new T_Template_Section_Type'(Kind => Weave_Kind, others => <>);
+                  A_Command.Template_Section :=
+                    new T_Template_Section_Type'
+                      (Kind => Weave_Kind, others => <>);
                else
-                  A_Command.Template_Section := new T_Template_Section_Type'(Kind => Walk_Kind, others => <>);
+                  A_Command.Template_Section :=
+                    new T_Template_Section_Type'
+                      (Kind => Walk_Kind, others => <>);
                end if;
 
                Push_Entity (A_Command.Template_Section, Node);
@@ -385,14 +415,14 @@ package body Wrapping.Semantic.Analysis is
                return Over;
 
             when Template_Template_Call =>
-               A_Command.Template_Section.Call := Build_Template_Call
-                 (Node.As_Template_Call);
+               A_Command.Template_Section.Call :=
+                 Build_Template_Call (Node.As_Template_Call);
 
                return Over;
 
             when Template_Command_Sequence =>
-               A_Command.Command_Sequence := Build_Command_Sequence
-                 (Node.As_Command_Sequence);
+               A_Command.Command_Sequence :=
+                 Build_Command_Sequence (Node.As_Command_Sequence);
 
                return Over;
             when others =>
@@ -436,7 +466,8 @@ package body Wrapping.Semantic.Analysis is
          end;
       end loop;
 
-      A_Function.Program := Build_Command_Sequence (Node.As_Function_Node.F_Program);
+      A_Function.Program :=
+        Build_Command_Sequence (Node.As_Function_Node.F_Program);
 
       Pop_Entity;
 
@@ -449,7 +480,7 @@ package body Wrapping.Semantic.Analysis is
 
    function Build_Variable (Node : Var'Class) return T_Var is
       A_Var : Structure.T_Var := new T_Var_Type;
-      Typ : Text_Type := Node.F_Typ.Text;
+      Typ   : Text_Type       := Node.F_Typ.Text;
    begin
       Push_Named_Entity (A_Var, Node, Node.As_Var.F_Name);
 
@@ -478,8 +509,8 @@ package body Wrapping.Semantic.Analysis is
             Error ("missing parameter for set");
          end if;
 
-         --  TODO: implement some kind of type checking and conversions
-         --  if needed depending on the type of the set.
+         --  TODO: implement some kind of type checking and conversions if
+         --  needed depending on the type of the set.
       elsif Typ = "map" then
          A_Var.Kind := Map_Kind;
 
@@ -493,14 +524,15 @@ package body Wrapping.Semantic.Analysis is
             Error ("only (string, object) is currently supported for maps");
          end if;
       elsif Typ = "vector" then
-          A_Var.Kind := Vector_Kind;
+         A_Var.Kind := Vector_Kind;
 
          if Node.F_Args.Children_Count /= 1 then
             Error ("missing parameter for set");
          end if;
       else
-         Error ("unknown var type: '"
-                & Node.F_Typ.Text & "', use text or pattern instead");
+         Error
+           ("unknown var type: '" & Node.F_Typ.Text &
+            "', use text or pattern instead");
       end if;
 
       for A of Node.As_Var.F_Args loop
@@ -521,7 +553,7 @@ package body Wrapping.Semantic.Analysis is
    ----------------
 
    function Build_Expr (Node : Template_Node'Class) return T_Expr is
-      Expr : T_Expr;
+      Expr   : T_Expr;
       Parent : T_Expr;
    begin
       if Node.Is_Null then
@@ -538,26 +570,26 @@ package body Wrapping.Semantic.Analysis is
 
       case Node.Kind is
          when Template_Match_Capture =>
-            Expr.Match_Capture_Expr := Build_Expr (Node.As_Match_Capture.F_Expression);
+            Expr.Match_Capture_Expr :=
+              Build_Expr (Node.As_Match_Capture.F_Expression);
 
          when Template_Selector =>
-            Expr.Selector_Left := Build_Expr (Node.As_Selector.F_Left);
+            Expr.Selector_Left  := Build_Expr (Node.As_Selector.F_Left);
             Expr.Selector_Right := Build_Expr (Node.As_Selector.F_Right);
 
-            --  The tree that libtemplatelang creates needs to be
-            --  inverted for selector, so that the analysis goes from the
-            --  right to the left. If we are a the root of a selector, then
-            --  do the inverstion
+            --  The tree that libtemplatelang creates needs to be inverted for
+            --  selector, so that the analysis goes from the right to the left.
+            --  If we are a the root of a selector, then do the inverstion
 
             if Parent = null or else Parent.Kind /= Template_Selector then
                declare
                   Current : T_Expr := Expr;
-                  Right : T_Expr;
+                  Right   : T_Expr;
                begin
                   while Current.Selector_Right.Kind = Template_Selector loop
-                     Right := Current.Selector_Right;
+                     Right                  := Current.Selector_Right;
                      Current.Selector_Right := Right.Selector_Left;
-                     Right.Selector_Left := Current;
+                     Right.Selector_Left    := Current;
 
                      Current := Right;
                   end loop;
@@ -567,7 +599,7 @@ package body Wrapping.Semantic.Analysis is
             end if;
 
          when Template_Binary_Expr =>
-            Expr.Binary_Left := Build_Expr (Node.As_Binary_Expr.F_Lhs);
+            Expr.Binary_Left  := Build_Expr (Node.As_Binary_Expr.F_Lhs);
             Expr.Binary_Right := Build_Expr (Node.As_Binary_Expr.F_Rhs);
 
          when Template_Unary_Expr =>
@@ -597,54 +629,58 @@ package body Wrapping.Semantic.Analysis is
 
          when Template_New_Expr =>
             Expr.Has_New := True;
-            Expr.Tree := Build_Create_Tree (Node.As_New_Expr.F_Tree);
+            Expr.Tree    := Build_Create_Tree (Node.As_New_Expr.F_Tree);
 
          when Template_At_Ref =>
             null;
 
          when Template_Qualified_Match =>
-            Expr.Qualified_Match_Expr := Build_Expr (Node.As_Qualified_Match.F_Rhs);
+            Expr.Qualified_Match_Expr :=
+              Build_Expr (Node.As_Qualified_Match.F_Rhs);
 
          when Template_Fold_Expr =>
-            Expr.Default := Build_Expr (Node.As_Fold_Expr.F_Default);
-            Expr.Combine := Build_Expr (Node.As_Fold_Expr.F_Combine);
+            Expr.Default   := Build_Expr (Node.As_Fold_Expr.F_Default);
+            Expr.Combine   := Build_Expr (Node.As_Fold_Expr.F_Combine);
             Expr.Separator := Build_Expr (Node.As_Fold_Expr.F_Separator);
 
          when Template_All_Expr =>
             Expr.All_Match := Build_Expr (Node.As_All_Expr.F_Expression);
 
          when Template_Reg_Expr =>
-            Expr.Reg_Expr_Left := Build_Expr (Node.As_Reg_Expr.F_Left);
+            Expr.Reg_Expr_Left  := Build_Expr (Node.As_Reg_Expr.F_Left);
             Expr.Reg_Expr_Right := Build_Expr (Node.As_Reg_Expr.F_Right);
 
          when Template_Reg_Expr_Anchor =>
             null;
 
          when Template_Reg_Expr_Quantifier =>
-            Expr.Quantifier_Expr := Build_Expr
-              (Node.As_Reg_Expr_Quantifier.F_Expr);
+            Expr.Quantifier_Expr :=
+              Build_Expr (Node.As_Reg_Expr_Quantifier.F_Expr);
 
             if not Node.As_Reg_Expr_Quantifier.F_Min.Is_Null then
-               Expr.Min := Integer'Wide_Wide_Value (Node.As_Reg_Expr_Quantifier.F_Min.Text);
+               Expr.Min :=
+                 Integer'Wide_Wide_Value
+                   (Node.As_Reg_Expr_Quantifier.F_Min.Text);
             else
                Expr.Min := 0;
             end if;
 
             if not Node.As_Reg_Expr_Quantifier.F_Max.Is_Null then
-               Expr.Max := Integer'Wide_Wide_Value (Node.As_Reg_Expr_Quantifier.F_Max.Text);
+               Expr.Max :=
+                 Integer'Wide_Wide_Value
+                   (Node.As_Reg_Expr_Quantifier.F_Max.Text);
             else
                Expr.Max := 0;
             end if;
 
          when Template_Match_Expr =>
-            Expr.Match_Match_Expr := Build_Expr
-              (Node.As_Match_Expr.F_Match_Exp);
-            Expr.Match_Pick_Expr := Build_Expr
-              (Node.As_Match_Expr.F_Pick_Exp);
+            Expr.Match_Match_Expr :=
+              Build_Expr (Node.As_Match_Expr.F_Match_Exp);
+            Expr.Match_Pick_Expr := Build_Expr (Node.As_Match_Expr.F_Pick_Exp);
 
             if not Node.As_Match_Expr.F_Else_Exp.Is_Null then
-               Expr.Match_Else_Expr := Build_Expr
-                 (Node.As_Match_Expr.F_Else_Exp);
+               Expr.Match_Else_Expr :=
+                 Build_Expr (Node.As_Match_Expr.F_Else_Exp);
             end if;
 
          when Template_Filter_Expr =>
@@ -692,24 +728,19 @@ package body Wrapping.Semantic.Analysis is
    -- Analyze_String --
    --------------------
 
-   procedure Analyze_String
-     (Node   : Template_Node'Class;
-      Result : T_Expr)
-   is
-      Str : constant Text_Type := Node.Text;
+   procedure Analyze_String (Node : Template_Node'Class; Result : T_Expr) is
+      Str     : constant Text_Type        := Node.Text;
       Context : constant Analysis_Context := Node.Unit.Context;
 
       Next_Index : Integer;
-      Current : Integer;
+      Current    : Integer;
 
       --------------
       -- On_Error --
       --------------
 
       procedure On_Error
-        (Message : Text_Type;
-         Filename : String;
-         Loc : Source_Location)
+        (Message : Text_Type; Filename : String; Loc : Source_Location)
       is
       begin
          Push_Error_Location
@@ -717,21 +748,20 @@ package body Wrapping.Semantic.Analysis is
             (Node.Sloc_Range.Start_Line, Node.Sloc_Range.Start_Column));
 
          Ada.Wide_Wide_Text_IO.Put_Line
-           (To_Text (Get_Sloc_Str)
-            & ": " & Message);
+           (To_Text (Get_Sloc_Str) & ": " & Message);
 
          raise Wrapping_Error;
       end On_Error;
 
       Prev_Error : Error_Callback_Type;
 
-      Str_First, Str_Last : Integer;
-      Left_Spaces : Integer := 0;
+      Str_First, Str_Last      : Integer;
+      Left_Spaces              : Integer := 0;
       Found_Characters_On_Line : Boolean := False;
-      Line_Number : Integer := 1;
+      Line_Number              : Integer := 1;
    begin
       Str_First := Str'First;
-      Str_Last := Str'Last;
+      Str_Last  := Str'Last;
 
       if Str'Length = 0 then
          return;
@@ -740,19 +770,19 @@ package body Wrapping.Semantic.Analysis is
       case Str (Str_First) is
          when 'i' =>
             Result.Str_Kind := String_Indent;
-            Str_First := Str_First + 1;
+            Str_First       := Str_First + 1;
 
          when 'r' =>
             Result.Str_Kind := String_Raw;
-            Str_First := Str_First + 1;
+            Str_First       := Str_First + 1;
 
          when 's' =>
             Result.Str_Kind := String_Simple;
-            Str_First := Str_First + 1;
+            Str_First       := Str_First + 1;
 
          when 'x' =>
             Result.Str_Kind := String_Regexp;
-            Str_First := Str_First + 1;
+            Str_First       := Str_First + 1;
 
          when others =>
             Result.Str_Kind := String_Simple;
@@ -764,10 +794,10 @@ package body Wrapping.Semantic.Analysis is
         and then Str_Last - 3 in Str'Range
       then
          Str_First := Str_First + 3;
-         Str_Last := Str_Last - 3;
+         Str_Last  := Str_Last - 3;
       else
          Str_First := Str_First + 1;
-         Str_Last := Str_Last - 1;
+         Str_Last  := Str_Last - 1;
       end if;
 
       if Result.Str_Kind = String_Raw then
@@ -781,10 +811,10 @@ package body Wrapping.Semantic.Analysis is
          return;
       end if;
 
-      Prev_Error := Error_Callback;
+      Prev_Error     := Error_Callback;
       Error_Callback := On_Error'Unrestricted_Access;
 
-      Current := Str_First;
+      Current    := Str_First;
       Next_Index := Str_First;
 
       while Current <= Str_Last loop
@@ -792,8 +822,7 @@ package body Wrapping.Semantic.Analysis is
             --  Create one entry per line of text. This will help analyzing
             --  empty lines later on.
 
-            if Line_Number = 1
-              and then not Found_Characters_On_Line
+            if Line_Number = 1 and then not Found_Characters_On_Line
               and then Result.Str_Kind = String_Indent
             then
                --  Do not add the initial empty line when dealing with string
@@ -801,18 +830,20 @@ package body Wrapping.Semantic.Analysis is
                null;
             else
                Result.Str.Append
-                 ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Current))));
+                 ((Str_Kind, 0, 0,
+                   To_Unbounded_Text (Str (Next_Index .. Current))));
             end if;
 
-            Line_Number := Line_Number + 1;
-            Current := Current + 1;
-            Next_Index := Current;
+            Line_Number              := Line_Number + 1;
+            Current                  := Current + 1;
+            Next_Index               := Current;
             Found_Characters_On_Line := False;
-            Left_Spaces := 0;
+            Left_Spaces              := 0;
          elsif Str (Current) = '\' then
             if Current /= Str'First then
                Result.Str.Append
-                 ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Current - 1))));
+                 ((Str_Kind, 0, 0,
+                   To_Unbounded_Text (Str (Next_Index .. Current - 1))));
             end if;
 
             Current := Current + 1;
@@ -823,7 +854,8 @@ package body Wrapping.Semantic.Analysis is
                if Str (Current) = '<' then
                   Next_Index := Current;
 
-                  while Next_Index < Str_Last and then Str (Next_Index) /= '>' loop
+                  while Next_Index < Str_Last and then Str (Next_Index) /= '>'
+                  loop
                      Next_Index := Next_Index + 1;
                   end loop;
 
@@ -833,32 +865,47 @@ package body Wrapping.Semantic.Analysis is
                      Expression_Unit : Analysis_Unit :=
                        Get_From_Buffer
                          (Context  => Context,
-                          Filename => "internal expression" & Expression_Unit_Number'Img,
-                          Buffer   => To_String (Str (Current + 1 .. Next_Index - 1)),
-                          Rule     => Expression_Rule);
+                          Filename =>
+                            "internal expression" & Expression_Unit_Number'Img,
+                          Buffer =>
+                            To_String (Str (Current + 1 .. Next_Index - 1)),
+                          Rule => Expression_Rule);
                   begin
                      if Has_Diagnostics (Expression_Unit) then
-                        Error (To_Text (Libtemplatelang.Analysis.Diagnostics (Expression_Unit)(1).Message));
+                        Error
+                          (To_Text
+                             (Libtemplatelang.Analysis.Diagnostics
+                                (Expression_Unit)
+                                (1)
+                                .Message));
                      end if;
 
-                     Result.Str.Append ((Expr_Kind, 0, 0, Left_Spaces, Build_Expr (Expression_Unit.Root)));
+                     Result.Str.Append
+                       ((Expr_Kind, 0, 0, Left_Spaces,
+                         Build_Expr (Expression_Unit.Root)));
                   end;
 
-                  Current := Next_Index + 1;
+                  Current    := Next_Index + 1;
                   Next_Index := Current;
                else
-                  Result.Str.Append ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Current - 1 .. Current))));
+                  Result.Str.Append
+                    ((Str_Kind, 0, 0,
+                      To_Unbounded_Text (Str (Current - 1 .. Current))));
                   Next_Index := Current;
-                  Current := Current + 1;
+                  Current    := Current + 1;
                end if;
             elsif Str (Current) = 'n' then
-               Result.Str.Append ((Str_Kind, 0, 0, To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
-               Current := Current + 1;
+               Result.Str.Append
+                 ((Str_Kind, 0, 0,
+                   To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
+               Current    := Current + 1;
                Next_Index := Current;
             elsif Str (Current) in '0' .. '9' then
                Next_Index := Current;
 
-               while Next_Index < Str_Last and then Str (Next_Index) in '0' .. '9' loop
+               while Next_Index < Str_Last
+                 and then Str (Next_Index) in '0' .. '9'
+               loop
                   Next_Index := Next_Index + 1;
                end loop;
 
@@ -873,15 +920,15 @@ package body Wrapping.Semantic.Analysis is
                   Result.Str.Append ((Group_Kind, 0, 0, Group_Value));
                end;
 
-               Current := Next_Index + 1;
+               Current    := Next_Index + 1;
                Next_Index := Current;
             elsif Str (Current) = '\' then
                Result.Str.Append ((Str_Kind, 0, 0, To_Unbounded_Text ("\")));
                Next_Index := Current + 1;
-               Current := Current + 1;
+               Current    := Current + 1;
             else
                Next_Index := Current;
-               Current := Current + 1;
+               Current    := Current + 1;
             end if;
          else
             if Str (Current) = ' ' and not Found_Characters_On_Line then
@@ -895,9 +942,11 @@ package body Wrapping.Semantic.Analysis is
       end loop;
 
       if Next_Index <= Str_Last then
-         -- Add the end of the text to the result
+         --  Add the end of the text to the result
 
-         Result.Str.Append ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Next_Index .. Str_Last))));
+         Result.Str.Append
+           ((Str_Kind, 0, 0,
+             To_Unbounded_Text (Str (Next_Index .. Str_Last))));
       end if;
 
       Error_Callback := Prev_Error;
@@ -907,9 +956,10 @@ package body Wrapping.Semantic.Analysis is
    -- Build_Create_Tree --
    -----------------------
 
-   function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree is
-      New_Tree : T_Create_Tree := new T_Create_Tree_Type;
-      Tree : Create_Template_Tree := Node.As_Create_Template_Tree;
+   function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree
+   is
+      New_Tree : T_Create_Tree        := new T_Create_Tree_Type;
+      Tree     : Create_Template_Tree := Node.As_Create_Template_Tree;
    begin
       Push_Entity (New_Tree, Node);
 

@@ -6,9 +6,11 @@ with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 
 package Wrapping.Semantic.Analysis is
 
-   Root : Semantic.Structure.T_Namespace := new Semantic.Structure.T_Namespace_Type;
+   Root : Semantic.Structure.T_Namespace :=
+     new Semantic.Structure.T_Namespace_Type;
 
-   package String_Vectors is new Ada.Containers.Indefinite_Vectors (Positive, String);
+   package String_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Positive, String);
    Files : String_Vectors.Vector;
 
    procedure Load_Module (Path : String; Name : String);

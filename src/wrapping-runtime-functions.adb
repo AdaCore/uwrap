@@ -1,22 +1,21 @@
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
-with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
-with Ada.Characters.Conversions; use Ada.Characters.Conversions;
+with Ada.Strings.Wide_Wide_Unbounded;   use Ada.Strings.Wide_Wide_Unbounded;
+with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
-with Wrapping.Utils; use Wrapping.Utils;
+with Wrapping.Utils;            use Wrapping.Utils;
 
 package body Wrapping.Runtime.Functions is
 
    P_Normalize_Ada_Name : Parameter_Profile :=
-      (1 => Make_Parameter ("str", False));
+     (1 => Make_Parameter ("str", False));
 
    -----------------------------
    -- Call_Normalize_Ada_Name --
    -----------------------------
 
    procedure Call_Normalize_Ada_Name
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       New_Name : Unbounded_Text_Type;
       Prev_Up  : Boolean := False;
@@ -27,13 +26,13 @@ package body Wrapping.Runtime.Functions is
    begin
       declare
          Name : constant Text_Type :=
-            Evaluate_Expression (Actuals (1)).To_String;
-         C    : Integer := Name'First;
+           Evaluate_Expression (Actuals (1)).To_String;
+         C : Integer := Name'First;
       begin
          while C <= Name'Last loop
             if Is_Upper (Name (C)) then
-               if not Prev_Up and then not Prev_Sep and then
-                 Length (New_Name) > 0
+               if not Prev_Up and then not Prev_Sep
+                 and then Length (New_Name) > 0
                then
                   Append (New_Name, "_");
                   Prev_Sep := True;
@@ -64,67 +63,64 @@ package body Wrapping.Runtime.Functions is
    end Call_Normalize_Ada_Name;
 
    P_Replace_Text : Parameter_Profile :=
-      (Make_Parameter ("source", False),
-       Make_Parameter ("pattern", False),
-       Make_Parameter ("replace", False));
+     (Make_Parameter ("source", False), Make_Parameter ("pattern", False),
+      Make_Parameter ("replace", False));
 
    -----------------------
    -- Call_Replace_Text --
    -----------------------
 
    procedure Call_Replace_Text
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
-      Result : W_Object;
-      Actuals : Actuals_Type :=
-        Process_Parameters (P_Replace_Text, Params);
+      Result  : W_Object;
+      Actuals : Actuals_Type := Process_Parameters (P_Replace_Text, Params);
    begin
       declare
          Source  : Text_Type := Evaluate_Expression (Actuals (1)).To_String;
          Pattern : Text_Type := Evaluate_Expression (Actuals (2)).To_String;
          Replace : Text_Type := Evaluate_Expression (Actuals (3)).To_String;
       begin
-         Result := W_Object (To_W_String (Replace_String (Source, Pattern, Replace)));
+         Result :=
+           W_Object (To_W_String (Replace_String (Source, Pattern, Replace)));
       end;
 
       Push_Object (Result);
    end Call_Replace_Text;
 
-   P_To_Lower : Parameter_Profile :=
-      (1 => Make_Parameter ("str", False));
+   P_To_Lower : Parameter_Profile := (1 => Make_Parameter ("str", False));
 
    -------------------
    -- Call_To_Lower --
    -------------------
 
    procedure Call_To_Lower
-    (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       Result : W_Object;
 
-      Actuals          : Actuals_Type :=
-        Process_Parameters (P_To_Lower, Params);
+      Actuals : Actuals_Type := Process_Parameters (P_To_Lower, Params);
    begin
-      Result := W_Object (To_W_String (To_Lower (Evaluate_Expression (Actuals (1)).To_String)));
+      Result :=
+        W_Object
+          (To_W_String
+             (To_Lower (Evaluate_Expression (Actuals (1)).To_String)));
       Push_Object (Result);
    end Call_To_Lower;
 
    P_Unindent : Parameter_Profile :=
-     (Make_Parameter ("ident", False),
-      Make_Parameter ("str", False));
+     (Make_Parameter ("ident", False), Make_Parameter ("str", False));
 
    -------------------
    -- Call_Reindent --
    -------------------
 
    procedure Call_Reindent
-    (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       Result : W_Object;
 
-      Actuals          : Actuals_Type :=
-        Process_Parameters (P_Unindent, Params);
+      Actuals     : Actuals_Type := Process_Parameters (P_Unindent, Params);
       Indentation : W_Object;
    begin
       Indentation := Evaluate_Expression (Actuals (1)).Dereference;
@@ -138,8 +134,7 @@ package body Wrapping.Runtime.Functions is
           (To_W_String
              (Reindent
                 (W_Integer (Indentation).Value,
-                 Evaluate_Expression (Actuals (2)).To_String,
-                 True)));
+                 Evaluate_Expression (Actuals (2)).To_String, True)));
       Push_Object (Result);
    end Call_Reindent;
 

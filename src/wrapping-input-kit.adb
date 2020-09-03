@@ -1,12 +1,12 @@
 with Ada.Directories;
-with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
-with Ada.Characters.Conversions; use Ada.Characters.Conversions;
-with Ada.Containers.Vectors; use Ada.Containers;
+with Ada.Wide_Wide_Text_IO;             use Ada.Wide_Wide_Text_IO;
+with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
+with Ada.Containers.Vectors;            use Ada.Containers;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Text_IO;
-with Ada.Containers; use Ada.Containers;
+with Ada.Containers;                    use Ada.Containers;
 
-with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Analysis;   use Wrapping.Runtime.Analysis;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 
 package body Wrapping.Input.Kit is
@@ -20,7 +20,7 @@ package body Wrapping.Input.Kit is
    ------------------
 
    procedure Analyze_File (File : String) is
-      Unit : Analysis_Unit;
+      Unit    : Analysis_Unit;
       Context : Analysis_Context := Create_Context;
 
    begin
@@ -54,9 +54,7 @@ package body Wrapping.Input.Kit is
    procedure Create_Tokens (Node : W_Kit_Node) is
       Token : Token_Reference;
    begin
-      if Node.Tokens.Length > 0
-        or else Node.Trivia_Tokens.Length > 0
-      then
+      if Node.Tokens.Length > 0 or else Node.Trivia_Tokens.Length > 0 then
          return;
       end if;
 
@@ -64,7 +62,7 @@ package body Wrapping.Input.Kit is
 
       declare
          W_Prev_Token : W_Kit_Node_Token;
-         W_Token : W_Kit_Node_Token;
+         W_Token      : W_Kit_Node_Token;
       begin
          while Token /= No_Token loop
 
@@ -81,7 +79,7 @@ package body Wrapping.Input.Kit is
             end if;
 
             W_Prev_Token := W_Token;
-            Token := Next (Token);
+            Token        := Next (Token);
          end loop;
       end;
    end Create_Tokens;
@@ -98,7 +96,7 @@ package body Wrapping.Input.Kit is
          return False;
       else
          declare
-            R_Left : Source_Location_Range := Sloc_Range (Left);
+            R_Left  : Source_Location_Range := Sloc_Range (Left);
             R_Right : Source_Location_Range := Sloc_Range (Right);
          begin
             if R_Left.Start_Line < R_Right.Start_Line then
@@ -119,10 +117,10 @@ package body Wrapping.Input.Kit is
                return False;
             else
                declare
-                  Left_Name : String := Ada.Directories.Simple_Name
-                    (Get_Filename (Unit (Left)));
-                  Right_Name : String := Ada.Directories.Simple_Name
-                    (Get_Filename (Unit (Right)));
+                  Left_Name : String :=
+                    Ada.Directories.Simple_Name (Get_Filename (Unit (Left)));
+                  Right_Name : String :=
+                    Ada.Directories.Simple_Name (Get_Filename (Unit (Right)));
                begin
                   return Left_Name < Right_Name;
                end;
@@ -145,16 +143,13 @@ package body Wrapping.Input.Kit is
    ---------------------------
 
    procedure Call_Check_Expression
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
    begin
       if Params.Length = 0 then
          Push_Match_True (Object);
       elsif Params.Length = 1 then
-         Push_Match_It_Result
-           (W_Object (Object),
-            Params.Element (1).Expr);
+         Push_Match_It_Result (W_Object (Object), Params.Element (1).Expr);
       elsif Params.Length > 1 then
          Error ("matcher takes only 1 argument");
       end if;
@@ -165,10 +160,9 @@ package body Wrapping.Input.Kit is
    ----------------
 
    procedure Call_Token
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
-      Prefix : W_Kit_Node := W_Kit_Node (Object);
+      Prefix     : W_Kit_Node := W_Kit_Node (Object);
       Match_Expr : T_Expr;
 
       Analyzed_First : Boolean := False;
@@ -179,11 +173,11 @@ package body Wrapping.Input.Kit is
       -- Generator --
       ---------------
 
-      procedure Generator (Expr : T_Expr)
-      is
-         Result : W_Object;
-         A_Visit_Action : Visit_Action := Into;
-         Cur_Token : W_Kit_Node_Token := W_Kit_Node_Token (Top_Object.Dereference);
+      procedure Generator (Expr : T_Expr) is
+         Result         : W_Object;
+         A_Visit_Action : Visit_Action     := Into;
+         Cur_Token      : W_Kit_Node_Token :=
+           W_Kit_Node_Token (Top_Object.Dereference);
       begin
          if Analyzed_First then
             Cur_Token := W_Kit_Node_Token (Cur_Token.Next);
@@ -219,7 +213,7 @@ package body Wrapping.Input.Kit is
       Create_Tokens (Prefix);
 
       declare
-         Ref : Token_Reference := Token_Start (Prefix.Node);
+         Ref         : Token_Reference := Token_Start (Prefix.Node);
          First_Token : W_Kit_Node_Token;
       begin
          if Ref = No_Token then
@@ -248,11 +242,10 @@ package body Wrapping.Input.Kit is
       if not An_Entity.Children_Computed then
          for C of An_Entity.Node.Children loop
             if not C.Is_Null then
-               New_Entity := new W_Kit_Node_Type'
-                 (Node          => C,
-                  Tokens        => An_Entity.Tokens,
-                  Trivia_Tokens => An_Entity.Trivia_Tokens,
-                  others        => <>);
+               New_Entity :=
+                 new W_Kit_Node_Type'
+                   (Node          => C, Tokens => An_Entity.Tokens,
+                    Trivia_Tokens => An_Entity.Trivia_Tokens, others => <>);
                Add_Child (An_Entity, New_Entity);
                An_Entity.Children_By_Node.Insert (C, W_Kit_Node (New_Entity));
                Global_Node_Registry.Insert (C, W_Kit_Node (New_Entity));
@@ -262,8 +255,8 @@ package body Wrapping.Input.Kit is
          An_Entity.Children_Computed := True;
 
          --  TODO: We probably want to compute parents there too, just in case
-         --  this entity is obtaned from a property cross ref and the parent
-         --  is not known yet.
+         --  this entity is obtaned from a property cross ref and the parent is
+         --  not known yet.
       end if;
    end Pre_Visit;
 
@@ -274,16 +267,19 @@ package body Wrapping.Input.Kit is
    function Eval_Field (Node : Kit_Node; Name : Text_Type) return W_Object is
       Field_Node : Any_Node_Data_Reference;
    begin
-      if Name'Length > 2
-        and then Name (Name'First .. Name'First + 1) = "f_"
+      if Name'Length > 2 and then Name (Name'First .. Name'First + 1) = "f_"
       then
          declare
-            F_Name : Text_Type := To_Lower (Name (Name'First + 2 .. Name'Last));
+            F_Name : Text_Type :=
+              To_Lower (Name (Name'First + 2 .. Name'Last));
          begin
-            Field_Node := Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (F_Name));
+            Field_Node :=
+              Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (F_Name));
 
             if Field_Node /= None then
-               return new W_Source_Node_Type'(A_Node => Eval_Field (Node, Field_Node));
+               return
+                 new W_Source_Node_Type'
+                   (A_Node => Eval_Field (Node, Field_Node));
             end if;
          end;
       end if;
@@ -296,7 +292,7 @@ package body Wrapping.Input.Kit is
    -------------------------
 
    function Get_Entity_For_Node (Node : Kit_Node) return W_Kit_Node is
-      Parent : W_Kit_Node;
+      Parent     : W_Kit_Node;
       New_Entity : W_Kit_Node;
    begin
       if Global_Node_Registry.Contains (Node) then
@@ -305,15 +301,12 @@ package body Wrapping.Input.Kit is
          Parent := Get_Entity_For_Node (Node.Parent);
          Parent.Pre_Visit;
 
-         return
-           W_Kit_Node_Type (Parent.all).
-           Children_By_Node.Element (Node);
+         return W_Kit_Node_Type (Parent.all).Children_By_Node.Element (Node);
       else
-         New_Entity := new W_Kit_Node_Type'
-           (Node          => Node,
-            Tokens        => new W_Kit_Node_Vectors.Vector,
-            Trivia_Tokens => new W_Kit_Node_Vectors.Vector,
-            others        => <>);
+         New_Entity :=
+           new W_Kit_Node_Type'
+             (Node          => Node, Tokens => new W_Kit_Node_Vectors.Vector,
+              Trivia_Tokens => new W_Kit_Node_Vectors.Vector, others => <>);
          Global_Node_Registry.Insert (Node, New_Entity);
          return New_Entity;
       end if;
@@ -323,24 +316,28 @@ package body Wrapping.Input.Kit is
    -- Eval_Property --
    -------------------
 
-   function Eval_Property (Node : Kit_Node; Name : Text_Type) return W_Object is
+   function Eval_Property (Node : Kit_Node; Name : Text_Type) return W_Object
+   is
       Property_Node : Any_Node_Data_Reference;
    begin
-      if Name'Length > 2
-        and then Name (Name'First .. Name'First + 1) = "p_"
+      if Name'Length > 2 and then Name (Name'First .. Name'First + 1) = "p_"
       then
          declare
-            P_Name : Text_Type := To_Lower (Name (Name'First + 2 .. Name'Last));
+            P_Name : Text_Type :=
+              To_Lower (Name (Name'First + 2 .. Name'Last));
             Value : Value_Type;
          begin
-            Property_Node := Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (P_Name));
+            Property_Node :=
+              Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (P_Name));
 
             if Property_Node /= None then
                declare
-                  Values : Value_Array (1 .. Property_Argument_Types (Property_Node)'Last);
+                  Values : Value_Array
+                    (1 .. Property_Argument_Types (Property_Node)'Last);
                begin
                   for I in Values'Range loop
-                     Values (I) := Property_Argument_Default_Value (Property_Node, I);
+                     Values (I) :=
+                       Property_Argument_Default_Value (Property_Node, I);
                   end loop;
 
                   Value := Eval_Property (Node, Property_Node, Values);
@@ -363,7 +360,9 @@ package body Wrapping.Input.Kit is
                      return Match_False;
                   end if;
                else
-                  Error ("unsupported property kind: " & Any_Value_Kind'Wide_Wide_Image (Kind (Value)));
+                  Error
+                    ("unsupported property kind: " &
+                     Any_Value_Kind'Wide_Wide_Image (Kind (Value)));
                end if;
             end if;
          end;
@@ -376,10 +375,8 @@ package body Wrapping.Input.Kit is
    -- Push_Value --
    ----------------
 
-   overriding
-   function Push_Value
-     (An_Entity : access W_Kit_Node_Type;
-      Name      : Text_Type) return Boolean
+   overriding function Push_Value
+     (An_Entity : access W_Kit_Node_Type; Name : Text_Type) return Boolean
    is
       Id : Any_Node_Type_Id;
    begin
@@ -403,31 +400,31 @@ package body Wrapping.Input.Kit is
          return True;
       elsif Name = "token" then
          Push_Object
-           (W_Object'(
-            new W_Intrinsic_Function_Type'
-              (Prefix       => W_Object (An_Entity),
-               Call         => Call_Token'Unrestricted_Access,
-               Is_Generator => True)));
+           (W_Object'
+              (new W_Intrinsic_Function_Type'
+                 (Prefix       => W_Object (An_Entity),
+                  Call         => Call_Token'Unrestricted_Access,
+                  Is_Generator => True)));
 
          return True;
       end if;
 
       Id := Lookup_DSL_Name (To_String (Name));
 
-      if Id /= No_Node_Type_Id and then Is_Derived_From (Id_For_Kind (An_Entity.Node.Kind), Id) then
-         --  We are in something of the form
-         --  An_Entity (Node_Type ());
-         --  the type matched. Stack a function that will verify the sub
-         --  expression.
+      if Id /= No_Node_Type_Id
+        and then Is_Derived_From (Id_For_Kind (An_Entity.Node.Kind), Id)
+      then
+         --  We are in something of the form An_Entity (Node_Type ()); the type
+         --  matched. Stack a function that will verify the sub expression.
          --  TODO: This also accepts An_Entity.Node_Type() which might be
          --  bizzare... Need to decide if this is OK.
 
          Push_Object
            (W_Object'
               (new W_Intrinsic_Function_Type'
-                   (Prefix => W_Object (An_Entity),
-                    Call   => Call_Check_Expression'Unrestricted_Access,
-                    others => <>)));
+                 (Prefix => W_Object (An_Entity),
+                  Call   => Call_Check_Expression'Unrestricted_Access,
+                  others => <>)));
          return True;
       end if;
 
@@ -447,7 +444,8 @@ package body Wrapping.Input.Kit is
 
             if Result.all in W_Source_Node_Type'Class then
                Push_Object
-                 (An_Entity.Children_By_Node.Element (W_Source_Node_Type (Result.all).A_Node));
+                 (An_Entity.Children_By_Node.Element
+                    (W_Source_Node_Type (Result.all).A_Node));
             else
                Push_Object (Result);
             end if;
@@ -463,8 +461,7 @@ package body Wrapping.Input.Kit is
    -- To_String --
    ---------------
 
-   overriding
-   function To_String (Object : W_Kit_Node_Type) return Text_Type is
+   overriding function To_String (Object : W_Kit_Node_Type) return Text_Type is
    begin
       return Object.Node.Text;
    end To_String;
@@ -473,21 +470,23 @@ package body Wrapping.Input.Kit is
    -- To_Debug_String --
    ---------------------
 
-   overriding
-   function To_Debug_String (Object : W_Kit_Node_Type) return Text_Type is
+   overriding function To_Debug_String
+     (Object : W_Kit_Node_Type) return Text_Type
+   is
    begin
-      return Object.Node.Kind'Wide_Wide_Image & ": "
-        & W_Kit_Node_Type'Class (Object).To_String;
+      return
+        Object.Node.Kind'Wide_Wide_Image & ": " &
+        W_Kit_Node_Type'Class (Object).To_String;
    end To_Debug_String;
 
    ----------------
    -- Push_Value --
    ----------------
 
-   overriding
-   function Push_Value
-     (An_Entity : access W_Kit_Node_Token_Type;
-      Name      : Text_Type) return Boolean is
+   overriding function Push_Value
+     (An_Entity : access W_Kit_Node_Token_Type; Name : Text_Type)
+      return Boolean
+   is
    begin
       if W_Node_Type (An_Entity.all).Push_Value (Name) then
          return True;
@@ -495,30 +494,35 @@ package body Wrapping.Input.Kit is
 
       if Name = "line" or else Name = "start_line" then
          Push_Object
-           (W_Object'(
-            new W_Integer_Type'(
-              Value => Integer (Sloc_Range (Data (An_Entity.Node)).Start_Line))));
+           (W_Object'
+              (new W_Integer_Type'
+                 (Value =>
+                    Integer (Sloc_Range (Data (An_Entity.Node)).Start_Line))));
 
          return True;
       elsif Name = "column" or else Name = "start_column" then
          Push_Object
-           (W_Object'(
-            new W_Integer_Type'(
-              Value => Integer (Sloc_Range (Data (An_Entity.Node)).Start_Column))));
+           (W_Object'
+              (new W_Integer_Type'
+                 (Value =>
+                    Integer
+                      (Sloc_Range (Data (An_Entity.Node)).Start_Column))));
 
          return True;
       elsif Name = "end_line" then
          Push_Object
-           (W_Object'(
-            new W_Integer_Type'(
-              Value => Integer (Sloc_Range (Data (An_Entity.Node)).End_Line))));
+           (W_Object'
+              (new W_Integer_Type'
+                 (Value =>
+                    Integer (Sloc_Range (Data (An_Entity.Node)).End_Line))));
 
          return True;
       elsif Name = "end_column" then
          Push_Object
-           (W_Object'(
-            new W_Integer_Type'(
-              Value => Integer (Sloc_Range (Data (An_Entity.Node)).End_Column))));
+           (W_Object'
+              (new W_Integer_Type'
+                 (Value =>
+                    Integer (Sloc_Range (Data (An_Entity.Node)).End_Column))));
 
          return True;
       elsif Name = "is_trivia" then
@@ -532,29 +536,30 @@ package body Wrapping.Input.Kit is
       end if;
 
       declare
-         Full_Kind : Wide_Wide_String := Kind (Data (An_Entity.Node))'Wide_Wide_Image;
-         Actual_Kind : Wide_Wide_String := To_Lower (Full_Kind (Full_Kind'First + 4 .. Full_Kind'Last));
+         Full_Kind : Wide_Wide_String :=
+           Kind (Data (An_Entity.Node))'Wide_Wide_Image;
+         Actual_Kind : Wide_Wide_String :=
+           To_Lower (Full_Kind (Full_Kind'First + 4 .. Full_Kind'Last));
       begin
-         Actual_Kind (Actual_Kind'First) := To_Upper (Actual_Kind (Actual_Kind'First));
+         Actual_Kind (Actual_Kind'First) :=
+           To_Upper (Actual_Kind (Actual_Kind'First));
 
          if Name = "kind" then
             Push_Object (To_W_String (Actual_Kind));
 
             return True;
          elsif Name = Actual_Kind then
-            --  We are in something of the form
-            --  An_Entity (Node_Type ());
+            --  We are in something of the form An_Entity (Node_Type ());
             --  the type matched. Stack a function that will verify the sub
-            --  expression.
-            --  TODO: This also accepts An_Entity.Node_Type() which might be
-            --  bizzare... Need to decide if this is OK.
+            --  expression. TODO: This also accepts An_Entity.Node_Type()
+            --  which might be bizzare... Need to decide if this is OK.
 
             Push_Object
               (W_Object'
                  (new W_Intrinsic_Function_Type'
-                      (Prefix => W_Object (An_Entity),
-                       Call   => Call_Check_Expression'Unrestricted_Access,
-                       others => <>)));
+                    (Prefix => W_Object (An_Entity),
+                     Call   => Call_Check_Expression'Unrestricted_Access,
+                     others => <>)));
 
             return True;
          end if;
@@ -567,8 +572,9 @@ package body Wrapping.Input.Kit is
    -- To_String --
    ---------------
 
-   overriding
-   function To_String (Object : W_Kit_Node_Token_Type) return Text_Type is
+   overriding function To_String
+     (Object : W_Kit_Node_Token_Type) return Text_Type
+   is
    begin
       return Text (Object.Node);
    end To_String;
@@ -577,8 +583,9 @@ package body Wrapping.Input.Kit is
    -- To_Debug_String --
    ---------------------
 
-   overriding
-   function To_Debug_String (Object : W_Kit_Node_Token_Type) return Text_Type is
+   overriding function To_Debug_String
+     (Object : W_Kit_Node_Token_Type) return Text_Type
+   is
    begin
       return Text (Object.Node);
    end To_Debug_String;

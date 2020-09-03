@@ -1,5 +1,5 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Text_IO;           use Ada.Text_IO;
 
 package body Wrapping.Regex is
 
@@ -7,9 +7,8 @@ package body Wrapping.Regex is
    -- Compile --
    -------------
 
-   function Compile (Pattern : String) return Basic_Regex
-   is
-      Ret : Basic_Regex;
+   function Compile (Pattern : String) return Basic_Regex is
+      Ret      : Basic_Regex;
       Proc_Str : Unbounded_String := To_Unbounded_String (Pattern);
 
       procedure Process_Pattern_Groups;
@@ -18,17 +17,16 @@ package body Wrapping.Regex is
       -- Process_Pattern_Groups --
       ----------------------------
 
-      procedure Process_Pattern_Groups
-      is
+      procedure Process_Pattern_Groups is
 
-         Cg_Str : constant String := "(\(.+?\))";
-         Real_Re : constant Pattern_Matcher := Compile (Cg_Str);
-         Real_Cg : constant Match_Count := Paren_Count (Regexp => Real_Re);
+         Cg_Str       : constant String          := "(\(.+?\))";
+         Real_Re      : constant Pattern_Matcher := Compile (Cg_Str);
+         Real_Cg : constant Match_Count     := Paren_Count (Regexp => Real_Re);
          Real_Matches : Match_Array (0 .. Real_Cg);
 
          Data_Str     : constant String := To_String (Proc_Str);
-         Real_Index : Natural := 1;
-         Real_Current : Natural := Data_Str'First;
+         Real_Index   : Natural         := 1;
+         Real_Current : Natural         := Data_Str'First;
 
          procedure Find_Capture_Group;
 
@@ -36,60 +34,62 @@ package body Wrapping.Regex is
          -- Find_Capture_Group --
          ------------------------
 
-         procedure Find_Capture_Group
-         is
+         procedure Find_Capture_Group is
          begin
             for I of Ret.Names loop
                if I.Location.First = Real_Matches (0).First then
                   I.Location.Last := Real_Matches (0).Last;
-                  I.Index := Real_Index;
+                  I.Index         := Real_Index;
                   return;
                end if;
             end loop;
             --  if we get here, this match doesn't have a name
-            Ret.Names.Append (Capture_Group'(Name     => Null_Unbounded_String,
-                                             Index    => Real_Index,
-                                             Location => Real_Matches (0)));
+            Ret.Names.Append
+              (Capture_Group'
+                 (Name     => Null_Unbounded_String, Index => Real_Index,
+                  Location => Real_Matches (0)));
          end Find_Capture_Group;
       begin
          loop
-            GNAT.Regpat.Match (Self       => Real_Re,
-                               Data       => Data_Str,
-                               Matches    => Real_Matches,
-                               Data_First => Real_Current);
+            GNAT.Regpat.Match
+              (Self => Real_Re, Data => Data_Str, Matches => Real_Matches,
+               Data_First => Real_Current);
             exit when Real_Matches (0) = GNAT.Regpat.No_Match;
 
             Find_Capture_Group;
 
             Real_Current := Real_Matches (0).Last + 1;
-            Real_Index := Real_Index + 1;
+            Real_Index   := Real_Index + 1;
          end loop;
       end Process_Pattern_Groups;
 
-      Named_Str     : constant String := "\?<(\w+)>";
+      Named_Str     : constant String          := "\?<(\w+)>";
       Named_Re      : constant Pattern_Matcher := Compile (Named_Str);
-      Named_Cg      : constant Match_Count := Paren_Count (Named_Re);
+      Named_Cg      : constant Match_Count     := Paren_Count (Named_Re);
       Named_Matches : Match_Array (0 .. Named_Cg);
    begin
       loop
-         GNAT.Regpat.Match (Self       => Named_Re,
-                            Data       => To_String (Proc_Str),
-                            Matches    => Named_Matches);
+         GNAT.Regpat.Match
+           (Self    => Named_Re, Data => To_String (Proc_Str),
+            Matches => Named_Matches);
          exit when Named_Matches (0) = GNAT.Regpat.No_Match;
 
          Ret.Names.Append
-           (Capture_Group'(
-            Name     => Unbounded_Slice (Source => Proc_Str,
-                                         Low    => Named_Matches (1).First,
-                                         High   => Named_Matches (1).Last),
-            Index    => 0,  --  This is not the final index!
-            Location => Match_Location'(First => Named_Matches (0).First - 1,
-                                        --  This is not the final location!
-                                        Last  => 0)));
+           (Capture_Group'
+              (Name =>
+                 Unbounded_Slice
+                   (Source => Proc_Str, Low => Named_Matches (1).First,
+                    High   => Named_Matches (1).Last),
+               Index    => 0,  --  This is not the final index!
+               Location =>
+                 Match_Location'
+                   (First => Named_Matches (0).First - 1,
+         --  This is not the final location!
+         Last => 0)));
 
-         Delete (Source  => Proc_Str,
-                 From    => Named_Matches (0).First,
-                 Through => Named_Matches (0).Last);
+         Delete
+           (Source  => Proc_Str, From => Named_Matches (0).First,
+            Through => Named_Matches (0).Last);
 
       end loop;
 
@@ -104,28 +104,25 @@ package body Wrapping.Regex is
    -- Match --
    -----------
 
-   function Match (Self : Basic_Regex;
-                   Str  : String)
-                   return Match_Obj
-   is
-      Cg : constant Match_Count := Paren_Count (Regexp => Self.Pattern.Element);
-      M  : Match_Array (0 .. Cg);
+   function Match (Self : Basic_Regex; Str : String) return Match_Obj is
+      Cg : constant Match_Count :=
+        Paren_Count (Regexp => Self.Pattern.Element);
+      M : Match_Array (0 .. Cg);
    begin
-      GNAT.Regpat.Match (Self       => Self.Pattern.Element,
-                         Data       => Str,
-                         Matches    => M);
+      GNAT.Regpat.Match
+        (Self => Self.Pattern.Element, Data => Str, Matches => M);
 
-      return Match_Obj'(Matches => Match_Holder.To_Holder (M),
-                        Names => Self.Names,
-                        Original_String => To_Unbounded_String (Str));
+      return
+        Match_Obj'
+          (Matches         => Match_Holder.To_Holder (M), Names => Self.Names,
+           Original_String => To_Unbounded_String (Str));
    end Match;
 
    --------------
    -- No_Match --
    --------------
 
-   function No_Match (Self : Match_Obj) return Boolean
-   is
+   function No_Match (Self : Match_Obj) return Boolean is
    begin
       return Self.Matches.Element (0) = GNAT.Regpat.No_Match;
    end No_Match;
@@ -134,8 +131,7 @@ package body Wrapping.Regex is
    -- Length --
    ------------
 
-   function Length (Self : Match_Obj) return Natural
-   is
+   function Length (Self : Match_Obj) return Natural is
    begin
       return Self.Matches.Element'Length;
    end Length;
@@ -144,15 +140,11 @@ package body Wrapping.Regex is
    -- Get_Noexcept --
    ------------------
 
-   function Get_Noexcept (Self : Match_Obj;
-                          Index : String)
-                          return String
-   is
+   function Get_Noexcept (Self : Match_Obj; Index : String) return String is
    begin
       for I of Self.Names loop
          if I.Name = Index then
-            return Get (Self  => Self,
-                        Index => I.Index);
+            return Get (Self => Self, Index => I.Index);
          end if;
       end loop;
 
@@ -164,12 +156,8 @@ package body Wrapping.Regex is
    -- Get --
    ---------
 
-   function Get (Self  : Match_Obj;
-                 Index : String)
-                 return String
-   is
-      Ret : constant String := Get_Noexcept (Self  => Self,
-                                             Index => Index);
+   function Get (Self : Match_Obj; Index : String) return String is
+      Ret : constant String := Get_Noexcept (Self => Self, Index => Index);
    begin
       if Ret = No_Group_Name then
          raise Unknown_Group_Name;
@@ -182,25 +170,19 @@ package body Wrapping.Regex is
    -- Get --
    ---------
 
-   function Get (Self  : Match_Obj;
-                 Index : Natural)
-                 return String
-   is
+   function Get (Self : Match_Obj; Index : Natural) return String is
       Loc : constant Match_Location := Self.Matches.Element (Index);
    begin
-      return Slice (Source => Self.Original_String,
-                    Low    => Loc.First,
-                    High   => Loc.Last);
+      return
+        Slice
+          (Source => Self.Original_String, Low => Loc.First, High => Loc.Last);
    end Get;
 
    ----------------------
    -- Get_Capture_Name --
    ----------------------
 
-   function Get_Capture_Name
-     (Self  : Match_Obj;
-      Index : Natural)
-      return String
+   function Get_Capture_Name (Self : Match_Obj; Index : Natural) return String
    is
    begin
       for I of Self.Names loop

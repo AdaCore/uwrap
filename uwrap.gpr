@@ -4,6 +4,9 @@ with "libtestlang";
 
 project UWrap is
 
+   type Build_Mode_Type is ("dev", "prod");
+   Build_Mode : Build_Mode_Type := external ("BUILD_MODE", "dev");
+
    for Create_Missing_Dirs use "true";
 
    for Source_Dirs use ("src");
@@ -15,7 +18,19 @@ project UWrap is
    end Binder;
 
    package Compiler is
-      for Switches ("ada") use ("-g", "-gnata", "-gnatw.T");
+      case Build_Mode is
+         when "dev" =>
+            for Default_Switches ("Ada") use
+              ("-g", "-O0", "-gnata",
+               --  TODO: Activate GNAT style checks, except mandatory subprogram
+               --  specs, because there are a ton to fix.
+               "-gnatyg-s");
+
+         when "prod" =>
+            --  Debug information is useful even with optimization for
+            --  profiling, for instance.
+            for Default_Switches ("Ada") use ("-g", "-Ofast", "-gnatp");
+      end case;
    end Compiler;
 
 end UWrap;

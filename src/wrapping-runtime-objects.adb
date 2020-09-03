@@ -1,9 +1,9 @@
-with Ada.Containers; use Ada.Containers;
+with Ada.Containers;        use Ada.Containers;
 with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
 
-with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Analysis;  use Wrapping.Runtime.Analysis;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
-with Libtemplatelang.Common; use Libtemplatelang.Common;
+with Libtemplatelang.Common;     use Libtemplatelang.Common;
 
 package body Wrapping.Runtime.Objects is
 
@@ -38,18 +38,16 @@ package body Wrapping.Runtime.Objects is
    end Has_Allocator;
 
    generic
-      A_Mode : in Browse_Mode;
+      A_Mode : Browse_Mode;
    procedure Call_Gen_Browse
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector);
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
 
    ---------------------
    -- Call_Gen_Browse --
    ---------------------
 
    procedure Call_Gen_Browse
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       ---------------
       -- Generator --
@@ -63,7 +61,8 @@ package body Wrapping.Runtime.Objects is
       if Params.Length = 0 then
          Evaluate_Generator_Regexp (Object, null, Generator'Access);
       elsif Params.Length = 1 then
-         Evaluate_Generator_Regexp (Object, Params.Element (1).Expr, Generator'Access);
+         Evaluate_Generator_Regexp
+           (Object, Params.Element (1).Expr, Generator'Access);
       elsif Params.Length > 1 then
          Error ("matcher takes only 1 argument");
       end if;
@@ -74,15 +73,15 @@ package body Wrapping.Runtime.Objects is
    procedure Call_Browse_Next is new Call_Gen_Browse (Next);
    procedure Call_Browse_Prev is new Call_Gen_Browse (Prev);
    procedure Call_Browse_Sibling is new Call_Gen_Browse (Sibling);
-   procedure Call_Browse_Wrapper is new Call_Gen_Browse (Wrapping.Runtime.Structure.Wrapper);
+   procedure Call_Browse_Wrapper is new Call_Gen_Browse
+     (Wrapping.Runtime.Structure.Wrapper);
 
    --------------------
    -- Call_Browse_It --
    --------------------
 
    procedure Call_Browse_It
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
    begin
       --  TODO: This is probably never executed, as It is an object directly
@@ -90,9 +89,7 @@ package body Wrapping.Runtime.Objects is
       if Params.Length = 0 then
          Push_Match_True (Object);
       elsif Params.Length = 1 then
-         Push_Match_It_Result
-           (W_Object (Object),
-            Params.Element (1).Expr);
+         Push_Match_It_Result (W_Object (Object), Params.Element (1).Expr);
       else
          Error ("'it' only takes 1 argument");
       end if;
@@ -103,20 +100,16 @@ package body Wrapping.Runtime.Objects is
    --------------
 
    procedure Call_Tmp
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
    begin
       if Params.Length = 0 then
-         Push_Temporary_Name
-           ("",
-            W_Node (Object).Tmp_Counter);
+         Push_Temporary_Name ("", W_Node (Object).Tmp_Counter);
       elsif Params.Length = 1 then
          Evaluate_Expression (Params.Element (1).Expr);
 
          Push_Temporary_Name
-           (Pop_Object.To_String,
-            W_Node (Object).Tmp_Counter);
+           (Pop_Object.To_String, W_Node (Object).Tmp_Counter);
       else
          Error ("tmp only accepts one argument");
       end if;
@@ -127,8 +120,7 @@ package body Wrapping.Runtime.Objects is
    -----------------
 
    procedure Call_Insert
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       P1, P2 : W_Object;
    begin
@@ -159,8 +151,7 @@ package body Wrapping.Runtime.Objects is
    ------------------
 
    procedure Call_Include
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       P1, P2 : W_Object;
    begin
@@ -191,8 +182,7 @@ package body Wrapping.Runtime.Objects is
    -----------------
 
    procedure Call_Append
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       Val : W_Object;
    begin
@@ -214,18 +204,16 @@ package body Wrapping.Runtime.Objects is
    --------------
 
    procedure Call_Get
-     (Object : access W_Object_Type'Class;
-      Params : T_Arg_Vectors.Vector)
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
-      Key : W_Object;
+      Key   : W_Object;
       Index : Integer;
    begin
       if Params.Length /= 1 then
          Error ("get expects one parameter");
       end if;
 
-      Key := Evaluate_Expression
-        (Params.Element (1).Expr);
+      Key := Evaluate_Expression (Params.Element (1).Expr);
 
       if Object.all in W_Map_Type'Class then
          if W_Map (Object).A_Map.Contains (Key) then
@@ -251,7 +239,8 @@ package body Wrapping.Runtime.Objects is
          Index := W_Integer (Key).Value;
 
          if Index in
-           W_Vector (Object).A_Vector.First_Index .. W_Vector (Object).A_Vector.Last_Index
+             W_Vector (Object).A_Vector.First_Index ..
+                   W_Vector (Object).A_Vector.Last_Index
          then
             Push_Object (W_Vector (Object).A_Vector.Element (Index));
          elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
@@ -268,10 +257,8 @@ package body Wrapping.Runtime.Objects is
    -- Push_Call_Result --
    ----------------------
 
-   overriding
-   procedure Push_Call_Result
-     (An_Entity : access W_Reference_Type;
-      Params    : T_Arg_Vectors.Vector)
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Reference_Type; Params : T_Arg_Vectors.Vector)
    is
    begin
       An_Entity.Value.Push_Call_Result (Params);
@@ -281,9 +268,9 @@ package body Wrapping.Runtime.Objects is
    -- Match_With_Top_Object --
    ---------------------------
 
-   overriding
-   function Match_With_Top_Object
-     (An_Entity : access W_Reference_Type) return Boolean is
+   overriding function Match_With_Top_Object
+     (An_Entity : access W_Reference_Type) return Boolean
+   is
    begin
       return Match_With_Top_Object (An_Entity.Value);
    end Match_With_Top_Object;
@@ -292,50 +279,44 @@ package body Wrapping.Runtime.Objects is
    -- Traverse --
    --------------
 
-   overriding
-   function Traverse
-     (An_Entity    : access W_Reference_Type;
-      A_Mode       : Browse_Mode;
-      Include_It : Boolean;
-      Final_Result : out W_Object;
-      Visitor      : access function
-        (E      : access W_Object_Type'Class;
-         Result : out W_Object) return Visit_Action)
+   overriding function Traverse
+     (An_Entity  : access W_Reference_Type; A_Mode : Browse_Mode;
+      Include_It : Boolean; Final_Result : out W_Object;
+      Visitor    : access function
+        (E : access W_Object_Type'Class; Result : out W_Object)
+         return Visit_Action)
       return Visit_Action
    is
    begin
-      return An_Entity.Value.Traverse
-        (A_Mode       => A_Mode,
-         Include_It => Include_It,
-         Final_Result => Final_Result,
-         Visitor      => Visitor);
+      return
+        An_Entity.Value.Traverse
+          (A_Mode       => A_Mode, Include_It => Include_It,
+           Final_Result => Final_Result, Visitor => Visitor);
    end Traverse;
 
    ------------------------------
    -- Evaluate_Bowse_Functions --
    ------------------------------
 
-   overriding
-   procedure Evaluate_Bowse_Functions
-     (An_Entity        : access W_Reference_Type;
-      A_Mode           : Browse_Mode;
+   overriding procedure Evaluate_Bowse_Functions
+     (An_Entity        : access W_Reference_Type; A_Mode : Browse_Mode;
       Match_Expression : T_Expr)
    is
    begin
       An_Entity.Value.Evaluate_Bowse_Functions
-        (A_Mode           => A_Mode,
-         Match_Expression => Match_Expression);
+        (A_Mode => A_Mode, Match_Expression => Match_Expression);
    end Evaluate_Bowse_Functions;
 
    ---------------------
    -- Generate_Values --
    ---------------------
 
-   overriding
-   procedure Generate_Values (Object : access W_Reference_Type; Expr : T_Expr) is
+   overriding procedure Generate_Values
+     (Object : access W_Reference_Type; Expr : T_Expr)
+   is
    begin
       Object.Value.Generate_Values (Expr);
-   end;
+   end Generate_Values;
 
    -----------------------
    -- Is_Text_Container --
@@ -346,7 +327,7 @@ package body Wrapping.Runtime.Objects is
       for I of Container.A_Vector loop
          if I.all in W_Vector_Type'Class then
             if not W_Vector (I).Is_Text_Container then
-                 return False;
+               return False;
             end if;
          elsif I.all not in W_Text_Expression_Type'Class then
             return False;
@@ -360,10 +341,8 @@ package body Wrapping.Runtime.Objects is
    -- Push_Value --
    ----------------
 
-   overriding
-   function Push_Value
-     (An_Entity : access W_Vector_Type;
-      Name      : Text_Type) return Boolean
+   overriding function Push_Value
+     (An_Entity : access W_Vector_Type; Name : Text_Type) return Boolean
    is
       Call : Call_Access;
    begin
@@ -375,10 +354,10 @@ package body Wrapping.Runtime.Objects is
 
       if Call /= null then
          Push_Object
-           (W_Object'(new W_Intrinsic_Function_Type'
-              (Prefix => W_Object (An_Entity),
-               Call   => Call,
-               others => <>)));
+           (W_Object'
+              (new W_Intrinsic_Function_Type'
+                 (Prefix => W_Object (An_Entity), Call => Call,
+                  others => <>)));
          return True;
       else
          return False;
@@ -389,17 +368,15 @@ package body Wrapping.Runtime.Objects is
    -- Push_Call_Result --
    ----------------------
 
-   overriding
-   procedure Push_Call_Result
-     (An_Entity : access W_Vector_Type;
-      Params    : T_Arg_Vectors.Vector)
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Vector_Type; Params : T_Arg_Vectors.Vector)
    is
       Result : W_Object;
    begin
       --  TODO: This will essentially enable checks against strings, which is
-      --  useful when vector indeed represent strings. Verify if
-      --  this is OK. We may need a specific vector string type for this, and
-      --  have a more comprehensive test here.
+      --  useful when vector indeed represent strings. Verify if this is OK.
+      --  We may need a specific vector string type for this, and have a more
+      --  comprehensive test here.
 
       if Params.Length = 0 then
          Push_Match_True (An_Entity);
@@ -460,10 +437,8 @@ package body Wrapping.Runtime.Objects is
    -- Push_Value --
    ----------------
 
-   overriding
-   function Push_Value
-     (An_Entity : access W_Set_Type;
-      Name      : Text_Type) return Boolean
+   overriding function Push_Value
+     (An_Entity : access W_Set_Type; Name : Text_Type) return Boolean
    is
       Call : Call_Access;
    begin
@@ -477,10 +452,10 @@ package body Wrapping.Runtime.Objects is
 
       if Call /= null then
          Push_Object
-           (W_Object'(new W_Intrinsic_Function_Type'
-              (Prefix => W_Object (An_Entity),
-               Call   => Call,
-               others => <>)));
+           (W_Object'
+              (new W_Intrinsic_Function_Type'
+                 (Prefix => W_Object (An_Entity), Call => Call,
+                  others => <>)));
          return True;
       else
          return False;
@@ -516,10 +491,8 @@ package body Wrapping.Runtime.Objects is
    -- Push_Value --
    ----------------
 
-   overriding
-   function Push_Value
-     (An_Entity : access W_Map_Type;
-      Name      : Text_Type) return Boolean
+   overriding function Push_Value
+     (An_Entity : access W_Map_Type; Name : Text_Type) return Boolean
    is
       Call : Call_Access;
    begin
@@ -533,10 +506,10 @@ package body Wrapping.Runtime.Objects is
 
       if Call /= null then
          Push_Object
-           (W_Object'(new W_Intrinsic_Function_Type'
-              (Prefix => W_Object (An_Entity),
-               Call   => Call,
-               others => <>)));
+           (W_Object'
+              (new W_Intrinsic_Function_Type'
+                 (Prefix => W_Object (An_Entity), Call => Call,
+                  others => <>)));
          return True;
       else
          return False;
@@ -572,9 +545,7 @@ package body Wrapping.Runtime.Objects is
    -- To_String --
    ---------------
 
-   overriding
-   function To_String (Object : W_Integer_Type) return Text_Type
-   is
+   overriding function To_String (Object : W_Integer_Type) return Text_Type is
    begin
       return Object.Value'Wide_Wide_Image;
    end To_String;
@@ -583,8 +554,7 @@ package body Wrapping.Runtime.Objects is
    -- To_String --
    ---------------
 
-   overriding
-   function To_String (Object : W_String_Type) return Text_Type is
+   overriding function To_String (Object : W_String_Type) return Text_Type is
    begin
       return To_Text (Object.Value);
    end To_String;
@@ -593,8 +563,7 @@ package body Wrapping.Runtime.Objects is
    -- Lt --
    --------
 
-   overriding
-   function Lt
+   overriding function Lt
      (Left : access W_String_Type; Right : access W_Object_Type'Class)
       return Boolean
    is
@@ -612,8 +581,7 @@ package body Wrapping.Runtime.Objects is
    -- Eq --
    --------
 
-   overriding
-   function Eq
+   overriding function Eq
      (Left : access W_String_Type; Right : access W_Object_Type'Class)
       return Boolean
    is
@@ -649,10 +617,8 @@ package body Wrapping.Runtime.Objects is
    -- Push_Call_Result --
    ----------------------
 
-   overriding
-   procedure Push_Call_Result
-     (An_Entity : access W_Text_Expression_Type;
-      Params    : T_Arg_Vectors.Vector)
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Text_Expression_Type; Params : T_Arg_Vectors.Vector)
    is
    begin
       --  TODO: Should that be the high level call result?
@@ -671,8 +637,7 @@ package body Wrapping.Runtime.Objects is
    -- To_String --
    ---------------
 
-   overriding
-   function To_String (Object : W_Regexp_Type) return Text_Type is
+   overriding function To_String (Object : W_Regexp_Type) return Text_Type is
    begin
       return Object.Value.To_String;
    end To_String;
@@ -681,8 +646,9 @@ package body Wrapping.Runtime.Objects is
    -- To_String --
    ---------------
 
-   overriding
-   function To_String (Object : W_Text_Conversion_Type) return Text_Type is
+   overriding function To_String
+     (Object : W_Text_Conversion_Type) return Text_Type
+   is
    begin
       return Object.An_Object.To_String;
    end To_String;
@@ -705,8 +671,9 @@ package body Wrapping.Runtime.Objects is
    -- To_String --
    ---------------
 
-   overriding
-   function To_String (Object : W_Text_Reindent_Type) return Text_Type is
+   overriding function To_String
+     (Object : W_Text_Reindent_Type) return Text_Type
+   is
    begin
       return Reindent (Object.Indent, Object.Content.To_String, False);
    end To_String;
@@ -715,10 +682,10 @@ package body Wrapping.Runtime.Objects is
    -- Push_Call_Result --
    ----------------------
 
-   overriding
-   procedure Push_Call_Result
+   overriding procedure Push_Call_Result
      (An_Entity : access W_Intrinsic_Function_Type;
-      Params    : T_Arg_Vectors.Vector) is
+      Params    : T_Arg_Vectors.Vector)
+   is
    begin
       Push_Frame_Context_Parameter;
       An_Entity.Call (An_Entity.Prefix, Params);
@@ -726,8 +693,8 @@ package body Wrapping.Runtime.Objects is
 
       if not An_Entity.Is_Generator then
          --  If this entity is a generator itself (e.g. child ()), it already
-         --  took care of the expansion. Otherwise, call the yield callback
-         --  on the one result
+         --  took care of the expansion. Otherwise, call the yield callback on
+         --  the one result
 
          if Top_Frame.Top_Context.Yield_Callback /= null then
             Top_Frame.Top_Context.Yield_Callback.all;
@@ -740,14 +707,12 @@ package body Wrapping.Runtime.Objects is
    -- Push_Call_Result --
    ----------------------
 
-   overriding
-   procedure Push_Call_Result
-     (An_Entity : access W_Function_Type;
-      Params    : T_Arg_Vectors.Vector)
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Function_Type; Params : T_Arg_Vectors.Vector)
    is
       Calling_Frame : Data_Frame;
-      Called_Frame : Data_Frame;
-      Temp_Symbols : W_Object_Maps.Map;
+      Called_Frame  : Data_Frame;
+      Temp_Symbols  : W_Object_Maps.Map;
 
       ------------------------
       -- Evaluate_Parameter --
@@ -758,9 +723,10 @@ package body Wrapping.Runtime.Objects is
       is
          Computed_Name : Text_Type :=
            (if Name = "" then
-               An_Entity.A_Function.Arguments_Ordered.Element (Position).Name_Node.Text
-            else
-               Name);
+              An_Entity.A_Function.Arguments_Ordered.Element (Position)
+                .Name_Node
+                .Text
+            else Name);
       begin
          Temp_Symbols.Insert (Computed_Name, Evaluate_Expression (Value));
       end Evaluate_Parameter;
@@ -771,11 +737,10 @@ package body Wrapping.Runtime.Objects is
       -- Pick_Callback --
       -------------------
 
-      procedure Pick_Callback (Object : W_Object)
-      is
+      procedure Pick_Callback (Object : W_Object) is
       begin
-         --  When reaching a value to be picked on a function f, either:
-         --  (1) the caller is not an expansion, in which case we found
+         --  When reaching a value to be picked on a function f, either: (1)
+         --  the caller is not an expansion, in which case we found
          --      the value, we can interrupt the above expansion if any.
          --  (2) the parent is an expansion, e.g. f ().all(). In this case, we
          --      restore temporarily frame parent frame (the frame of the
@@ -784,7 +749,7 @@ package body Wrapping.Runtime.Objects is
          --      the function.
 
          if Calling_Frame.Top_Context.Yield_Callback = null then
-            Last_Picked := Object;
+            Last_Picked                 := Object;
             Top_Frame.Interrupt_Program := True;
          else
             Push_Frame (Calling_Frame);
@@ -825,25 +790,26 @@ package body Wrapping.Runtime.Objects is
    -- Push_Value --
    ----------------
 
-   overriding
-   function Push_Value
-     (An_Entity : access W_Static_Entity_Type;
-      Name      : Text_Type) return Boolean
+   overriding function Push_Value
+     (An_Entity : access W_Static_Entity_Type; Name : Text_Type) return Boolean
    is
       A_Semantic_Entity : T_Entity;
    begin
       if An_Entity.An_Entity.Children_Indexed.Contains (Name) then
-         A_Semantic_Entity := An_Entity.An_Entity.Children_Indexed.Element (Name);
+         A_Semantic_Entity :=
+           An_Entity.An_Entity.Children_Indexed.Element (Name);
 
          if A_Semantic_Entity.all in T_Var_Type'Class then
-            --  We found a reference to a Var. This means that we need to process
-            --  the node corresponding to this module, and retreive the actual
-            --  variable value.
+            --  We found a reference to a Var. This means that we need to
+            --  process the node corresponding to this module, and retreive
+            --  the actual variable value.
 
-            return Get_Object_For_Entity (An_Entity.An_Entity).Push_Value (Name);
+            return
+              Get_Object_For_Entity (An_Entity.An_Entity).Push_Value (Name);
          else
             Push_Object
-              (W_Object'(new W_Static_Entity_Type'(An_Entity => A_Semantic_Entity)));
+              (W_Object'
+                 (new W_Static_Entity_Type'(An_Entity => A_Semantic_Entity)));
 
             return True;
          end if;
@@ -856,14 +822,12 @@ package body Wrapping.Runtime.Objects is
    -- Push_Call_Result --
    ----------------------
 
-   overriding
-   procedure Push_Call_Result
-     (An_Entity : access W_Static_Entity_Type;
-      Params    : T_Arg_Vectors.Vector)
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Static_Entity_Type; Params : T_Arg_Vectors.Vector)
    is
-      It_Object   : W_Object;
-      Prefix        : W_Template_Instance;
-      Result        : W_Object;
+      It_Object : W_Object;
+      Prefix    : W_Template_Instance;
+      Result    : W_Object;
    begin
       --  Matching an static entity reference means two things:
       --    *  First, check that this entity reference exist in the context,
@@ -883,9 +847,9 @@ package body Wrapping.Runtime.Objects is
 
       Prefix := W_Template_Instance (It_Object);
 
-      --  If we're of the right type, then push the implicit It so that
-      --  the stack starts with an implicit entity at the top, and check
-      --  the result.
+      --  If we're of the right type, then push the implicit It so that the
+      --  stack starts with an implicit entity at the top, and check the
+      --  result.
 
       if Params.Length = 0 then
          Push_Match_True (It_Object);
@@ -915,8 +879,9 @@ package body Wrapping.Runtime.Objects is
    -- Generate_Values --
    ---------------------
 
-   overriding
-   procedure Generate_Values (Object : access W_Static_Entity_Type; Expr : T_Expr) is
+   overriding procedure Generate_Values
+     (Object : access W_Static_Entity_Type; Expr : T_Expr)
+   is
       A_Template : W_Template_Instance;
    begin
       if Object.An_Entity.all not in T_Template_Type'Class then
@@ -924,17 +889,19 @@ package body Wrapping.Runtime.Objects is
          return;
       end if;
 
-      A_Template := W_Template_Instance (Get_Object_For_Entity (Object.An_Entity));
+      A_Template :=
+        W_Template_Instance (Get_Object_For_Entity (Object.An_Entity));
 
-      A_Template.Indexed_Variables.Element ("_registry").Generate_Values (Expr);
+      A_Template.Indexed_Variables.Element ("_registry").Generate_Values
+        (Expr);
    end Generate_Values;
 
    ---------------
    -- To_String --
    ---------------
 
-   overriding
-   function To_String (Object : W_Deferred_Expr_Type) return Text_Type
+   overriding function To_String
+     (Object : W_Deferred_Expr_Type) return Text_Type
    is
    begin
       Run_Deferred_Expr (Object);
@@ -962,7 +929,9 @@ package body Wrapping.Runtime.Objects is
    -- Add_Child --
    ---------------
 
-   procedure Add_Child (Parent, Child : access W_Node_Type'Class; Name : Text_Type) is
+   procedure Add_Child
+     (Parent, Child : access W_Node_Type'Class; Name : Text_Type)
+   is
    begin
       Add_Child (Parent, Child);
       Parent.Children_Indexed.Insert (Name, W_Node (Child));
@@ -973,14 +942,17 @@ package body Wrapping.Runtime.Objects is
    --------------
 
    procedure Add_Next (Cur, Next : access W_Node_Type'Class) is
-      Found : Boolean := False with Ghost;
+      Found : Boolean := False with
+         Ghost;
    begin
       Next.Next := Cur.Next;
       Next.Prev := W_Node (Cur);
-      Cur.Next := W_Node (Next);
+      Cur.Next  := W_Node (Next);
 
       if Cur.Parent /= null then
-         for I in Cur.Children_Ordered.First_Index .. Cur.Children_Ordered.Last_Index loop
+         for I in
+           Cur.Children_Ordered.First_Index .. Cur.Children_Ordered.Last_Index
+         loop
             if Cur.Children_Ordered.Element (I) = Cur then
                Cur.Children_Ordered.Insert (I + 1, W_Node (Next));
                Found := True;
@@ -1000,9 +972,9 @@ package body Wrapping.Runtime.Objects is
       Wrapped : W_Node;
    begin
       if Is_Wrapping (Parent) then
-         --  Template instances that are part of the wrapping tree
-         --  are never added directly. Instead, they are wrapping a
-         --  hollow node created on the origin tree.
+         --  Template instances that are part of the wrapping tree are never
+         --  added directly. Instead, they are wrapping a hollow node created
+         --  on the origin tree.
 
          Wrapped := new W_Hollow_Node_Type;
          Add_Wrapping_Child (W_Template_Instance (Parent).Origin, Wrapped);
@@ -1018,24 +990,25 @@ package body Wrapping.Runtime.Objects is
    ------------------------------
 
    function Create_Template_Instance
-     (An_Entity  : access W_Node_Type'Class;
-      A_Template : T_Template;
-      Register   : Boolean) return W_Template_Instance
+     (An_Entity : access W_Node_Type'Class; A_Template : T_Template;
+      Register  : Boolean) return W_Template_Instance
    is
-      New_Template : W_Template_Instance;
+      New_Template   : W_Template_Instance;
       Template_Class : W_Template_Instance;
 
       Current_Template : T_Template;
    begin
-      New_Template := new W_Template_Instance_Type;
+      New_Template                 := new W_Template_Instance_Type;
       New_Template.Defining_Entity := T_Entity (A_Template);
 
       if An_Entity /= null then
          New_Template.Origin := W_Node (An_Entity);
 
          if Register then
-            An_Entity.Templates_By_Name.Insert (A_Template.Name_Node.Text, New_Template);
-            An_Entity.Templates_By_Full_Id.Insert (A_Template.Full_Name, New_Template);
+            An_Entity.Templates_By_Name.Insert
+              (A_Template.Name_Node.Text, New_Template);
+            An_Entity.Templates_By_Full_Id.Insert
+              (A_Template.Full_Name, New_Template);
             An_Entity.Templates_Ordered.Append (New_Template);
          end if;
       end if;
@@ -1043,13 +1016,17 @@ package body Wrapping.Runtime.Objects is
       Current_Template := A_Template;
 
       while Current_Template /= null loop
-         Template_Class := W_Template_Instance (Get_Object_For_Entity (A_Template));
+         Template_Class :=
+           W_Template_Instance (Get_Object_For_Entity (A_Template));
 
          if Register then
             W_Vector
               (W_Reference
-                 (Template_Class.Indexed_Variables.Element ("_registry")).Value).
-                A_Vector.Append (W_Object (New_Template));
+                 (Template_Class.Indexed_Variables.Element ("_registry"))
+                 .Value)
+              .A_Vector
+              .Append
+              (W_Object (New_Template));
          end if;
 
          Current_Template := Current_Template.Extends;
@@ -1067,8 +1044,8 @@ package body Wrapping.Runtime.Objects is
    ---------------------------
 
    function Get_Template_Instance
-     (An_Entity : access W_Node_Type'Class;
-      Name      : Text_Type) return W_Template_Instance
+     (An_Entity : access W_Node_Type'Class; Name : Text_Type)
+      return W_Template_Instance
    is
    begin
       if An_Entity.Templates_By_Name.Contains (Name) then
@@ -1083,11 +1060,12 @@ package body Wrapping.Runtime.Objects is
    ---------------------------
 
    function Get_Template_Instance
-     (An_Entity  : access W_Node_Type'Class;
-      A_Template : T_Template) return W_Template_Instance is
+     (An_Entity : access W_Node_Type'Class; A_Template : T_Template)
+      return W_Template_Instance
+   is
    begin
-      --  TODO: These calls to full name may be very costly, it'd be better
-      --  to cache the full name in the object
+      --  TODO: These calls to full name may be very costly, it'd be better to
+      --  cache the full name in the object
       if An_Entity.Templates_By_Full_Id.Contains (A_Template.Full_Name) then
          return An_Entity.Templates_By_Full_Id.Element (A_Template.Full_Name);
       else
@@ -1099,35 +1077,33 @@ package body Wrapping.Runtime.Objects is
    -- Push_Value --
    ----------------
 
-   overriding
-   function Push_Value
-     (An_Entity : access W_Node_Type;
-      Name      : Text_Type) return Boolean
+   overriding function Push_Value
+     (An_Entity : access W_Node_Type; Name : Text_Type) return Boolean
    is
-      A_Call : Call_Access := null;
-      Is_Generator : Boolean := False;
+      A_Call       : Call_Access := null;
+      Is_Generator : Boolean     := False;
    begin
       if An_Entity.Templates_By_Name.Contains (Name) then
          Push_Object (An_Entity.Templates_By_Name.Element (Name));
 
          return True;
       elsif Name = "parent" then
-         A_Call := Call_Browse_Parent'Access;
+         A_Call       := Call_Browse_Parent'Access;
          Is_Generator := True;
       elsif Name = "child" then
-         A_Call := Call_Browse_Child'Access;
+         A_Call       := Call_Browse_Child'Access;
          Is_Generator := True;
       elsif Name = "next" then
-         A_Call := Call_Browse_Next'Access;
+         A_Call       := Call_Browse_Next'Access;
          Is_Generator := True;
       elsif Name = "prev" then
-         A_Call := Call_Browse_Prev'Access;
+         A_Call       := Call_Browse_Prev'Access;
          Is_Generator := True;
       elsif Name = "sibling" then
-         A_Call := Call_Browse_Sibling'Access;
+         A_Call       := Call_Browse_Sibling'Access;
          Is_Generator := True;
       elsif Name = "wrapper" then
-         A_Call := Call_Browse_Wrapper'Access;
+         A_Call       := Call_Browse_Wrapper'Access;
          Is_Generator := True;
       elsif Name = "tmp" then
          A_Call := Call_Tmp'Access;
@@ -1137,10 +1113,10 @@ package body Wrapping.Runtime.Objects is
 
       if A_Call /= null then
          Push_Object
-           (W_Object'(new W_Intrinsic_Function_Type'
-                (Prefix       => W_Object (An_Entity),
-                 Call         => A_Call,
-                 Is_Generator => Is_Generator)));
+           (W_Object'
+              (new W_Intrinsic_Function_Type'
+                 (Prefix       => W_Object (An_Entity), Call => A_Call,
+                  Is_Generator => Is_Generator)));
 
          return True;
       end if;
@@ -1158,13 +1134,12 @@ package body Wrapping.Runtime.Objects is
    -- Push_Call_Result --
    ----------------------
 
-   overriding
-   procedure Push_Call_Result
-     (An_Entity : access W_Node_Type;
-      Params    : T_Arg_Vectors.Vector)
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Node_Type; Params : T_Arg_Vectors.Vector)
    is
    begin
-      --  TODO: this code is probably the generic call result code, not specific to
+      --  TODO: this code is probably the generic call result code, not
+      --  specific to
       --   node type.
       if Params.Length = 0 then
          Push_Match_True (An_Entity);
@@ -1186,8 +1161,8 @@ package body Wrapping.Runtime.Objects is
    is
       Other_Entity : W_Object := Top_Object.Dereference;
    begin
-      --  By default, nodes only consider ref as being "is" matches, and
-      --  calls as being "has" matches. So pass through calls before looking.
+      --  By default, nodes only consider ref as being "is" matches, and calls
+      --  as being "has" matches. So pass through calls before looking.
 
       if Top_Frame.Top_Context.Match_Mode = Match_Call_Default then
          return True;
@@ -1213,21 +1188,19 @@ package body Wrapping.Runtime.Objects is
    --------------
 
    function Traverse
-     (An_Entity    : access W_Node_Type;
-      A_Mode       : Browse_Mode;
-      Include_It : Boolean;
-      Final_Result : out W_Object;
-      Visitor      : access function
-        (E      : access W_Object_Type'Class;
-         Result : out W_Object) return Visit_Action)
+     (An_Entity  : access W_Node_Type; A_Mode : Browse_Mode;
+      Include_It : Boolean; Final_Result : out W_Object;
+      Visitor    : access function
+        (E : access W_Object_Type'Class; Result : out W_Object)
+         return Visit_Action)
       return Visit_Action
    is
-      Current : W_Node;
+      Current               : W_Node;
       Current_Children_List : W_Node_Vectors.Vector;
-      Next_Children_List : W_Node_Vectors.Vector;
+      Next_Children_List    : W_Node_Vectors.Vector;
 
-      -- Wraps the default traverse function, capturing the result if not
-      -- null or false.
+      --  Wraps the default traverse function, capturing the result if not null
+      --  or false.
       ----------------------
       -- Traverse_Wrapper --
       ----------------------
@@ -1237,7 +1210,7 @@ package body Wrapping.Runtime.Objects is
          return Visit_Action
       is
          Temp_Result : W_Object;
-         R : Visit_Action;
+         R           : Visit_Action;
       begin
          R := Entity.Traverse (A_Mode, False, Temp_Result, Visitor);
 
@@ -1248,8 +1221,8 @@ package body Wrapping.Runtime.Objects is
          return R;
       end Traverse_Wrapper;
 
-      -- Wraps the default visit function, capturing the result if not
-      -- null or false.
+      --  Wraps the default visit function, capturing the result if not null or
+      --  false.
       -------------------
       -- Visit_Wrapper --
       -------------------
@@ -1258,7 +1231,7 @@ package body Wrapping.Runtime.Objects is
         (Entity : access W_Object_Type'Class) return Visit_Action
       is
          Temp_Result : W_Object;
-         R : Visit_Action;
+         R           : Visit_Action;
       begin
          R := Visitor (Entity, Temp_Result);
 
@@ -1295,7 +1268,7 @@ package body Wrapping.Runtime.Objects is
       end if;
 
       if A_Mode = Sibling then
-         -- TODO: Rewrite sibling as a next starting from the first element.
+         --  TODO: Rewrite sibling as a next starting from the first element.
          --  the current version doesn't handle properly regular expressions
          case Traverse_Wrapper (An_Entity, Prev) is
             when Stop =>
@@ -1457,17 +1430,17 @@ package body Wrapping.Runtime.Objects is
    ------------------------------
 
    procedure Evaluate_Bowse_Functions
-     (An_Entity         : access W_Node_Type;
-      A_Mode            : Browse_Mode;
-      Match_Expression  : T_Expr)
+     (An_Entity        : access W_Node_Type; A_Mode : Browse_Mode;
+      Match_Expression : T_Expr)
    is
       -------------
       -- Visitor --
       -------------
 
       function Visitor
-        (E      : access W_Object_Type'Class;
-         Result : out W_Object) return Visit_Action is
+        (E : access W_Object_Type'Class; Result : out W_Object)
+         return Visit_Action
+      is
       begin
          return Browse_Entity (E, Match_Expression, Result);
       end Visitor;
@@ -1476,8 +1449,10 @@ package body Wrapping.Runtime.Objects is
       -- Create_Hollow_Next --
       ------------------------
 
-      function Create_Hollow_Next (Prev : access W_Node_Type'Class) return W_Hollow_Node is
-         Wrapped : W_Hollow_Node;
+      function Create_Hollow_Next
+        (Prev : access W_Node_Type'Class) return W_Hollow_Node
+      is
+         Wrapped  : W_Hollow_Node;
          New_Node : W_Hollow_Node := new W_Hollow_Node_Type;
       begin
          if Is_Wrapping (Prev) then
@@ -1490,7 +1465,7 @@ package body Wrapping.Runtime.Objects is
          end if;
 
          return New_Node;
-      end;
+      end Create_Hollow_Next;
 
       --------------
       -- Allocate --
@@ -1510,37 +1485,42 @@ package body Wrapping.Runtime.Objects is
          end case;
       end Allocate;
 
-      Found : Boolean;
+      Found  : Boolean;
       Result : W_Object;
    begin
       Push_Frame_Context;
       Top_Frame.Top_Context.Allocate_Callback := null;
 
-      Found := W_Node_Type'Class(An_Entity.all).Traverse
-        (A_Mode, False, Result, Visitor'Access) = Stop;
+      Found :=
+        W_Node_Type'Class (An_Entity.all).Traverse
+          (A_Mode, False, Result, Visitor'Access) =
+        Stop;
 
-      if not Found
-        and then Match_Expression /= null
+      if not Found and then Match_Expression /= null
         and then Match_Expression.Has_New
       then
-         --  Semantic for search is to look first for matches that do not require
-         --  an allocator. If none is found and if there are allocators, then
-         --  re-try, this time with allocators enabled.
+         --  Semantic for search is to look first for matches that do
+         --  not require an allocator. If none is found and if there
+         --  are allocators, then re-try, this time with allocators enabled.
 
          if Top_Frame.Top_Context.Yield_Callback /= null then
-            --  TODO: it would be best to check that earlier in the system,
-            --  as opposed to only when trying to call a folding function.
+            --  TODO: it would be best to check that earlier in the system, as
+            --  opposed to only when trying to call a folding function.
             Error ("allocators are not allowed in folding browsing functions");
          end if;
 
-         Top_Frame.Top_Context.Allocate_Callback := Allocate'Unrestricted_Access;
+         Top_Frame.Top_Context.Allocate_Callback :=
+           Allocate'Unrestricted_Access;
 
-         Found := W_Node_Type'Class(An_Entity.all).Traverse
-           (A_Mode, False, Result, Visitor'Access) = Stop;
+         Found :=
+           W_Node_Type'Class (An_Entity.all).Traverse
+             (A_Mode, False, Result, Visitor'Access) =
+           Stop;
 
          if not Found then
-            --  If still not found, there is still a possibilty that this can
-            --  match without any object valid, and then create the first element.
+            --  If still not found, there is still a possibilty that this
+            --  can match without any object valid, and then create the
+            --  first element.
 
             declare
                Dummy_Entity : W_Node;
@@ -1556,10 +1536,10 @@ package body Wrapping.Runtime.Objects is
       Push_Frame_Context;
       Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
 
-      if not Found and then
-        not
-          (Top_Frame.Top_Context.Match_Mode /= Match_None
-           or else Top_Frame.Top_Context.Yield_Callback /= null)
+      if not Found
+        and then not
+        (Top_Frame.Top_Context.Match_Mode /= Match_None
+         or else Top_Frame.Top_Context.Yield_Callback /= null)
       then
          Error ("no result found for browsing function");
       end if;
@@ -1591,8 +1571,8 @@ package body Wrapping.Runtime.Objects is
    ----------------
 
    function Push_Value
-     (An_Entity : access W_Template_Instance_Type;
-      Name      : Text_Type) return Boolean
+     (An_Entity : access W_Template_Instance_Type; Name : Text_Type)
+      return Boolean
    is
       use Wrapping.Semantic.Structure;
    begin
@@ -1600,7 +1580,7 @@ package body Wrapping.Runtime.Objects is
          return True;
       end if;
 
-      -- First cover the case of a variable or a pattern
+      --  First cover the case of a variable or a pattern
 
       if Name = "origin" then
          if An_Entity.Origin /= null then
@@ -1624,8 +1604,7 @@ package body Wrapping.Runtime.Objects is
    -- Match_With_Top_Object --
    ---------------------------
 
-   overriding
-   function Match_With_Top_Object
+   overriding function Match_With_Top_Object
      (An_Entity : access W_Template_Instance_Type) return Boolean
    is
       Other_Entity : W_Object := Top_Object.Dereference;
@@ -1634,12 +1613,12 @@ package body Wrapping.Runtime.Objects is
       --  "is" mode
 
       if Other_Entity.all in W_Static_Entity_Type'Class then
-         if Top_Frame.Top_Context.Match_Mode in
-           Match_Call_Default | Match_Ref_Default | Match_Is
+         if Top_Frame.Top_Context.Match_Mode in Match_Call_Default |
+               Match_Ref_Default                                   | Match_Is
          then
             if not Instance_Of
-              (T_Template (An_Entity.Defining_Entity),
-               T_Template (W_Static_Entity (Other_Entity).An_Entity))
+                (T_Template (An_Entity.Defining_Entity),
+                 T_Template (W_Static_Entity (Other_Entity).An_Entity))
             then
                Pop_Object;
                Push_Match_False;
@@ -1662,15 +1641,12 @@ package body Wrapping.Runtime.Objects is
    -- Traverse --
    --------------
 
-   overriding
-   function Traverse
-     (An_Entity    : access W_Template_Instance_Type;
-      A_Mode       : Browse_Mode;
-      Include_It : Boolean;
-      Final_Result : out W_Object;
-      Visitor      : access function
-        (E      : access W_Object_Type'Class;
-         Result : out W_Object) return Visit_Action)
+   overriding function Traverse
+     (An_Entity  : access W_Template_Instance_Type; A_Mode : Browse_Mode;
+      Include_It : Boolean; Final_Result : out W_Object;
+      Visitor    : access function
+        (E : access W_Object_Type'Class; Result : out W_Object)
+         return Visit_Action)
       return Visit_Action
    is
       ----------------------
@@ -1678,22 +1654,21 @@ package body Wrapping.Runtime.Objects is
       ----------------------
 
       function Template_Visitor
-        (E      : access W_Object_Type'Class;
-         Result : out W_Object)
+        (E : access W_Object_Type'Class; Result : out W_Object)
          return Visit_Action
       is
          Current_Result : W_Object;
-         Last_Decision : Visit_Action := Into;
+         Last_Decision  : Visit_Action := Into;
       begin
          Result := Match_False;
 
          if E.all in W_Node_Type'Class then
             if W_Node (E).Templates_Ordered.Length = 0 then
-               --  When there's no template for a given node, we consider
-               --  this note to be non-existent from the template browsing
-               --  point of view. As a result, anchored browsing should be
-               --  allowed to look at the next level of nodes as if it was
-               --  directly adjacent.
+               --  When there's no template for a given node, we consider this
+               --  note to be non-existent from the template browsing point
+               --  of view. As a result, anchored browsing should be allowed
+               --  to look at the next level of nodes as if it was directly
+               --  adjacent.
 
                return Into_Override_Anchor;
             else
@@ -1721,22 +1696,24 @@ package body Wrapping.Runtime.Objects is
       end Template_Visitor;
 
       Last_Decision : Visit_Action := Into;
-      Result : W_Object;
+      Result        : W_Object;
    begin
       Result := Match_False;
 
       --  A template instance either belong to an input tree (if has been
       --  created through a new from an input node) or a wrapping tree (in
-      --  all other cases). If it doesn't have an origin set, it's part of
-      --  the input tree, in this case fallback to the normal traversal.
-      --  Otherwise, use specialized traversing using the original tree as the
-      --  backbone of the iteration.
+      --  all other cases). If it doesn't have an origin set, it's part of the
+      --  input tree, in this case fallback to the normal traversal. Otherwise,
+      --  use specialized traversing using the original tree as the backbone of
+      --  the iteration.
       if An_Entity.Origin = null then
-         Last_Decision := W_Node_Type (An_Entity.all).Traverse
-           (A_Mode, Include_It, Result, Visitor);
+         Last_Decision :=
+           W_Node_Type (An_Entity.all).Traverse
+             (A_Mode, Include_It, Result, Visitor);
       else
-         Last_Decision := An_Entity.Origin.Traverse
-           (A_Mode, False, Result, Template_Visitor'Access);
+         Last_Decision :=
+           An_Entity.Origin.Traverse
+             (A_Mode, False, Result, Template_Visitor'Access);
       end if;
 
       if Result /= null and then Result /= Match_False then
@@ -1750,8 +1727,9 @@ package body Wrapping.Runtime.Objects is
    -- Generate_Values --
    ---------------------
 
-   overriding
-   procedure Generate_Values (Object : access W_Regexpr_Result_Type; Expr : T_Expr) is
+   overriding procedure Generate_Values
+     (Object : access W_Regexpr_Result_Type; Expr : T_Expr)
+   is
    begin
       Object.Result.Generate_Values (Expr);
    end Generate_Values;
@@ -1760,10 +1738,8 @@ package body Wrapping.Runtime.Objects is
    -- Push_Call_Result --
    ----------------------
 
-   overriding
-   procedure Push_Call_Result
-     (An_Entity : access W_Regexpr_Result_Type;
-      Params    : T_Arg_Vectors.Vector)
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Regexpr_Result_Type; Params : T_Arg_Vectors.Vector)
    is
    begin
       An_Entity.As_Singleton.Push_Call_Result (Params);
@@ -1773,34 +1749,31 @@ package body Wrapping.Runtime.Objects is
    -- Traverse --
    --------------
 
-   overriding
-   function Traverse
-     (An_Entity    : access W_Regexpr_Result_Type;
-      A_Mode       : Browse_Mode;
-      Include_It : Boolean;
-      Final_Result : out W_Object;
-      Visitor      : access function
-        (E      : access W_Object_Type'Class;
-         Result : out W_Object) return Visit_Action)
+   overriding function Traverse
+     (An_Entity  : access W_Regexpr_Result_Type; A_Mode : Browse_Mode;
+      Include_It : Boolean; Final_Result : out W_Object;
+      Visitor    : access function
+        (E : access W_Object_Type'Class; Result : out W_Object)
+         return Visit_Action)
       return Visit_Action
    is
    begin
-      return An_Entity.As_Singleton.Traverse
-        (A_Mode, Include_It, Final_Result, Visitor);
+      return
+        An_Entity.As_Singleton.Traverse
+          (A_Mode, Include_It, Final_Result, Visitor);
    end Traverse;
 
    ------------------------------
    -- Evaluate_Bowse_Functions --
    ------------------------------
 
-   overriding
-   procedure Evaluate_Bowse_Functions
-     (An_Entity        : access W_Regexpr_Result_Type;
-      A_Mode           : Browse_Mode;
+   overriding procedure Evaluate_Bowse_Functions
+     (An_Entity        : access W_Regexpr_Result_Type; A_Mode : Browse_Mode;
       Match_Expression : T_Expr)
    is
    begin
-      An_Entity.As_Singleton.Evaluate_Bowse_Functions (A_Mode, Match_Expression);
+      An_Entity.As_Singleton.Evaluate_Bowse_Functions
+        (A_Mode, Match_Expression);
    end Evaluate_Bowse_Functions;
 
 end Wrapping.Runtime.Objects;
