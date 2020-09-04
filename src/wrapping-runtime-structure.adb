@@ -395,6 +395,17 @@ package body Wrapping.Runtime.Structure is
          Push_Match_True (Top_Object);
 
          return;
+      elsif not Top_Frame.Top_Context.Is_First_Matching_Wrapper then
+         --  If we are not on the wrapper, Is_First_Matching_Wrapper is always true.
+         --  If we are on a wrapper, we only want to look at the next step
+         --  in the iteration if we're on the first one that matches.
+         --  Ignore the others.
+         --  We do however consider all leaves values which is the reason
+         --  why this condition is after checking for the end of the iteration
+
+         Push_Match_False;
+
+         return;
       end if;
 
       Expr := Top_Frame.Top_Context.Regexpr.Current_Expr;
