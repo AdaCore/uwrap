@@ -101,7 +101,8 @@ package Wrapping.Runtime.Structure is
       Generator                  : Generator_Type;
       Overall_Yield_Callback     : Yield_Callback_Type;
       Capture_Callback           : Capture_Callback_Type;
-      Generator_Decision         : Visit_Action_Ptr;
+      Initial_Capture_Callback   : Capture_Callback_Type;
+      Generator_Decision         : Visit_Action := Unknown;
       Quantifiers_Hit            : Integer := 0;
       Capture_Callback_Installed : Boolean := False;
    end record;
