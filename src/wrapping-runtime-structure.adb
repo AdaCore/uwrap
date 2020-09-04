@@ -367,77 +367,6 @@ package body Wrapping.Runtime.Structure is
       procedure Handle_Next_Value
         with Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
 
-      --
-      --  -----------------------------
-      --  -- Process_Left_Expression --
-      --  -----------------------------
-      --
-      --  procedure Process_Left_Expression (Left_Expr : T_Expr; Generator_Decision : Visit_Action_Ptr) is
-      --  begin
-      --     --  This function is used to process the left side of a regular expression,
-      --     --  which can be either a single expression, as in:
-      --     --     A \ B (left is A)
-      --     --  A subexpression as in:
-      --     --     (A \ B) \ C (left is A \ B)
-      --     --  Or a the expression of a quantifier
-      --     --     many (A \ B) \ C (left is A \ B).
-      --     --  It will call the generator on the left expression and trigger a
-      --     --  yield of it result, calling then the yeild callback to process the
-      --     --  right part.
-      --
-      --     if Left_Expr.Kind = Template_Reg_Expr then
-      --        --  We contain on a subexpression, for example in
-      --        --     x: (A \ B) \ C
-      --        --  We're on the regexpr that has "x: (A \ B)" on the left and "\ C"
-      --        --  on the right. Call handle of the expression "x: (A \ B)" while
-      --        --  passing a pointer to the "Process_Right_Action" call in order
-      --        --  for the underlying expression analysis to call back into it
-      --        --  at the end of its processing and carry on the analysis to \ C
-      --
-      --        Handle_Regexpr (Left_Expr, Generator, Process_Right_Expression'Access, Generator_Decision);
-      --     else
-      --        Push_Frame_Context;
-      --        Install_Local_Yield_Callback;
-      --        Generator (Left_Expr);
-      --        Pop_Frame_Context;
-      --     end if;
-      --  end Process_Left_Expression;
-      --
-      --  -----------------------------------
-      --  -- Process_End_Of_Sub_Expression --
-      --  -----------------------------------
-      --
-      --  procedure Process_End_Of_Sub_Expression (Generator_Decision : Visit_Action_Ptr) is
-      --  begin
-      --     --  This function has to be called when we reached the end of either
-      --     --  an expression or a sub expression (which would be identified by the
-      --     --  right prenthesis. If it's a sub-expression, it has an
-      --     --  outer_process_right value, for example in
-      --     --     x: (A \ B) \ C
-      --     --  Reaching \ B) requires to call the outer right identified by \C
-      --     --  Otherwise, we reached the end of the entire regular expression. If
-      --     --  there is a function that has been set as a receiving values from
-      --     --  a generator, e.g.:
-      --     --     child (x: (A \ B) \ C).all()
-      --     --  Then call that function (the original yield callback is set).
-      --     --  Otherwise (the original yield callback is not set) stop the
-      --     --  value generation by marking the visit decision to Stop.
-      --
-      --     if Outer_Right_Expression /= null then
-      --        Outer_Right_Expression.all (Generator_Decision);
-      --     else
-      --        Push_Object (Top_Object);
-      --
-      --        if Overall_Yield_Callback /= null then
-      --           Overall_Yield_Callback.all;
-      --           Delete_Object_At_Position (-2);
-      --           Generator_Decision.all := Into;
-      --        else
-      --           Generator_Decision.all := Stop;
-      --        end if;
-      --     end if;
-      --  end Process_End_Of_Sub_Expression;
-      --
       --  ------------------------------
       --  -- Process_Right_Expression --
       --  ------------------------------
@@ -489,13 +418,8 @@ package body Wrapping.Runtime.Structure is
       --  end Process_Right_Expression;
 
       Captured_Variable : W_Regexpr_Result;
-
-
-
       Sub_Matcher : aliased Regexpr_Matcher_Type;
-
       Next_Matcher : aliased Regexpr_Matcher_Type;
-
       Root_Capture_Callback : Boolean := False;
 
       ----------------------
@@ -568,11 +492,9 @@ package body Wrapping.Runtime.Structure is
          if Expr.Kind = Template_Reg_Expr
            and then Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier
            and then Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind = Template_Operator_Few
-           and then Top_Frame.Top_Context.Regexpr.Quantifiers_Hit = 0
-           and then Expr.Reg_Expr_Left.Min = 0
          then
-            --  We are on a 'few' quantifier that accepts no match. Try to skip
-            --  it
+            --  We are on a 'few' quantifier. Try to skip it and only execute
+            --  the right edge.
 
             Push_Frame_Context;
             Top_Frame.Top_Context.Regexpr := Get_Right_Expression_Matcher;
@@ -581,6 +503,8 @@ package body Wrapping.Runtime.Structure is
 
             if Top_Object /= Match_False then
                return;
+            else
+               Pop_Object;
             end if;
          end if;
 
@@ -650,6 +574,11 @@ package body Wrapping.Runtime.Structure is
          if not Matcher.Capture_Callback_Installed
            and then not Expr.Node.As_Reg_Expr.F_Captured.Is_Null
          then
+            --  Capture callbacks are only available for expression with
+            --  subexpressions. In the case of quantifier, we need to track
+            --  which call actually installed the capture callabck to be
+            --  able to remove it once all the quantification is done.
+
             Root_Capture_Callback := True;
             Matcher.Capture_Callback_Installed := True;
             Matcher.Initial_Capture_Callback := Matcher.Capture_Callback;
@@ -661,84 +590,39 @@ package body Wrapping.Runtime.Structure is
          Sub_Matcher := Matcher.all;
          Sub_Matcher.Capture_Callback_Installed := False;
 
-         if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
-            if Matcher.Quantifiers_Hit < Expr.Reg_Expr_Left.Min then
-               --  First, no matter the quantifier, try to reach the minimum
-               --  value
-               Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit + 1;
+         if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier
+           and then Expr.Reg_Expr_Left.Max > 0
+           and then Matcher.Quantifiers_Hit >= Expr.Reg_Expr_Left.Max
+         then
+            -- If we hit the max, executing the quantifier is always false.
+            -- Stack false and leave the caller to call right expression.
 
-               Push_Frame_Context;
-               Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left.Quantifier_Expr;
-               Sub_Matcher.Outer_Next_Expr := Matcher;
-               Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
-               Handle_Regexpr;
-               Control_Iteration;
-               Pop_Frame_Context;
-
-               Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit - 1;
-
-            elsif Expr.Reg_Expr_Left.Max > 0 and then Matcher.Quantifiers_Hit >= Expr.Reg_Expr_Left.Max then
-               -- If we hit the max, executing the quantifier is always false.
-               -- Stack false and leave the caller to call right expression.
-
-               Push_Match_False;
-            else
-               case Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind is
-                  when Template_Operator_Many =>
-                     Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit + 1;
-                     Push_Frame_Context; -- TODO: This can probably be merged with all branches (The only specificity of a quantifier is that the outer next is self)
-                     Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left.Quantifier_Expr;
-                     Sub_Matcher.Outer_Next_Expr := Matcher;
-                     Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
-                     Handle_Regexpr;
-                     Control_Iteration;
-                     Pop_Frame_Context;
-                     Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit - 1;
-
-                  when Template_Operator_Few =>
-                     Push_Frame_Context;
-                     Top_Frame.Top_Context.Regexpr := Get_Right_Expression_Matcher;
-
-                     if Top_Frame.Top_Context.Regexpr /= null then
-                        --  ERROR HERE, WE ONLY WANT TO INSTALL THE CALLBACK IN THIS CASE! (Should work with the other fixes anyway)
-                        Top_Frame.Top_Context.Regexpr.Capture_Callback := Top_Frame.Top_Context.Regexpr.Initial_Capture_Callback;
-                        Handle_Regexpr;
-                        Control_Iteration;
-                     end if;
-
-                     Pop_Frame_Context;
-
-                     if Top_Object = Match_False
-                       or else Matcher.Overall_Yield_Callback /= null
-                     then
-                        -- TODO: in the case of the few, this case should already
-                        --  have been covered?
-                        Pop_Object;
-                        Push_Frame_Context;
-                        Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left.Quantifier_Expr;
-                        Sub_Matcher.Outer_Next_Expr := Matcher;
-                        Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
-                        Handle_Regexpr;
-                        Pop_Frame_Context;
-
-                        if Matcher.Overall_Yield_Callback /= null then  -- DO WE NEED THIS HERE???? SHOULDNT IT BE BELOW IN CASE OF (STILL) FALSE?
-                           Matcher.Overall_Yield_Callback.all;
-                           Delete_Object_At_Position (-2);
-                        end if;
-                     end if;
-
-                  when others =>
-                     Error ("unexpected quantifier");
-
-               end case;
-            end if;
+            Push_Match_False;
          else
             Push_Frame_Context;
-            Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left;
-            Sub_Matcher.Outer_Next_Expr := Get_Right_Expression_Matcher;
+
+            if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
+               --  In the case of a quantifier, the outer expression to try
+               --  is the qualifier itself, the left one is the Quantifer_Expr
+               --  value.
+
+               Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left.Quantifier_Expr;
+               Sub_Matcher.Outer_Next_Expr := Matcher;
+            else
+               --  In the case of a regular sub expression, the outer expression
+               --  to try is the right expression of the current expression,
+               --  the left one is in the field Reg_Expr_Left.
+
+               Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left;
+               Sub_Matcher.Outer_Next_Expr := Get_Right_Expression_Matcher;
+            end if;
+
             Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
+            Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit + 1;
             Handle_Regexpr;
+            Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit - 1;
             Control_Iteration;
+
             Pop_Frame_Context;
          end if;
 
