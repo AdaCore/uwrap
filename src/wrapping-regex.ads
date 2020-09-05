@@ -11,7 +11,7 @@
 -- WITHOUT ANY WARRANTY;  without even the  implied warranty of MERCHANTA-  --
 -- BILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public  --
 -- License for  more details.  You should have  received  a copy of the GNU --
--- General Public License  distributed with SVD2Ada; see file COPYING3.  If --
+-- General Public License  distributed with UWrap; see file COPYING3.  If --
 -- not, go to http://www.gnu.org/licenses for a complete copy of the        --
 -- license.                                                                 --
 --                                                                          --
