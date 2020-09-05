@@ -282,6 +282,23 @@ package body Wrapping.Runtime.Structure is
    procedure Handle_Regexpr_Next_Value
      with Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1;
 
+   -------------------
+   -- Capture_Value --
+   -------------------
+
+   procedure Capture_Value (Capturing : Capture_Result; Mode : Capture_Mode) is
+   begin
+      if Capturing.Parent /= null then
+         Capture_Value (Capturing.Parent, Mode);
+      end if;
+
+      if Mode = Capture then
+         W_Regexpr_Result (Capturing.Object).Result.A_Vector.Append (Top_Object);
+      else
+         W_Regexpr_Result (Capturing.Object).Result.A_Vector.Delete_Last;
+      end if;
+   end Capture_Value;
+
    -------------------------------
    -- Evaluate_Generator_Regexp --
    -------------------------------
@@ -291,21 +308,7 @@ package body Wrapping.Runtime.Structure is
       Expr      : T_Expr;
       Generator : Generator_Type)
    is
-      Result_Variable : W_Regexpr_Result;
-
-      ----------------------
-      -- Capture_Callback --
-      ----------------------
-
-      procedure Capture_Callback (Mode : Capture_Mode) is
-      begin
-         if Mode = Capture then
-            Result_Variable.Result.A_Vector.Append (Top_Object);
-         else
-            Result_Variable.Result.A_Vector.Delete_Last;
-         end if;
-      end Capture_Callback;
-
+      Result_Variable : aliased Capture_Result_Type;
    begin
       --  There is no regexpr, just one expression. Compute it and return.
 
@@ -328,7 +331,7 @@ package body Wrapping.Runtime.Structure is
 
          Top_Frame.Top_Context.Regexpr := Matcher'Unchecked_Access;
 
-         Result_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
+         Result_Variable.Object := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
 
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
             Top_Frame.Top_Context.Regexpr_Anchored := True;
@@ -339,8 +342,7 @@ package body Wrapping.Runtime.Structure is
 
          Matcher.Generator := Generator;
          Matcher.Overall_Yield_Callback := Top_Frame.Top_Context.Yield_Callback;
-         Matcher.Capture_Callback := Capture_Callback'Unrestricted_Access;
-         Matcher.Initial_Capture_Callback := Capture_Callback'Unrestricted_Access;
+         Matcher.Capturing := Result_Variable'Unchecked_Access;
 
          Top_Frame.Top_Context.Yield_Callback := Handle_Regexpr'Access;
 
@@ -352,14 +354,14 @@ package body Wrapping.Runtime.Structure is
 
          if Top_Object /= Match_False then
             Pop_Object;
-            Push_Object (Result_Variable);
+            Push_Object (Result_Variable.Object);
          end if;
       end;
    end Evaluate_Generator_Regexp;
 
-   --------------------
-   -- Handle_Regexpr --
-   --------------------
+   -------------------------------
+   -- Handle_Regexpr_Next_Value --
+   -------------------------------
 
    Depth : Integer := 0;
 
@@ -380,6 +382,11 @@ package body Wrapping.Runtime.Structure is
       else
          Allocated_Next_Matcher.all := Matcher.all;
          Allocated_Next_Matcher.Current_Expr := Expr.Reg_Expr_Right;
+
+         if Matcher.Capture_Installed then
+            Allocated_Next_Matcher.Capturing := Matcher.Capturing.Parent;
+         end if;
+
          return Allocated_Next_Matcher;
       end if;
    end Get_Right_Expression_Matcher;
@@ -453,93 +460,32 @@ package body Wrapping.Runtime.Structure is
          Pop_Object;
          Top_Frame.Top_Context.Regexpr := Get_Right_Expression_Matcher (Next_Matcher'Unchecked_Access);
 
-         if Top_Frame.Top_Context.Regexpr /= null then
-            Top_Frame.Top_Context.Regexpr.Capture_Callback := Top_Frame.Top_Context.Regexpr.Initial_Capture_Callback;
-         end if;
-
          Handle_Regexpr_Next_Value;
          Pop_Frame_Context;
       end if;
    end Handle_Regexpr_Next_Value;
 
+   --------------------
+   -- Handle_Regexpr --
+   --------------------
+
    procedure Handle_Regexpr is
-
-      --  ------------------------------
-      --  -- Process_Right_Expression --
-      --  ------------------------------
-      --
-      --  procedure Process_Right_Expression (Generator_Decision : Visit_Action_Ptr) is
-      --     Result : W_Object;
-      --  begin
-      --     --  If we are not on the wrapper, Is_First_Matching_Wrapper is always true.
-      --     --
-      --     --  If we are on a wrapper, we only want to look at the next step
-      --     --  in the iteration if we're on the first one that matches.
-      --     --  Ignore the others.
-      --
-      --     if Expr.Reg_Expr_Right /= null and then Top_Frame.Top_Context.Is_First_Matching_Wrapper then
-      --        Push_Frame_Context;
-      --
-      --        --  If this expression is of the form "x (a \ b) \ c", when starting
-      --        --  to analyze  c, the capturing function for x needs to be removed
-      --
-      --        if Captured_Variable /= null then
-      --           Top_Frame.Top_Context.Capture_Callback := Initial_Capture_Callback;
-      --        end if;
-      --
-      --        Restore_Overall_Yield_Callback;
-      --        Handle_Regexpr (Expr.Reg_Expr_Right, Generator, Outer_Right_Expression, Generator_Decision);
-      --        Result := Top_Object;
-      --
-      --        Pop_Frame_Context;
-      --
-      --        if Result = Match_False then
-      --           Top_Frame.Top_Context.Capture_Callback (Rollback);
-      --           Generator_Decision.all := Into;
-      --        else
-      --           if Overall_Yield_Callback /= null then
-      --              Generator_Decision.all := Into;
-      --           else
-      --              Generator_Decision.all := Stop;
-      --           end if;
-      --        end if;
-      --     elsif Expr.Reg_Expr_Right = null then
-      --        Process_End_Of_Sub_Expression (Generator_Decision);
-      --     else
-      --        --  We're not at the end of the iteration but are not on the first
-      --        --  mathing wrapper anymore. Don't continue the processing on this
-      --        --  wrapper node, the next onces have already been processed.
-      --
-      --        Push_Match_False;
-      --     end if;
-      --  end Process_Right_Expression;
-
-      Captured_Variable : W_Regexpr_Result;
-      Sub_Matcher : aliased Regexpr_Matcher_Type;
-      Next_Matcher : aliased Regexpr_Matcher_Type;
-      Root_Capture_Callback : Boolean := False;
-
-      ----------------------
-      -- Capture_Callback --
-      ----------------------
-
-      procedure Capture_Callback (Mode : Capture_Mode) is
-         Matcher : Regexpr_Matcher := Top_Frame.Top_Context.Regexpr;
-      begin
-         Matcher.Initial_Capture_Callback (Mode);
-
-         if Mode = Capture then
-            Captured_Variable.Result.A_Vector.Append (Top_Object);
-         else
-            Captured_Variable.Result.A_Vector.Delete_Last;
-         end if;
-      end Capture_Callback;
 
       procedure Control_Iteration;
       --  This procedure is to be called after the analysis of the current
       --  expression (left and right part), so when there's no more expression
       --  to analyze. It will control the overall iteration, stop it upon
       --  having found a result unless we're in a generator mode.
+
+      Captured_Variable     : aliased Capture_Result_Type;
+      Sub_Matcher           : aliased Regexpr_Matcher_Type;
+      Next_Matcher          : aliased Regexpr_Matcher_Type;
+      Root_Capture_Callback : Boolean := False;
+      Matcher               : Regexpr_Matcher := Top_Frame.Top_Context.Regexpr;
+
+      -----------------------
+      -- Control_Iteration --
+      -----------------------
 
       procedure Control_Iteration is
          Matcher : Regexpr_Matcher := Top_Frame.Top_Context.Regexpr;
@@ -553,7 +499,6 @@ package body Wrapping.Runtime.Structure is
          end if;
       end Control_Iteration;
 
-      Matcher : Regexpr_Matcher := Top_Frame.Top_Context.Regexpr;
       Expr : T_Expr := Matcher.Current_Expr;
       Object : W_Object := Top_Object;
 
@@ -584,25 +529,6 @@ package body Wrapping.Runtime.Structure is
 
          Push_Match_True (Top_Object);
       elsif Expr.Kind = Template_Reg_Expr then
-         if not Matcher.Capture_Callback_Installed
-           and then not Expr.Node.As_Reg_Expr.F_Captured.Is_Null
-         then
-            --  Capture callbacks are only available for expression with
-            --  subexpressions. In the case of quantifier, we need to track
-            --  which call actually installed the capture callabck to be
-            --  able to remove it once all the quantification is done.
-
-            Root_Capture_Callback := True;
-            Matcher.Capture_Callback_Installed := True;
-            Matcher.Initial_Capture_Callback := Matcher.Capture_Callback;
-            Captured_Variable := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
-            Top_Frame.Symbols.Include (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Captured_Variable));
-            Matcher.Capture_Callback := Capture_Callback'Unrestricted_Access;
-         end if;
-
-         Sub_Matcher := Matcher.all;
-         Sub_Matcher.Capture_Callback_Installed := False;
-
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier
            and then Expr.Reg_Expr_Left.Max > 0
            and then Matcher.Quantifiers_Hit >= Expr.Reg_Expr_Left.Max
@@ -612,7 +538,26 @@ package body Wrapping.Runtime.Structure is
 
             Push_Match_False;
          else
+            if not Matcher.Capture_Installed
+              and then not Expr.Node.As_Reg_Expr.F_Captured.Is_Null
+            then
+               --  Capture callbacks are only available for expression with
+               --  subexpressions. In the case of quantifier, we need to track
+               --  which call actually installed the capture callabck to be
+               --  able to remove it once all the quantification is done.
+
+               Root_Capture_Callback := True;
+               Matcher.Capture_Installed := True;
+               Captured_Variable.Object := new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
+               Captured_Variable.Parent := Matcher.Capturing;
+               Matcher.Capturing := Captured_Variable'Unchecked_Access;
+               Top_Frame.Symbols.Include (Expr.Node.As_Reg_Expr.F_Captured.Text, W_Object (Captured_Variable.Object));
+            end if;
+
             Push_Frame_Context;
+
+            Sub_Matcher := Matcher.all;
+            Sub_Matcher.Capture_Installed := False;
 
             if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier then
                --  In the case of a quantifier, the outer expression to try
@@ -628,6 +573,7 @@ package body Wrapping.Runtime.Structure is
 
                Sub_Matcher.Current_Expr := Expr.Reg_Expr_Left;
                Sub_Matcher.Outer_Next_Expr := Get_Right_Expression_Matcher (Next_Matcher'Unchecked_Access);
+               Sub_Matcher.Outer_Next_Expr.Capture_Installed := False;
             end if;
 
             Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
@@ -637,18 +583,17 @@ package body Wrapping.Runtime.Structure is
             Control_Iteration;
 
             Pop_Frame_Context;
-         end if;
 
-         if Root_Capture_Callback then
-            Matcher.Capture_Callback := Matcher.Initial_Capture_Callback;
-            Matcher.Capture_Callback_Installed := False;
-            Matcher.Initial_Capture_Callback := null;
+            if Root_Capture_Callback then
+               Matcher.Capturing := Matcher.Capturing.Parent;
+               Matcher.Capture_Installed := False;
+            end if;
          end if;
       else
          if not Evaluate_Match_Result (Object, Expr) then
             Push_Match_False;
          else
-            Matcher.Capture_Callback (Capture);
+            Capture_Value (Matcher.Capturing, Capture);
 
             Push_Frame_Context;
             Top_Frame.Top_Context.Regexpr := Get_Right_Expression_Matcher (Next_Matcher'Unchecked_Access);
@@ -662,7 +607,7 @@ package body Wrapping.Runtime.Structure is
                --  generation as we'll also want to rollback when exploring
                --  other
                if Top_Object = Match_False then
-                  Matcher.Capture_Callback (Rollback);
+                  Capture_Value (Matcher.Capturing, Rollback);
                end if;
 
                Pop_Frame_Context;

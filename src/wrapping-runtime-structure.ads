@@ -95,16 +95,24 @@ package Wrapping.Runtime.Structure is
 
    type Generator_Type is access procedure (Expr : T_Expr);
 
+   type Capture_Result_Type;
+
+   type Capture_Result is access all Capture_Result_Type;
+
+   type Capture_Result_Type is record
+      Parent : Capture_Result;
+      Object : W_Object;
+   end record;
+
    type Regexpr_Matcher_Type is record
-      Outer_Next_Expr            : Regexpr_Matcher;
-      Current_Expr               : T_Expr;
-      Generator                  : Generator_Type;
-      Overall_Yield_Callback     : Yield_Callback_Type;
-      Capture_Callback           : Capture_Callback_Type;
-      Initial_Capture_Callback   : Capture_Callback_Type;
-      Generator_Decision         : Visit_Action := Unknown;
-      Quantifiers_Hit            : Integer := 0;
-      Capture_Callback_Installed : Boolean := False;
+      Outer_Next_Expr        : Regexpr_Matcher;
+      Current_Expr           : T_Expr;
+      Generator              : Generator_Type;
+      Overall_Yield_Callback : Yield_Callback_Type;
+      Capturing              : Capture_Result;
+      Generator_Decision     : Visit_Action := Unknown;
+      Quantifiers_Hit        : Integer := 0;
+      Capture_Installed      : Boolean := False;
    end record;
 
    --  A Frame_Context is a type that is recording stack-based properties that
