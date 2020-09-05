@@ -351,23 +351,22 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Push_Frame_Context (Context : Frame_Context_Type) is
    begin
-      Top_Frame.Top_Context :=
-        new Frame_Context_Type'
-          (Parent_Context            => Top_Frame.Top_Context,
-           Current_Command           => Context.Current_Command,
-           Outer_Expr_Callback       => Context.Outer_Expr_Callback,
-           Match_Mode                => Context.Match_Mode,
-           Name_Captured             => Context.Name_Captured,
-           Yield_Callback            => Context.Yield_Callback,
-           Allocate_Callback         => Context.Allocate_Callback,
-           Left_Value                => Context.Left_Value,
-           Is_Root_Selection         => Context.Is_Root_Selection,
-           Outer_Object              => Context.Outer_Object,
-           Visit_Decision            => Context.Visit_Decision,
-           Regexpr_Anchored          => Context.Regexpr_Anchored,
-           Pick_Callback             => Context.Pick_Callback,
-           Capture_Callback          => Context.Capture_Callback,
-           Is_First_Matching_Wrapper => Context.Is_First_Matching_Wrapper);
+      Top_Frame.Top_Context := new Frame_Context_Type'
+        (Parent_Context            => Top_Frame.Top_Context,
+         Current_Command           => Context.Current_Command,
+         Outer_Expr_Callback       => Context.Outer_Expr_Callback,
+         Match_Mode                => Context.Match_Mode,
+         Name_Captured             => Context.Name_Captured,
+         Yield_Callback            => Context.Yield_Callback,
+         Allocate_Callback         => Context.Allocate_Callback,
+         Left_Value                => Context.Left_Value,
+         Is_Root_Selection         => Context.Is_Root_Selection,
+         Outer_Object              => Context.Outer_Object,
+         Visit_Decision            => Context.Visit_Decision,
+         Regexpr_Anchored          => Context.Regexpr_Anchored,
+         Pick_Callback             => Context.Pick_Callback,
+         Regexpr                   => Context.Regexpr,
+         Is_First_Matching_Wrapper => Context.Is_First_Matching_Wrapper);
    end Push_Frame_Context;
 
    -----------------------
@@ -2464,8 +2463,9 @@ package body Wrapping.Runtime.Analysis is
       end if;
 
       Evaluate_Generator_Regexp
-        (Root => Top_Object, Generator => Generator'Access,
-         Expr => Filtered_Expr);
+        (Root      => Top_Object,
+         Generator => Generator'Unrestricted_Access,
+         Expr      => Filtered_Expr);
 
       Delete_Object_At_Position (-2);
       Pop_Frame_Context;

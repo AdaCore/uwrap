@@ -95,6 +95,32 @@ package Wrapping.Runtime.Structure is
 
    type Pick_Callback_Type is access procedure (Object : W_Object);
 
+   type Regexpr_Matcher_Type;
+
+   type Regexpr_Matcher is access all Regexpr_Matcher_Type;
+
+   type Generator_Type is access procedure (Expr : T_Expr);
+
+   type Capture_Result_Type;
+
+   type Capture_Result is access all Capture_Result_Type;
+
+   type Capture_Result_Type is record
+      Parent : Capture_Result;
+      Object : W_Object;
+   end record;
+
+   type Regexpr_Matcher_Type is record
+      Outer_Next_Expr        : Regexpr_Matcher;
+      Current_Expr           : T_Expr;
+      Generator              : Generator_Type;
+      Overall_Yield_Callback : Yield_Callback_Type;
+      Capturing              : Capture_Result;
+      Generator_Decision     : Visit_Action := Unknown;
+      Quantifiers_Hit        : Integer := 0;
+      Capture_Installed      : Boolean := False;
+   end record;
+
    --  A Frame_Context is a type that is recording stack-based properties that
    --  vary within a given frame, typically through an expression, or various
    --  parts of a command. Each Frame is supposed to start with a fresh frame
@@ -154,7 +180,7 @@ package Wrapping.Runtime.Structure is
       --  result is Stop, then stop the analysis, otherwise continues.
       Pick_Callback : Pick_Callback_Type;
 
-      Capture_Callback : Capture_Callback_Type;
+      Regexpr : Regexpr_Matcher;
 
       --  When iterating over wrappers, we can have several matches on the same
       --  node. During an iteration, this flag matches wether we're calling
@@ -269,8 +295,9 @@ package Wrapping.Runtime.Structure is
    pragma Warnings (On, "postcondition does not mention");
 
    procedure Evaluate_Generator_Regexp
-     (Root      : access W_Object_Type'Class; Expr : T_Expr;
-      Generator : access procedure (Expr : T_Expr));
+     (Root      : access W_Object_Type'Class;
+      Expr      : T_Expr;
+      Generator : Generator_Type);
 
    procedure Push_Match_True (An_Entity : access W_Object_Type'Class);
 
@@ -285,8 +312,8 @@ package Wrapping.Runtime.Structure is
    --  semantics of the language, so should remain consistent with it.
    function To_String (Object : W_Object_Type) return Text_Type is ("");
 
-   function To_Debug_String (Object : W_Object_Type) return Text_Type is
-     (W_Object_Type'Class (Object).To_String);
+   function To_Debug_String (Object : W_Object_Type) return Text_Type
+     is ("<empty>");
 
    --  If Object represents a reference, returns the referenced object
    --  (recursively) otherwise self.

@@ -228,7 +228,7 @@ package body Wrapping.Input.Kit is
 
          Last_Ref := Token_End (Prefix.Node);
 
-         Evaluate_Generator_Regexp (First_Token, Match_Expr, Generator'Access);
+         Evaluate_Generator_Regexp (First_Token, Match_Expr, Generator'Unrestricted_Access);
       end;
    end Call_Token;
 
