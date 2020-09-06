@@ -716,10 +716,7 @@ package body Wrapping.Runtime.Objects is
          --  took care of the expansion. Otherwise, call the yield callback on
          --  the one result
 
-         if Top_Frame.Top_Context.Yield_Callback /= null then
-            Top_Frame.Top_Context.Yield_Callback.all;
-            Delete_Object_At_Position (-2);
-         end if;
+         Call_Yield;
       end if;
    end Push_Call_Result;
 
@@ -774,9 +771,8 @@ package body Wrapping.Runtime.Objects is
          else
             Push_Frame (Calling_Frame);
             Push_Implicit_It (Object);
-            Calling_Frame.Top_Context.Yield_Callback.all;
+            Call_Yield (Calling_Frame.Top_Context.Yield_Callback);
             Last_Picked := Pop_Object;
-            Pop_Object;
             Pop_Frame;
          end if;
       end Pick_Callback;

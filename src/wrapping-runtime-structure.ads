@@ -168,7 +168,9 @@ package Wrapping.Runtime.Structure is
       Name_Captured : Unbounded_Text_Type;
 
       --  This is set by functions that iterate over generators, and called by
-      --  generators on each returned value.
+      --  generators on each returned value. This should never be called
+      --  directly, but instead through the Call_Yield subprogram which will
+      --  set the correct frame context.
       Yield_Callback : Yield_Callback_Type;
 
       --  Callback used to record objects allocated through the new ()
@@ -235,6 +237,14 @@ package Wrapping.Runtime.Structure is
       Template_Parameters_Position : T_Expr_Vectors.Vector;
       Template_Parameters_Names    : T_Expr_Maps.Map;
    end record;
+
+   procedure Call_Yield
+     (Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback)
+   with Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
+   --  Calls the current yield callback if set, setting the proper context
+   --  around it. Calling this function will replace the element on the top
+   --  of the stack by the element stacked by yield. If the Callback is null,
+   --  this is a null operation.
 
    function Get_Visible_Symbol
      (A_Frame : Data_Frame_Type; Name : Text_Type) return W_Object;

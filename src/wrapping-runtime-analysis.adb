@@ -2395,11 +2395,6 @@ package body Wrapping.Runtime.Analysis is
 
          procedure Yield_Callback is
          begin
-            Push_Frame_Context;
-            --  TODO: We may always want that callback reset when calling
-            --  any yell callback (this one was forgotten)
-            Top_Frame.Top_Context.Yield_Callback := null;
-
             Push_Implicit_It (Top_Object);
             Push_Match_Result (Top_Object, Expr);
             Delete_Object_At_Position (-2);
@@ -2408,8 +2403,7 @@ package body Wrapping.Runtime.Analysis is
                if Original_Yield /= null then
                   --  We are generating values, calling the original generator.
 
-                  Original_Yield.all;
-                  Delete_Object_At_Position (-2);
+                  Call_Yield (Original_Yield);
                else
                   --  We're just looking for the first matching value,
                   --  interrupt the current iteration
@@ -2418,8 +2412,6 @@ package body Wrapping.Runtime.Analysis is
                   Parent_Frame.Interrupt_Program := True;
                end if;
             end if;
-
-            Pop_Frame_Context;
          end Yield_Callback;
 
       begin
@@ -2582,11 +2574,7 @@ package body Wrapping.Runtime.Analysis is
 
          --  .all () may itself be in an expression such as .all().fold(). In
          --  this case an expand action is set and needs to be executed.
-
-         if Initial_Context.Yield_Callback /= null then
-            Initial_Context.Yield_Callback.all;
-            Delete_Object_At_Position (-2);
-         end if;
+         Call_Yield (Initial_Context.Yield_Callback);
 
          if Initial_Context.Outer_Expr_Callback /= null then
             --  Execute the outer action once per run of the suffix, which may

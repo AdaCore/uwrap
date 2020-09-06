@@ -518,10 +518,7 @@ package body Wrapping.Input.Kit is
       --  results, very easy to forget about. Is there a place to generalize
       --  it? Perhaps in Handle_Call? Also consider that even fields (f_) may
       --  need to call yeild callback, e.g. when prefix of filter...
-      if Top_Frame.Top_Context.Yield_Callback /= null then
-         Top_Frame.Top_Context.Yield_Callback.all;
-         Delete_Object_At_Position (-2);
-      end if;
+      Call_Yield;
    end Push_Call_Result;
 
    ----------------

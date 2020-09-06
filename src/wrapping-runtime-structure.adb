@@ -55,6 +55,29 @@ package body Wrapping.Runtime.Structure is
       return Left.Eq (Right);
    end Eq_Wrapper;
 
+   -----------------
+   --  Call_Yield --
+   -----------------
+
+   procedure Call_Yield
+     (Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback)
+   is
+   begin
+      if Callback /= null then
+         Push_Frame_Context;
+
+         --  Yield is not transitive. For example in something like:
+         --     child ().filter (condition)
+         --  child will values to filter, calling the callback on the
+         --  condition. That condition should not be yeilding.
+         Top_Frame.Top_Context.Yield_Callback := null;
+
+         Callback.all;
+         Delete_Object_At_Position (-2);
+         Pop_Frame_Context;
+      end if;
+   end Call_Yield;
+
    ------------------------
    -- Get_Visible_Symbol --
    ------------------------
@@ -122,15 +145,13 @@ package body Wrapping.Runtime.Structure is
       procedure Evaluate_Yield_Function with
          Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old
       is
-         Yield_Callback : Yield_Callback_Type :=
-           Top_Frame.Top_Context.Yield_Callback;
       begin
          --  In certain cases, there's no expression to be evaluated upon
          --  yield. E.g.:
          --    x.all ()
          --  as opposed to:
          --    x.all().something().
-         if Yield_Callback = null then
+         if Top_Frame.Top_Context.Yield_Callback = null then
             return;
          end if;
 
@@ -141,7 +162,6 @@ package body Wrapping.Runtime.Structure is
          --  if we do fold (i : inti, i: acc);
 
          Push_Frame_Context_Parameter;
-         Top_Frame.Top_Context.Yield_Callback      := null;
          Top_Frame.Top_Context.Name_Captured       := To_Unbounded_Text ("");
          Top_Frame.Top_Context.Outer_Expr_Callback :=
            Outer_Expression_Match'Access;
@@ -151,12 +171,11 @@ package body Wrapping.Runtime.Structure is
          --  Then evaluate that folding expression
 
          Push_Implicit_It (Browsed);
-         Yield_Callback.all;
+         Call_Yield;
 
          --  The result of the evaluate expression is the result of the yield
          --  callback, as opposed to the matching entity in normal browsing.
          Result := Pop_Object;
-         Pop_Object;
 
          --  Pop frame context. This will in particular restore the name
          --  catpure, which we're using as the accumulator.
@@ -722,11 +741,7 @@ package body Wrapping.Runtime.Structure is
    procedure Generate_Values (Object : access W_Object_Type; Expr : T_Expr) is
    begin
       Push_Match_Result (W_Object (Object), Expr);
-
-      if Top_Frame.Top_Context.Yield_Callback /= null then
-         Top_Frame.Top_Context.Yield_Callback.all;
-         Delete_Object_At_Position (-2);
-      end if;
+      Call_Yield;
    end Generate_Values;
 
    ---------------------------
