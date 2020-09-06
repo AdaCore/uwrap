@@ -2378,6 +2378,8 @@ package body Wrapping.Runtime.Analysis is
 
       Object_Mode : Boolean;
 
+      Match_Mode : Match_Kind;
+
       ---------------
       -- Generator --
       ---------------
@@ -2422,6 +2424,7 @@ package body Wrapping.Runtime.Analysis is
 
       begin
          Push_Frame_Context_No_Match;
+         Top_Frame.Top_Context.Match_Mode := Match_Mode;
          Top_Frame.Top_Context.Yield_Callback :=
            Yield_Callback'Unrestricted_Access;
 
@@ -2453,17 +2456,18 @@ package body Wrapping.Runtime.Analysis is
          Top_Object.Generate_Values (Expr);
       end Object_Generator;
    begin
-      Push_Frame_Context_No_Match;
-
-      if Top_Frame.Top_Context.Parent_Context.Match_Mode /= Match_None then
+      if Top_Frame.Top_Context.Match_Mode /= Match_None then
          --  If we enter the filter in any match mode, then we're running a
          --  match operation. The Match_Has filter will be tolerant to prefixes
          --  that don't exist and stack a Match_False instead of an error in
          --  these cases.
 
-         Top_Frame.Top_Context.Match_Mode := Match_Has;
+         Match_Mode := Match_Has;
       end if;
 
+      Push_Frame_Context_No_Match;
+
+      Top_Frame.Top_Context.Match_Mode := Match_Mode;
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
       --  A filter expression is about calling the directly prefixing function

@@ -1,2 +1,2 @@
-match BaseTypeDecl () and p_base_type ().filter (many (BaseTypeDecl (), 3)) 
+match p_base_type ().filter (many (AdaNode (), 3))
 weave standard.out (@ & it & "\n");
