@@ -149,6 +149,10 @@ package Wrapping.Runtime.Objects is
    overriding procedure Push_Call_Result
      (An_Entity : access W_Reference_Type; Params : T_Arg_Vectors.Vector);
 
+   overriding function Is_Generator
+     (An_Entity : access W_Reference_Type) return Boolean
+   is (An_Entity.Dereference.Is_Generator);
+
    function Match_With_Top_Object
      (An_Entity : access W_Reference_Type) return Boolean;
 
@@ -291,14 +295,18 @@ package Wrapping.Runtime.Objects is
      (Object : W_Text_Reindent_Type) return Text_Type;
 
    type W_Intrinsic_Function_Type is new W_Object_Type with record
-      Prefix       : W_Object;
-      Call         : Call_Access;
-      Is_Generator : Boolean := False;
+      Prefix    : W_Object;
+      Call      : Call_Access;
+      Generator : Boolean := False;
    end record;
 
    overriding procedure Push_Call_Result
      (An_Entity : access W_Intrinsic_Function_Type;
       Params    : T_Arg_Vectors.Vector);
+
+   overriding function Is_Generator
+     (An_Entity : access W_Intrinsic_Function_Type) return Boolean
+   is (An_Entity.Generator);
 
    type W_Function_Type is new W_Object_Type with record
       A_Function : T_Function;
@@ -306,6 +314,12 @@ package Wrapping.Runtime.Objects is
 
    overriding procedure Push_Call_Result
      (An_Entity : access W_Function_Type; Params : T_Arg_Vectors.Vector);
+
+   overriding function Is_Generator
+     (An_Entity : access W_Function_Type) return Boolean
+   is (True);
+   --  All user functions are generators. They will call yield on the picked
+   --  values.
 
    type W_Static_Entity_Type is new W_Object_Type with record
       An_Entity : T_Entity;
@@ -507,6 +521,10 @@ package Wrapping.Runtime.Objects is
 
    overriding procedure Push_Call_Result
      (An_Entity : access W_Regexpr_Result_Type; Params : T_Arg_Vectors.Vector);
+
+   overriding function Is_Generator
+     (An_Entity : access W_Regexpr_Result_Type) return Boolean
+   is (An_Entity.As_Singleton.Is_Generator);
 
    function Match_With_Top_Object
      (An_Entity : access W_Regexpr_Result_Type) return Boolean is

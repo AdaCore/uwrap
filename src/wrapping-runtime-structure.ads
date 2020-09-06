@@ -275,28 +275,34 @@ package Wrapping.Runtime.Structure is
       (if Push_Value'Result then Top_Frame.Data_Stack.Length - 1
        else Top_Frame.Data_Stack.Length);
 
-      --  Calling an entity means either doing an actual call if this entity
-      --  refers to a function, or performing a comparison between the object
-      --  and the provided parameters. In the second case, by convention, the
-      --  result of the call (last object on the stack) is either Match_False,
-      --  or Match_True (An_Entity). By default, this returns an error (the
-      --  object is not made for being called).
    procedure Push_Call_Result
-     (An_Entity : access W_Object_Type; Params : T_Arg_Vectors.Vector) with
-      Post'Class => Top_Frame.Data_Stack.Length =
-      Top_Frame.Data_Stack.Length'Old + 1;
+     (An_Entity : access W_Object_Type; Params : T_Arg_Vectors.Vector)
+     with Post'Class => Top_Frame.Data_Stack.Length =
+       Top_Frame.Data_Stack.Length'Old + 1;
+   --  Calling an entity means either doing an actual call if this entity
+   --  refers to a function, or performing a comparison between the object
+   --  and the provided parameters. In the second case, by convention, the
+   --  result of the call (last object on the stack) is either Match_False,
+   --  or Match_True (An_Entity). By default, this returns an error (the
+   --  object is not made for being called).
 
-      --  If this object is a container or a generator, will generate values
-      --  matching the expression given in parameter one by one, calling the
-      --  yield action. If no Yield action is set in the frame, only generate
-      --  the first matching one, false if none.
+   function Is_Generator (An_Entity : access W_Object_Type) return Boolean
+   is (False);
+   --  If this returns true, then the Push_Call_Result call before is
+   --  responsible to call the yield callback, if any. Otherwise, this is done
+   --  by the caller.
+
    procedure Generate_Values (Object : access W_Object_Type; Expr : T_Expr);
+   --  If this object is a container or a generator, will generate values
+   --  matching the expression given in parameter one by one, calling the
+   --  yield action. If no Yield action is set in the frame, only generate
+   --  the first matching one, false if none.
 
+   function Match_With_Top_Object
+     (An_Entity : access W_Object_Type) return Boolean;
    --  Match this object with the top of the stack. Return False if no decision
    --  could be made, true otherwise. If the top object doesn't match, replace
    --  it with a match false.
-   function Match_With_Top_Object
-     (An_Entity : access W_Object_Type) return Boolean;
 
    type Browse_Mode is
      (Parent, Child_Depth, Child_Breadth, Next, Prev, Sibling, Wrapper);
@@ -332,6 +338,7 @@ package Wrapping.Runtime.Structure is
 
    procedure Push_Match_False;
 
+   function To_String (Object : W_Object_Type) return Text_Type is ("");
    --  This function resolves a runtime object into the String value. The
    --  result of this function varies over time - as the underlying object
    --  gets completed by various wrapping and weaving opertions. This should be
@@ -339,15 +346,14 @@ package Wrapping.Runtime.Structure is
    --  through e.g. a string conversion). Keeping a reference to the runtime
    --  object is prefered. Note that this is directly linked to the actual
    --  semantics of the language, so should remain consistent with it.
-   function To_String (Object : W_Object_Type) return Text_Type is ("");
 
    function To_Debug_String (Object : W_Object_Type) return Text_Type
      is ("<empty>");
 
-   --  If Object represents a reference, returns the referenced object
-   --  (recursively) otherwise self.
    function Dereference (Object : access W_Object_Type) return W_Object is
      (W_Object (Object));
+   --  If Object represents a reference, returns the referenced object
+   --  (recursively) otherwise self.
 
    function Lt
      (Left : access W_Object_Type; Right : access W_Object_Type'Class)

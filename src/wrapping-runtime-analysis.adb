@@ -2169,6 +2169,14 @@ package body Wrapping.Runtime.Analysis is
          end if;
       else
          Called.Push_Call_Result (Expr.Args);
+
+         if not Called.Is_Generator then
+            --  If the called subprogram is a generator, then it will have
+            --  called the yeild callback upon value generation. Otherwise,
+            --  call yield on the one returned value.
+
+            Call_Yield;
+         end if;
       end if;
    end Handle_Call;
 
@@ -2447,6 +2455,7 @@ package body Wrapping.Runtime.Analysis is
       begin
          Top_Object.Generate_Values (Expr);
       end Object_Generator;
+
    begin
       if Top_Frame.Top_Context.Match_Mode /= Match_None then
          --  If we enter the filter in any match mode, then we're running a

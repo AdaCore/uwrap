@@ -390,9 +390,9 @@ package body Wrapping.Input.Kit is
          Push_Object
            (W_Object'
               (new W_Intrinsic_Function_Type'
-                 (Prefix       => W_Object (An_Entity),
-                  Call         => Call_Token'Unrestricted_Access,
-                  Is_Generator => True)));
+                 (Prefix    => W_Object (An_Entity),
+                  Call      => Call_Token'Unrestricted_Access,
+                  Generator => True)));
 
          return True;
       end if;
@@ -513,12 +513,6 @@ package body Wrapping.Input.Kit is
            ("unsupported property kind: " &
               Any_Value_Kind'Wide_Wide_Image (Kind (Result)));
       end if;
-
-      --  TODO: It's akward to have to make these calls explicit in call
-      --  results, very easy to forget about. Is there a place to generalize
-      --  it? Perhaps in Handle_Call? Also consider that even fields (f_) may
-      --  need to call yeild callback, e.g. when prefix of filter...
-      Call_Yield;
    end Push_Call_Result;
 
    ----------------

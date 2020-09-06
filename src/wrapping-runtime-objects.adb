@@ -710,14 +710,6 @@ package body Wrapping.Runtime.Objects is
       Push_Frame_Context_Parameter;
       An_Entity.Call (An_Entity.Prefix, Params);
       Pop_Frame_Context;
-
-      if not An_Entity.Is_Generator then
-         --  If this entity is a generator itself (e.g. child ()), it already
-         --  took care of the expansion. Otherwise, call the yield callback on
-         --  the one result
-
-         Call_Yield;
-      end if;
    end Push_Call_Result;
 
    ----------------------
@@ -1131,8 +1123,8 @@ package body Wrapping.Runtime.Objects is
          Push_Object
            (W_Object'
               (new W_Intrinsic_Function_Type'
-                 (Prefix       => W_Object (An_Entity), Call => A_Call,
-                  Is_Generator => Is_Generator)));
+                 (Prefix    => W_Object (An_Entity), Call => A_Call,
+                  Generator => Is_Generator)));
 
          return True;
       end if;
