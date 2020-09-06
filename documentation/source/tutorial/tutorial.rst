@@ -107,7 +107,7 @@ Let's open access.wrp and see how this is done:
          Identifier ()
          and not parent (DefiningName())
          and not parent (ExplicitDeref())
-         and p_referenced_decl (param))
+         and p_referenced_decl ().filter (param))
       wrap standard.out
          ("\e<sloc>\e<it.child (DefiningName())> access object should be out or in out\n");
    end;
@@ -171,7 +171,7 @@ a node that:
 * Is an identified: ``Identifier ()``
 * Isn't a declaration, or not a child of a defining name: ``not parent (DefiningName ())``
 * Isn't a dereference, or not a child of explicit deref: ``not parent (ExplicitDeref ())``
-* Is a reference to the parameter param initially captured: ``p_referenced_decl (param)``
+* Is a reference to the parameter param initially captured: ``p_referenced_decl ().filter (param)``
 
 A few notes here:
 
@@ -183,7 +183,7 @@ A few notes here:
   query, p_referenced_decl operates on the child being analyzed, not the top
   level node which is a parameter specification. This is the reason why we had
   to capture the value in the top level matched, then to re-inject it in the
-  ``referenced_decl`` call for comparison.
+  ``filter`` call to ``referenced_decl`` for comparison.
 
 If any node of the form above is found, we're good. There is indeed a reference
 to this parameter as an access value, and access mode can be justified. If not,
@@ -356,13 +356,13 @@ few places C strings with Ada strings. Let's look at the wrapper code:
 
    match ParamSpec()
       and p_type_expression ("Interfaces.C.Strings.chars_ptr")
-      and not p_defining_name ("leaveMeAlone")
+      and not p_defining_name ().filter ("leaveMeAlone")
    walk chars_into_string ();
 
    match SubpDecl
       (f_subp_spec
          (x"^function"
-         and p_returns ("Interfaces.C.Strings.chars_ptr")))
+         and p_returns ().filter ("Interfaces.C.Strings.chars_ptr")))
    walk chars_into_string ();
 
 
@@ -385,8 +385,8 @@ The first command reads:
 .. code-block:: text
 
   match ParamSpec()
-      and p_type_expression ("Interfaces.C.Strings.chars_ptr")
-      and not p_defining_name ("leaveMeAlone")
+      and p_type_expression ().filter ("Interfaces.C.Strings.chars_ptr")
+      and not p_defining_name ().filter ("leaveMeAlone")
    walk chars_into_string ();
 
 This matches a parameter specification, then looks at a property
@@ -406,7 +406,7 @@ subprogram itself. This is the role of the code
    match SubpDecl
       (f_subp_spec
          (x"^function"
-         and p_returns ("Interfaces.C.Strings.chars_ptr")))
+         and p_returns ().filter ("Interfaces.C.Strings.chars_ptr")))
    walk chars_into_string ();
 
 For illustration purposes, the style of this condition is different from the

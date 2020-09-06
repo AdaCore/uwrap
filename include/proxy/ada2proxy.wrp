@@ -84,7 +84,7 @@ template w_SubpDeclCallProxy extends w_SubpDeclCall do
    var is_proxy_owned: text => defer ((match mode ("stack") pick "True" else pick "False"));
 
    wrap wp_Function (
-      name => (match origin (SubpDecl ()) pick origin.p_defining_name else pick name),
+      name => (match origin (SubpDecl ()) pick origin.p_defining_name () else pick name),
       type => defer ((match subp_kind ("function") pick child (w_TypeExpr).wrapper (wp_TypeExpr).txt else pick "void")),
       symbol => defer (parent (w_Unit ()).tmp (name))
    );
@@ -218,14 +218,14 @@ end;
 # the computation until the next cycle.
 match w_TypeExprProxy () do
    match o: origin_type_decl (w: wrapper (w_TypeDecl))
-         or o: origin_type_expr (p_designated_type_decl (w: wrapper (w_TypeDecl))) 
+         or o: origin_type_expr (p_designated_type_decl ().filter (w: wrapper (w_TypeDecl))) 
    do
       weave (w_designated_type_decl => w, type_computed => true);
    else
       weave (type_computed => true);
    end;
 
-   match origin_type_expr (p_designated_type_decl (f_type_def (SignedIntTypeDef ()))) do
+   match origin_type_expr (p_designated_type_decl ().filter (f_type_def (SignedIntTypeDef ()))) do
       wrap wp_TypeExpr ("int32");
       weave (txt => "Interfaces.C.int");
    elsmatch o: origin_type_decl ()
@@ -256,15 +256,15 @@ template generate_ada2proxy pick origin do
 
    match d: w_PackageDecl () do
       pick p: parent (w_Unit ()) do
-         wrap wp_Unit (name => d.origin.p_defining_name);
+         wrap wp_Unit (name => d.origin.p_defining_name ());
 
          pick p.child (new ({
             w_WithClause ("Interfaces.C"),
             w_WithClause ("System"),
             w_WithClause ("Ada.Unchecked_Deallocation"),
             w_WithClause ("Ada.Unchecked_Conversion"),
-            w_WithClause (d.origin.p_defining_name),
-            w_UseClause (d.origin.p_defining_name)
+            w_WithClause (d.origin.p_defining_name ()),
+            w_UseClause (d.origin.p_defining_name ())
          }));
       end;
 

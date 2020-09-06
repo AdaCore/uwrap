@@ -24,8 +24,9 @@ with Ada.Containers.Vectors;
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 with Langkit_Support.Slocs;       use Langkit_Support.Slocs;
 
-with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
-with Wrapping.Runtime.Objects;   use Wrapping.Runtime.Objects;
+with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
+with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
+with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 
 generic
    Language_Name : Text_Type;
@@ -137,6 +138,9 @@ package Wrapping.Input.Kit is
    type W_Kit_Node_Type;
    type W_Kit_Node is access all W_Kit_Node_Type'Class;
 
+   type W_Property_Type;
+   type W_Property is access all W_Property_Type'Class;
+
    type W_Kit_Node_Token_Type;
    type W_Kit_Node_Token is access all W_Kit_Node_Token_Type'Class;
    package W_Kit_Node_Vectors is new Ada.Containers.Vectors
@@ -181,6 +185,18 @@ package Wrapping.Input.Kit is
    overriding function Language
      (An_Entity : W_Kit_Node_Type) return Text_Type is
      (Language_Name);
+
+   ----------------
+   -- W_Property --
+   ----------------
+
+   type W_Property_Type is new W_Object_Type with record
+      Property_Node : Any_Node_Data_Reference;
+   end record;
+
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Property_Type;
+      Params    : T_Arg_Vectors.Vector);
 
    ----------------------
    -- W_Kit_Token_Node --

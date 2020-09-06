@@ -352,7 +352,7 @@ template_grammar.add_rules(
       MatchCapture(G.identifier, ':', G.factor),
       UnaryExpr (Operator.alt_not('not'), G.qualified_primary),
       G.qualified_primary),
-   qualified_primary=Or (QualifiedMatch (Or (Operator.alt_is('is'), Operator.alt_has ('has')), '(', G.primary, ')'), G.primary),
+   qualified_primary=Or (QualifiedMatch (Or (Operator.alt_is('is'), Operator.alt_has ('has')), '(', G.expression, ')'), G.primary),
    primary=Or(
       Pick ('(', G.expression, ')'),
       G.match_expr,

@@ -2373,7 +2373,6 @@ package body Wrapping.Runtime.Analysis is
 
    procedure Handle_Filter (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector)
    is
-
       Filtered_Expr   : T_Expr := Selector.Selector_Right.Filter_Expr;
       Prefix_Function : T_Expr;
 
@@ -2394,7 +2393,14 @@ package body Wrapping.Runtime.Analysis is
 
          procedure Yield_Callback is
          begin
+            Push_Frame_Context;
+            --  TODO: We may always want that callback reset when calling
+            --  any yell callback (this one was forgotten)
+            Top_Frame.Top_Context.Yield_Callback := null;
+
+            Push_Implicit_It (Top_Object);
             Push_Match_Result (Top_Object, Expr);
+            Delete_Object_At_Position (-2);
 
             if Top_Object /= Match_False then
                if Original_Yield /= null then
@@ -2406,9 +2412,12 @@ package body Wrapping.Runtime.Analysis is
                   --  We're just looking for the first matching value,
                   --  interrupt the current iteration
 
+                  --  ??? SHOULD THAT BE Visit_Decision instead?
                   Parent_Frame.Interrupt_Program := True;
                end if;
             end if;
+
+            Pop_Frame_Context;
          end Yield_Callback;
 
       begin
@@ -2443,9 +2452,18 @@ package body Wrapping.Runtime.Analysis is
       begin
          Top_Object.Generate_Values (Expr);
       end Object_Generator;
-
    begin
       Push_Frame_Context_No_Match;
+
+      if Top_Frame.Top_Context.Parent_Context.Match_Mode /= Match_None then
+         --  If we enter the filter in any match mode, then we're running a
+         --  match operation. The Match_Has filter will be tolerant to prefixes
+         --  that don't exist and stack a Match_False instead of an error in
+         --  these cases.
+
+         Top_Frame.Top_Context.Match_Mode := Match_Has;
+      end if;
+
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
       --  A filter expression is about calling the directly prefixing function

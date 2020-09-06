@@ -322,12 +322,12 @@ template ada_to_wrappers pick origin do
       match parent (sb: (SubpDecl () or AccessToSubpDef ())) do
          wrap n: w_ParamSpecCall (
             type_expr => defer (n.child (w_TypeExpr()).txt),
-            pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<n.name>'Address, Import;\n""",
+            pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression ()> with Address => \e<n.name>'Address, Import;\n""",
             actual_value => sb.tmp ("local")
          );
 
          wrap n: w_ParamSpecCallback (
-            type_expr => p_type_expression,
+            type_expr => p_type_expression (),
             pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<defer (n.child (w_TypeExpr()).txt)> with Address => \e<n.name>'Address, Import;\n""",
             actual_value => sb.tmp ("local")
          );

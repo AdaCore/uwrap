@@ -1,0 +1,4 @@
+type D is new C with null record;
+type D2 is new C with null record;
+type E is new D with null record;
+

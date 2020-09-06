@@ -331,13 +331,15 @@ package body Wrapping.Runtime.Structure is
       Generator : Generator_Type)
    is
       Result_Variable : aliased Capture_Result_Type;
+      Dummy_Generation_Control : aliased Visit_Action;
    begin
+      Push_Implicit_It (Root);
+
       --  There is no regexpr, just one expression. Compute it and return.
 
       if Expr = null
         or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
       then
-         Push_Object (Root);
          Generator (Expr);
          Delete_Object_At_Position (-2);
 
@@ -370,7 +372,12 @@ package body Wrapping.Runtime.Structure is
 
          Top_Frame.Top_Context.Yield_Callback := Handle_Regexpr'Access;
 
-         Push_Object (Root);
+         --  Upon processing, the regular expression engine modifies the
+         --  visit decision outcome. Make sure it doesn't modify it for the
+         --  above iteration in case there's no generation.
+         Top_Frame.Top_Context.Visit_Decision :=
+           Dummy_Generation_Control'Unchecked_Access;
+
          Handle_Regexpr_Next_Value;
          Delete_Object_At_Position (-2);
 

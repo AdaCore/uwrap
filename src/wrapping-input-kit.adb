@@ -345,45 +345,13 @@ package body Wrapping.Input.Kit is
          declare
             P_Name : Text_Type :=
               To_Lower (Name (Name'First + 2 .. Name'Last));
-            Value : Value_Type;
          begin
             Property_Node :=
               Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (P_Name));
 
             if Property_Node /= None then
-               declare
-                  Values : Value_Array
-                    (1 .. Property_Argument_Types (Property_Node)'Last);
-               begin
-                  for I in Values'Range loop
-                     Values (I) :=
-                       Property_Argument_Default_Value (Property_Node, I);
-                  end loop;
-
-                  Value := Eval_Property (Node, Property_Node, Values);
-               end;
-
-               if Kind (Value) = Text_Type_Value then
-                  return W_Object (To_W_String (As_Text_Type (Value)));
-               elsif Kind (Value) = Node_Value then
-                  if As_Node (Value).Is_Null then
-                     return Match_False;
-                  else
-                     return W_Object (Get_Entity_For_Node (As_Node (Value)));
-                  end if;
-               elsif Kind (Value) = Boolean_Value then
-                  if As_Boolean (Value) then
-                     --  TODO: We should probably have a proper true boolean
-                     --  here instead.
-                     return new W_Integer_Type'(Value => 1);
-                  else
-                     return Match_False;
-                  end if;
-               else
-                  Error
-                    ("unsupported property kind: " &
-                     Any_Value_Kind'Wide_Wide_Image (Kind (Value)));
-               end if;
+               return new W_Property_Type'
+                 (Property_Node => Property_Node, others => <>);
             end if;
          end;
       end if;
@@ -498,6 +466,63 @@ package body Wrapping.Input.Kit is
         Object.Node.Kind'Wide_Wide_Image & ": " &
         W_Kit_Node_Type'Class (Object).To_String;
    end To_Debug_String;
+
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
+
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Property_Type;
+      Params    : T_Arg_Vectors.Vector)
+   is
+      Result : Value_Type;
+      Values : Value_Array
+        (1 .. Property_Argument_Types (An_Entity.Property_Node)'Last);
+      Node : W_Kit_Node := W_Kit_Node (Top_Object.Dereference);
+   begin
+      if Params.Length > 0 then
+         Error ("parameters not currently supported in property calls");
+      end if;
+
+      for I in Values'Range loop
+         Values (I) :=
+           Property_Argument_Default_Value (An_Entity.Property_Node, I);
+      end loop;
+
+      Result := Eval_Property
+        (Node.Node, An_Entity.Property_Node, Values);
+
+      if Kind (Result) = Text_Type_Value then
+         Push_Object (To_W_String (As_Text_Type (Result)));
+      elsif Kind (Result) = Node_Value then
+         if As_Node (Result).Is_Null then
+            Push_Match_False;
+         else
+            Push_Object (Get_Entity_For_Node (As_Node (Result)));
+         end if;
+      elsif Kind (Result) = Boolean_Value then
+         if As_Boolean (Result) then
+            --  TODO: We should probably have a proper true boolean
+            --  here instead.
+            Push_Object (new W_Integer_Type'(Value => 1));
+         else
+            Push_Match_False;
+         end if;
+      else
+         Error
+           ("unsupported property kind: " &
+              Any_Value_Kind'Wide_Wide_Image (Kind (Result)));
+      end if;
+
+      --  TODO: It's akward to have to make these calls explicit in call
+      --  results, very easy to forget about. Is there a place to generalize
+      --  it? Perhaps in Handle_Call? Also consider that even fields (f_) may
+      --  need to call yeild callback, e.g. when prefix of filter...
+      if Top_Frame.Top_Context.Yield_Callback /= null then
+         Top_Frame.Top_Context.Yield_Callback.all;
+         Delete_Object_At_Position (-2);
+      end if;
+   end Push_Call_Result;
 
    ----------------
    -- Push_Value --

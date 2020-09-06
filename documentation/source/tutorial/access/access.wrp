@@ -3,7 +3,7 @@ match param: ParamSpec (x" access ") and parent (subp: SubpBody()) do
        Identifier ()
        and not parent (DefiningName())
        and not parent (ExplicitDeref())
-       and p_referenced_decl (param))
+       and p_referenced_decl ().filter (param))
     wrap standard.out
        ("\e<sloc>\e<it.child (DefiningName())> access object should be out or in out\n");
 end;

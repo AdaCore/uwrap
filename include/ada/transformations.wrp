@@ -142,7 +142,7 @@ template into_binary_compatible pick origin do
    match ParamSpec() and parent (sb: SubpDecl ())
    wrap w: w_ParamSpecCall(
       type_expr => type_name,
-      pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression> with Address => \e<w.name>'Address, Import;\n""",
+      pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression ()> with Address => \e<w.name>'Address, Import;\n""",
       actual_value => sb.tmp ("local")
    );
 
@@ -164,7 +164,7 @@ template into_explicit_conversion pick origin do
    match ParamSpec() and parent (sb: SubpDecl ())
    wrap w: w_ParamSpecCall(
       type_expr => type_name,
-      actual_value => "\e<p_type_expression> (\e<w.name>)"
+      actual_value => "\e<p_type_expression ()> (\e<w.name>)"
    );
 end;
 
