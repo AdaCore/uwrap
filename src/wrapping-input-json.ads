@@ -37,7 +37,8 @@ package Wrapping.Input.JSON is
    overriding function Push_Value
      (An_Entity : access W_JSON_Node_Type; Name : Text_Type) return Boolean;
 
-   overriding function To_String (Object : W_JSON_Node_Type) return Text_Type;
+   overriding function Write_String
+     (Object : W_JSON_Node_Type) return Buffer_Slice;
 
    overriding function To_Debug_String
      (Object : W_JSON_Node_Type) return Text_Type;

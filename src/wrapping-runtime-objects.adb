@@ -122,14 +122,19 @@ package body Wrapping.Runtime.Objects is
    procedure Call_Tmp
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
+      Slice : Buffer_Slice;
    begin
       if Params.Length = 0 then
          Push_Temporary_Name ("", W_Node (Object).Tmp_Counter);
       elsif Params.Length = 1 then
          Evaluate_Expression (Params.Element (1).Expr);
+         Push_Buffer_Cursor;
 
+         Slice := Pop_Object.Write_String;
          Push_Temporary_Name
-           (Pop_Object.To_String, W_Node (Object).Tmp_Counter);
+           (Buffer.Str (Slice.First.Offset .. Slice.Last.Offset),
+            W_Node (Object).Tmp_Counter);
+         Pop_Buffer_Cursor;
       else
          Error ("tmp only accepts one argument");
       end if;
@@ -241,7 +246,8 @@ package body Wrapping.Runtime.Objects is
          elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
             Push_Match_False;
          else
-            Error ("map doesn't contain element " & Key.To_String);
+            Error ("map doesn't contain element "
+                   & Copy_String (Key.Write_String));
          end if;
       elsif Object.all in W_Set_Type'Class then
          if W_Set (Object).A_Set.Contains (Key) then
@@ -249,7 +255,8 @@ package body Wrapping.Runtime.Objects is
          elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
             Push_Match_False;
          else
-            Error ("set doesn't contain element " & Key.To_String);
+            Error ("set doesn't contain element "
+                   & Copy_String (Key.Write_String));
          end if;
       elsif Object.all in W_Vector_Type'Class then
          if Key.Dereference.all not in W_Integer_Type'Class then
@@ -414,19 +421,21 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Push_Call_Result;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   function To_String (Object : W_Vector_Type) return Text_Type is
-      Result : Unbounded_Text_Type;
+   function Write_String (Object : W_Vector_Type) return Buffer_Slice is
+      Result : Buffer_Slice := Get_Empty_Slice;
    begin
       for T of Object.A_Vector loop
-         Result := Result & (if T /= null then T.To_String else "");
+         if T /= null then
+            Result.Last := T.Write_String.Last;
+         end if;
       end loop;
 
-      return To_Text (Result);
-   end To_String;
+      return Result;
+   end Write_String;
 
    ---------------------
    -- Generate_Values --
@@ -561,23 +570,26 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Generate_Values;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   overriding function To_String (Object : W_Integer_Type) return Text_Type is
+   overriding function Write_String
+     (Object : W_Integer_Type) return Buffer_Slice
+   is
    begin
-      return Object.Value'Wide_Wide_Image;
-   end To_String;
+      return Write_String (Object.Value'Wide_Wide_Image);
+   end Write_String;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   overriding function To_String (Object : W_String_Type) return Text_Type is
+   overriding function Write_String
+     (Object : W_String_Type) return Buffer_Slice is
    begin
-      return To_Text (Object.Value);
-   end To_String;
+      return Write_String (To_Text (Object.Value));
+   end Write_String;
 
    --------
    -- Lt --
@@ -587,13 +599,20 @@ package body Wrapping.Runtime.Objects is
      (Left : access W_String_Type; Right : access W_Object_Type'Class)
       return Boolean
    is
+      L, R : Buffer_Slice;
    begin
       if Left = Right then
          return False;
       elsif Right.all not in W_String_Type'Class then
          return W_Text_Expression_Type (Left.all).Lt (Right);
       else
-         return Left.To_String < Right.To_String;
+         Push_Buffer_Cursor;
+         L := Left.Write_String;
+         R := Right.Write_String;
+         Pop_Buffer_Cursor;
+
+         return Buffer.Str (L.First.Offset .. L.Last.Offset)
+           < Buffer.Str (R.First.Offset .. R.Last.Offset);
       end if;
    end Lt;
 
@@ -605,13 +624,20 @@ package body Wrapping.Runtime.Objects is
      (Left : access W_String_Type; Right : access W_Object_Type'Class)
       return Boolean
    is
+      L, R : Buffer_Slice;
    begin
       if Left = Right then
          return True;
       elsif Right.all not in W_String_Type'Class then
          return W_Text_Expression_Type (Left.all).Eq (Right);
       else
-         return Left.To_String = Right.To_String;
+         Push_Buffer_Cursor;
+         L := Left.Write_String;
+         R := Right.Write_String;
+         Pop_Buffer_Cursor;
+
+         return Buffer.Str (L.First.Offset .. L.Last.Offset)
+           = Buffer.Str (R.First.Offset .. R.Last.Offset);
       end if;
    end Eq;
 
@@ -653,50 +679,70 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Push_Call_Result;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   overriding function To_String (Object : W_Regexp_Type) return Text_Type is
+   overriding function Write_String
+     (Object : W_Regexp_Type) return Buffer_Slice is
    begin
-      return Object.Value.To_String;
-   end To_String;
+      return Object.Value.Write_String;
+   end Write_String;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   overriding function To_String
-     (Object : W_Text_Conversion_Type) return Text_Type
+   overriding function Write_String
+     (Object : W_Text_Conversion_Type) return Buffer_Slice
    is
    begin
-      return Object.An_Object.To_String;
-   end To_String;
+      return Object.An_Object.Write_String;
+   end Write_String;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   function To_String (Object : W_Text_Vector_Type) return Text_Type is
-      Result : Unbounded_Text_Type;
+   overriding function Write_String
+     (Object : W_Text_Vector_Type) return Buffer_Slice
+   is
+      Result : Buffer_Slice := Get_Empty_Slice;
    begin
       for T of Object.A_Vector loop
-         Append (Result, T.To_String);
+         Result.Last := T.Write_String.Last;
       end loop;
 
-      return To_Text (Result);
-   end To_String;
+      return Result;
+   end Write_String;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   overriding function To_String
-     (Object : W_Text_Reindent_Type) return Text_Type
+   overriding function Write_String
+     (Object : W_Text_Reindent_Type) return Buffer_Slice
    is
+      Slice : Buffer_Slice;
    begin
-      return Reindent (Object.Indent, Object.Content.To_String, False);
-   end To_String;
+      --  That's the difficult part, need the right information in the
+      --  expressions below...
+
+      Push_Buffer_Cursor;
+      Slice := Object.Content.Write_String;
+      Pop_Buffer_Cursor;
+
+      return Write_String
+        (Reindent
+           (Object.Indent,
+            Copy_String (Slice),
+            False));
+      --  return Write_String
+      --    (Reindent
+      --       (Object.Indent,
+      --        Main_Buffer.Buffer
+      --          (Slice.First.Offset .. Slice.Last.Offset), False));
+   end Write_String;
 
    ----------------------
    -- Push_Call_Result --
@@ -904,18 +950,18 @@ package body Wrapping.Runtime.Objects is
         (Expr);
    end Generate_Values;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   overriding function To_String
-     (Object : W_Deferred_Expr_Type) return Text_Type
+   overriding function Write_String
+     (Object : W_Deferred_Expr_Type) return Buffer_Slice
    is
    begin
       Run_Deferred_Expr (Object);
 
-      return Pop_Object.To_String;
-   end To_String;
+      return Pop_Object.Write_String;
+   end Write_String;
 
    ---------------
    -- Add_Child --
@@ -1567,7 +1613,9 @@ package body Wrapping.Runtime.Objects is
 
    procedure Print (An_Entity : W_Node_Type; Indent : Text_Type := "") is
    begin
-      Put_Line (Indent & An_Entity.To_String);
+      Push_Buffer_Cursor;
+      Put_Line (Indent & Copy_String (An_Entity.Write_String));
+      Pop_Buffer_Cursor;
 
       for E of An_Entity.Children_Ordered loop
          Print (E.all, Indent & "-");

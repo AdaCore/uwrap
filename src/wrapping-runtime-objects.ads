@@ -175,9 +175,11 @@ package Wrapping.Runtime.Objects is
      (Object : access W_Reference_Type) return W_Object is
      (Object.Value.Dereference);
 
-   overriding function To_String
-     (Object : W_Reference_Type) return Text_Type is
-     (if Object.Value /= null then Object.Value.To_String else "");
+   overriding function Write_String
+     (Object : W_Reference_Type) return Buffer_Slice is
+     (if Object.Value /= null
+      then Object.Value.Write_String
+      else Get_Empty_Slice);
 
    overriding function To_Debug_String
      (Object : W_Reference_Type) return Text_Type is
@@ -203,7 +205,8 @@ package Wrapping.Runtime.Objects is
    overriding procedure Push_Call_Result
      (An_Entity : access W_Vector_Type; Params : T_Arg_Vectors.Vector);
 
-   overriding function To_String (Object : W_Vector_Type) return Text_Type;
+   overriding function Write_String
+     (Object : W_Vector_Type) return Buffer_Slice;
 
    overriding procedure Generate_Values
      (Object : access W_Vector_Type; Expr : T_Expr);
@@ -232,7 +235,8 @@ package Wrapping.Runtime.Objects is
       Value : Integer;
    end record;
 
-   overriding function To_String (Object : W_Integer_Type) return Text_Type;
+   overriding function Write_String
+     (Object : W_Integer_Type) return Buffer_Slice;
 
    type W_Text_Expression_Type is abstract new W_Object_Type with record
       null;
@@ -246,7 +250,8 @@ package Wrapping.Runtime.Objects is
       Value : Unbounded_Text_Type;
    end record;
 
-   overriding function To_String (Object : W_String_Type) return Text_Type;
+   overriding function Write_String
+     (Object : W_String_Type) return Buffer_Slice;
 
    overriding function Lt
      (Left : access W_String_Type; Right : access W_Object_Type'Class)
@@ -264,7 +269,8 @@ package Wrapping.Runtime.Objects is
       Value : W_Object;
    end record;
 
-   overriding function To_String (Object : W_Regexp_Type) return Text_Type;
+   overriding function Write_String
+     (Object : W_Regexp_Type) return Buffer_Slice;
 
    --  This type is used to model an object that needs to converts a sub-object
    --  into string. This is useful to differenciate sitations where a piece of
@@ -273,15 +279,15 @@ package Wrapping.Runtime.Objects is
       An_Object : W_Object;
    end record;
 
-   overriding function To_String
-     (Object : W_Text_Conversion_Type) return Text_Type;
+   overriding function Write_String
+     (Object : W_Text_Conversion_Type) return Buffer_Slice;
 
    type W_Text_Vector_Type is new W_Text_Expression_Type with record
       A_Vector : W_Object_Vectors.Vector;
    end record;
 
-   overriding function To_String
-     (Object : W_Text_Vector_Type) return Text_Type;
+   overriding function Write_String
+     (Object : W_Text_Vector_Type) return Buffer_Slice;
 
    type Call_Access is access procedure
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
@@ -291,8 +297,8 @@ package Wrapping.Runtime.Objects is
       Content : W_Object;
    end record;
 
-   overriding function To_String
-     (Object : W_Text_Reindent_Type) return Text_Type;
+   overriding function Write_String
+     (Object : W_Text_Reindent_Type) return Buffer_Slice;
 
    type W_Intrinsic_Function_Type is new W_Object_Type with record
       Prefix    : W_Object;
@@ -345,15 +351,15 @@ package Wrapping.Runtime.Objects is
    end record;
 
    --  A defered expression is an expression that will be evaluated as late
-   --  as possible, during the To_String calls. The environment is captured
+   --  as possible, during the Write_String calls. The environment is captured
    --  at creation time to that the expression can be valuated later on.
    type W_Deferred_Expr_Type is new W_Object_Type with record
       A_Closure : Closure;
       Expr      : T_Expr;
    end record;
 
-   overriding function To_String
-     (Object : W_Deferred_Expr_Type) return Text_Type;
+   overriding function Write_String
+     (Object : W_Deferred_Expr_Type) return Buffer_Slice;
 
    type W_Node_Type is new W_Object_Type with record
       Parent, Next, Prev : W_Node;
@@ -424,7 +430,9 @@ package Wrapping.Runtime.Objects is
      (An_Entity        : access W_Node_Type; A_Mode : Browse_Mode;
       Match_Expression : T_Expr);
 
-   function To_String (An_Entity : W_Node_Type) return Text_Type is ("");
+   overriding
+   function Write_String
+     (An_Entity : W_Node_Type) return Buffer_Slice is (Get_Empty_Slice);
 
    procedure Print (An_Entity : W_Node_Type; Indent : Text_Type := "");
 
@@ -542,9 +550,9 @@ package Wrapping.Runtime.Objects is
      (An_Entity        : access W_Regexpr_Result_Type; A_Mode : Browse_Mode;
       Match_Expression : T_Expr);
 
-   overriding function To_String
-     (Object : W_Regexpr_Result_Type) return Text_Type is
-     (Object.As_Singleton.To_String);
+   overriding function Write_String
+     (Object : W_Regexpr_Result_Type) return Buffer_Slice is
+     (Object.As_Singleton.Write_String);
 
    type W_All_Type is record
       Iterable       : W_Object;

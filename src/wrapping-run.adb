@@ -143,6 +143,13 @@ package body Wrapping.Run is
       Jobs    : Libadalang.Helpers.App_Job_Context_Array)
    is
    begin
+      --  Initialize main buffer
+      --  TODO: Size should be parametrizable.
+
+      --  Create a buffer of about 1 M of characters, should be enough for most
+      --  usages by default.
+      Buffer.Str := new Text_Type (1 .. 2 ** 20);
+
       --  Step 1, load the templates
 
       if Args.Template_File.Get = "" then

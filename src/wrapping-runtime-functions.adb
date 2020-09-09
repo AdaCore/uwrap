@@ -43,9 +43,12 @@ package body Wrapping.Runtime.Functions is
       Actuals : Actuals_Type :=
         Process_Parameters (P_Normalize_Ada_Name, Params);
    begin
+      Push_Buffer_Cursor;
+
       declare
-         Name : constant Text_Type :=
-           Evaluate_Expression (Actuals (1)).To_String;
+         Slice : Buffer_Slice :=
+           Evaluate_Expression (Actuals (1)).Write_String;
+         Name : Text_Type := Copy_String (Slice);
          C : Integer := Name'First;
       begin
          while C <= Name'Last loop
@@ -78,6 +81,7 @@ package body Wrapping.Runtime.Functions is
          end loop;
       end;
 
+      Pop_Buffer_Cursor;
       Push_Object (To_W_String (New_Name));
    end Call_Normalize_Ada_Name;
 
@@ -95,15 +99,30 @@ package body Wrapping.Runtime.Functions is
       Result  : W_Object;
       Actuals : Actuals_Type := Process_Parameters (P_Replace_Text, Params);
    begin
+      Push_Buffer_Cursor;
+
       declare
-         Source  : Text_Type := Evaluate_Expression (Actuals (1)).To_String;
-         Pattern : Text_Type := Evaluate_Expression (Actuals (2)).To_String;
-         Replace : Text_Type := Evaluate_Expression (Actuals (3)).To_String;
+         Source_Slice : Buffer_Slice :=
+           Evaluate_Expression (Actuals (1)).Write_String;
+         Pattern_Slice : Buffer_Slice :=
+           Evaluate_Expression (Actuals (2)).Write_String;
+         Replace_Slice : Buffer_Slice :=
+           Evaluate_Expression (Actuals (3)).Write_String;
       begin
          Result :=
-           W_Object (To_W_String (Replace_String (Source, Pattern, Replace)));
+           W_Object
+             (To_W_String
+                (Replace_String (
+                 Buffer.Str
+                   (Source_Slice.First.Offset .. Source_Slice.Last.Offset),
+                  Buffer.Str
+                   (Pattern_Slice.First.Offset .. Pattern_Slice.Last.Offset),
+                  Buffer.Str
+                   (Replace_Slice.First.Offset
+                    .. Replace_Slice.Last.Offset))));
       end;
 
+      Pop_Buffer_Cursor;
       Push_Object (Result);
    end Call_Replace_Text;
 
@@ -119,11 +138,17 @@ package body Wrapping.Runtime.Functions is
       Result : W_Object;
 
       Actuals : Actuals_Type := Process_Parameters (P_To_Lower, Params);
+      Slice : Buffer_Slice;
    begin
+      Push_Buffer_Cursor;
+      Slice := Evaluate_Expression (Actuals (1)).Write_String;
       Result :=
         W_Object
           (To_W_String
-             (To_Lower (Evaluate_Expression (Actuals (1)).To_String)));
+             (To_Lower
+                (Buffer.Str
+                     (Slice.First.Offset .. Slice.Last.Offset))));
+      Pop_Buffer_Cursor;
       Push_Object (Result);
    end Call_To_Lower;
 
@@ -141,6 +166,7 @@ package body Wrapping.Runtime.Functions is
 
       Actuals     : Actuals_Type := Process_Parameters (P_Unindent, Params);
       Indentation : W_Object;
+      Slice : Buffer_Slice;
    begin
       Indentation := Evaluate_Expression (Actuals (1)).Dereference;
 
@@ -148,12 +174,17 @@ package body Wrapping.Runtime.Functions is
          Error ("expected integer object");
       end if;
 
+      Push_Buffer_Cursor;
+      Slice := Evaluate_Expression (Actuals (2)).Write_String;
+      Pop_Buffer_Cursor;
+
       Result :=
         W_Object
           (To_W_String
              (Reindent
                 (W_Integer (Indentation).Value,
-                 Evaluate_Expression (Actuals (2)).To_String, True)));
+                 Buffer.Str (Slice.First.Offset .. Slice.Last.Offset),
+                 True)));
       Push_Object (Result);
    end Call_Reindent;
 

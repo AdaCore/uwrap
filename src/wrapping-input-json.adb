@@ -97,15 +97,16 @@ package body Wrapping.Input.JSON is
       return False;
    end Push_Value;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   overriding function To_String (Object : W_JSON_Node_Type) return Text_Type
+   overriding function Write_String
+     (Object : W_JSON_Node_Type) return Buffer_Slice
    is
    begin
-      return "";
-   end To_String;
+      return Get_Empty_Slice;
+   end Write_String;
 
    ---------------------
    -- To_Debug_String --

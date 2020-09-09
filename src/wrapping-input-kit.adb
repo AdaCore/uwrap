@@ -27,6 +27,7 @@ with Ada.Containers;                    use Ada.Containers;
 
 with Wrapping.Runtime.Analysis;   use Wrapping.Runtime.Analysis;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
+with Wrapping.Utils;              use Wrapping.Utils;
 
 package body Wrapping.Input.Kit is
 
@@ -445,14 +446,16 @@ package body Wrapping.Input.Kit is
       return False;
    end Push_Value;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   overriding function To_String (Object : W_Kit_Node_Type) return Text_Type is
+   overriding function Write_String
+     (Object : W_Kit_Node_Type) return Buffer_Slice
+   is
    begin
-      return Object.Node.Text;
-   end To_String;
+      return Write_String (Object.Node.Text);
+   end Write_String;
 
    ---------------------
    -- To_Debug_String --
@@ -461,10 +464,13 @@ package body Wrapping.Input.Kit is
    overriding function To_Debug_String
      (Object : W_Kit_Node_Type) return Text_Type
    is
+      Slice : Buffer_Slice;
    begin
-      return
-        Object.Node.Kind'Wide_Wide_Image & ": " &
-        W_Kit_Node_Type'Class (Object).To_String;
+      Push_Buffer_Cursor;
+      Slice := W_Kit_Node_Type'Class (Object).Write_String;
+      Pop_Buffer_Cursor;
+
+      return Buffer.Str (Slice.First.Offset .. Slice.Last.Offset);
    end To_Debug_String;
 
    ----------------------
@@ -604,16 +610,16 @@ package body Wrapping.Input.Kit is
       return False;
    end Push_Value;
 
-   ---------------
-   -- To_String --
-   ---------------
+   ------------------
+   -- Write_String --
+   ------------------
 
-   overriding function To_String
-     (Object : W_Kit_Node_Token_Type) return Text_Type
+   overriding function Write_String
+     (Object : W_Kit_Node_Token_Type) return Buffer_Slice
    is
    begin
-      return Text (Object.Node);
-   end To_String;
+      return Write_String (Text (Object.Node));
+   end Write_String;
 
    ---------------------
    -- To_Debug_String --

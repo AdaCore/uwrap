@@ -32,6 +32,7 @@ with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Ada.Wide_Wide_Text_IO;      use Ada.Wide_Wide_Text_IO;
 with Wrapping.Runtime.Functions; use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Objects;   use Wrapping.Runtime.Objects;
+with Unchecked_Conversion;
 
 package body Wrapping.Runtime.Structure is
 
@@ -707,6 +708,16 @@ package body Wrapping.Runtime.Structure is
       Push_Object (Match_False);
    end Push_Match_False;
 
+   ------------------
+   -- Write_String --
+   ------------------
+
+   function Write_String
+     (Object : W_Object_Type) return Buffer_Slice is
+   begin
+      return Get_Empty_Slice;
+   end Write_String;
+
    --------------------
    -- Include_Symbol --
    --------------------
@@ -757,24 +768,44 @@ package body Wrapping.Runtime.Structure is
       if Other_Entity = Match_False then
          return True;
       elsif Other_Entity.all in W_Regexp_Type'Class then
-         Matched :=
-           Runtime.Analysis.Match
-             (Other_Entity.To_String,
-              W_Object_Type'Class (An_Entity.all).To_String);
+         Push_Buffer_Cursor;
+
+         declare
+            L : Buffer_Slice := Other_Entity.Write_String;
+            R : Buffer_Slice :=
+              W_Object_Type'Class (An_Entity.all).Write_String;
+         begin
+            Matched :=
+              Runtime.Analysis.Match
+                (Buffer.Str (L.First.Offset .. L.Last.Offset),
+                 Buffer.Str (R.First.Offset .. R.Last.Offset));
+         end;
 
          if not Matched then
             Pop_Object;
             Push_Match_False;
          end if;
 
+         Pop_Buffer_Cursor;
+
          return True;
       elsif Other_Entity.all in W_Text_Expression_Type'Class then
-         if Other_Entity.To_String /=
-           W_Object_Type'Class (An_Entity.all).To_String
-         then
-            Pop_Object;
-            Push_Match_False;
-         end if;
+         Push_Buffer_Cursor;
+
+         declare
+            L : Buffer_Slice := Other_Entity.Write_String;
+            R : Buffer_Slice :=
+              W_Object_Type'Class (An_Entity.all).Write_String;
+         begin
+            if Buffer.Str (L.First.Offset .. L.Last.Offset) /=
+              Buffer.Str (R.First.Offset .. R.Last.Offset)
+            then
+               Pop_Object;
+               Push_Match_False;
+            end if;
+         end;
+
+         Pop_Buffer_Cursor;
 
          return True;
       elsif Other_Entity.all in W_Intrinsic_Function_Type'Class then
@@ -1066,5 +1097,53 @@ package body Wrapping.Runtime.Structure is
 
       Pop_Frame_Context;
    end Handle_Call_Parameters;
+
+   ------------------
+   -- Write_String --
+   ------------------
+
+   function Write_String (Text : Text_Type) return Buffer_Slice
+   is
+      Result : Buffer_Slice;
+   begin
+      Result.First := Buffer.Cursor;
+      Result.Last := Result.First;
+      Result.Last.Offset := Result.Last.Offset + Text'Length - 1;
+
+      Buffer.Str
+        (Result.First.Offset .. Result.Last.Offset) := Text;
+
+      Buffer.Cursor := Result.Last;
+      Buffer.Cursor.Offset := Buffer.Cursor.Offset + 1;
+
+      return Result;
+   end Write_String;
+
+   function Get_Empty_Slice return Buffer_Slice is
+      Result : Buffer_Slice := (Buffer.Cursor, Buffer.Cursor);
+   begin
+      Result.Last.Offset := Result.Last.Offset - 1;
+      Result.Last.Line := Result.Last.Line - 1;
+      Result.Last.Line_Offset := Result.Last.Line_Offset - 1;
+      Result.Last.Column := Result.Last.Column - 1;
+
+      return Result;
+   end Get_Empty_Slice;
+
+   procedure Push_Buffer_Cursor is
+   begin
+      Buffer.Cursor_Stack.Append (Buffer.Cursor);
+   end Push_Buffer_Cursor;
+
+   procedure Pop_Buffer_Cursor is
+   begin
+      Buffer.Cursor := Buffer.Cursor_Stack.Last_Element;
+      Buffer.Cursor_Stack.Delete_Last;
+   end Pop_Buffer_Cursor;
+
+   function Copy_String (Slice : Buffer_Slice) return Text_Type is
+   begin
+      return Buffer.Str (Slice.First.Offset .. Slice.Last.Offset);
+   end Copy_String;
 
 end Wrapping.Runtime.Structure;

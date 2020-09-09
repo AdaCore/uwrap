@@ -123,15 +123,20 @@ package body Wrapping.Runtime.Analysis is
    procedure Call_Convert_To_String
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
+      Slice : Buffer_Slice;
    begin
       if Params.Length in 1 .. 2 then
          Push_Frame_Context_Parameter;
+         Push_Buffer_Cursor;
+         Slice :=
+           Evaluate_Expression
+             (Params.Element (1).Expr).Write_String;
+         Pop_Buffer_Cursor;
 
          Push_Object
            (To_W_String
-              (Evaluate_Expression (Params.Element (1).Expr).To_String));
-
-         Pop_Frame_Context;
+              (Buffer.Str
+                   (Slice.First.Offset .. Slice.Last.Offset)));
 
          if Params.Length = 2 then
             Push_Match_Result (Top_Object, Params.Element (2).Expr);
@@ -369,23 +374,10 @@ package body Wrapping.Runtime.Analysis is
    ------------------------
 
    procedure Push_Frame_Context (Context : Frame_Context_Type) is
+      Parent : Frame_Context := Top_Frame.Top_Context;
    begin
-      Top_Frame.Top_Context := new Frame_Context_Type'
-        (Parent_Context            => Top_Frame.Top_Context,
-         Current_Command           => Context.Current_Command,
-         Outer_Expr_Callback       => Context.Outer_Expr_Callback,
-         Match_Mode                => Context.Match_Mode,
-         Name_Captured             => Context.Name_Captured,
-         Yield_Callback            => Context.Yield_Callback,
-         Allocate_Callback         => Context.Allocate_Callback,
-         Left_Value                => Context.Left_Value,
-         Is_Root_Selection         => Context.Is_Root_Selection,
-         Outer_Object              => Context.Outer_Object,
-         Visit_Decision            => Context.Visit_Decision,
-         Regexpr_Anchored          => Context.Regexpr_Anchored,
-         Pick_Callback             => Context.Pick_Callback,
-         Regexpr                   => Context.Regexpr,
-         Is_First_Matching_Wrapper => Context.Is_First_Matching_Wrapper);
+      Top_Frame.Top_Context := new Frame_Context_Type'(Context);
+      Top_Frame.Top_Context.Parent_Context := Parent;
    end Push_Frame_Context;
 
    -----------------------
@@ -1252,7 +1244,19 @@ package body Wrapping.Runtime.Analysis is
 
             Content_Object := Pop_Object;
 
-            Put (Content_Object.To_String);
+            Push_Buffer_Cursor;
+
+            declare
+               Slice : Buffer_Slice;
+            begin
+               Slice := Content_Object.Write_String;
+
+               Put
+                 (Buffer.Str
+                    (Slice.First.Offset .. Slice.Last.Offset));
+            end;
+
+            Pop_Buffer_Cursor;
 
             Pop_Frame;
          end;
@@ -1278,9 +1282,34 @@ package body Wrapping.Runtime.Analysis is
 
             Content_Object := Pop_Object;
 
-            Create (Output_File, Out_File, To_String (Path_Object.To_String));
+            Push_Buffer_Cursor;
 
-            Put (Output_File, Content_Object.To_String);
+            declare
+               Slice : Buffer_Slice;
+            begin
+               Slice := Path_Object.Write_String;
+
+               Create
+                 (Output_File,
+                  Out_File,
+                  To_String (Buffer.Str
+                    (Slice.First.Offset .. Slice.Last.Offset)));
+            end;
+
+            Pop_Buffer_Cursor;
+
+            Push_Buffer_Cursor;
+
+            declare
+               Slice : Buffer_Slice;
+            begin
+               Slice := Content_Object.Write_String;
+               Put (Output_File,
+                    Buffer.Str
+                      (Slice.First.Offset .. Slice.Last.Offset));
+            end;
+
+            Pop_Buffer_Cursor;
 
             Close (Output_File);
 
@@ -1665,15 +1694,6 @@ package body Wrapping.Runtime.Analysis is
             when Str_Kind =>
                Result.A_Vector.Append (W_Object (To_W_String (Str.Value)));
             when Expr_Kind =>
-               --  if Expr.Str_Kind = String_Indent then
-               --     Indent : W_Text_Reindent := new W_Text_Reindent_Type'
-               --       (Indent =>  Str.Indent,
-               --        Content =>  new W_Text_Vector_Type);
-               --  begin
-               --     Result.Last_Element.A_Vector.Append (W_Object (Indent));
-               --     Result.Append (W_Text_Vector (Indent.Content));
-               --  end;
-
                if On_Expression /= null then
                   On_Expression.all (Str.Expr);
                else
@@ -1710,7 +1730,18 @@ package body Wrapping.Runtime.Analysis is
                   if On_Group /= null then
                      On_Group.all (Str.Group_Number, Value);
                   else
-                     Append_Text (Value.To_String);
+                     Push_Buffer_Cursor;
+
+                     declare
+                        Slice : Buffer_Slice;
+                     begin
+                        Slice := Value.Write_String;
+                        Append_Text
+                          (Buffer.Str
+                             (Slice.First.Offset .. Slice.Last.Offset));
+                     end;
+
+                     Pop_Buffer_Cursor;
                   end if;
                end;
          end case;

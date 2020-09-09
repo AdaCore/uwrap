@@ -120,12 +120,6 @@ package body Wrapping.Utils is
             end if;
          end loop;
 
-         --  Put_Line ("----------------------------------------"); Put_Line
-         --  ("INDENT " & New_Indent'Wide_Wide_Image & ", SPACES TO REMOVE "
-         --  & Spaces_To_Remove'Wide_Wide_Image); Put_Line (Text); Put_Line
-         --  ("TO"); Put_Line (Result (Result'First .. Result_Index)); Put_Line
-         --  ("----------------------------------------");
-
          return Result (Result'First .. Result_Index);
       end;
    end Reindent;

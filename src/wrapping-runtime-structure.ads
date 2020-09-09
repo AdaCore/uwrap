@@ -124,6 +124,14 @@ package Wrapping.Runtime.Structure is
 
    type Capture_Result is access all Capture_Result_Type;
 
+   type Text_Buffer_Type;
+
+   type Text_Buffer is access all Text_Buffer_Type;
+
+   type Text_Buffer_Cursor;
+
+   type Buffer_Slice;
+
    type Capture_Result_Type is record
       Parent : Capture_Result;
       Object : W_Object;
@@ -338,14 +346,15 @@ package Wrapping.Runtime.Structure is
 
    procedure Push_Match_False;
 
-   function To_String (Object : W_Object_Type) return Text_Type is ("");
-   --  This function resolves a runtime object into the String value. The
-   --  result of this function varies over time - as the underlying object
-   --  gets completed by various wrapping and weaving opertions. This should be
-   --  called as late as possible in the process (unless explicitely requested
-   --  through e.g. a string conversion). Keeping a reference to the runtime
-   --  object is prefered. Note that this is directly linked to the actual
-   --  semantics of the language, so should remain consistent with it.
+   function Write_String (Object : W_Object_Type) return Buffer_Slice;
+   --  This function resolves a runtime object into the String value, and writes
+   --  this string in the global string buffer. The result of this function
+   --  varies over time - as the underlying object gets completed by various
+   --  wrapping and weaving opertions. This should be called as late as
+   --  possible in the process (unless explicitely requested through e.g. a
+   --  string conversion). Keeping a reference to the runtime object is
+   --  prefered. Note that this is directly linked to the actual semantics of
+   --  the language, so should remain consistent with it.
 
    function To_Debug_String (Object : W_Object_Type) return Text_Type
      is ("<empty>");
@@ -411,5 +420,45 @@ package Wrapping.Runtime.Structure is
       Command   : T_Command;
       A_Closure : Closure;
    end record;
+
+   function Write_String (Text : Text_Type) return Buffer_Slice;
+
+   function Get_Empty_Slice return Buffer_Slice;
+   --  Return an empty slice, still with a first value set on the current
+   --  position in the text buffer.
+
+   procedure Push_Buffer_Cursor;
+
+   procedure Pop_Buffer_Cursor;
+
+   type Text_Buffer_Cursor is record
+      Offset      : Natural;
+      Line        : Natural;
+      Line_Offset : Natural;
+      Column      : Natural;
+   end record;
+
+   package Text_Buffer_Cursor_Vectors is new Ada.Containers.Vectors
+     (Positive, Text_Buffer_Cursor);
+
+   use Text_Buffer_Cursor_Vectors;
+
+   type Buffer_Slice is record
+      First, Last : Text_Buffer_Cursor;
+   end record;
+
+   function Copy_String (Slice : Buffer_Slice) return Text_Type;
+
+   type Text_Buffer_Type is record
+      Str    : Text_Access;
+      Cursor : Text_Buffer_Cursor :=
+        (Offset => 1,
+         Line        => 1,
+         Line_Offset => 1,
+         Column      => 1);
+      Cursor_Stack : Text_Buffer_Cursor_Vectors.Vector;
+   end record;
+
+   Buffer : Text_Buffer_Type;
 
 end Wrapping.Runtime.Structure;
