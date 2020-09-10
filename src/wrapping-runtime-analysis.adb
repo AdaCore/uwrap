@@ -1232,6 +1232,8 @@ package body Wrapping.Runtime.Analysis is
          end;
       end loop;
 
+      Buffer.Full_Cursor_Update := True;
+
       for T of Output loop
          declare
             Content_Object : W_Object;
@@ -1803,6 +1805,14 @@ package body Wrapping.Runtime.Analysis is
          return True;
       elsif Name = "reindent" then
          Push_Intrinsic_Function (null, Call_Reindent'Access);
+         return True;
+      elsif Name = "buffer_line" then
+         Push_Object
+           (W_Object'(new W_Integer_Type'(Value => Buffer.Cursor.Line)));
+         return True;
+      elsif Name = "buffer_col" then
+         Push_Object
+           (W_Object'(new W_Integer_Type'(Value => Buffer.Cursor.Column)));
          return True;
       end if;
 

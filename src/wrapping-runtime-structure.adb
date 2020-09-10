@@ -19,6 +19,7 @@
 
 with Ada.Containers;                  use Ada.Containers;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
+with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Tags;                        use Ada.Tags;
 with Ada.Unchecked_Conversion;
 with Ada.Characters.Conversions;      use Ada.Characters.Conversions;
@@ -32,7 +33,6 @@ with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Ada.Wide_Wide_Text_IO;      use Ada.Wide_Wide_Text_IO;
 with Wrapping.Runtime.Functions; use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Objects;   use Wrapping.Runtime.Objects;
-with Unchecked_Conversion;
 
 package body Wrapping.Runtime.Structure is
 
@@ -1116,16 +1116,31 @@ package body Wrapping.Runtime.Structure is
       Buffer.Cursor := Result.Last;
       Buffer.Cursor.Offset := Buffer.Cursor.Offset + 1;
 
+      if Buffer.Full_Cursor_Update then
+         for C of Text loop
+            --  TODO: This does not handle CR/LF
+            if Is_Line_Terminator (C) then
+               Buffer.Cursor.Line := Buffer.Cursor.Line + 1;
+               Buffer.Cursor.Line_Offset := 1;
+               Buffer.Cursor.Column := 1;
+            else
+               Buffer.Cursor.Line_Offset := Buffer.Cursor.Line_Offset + 1;
+               --  TODO : This does not handle tabs
+               Buffer.Cursor.Column := Buffer.Cursor.Column + 1;
+            end if;
+         end loop;
+      end if;
+
       return Result;
    end Write_String;
 
    function Get_Empty_Slice return Buffer_Slice is
       Result : Buffer_Slice := (Buffer.Cursor, Buffer.Cursor);
    begin
-      Result.Last.Offset := Result.Last.Offset - 1;
-      Result.Last.Line := Result.Last.Line - 1;
-      Result.Last.Line_Offset := Result.Last.Line_Offset - 1;
-      Result.Last.Column := Result.Last.Column - 1;
+      Result.Last.Offset := Result.First.Offset - 1;
+      Result.Last.Line := Result.First.Line - 1;
+      Result.Last.Line_Offset := Result.First.Line_Offset - 1;
+      Result.Last.Column := Result.First.Column - 1;
 
       return Result;
    end Get_Empty_Slice;

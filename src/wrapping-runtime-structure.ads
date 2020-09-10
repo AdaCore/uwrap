@@ -347,10 +347,10 @@ package Wrapping.Runtime.Structure is
    procedure Push_Match_False;
 
    function Write_String (Object : W_Object_Type) return Buffer_Slice;
-   --  This function resolves a runtime object into the String value, and writes
-   --  this string in the global string buffer. The result of this function
-   --  varies over time - as the underlying object gets completed by various
-   --  wrapping and weaving opertions. This should be called as late as
+   --  This function resolves a runtime object into the String value, and
+   --  writes this string in the global string buffer. The result of this
+   --  function varies over time - as the underlying object gets completed by
+   --  various wrapping and weaving opertions. This should be called as late as
    --  possible in the process (unless explicitely requested through e.g. a
    --  string conversion). Keeping a reference to the runtime object is
    --  prefered. Note that this is directly linked to the actual semantics of
@@ -457,6 +457,10 @@ package Wrapping.Runtime.Structure is
          Line_Offset => 1,
          Column      => 1);
       Cursor_Stack : Text_Buffer_Cursor_Vectors.Vector;
+
+      Full_Cursor_Update : Boolean := False;
+      --  When this is true, Write_String will update
+      --  Line / Line_Offset / Column values.
    end record;
 
    Buffer : Text_Buffer_Type;
