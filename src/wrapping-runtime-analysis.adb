@@ -38,6 +38,7 @@ with Wrapping.Semantic.Analysis;  use Wrapping.Semantic.Analysis;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Utils;              use Wrapping.Utils;
 with Wrapping.Runtime.Functions;  use Wrapping.Runtime.Functions;
+with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 
 package body Wrapping.Runtime.Analysis is
 
@@ -332,6 +333,7 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Outer_Expr_Callback :=
         Outer_Expression_Match'Access;
       Top_Frame.Top_Context.Outer_Object := Object;
+      --  Top_Frame.Top_Context.Current_Indentation := 0;
    end Push_Frame_Context_Parameter_With_Match;
 
    ---------------------------------
@@ -444,6 +446,8 @@ package body Wrapping.Runtime.Analysis is
            Top_Frame.Top_Context.Visit_Decision;
          New_Frame.Top_Context.Yield_Callback :=
            Top_Frame.Top_Context.Yield_Callback;
+         New_Frame.Top_Context.Current_Indentation :=
+           Top_Frame.Top_Context.Current_Indentation;
       end if;
 
       New_Frame.Temp_Names := new Text_Maps.Map;
@@ -694,6 +698,7 @@ package body Wrapping.Runtime.Analysis is
       if Expr /= null then
          Push_Frame_Context;
          Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+         --  Top_Frame.Top_Context.Current_Indentation := 0;
          Evaluate_Expression (Expr);
          Pop_Frame_Context;
 
@@ -1450,33 +1455,27 @@ package body Wrapping.Runtime.Analysis is
 
                      Run_Outer_Callback := False;
                   when Template_Operator_Amp =>
-                     Push_Frame_Context_No_Outer;
-                     Left  := Evaluate_Expression (Expr.Binary_Left);
-                     Right := Evaluate_Expression (Expr.Binary_Right);
-                     Pop_Frame_Context;
+                     declare
+                        Slice : Buffer_Slice := Get_Empty_Slice;
+                     begin
+                        Push_Frame_Context_No_Outer;
+                        Push_Buffer_Cursor;
+                        Slice.Last := Evaluate_Expression
+                          (Expr.Binary_Left).Write_String.Last;
+                        Slice.Last := Evaluate_Expression
+                          (Expr.Binary_Right).Write_String.Last;
 
-                     if Left.Dereference.all in W_Text_Expression_Type'Class
-                       and then Right.Dereference.all in
-                         W_Text_Expression_Type'Class
-                     then
-                        declare
-                           Container : W_Text_Vector := new W_Text_Vector_Type;
-                        begin
-                           Container.A_Vector.Append (Left);
-                           Container.A_Vector.Append (Right);
+                        Push_Object
+                          (W_Object'
+                             (new W_String_Type'
+                                  (Value => To_Unbounded_Text
+                                       (Buffer.Str
+                                          (Slice.First.Offset
+                                           .. Slice.Last.Offset)))));
 
-                           Push_Object (Container);
-                        end;
-                     else
-                        declare
-                           Container : W_Vector := new W_Vector_Type;
-                        begin
-                           Container.A_Vector.Append (Left);
-                           Container.A_Vector.Append (Right);
-
-                           Push_Object (Container);
-                        end;
-                     end if;
+                        Pop_Buffer_Cursor;
+                        Pop_Frame_Context;
+                     end;
                   when Template_Operator_Plus | Template_Operator_Minus |
                     Template_Operator_Multiply | Template_Operator_Divide |
                     Template_Operator_Eq | Template_Operator_Neq |
@@ -1656,17 +1655,6 @@ package body Wrapping.Runtime.Analysis is
       On_Group : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expr : T_Expr) := null)
    is
-      Result : W_Text_Vector := new W_Text_Vector_Type;
-
-      -----------------
-      -- Append_Text --
-      -----------------
-
-      procedure Append_Text (Text : Text_Type) is
-      begin
-         Result.A_Vector.Append (W_Object (To_W_String (Text)));
-      end Append_Text;
-
       --------------
       -- On_Error --
       --------------
@@ -1684,30 +1672,33 @@ package body Wrapping.Runtime.Analysis is
       end On_Error;
 
       Prev_Error : Error_Callback_Type;
+      Slice : Buffer_Slice := Get_Empty_Slice;
    begin
+      Push_Buffer_Cursor;
       Prev_Error     := Error_Callback;
       Error_Callback := On_Error'Unrestricted_Access;
 
       Push_Frame_Context_No_Match;
       Top_Frame.Top_Context.Is_Root_Selection := True;
 
+      Slice.Last := Resolve_Indentation.Last;
+
       for Str of Expr.Str loop
+         Push_Frame_Context;
+         Top_Frame.Top_Context.Current_Indentation :=
+           Top_Frame.Top_Context.Current_Indentation + Str.Indent;
+
          case Str.Kind is
             when Str_Kind =>
-               Result.A_Vector.Append (W_Object (To_W_String (Str.Value)));
+               Slice.Last := Resolve_Indentation.Last;
+               Slice.Last := Write_String (To_Text (Str.Value)).Last;
+
             when Expr_Kind =>
                if On_Expression /= null then
                   On_Expression.all (Str.Expr);
                else
                   Evaluate_Expression (Str.Expr);
-
-                  if Expr.Str_Kind = String_Indent then
-                     Result.A_Vector.Append
-                       (new W_Text_Reindent_Type'
-                          (Indent => Str.Indent, Content => Pop_Object));
-                  else
-                     Result.A_Vector.Append (W_Object (Pop_Object));
-                  end if;
+                  Slice.Last := Pop_Object.Write_String.Last;
                end if;
             when Group_Kind =>
                declare
@@ -1733,33 +1724,25 @@ package body Wrapping.Runtime.Analysis is
                      On_Group.all (Str.Group_Number, Value);
                   else
                      Push_Buffer_Cursor;
-
-                     declare
-                        Slice : Buffer_Slice;
-                     begin
-                        Slice := Value.Write_String;
-                        Append_Text
-                          (Buffer.Str
-                             (Slice.First.Offset .. Slice.Last.Offset));
-                     end;
-
+                     Slice.Last := Resolve_Indentation.Last;
+                     Slice.Last := Value.Write_String.Last;
                      Pop_Buffer_Cursor;
                   end if;
                end;
          end case;
+
+         Pop_Frame_Context;
       end loop;
 
-      if Expr.Str_Kind = String_Indent then
-         Push_Object
-           (W_Object'
-              (new W_Text_Reindent_Type'
-                 (Indent => 0, Content => W_Object (Result))));
-      else
-         Push_Object (Result);
-      end if;
+      Push_Object
+        (W_Object'
+           (new W_String_Type'
+                (Value => To_Unbounded_Text
+                     (Buffer.Str (Slice.First.Offset .. Slice.Last.Offset)))));
 
       Error_Callback := Prev_Error;
       Pop_Frame_Context;
+      Pop_Buffer_Cursor;
    end Evaluate_String;
 
    ----------------------------

@@ -776,8 +776,10 @@ package body Wrapping.Semantic.Analysis is
 
       Str_First, Str_Last      : Integer;
       Left_Spaces              : Integer := 0;
+      Spaces_To_Remove         : Integer := Integer'Last;
       Found_Characters_On_Line : Boolean := False;
       Line_Number              : Integer := 1;
+      Start_Of_Line            : Boolean := False;
    begin
       Str_First := Str'First;
       Str_Last  := Str'Last;
@@ -821,7 +823,9 @@ package body Wrapping.Semantic.Analysis is
 
       if Result.Str_Kind = String_Raw then
          Result.Str.Append
-           ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Str_First .. Str_Last))));
+           ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
+            To_Unbounded_Text (Str (Str_First .. Str_Last))));
+         Start_Of_Line := False;
 
          return;
       end if;
@@ -849,7 +853,7 @@ package body Wrapping.Semantic.Analysis is
                null;
             else
                Result.Str.Append
-                 ((Str_Kind, 0, 0,
+                 ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
                    To_Unbounded_Text (Str (Next_Index .. Current))));
             end if;
 
@@ -858,11 +862,13 @@ package body Wrapping.Semantic.Analysis is
             Next_Index               := Current;
             Found_Characters_On_Line := False;
             Left_Spaces              := 0;
+            Start_Of_Line            := True;
          elsif Str (Current) = '\' then
             if Current /= Str'First then
                Result.Str.Append
-                 ((Str_Kind, 0, 0,
-                   To_Unbounded_Text (Str (Next_Index .. Current - 1))));
+                 ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
+                      To_Unbounded_Text (Str (Next_Index .. Current - 1))));
+               Start_Of_Line := False;
             end if;
 
             Current := Current + 1;
@@ -900,25 +906,28 @@ package body Wrapping.Semantic.Analysis is
                      end if;
 
                      Result.Str.Append
-                       ((Expr_Kind, 0, 0, Left_Spaces,
-                         Build_Expr (Expression_Unit.Root)));
+                       ((Expr_Kind, 0, 0, Start_Of_Line, Left_Spaces,
+                        Build_Expr (Expression_Unit.Root)));
+                     Start_Of_Line := False;
                   end;
 
                   Current    := Next_Index + 1;
                   Next_Index := Current;
                else
                   Result.Str.Append
-                    ((Str_Kind, 0, 0,
+                    ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
                       To_Unbounded_Text (Str (Current - 1 .. Current))));
                   Next_Index := Current;
                   Current    := Current + 1;
+                  Start_Of_Line := False;
                end if;
             elsif Str (Current) = 'n' then
                Result.Str.Append
-                 ((Str_Kind, 0, 0,
+                 ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
                    To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
                Current    := Current + 1;
                Next_Index := Current;
+               Start_Of_Line := False;
             elsif Str (Current) in '0' .. '9' then
                Next_Index := Current;
 
@@ -936,23 +945,43 @@ package body Wrapping.Semantic.Analysis is
                   Group_Value : Natural :=
                     Natural'Wide_Wide_Value (Str (Current .. Next_Index));
                begin
-                  Result.Str.Append ((Group_Kind, 0, 0, Group_Value));
+                  Result.Str.Append
+                    ((Group_Kind, 0, 0, Start_Of_Line,
+                     Left_Spaces, Group_Value));
+                  Start_Of_Line := False;
                end;
 
                Current    := Next_Index + 1;
                Next_Index := Current;
             elsif Str (Current) = '\' then
-               Result.Str.Append ((Str_Kind, 0, 0, To_Unbounded_Text ("\")));
+               Result.Str.Append
+                 ((Str_Kind, 0, 0, Start_Of_Line,
+                  Left_Spaces, To_Unbounded_Text ("\")));
+               Start_Of_Line := False;
                Next_Index := Current + 1;
                Current    := Current + 1;
             else
                Next_Index := Current;
                Current    := Current + 1;
             end if;
+
+            if not Found_Characters_On_Line
+              and then Left_Spaces < Spaces_To_Remove
+            then
+               Spaces_To_Remove := Left_Spaces;
+            end if;
+
+            Found_Characters_On_Line := True;
          else
             if Str (Current) = ' ' and not Found_Characters_On_Line then
                Left_Spaces := Left_Spaces + 1;
             else
+               if not Found_Characters_On_Line
+                 and then Left_Spaces < Spaces_To_Remove
+               then
+                  Spaces_To_Remove := Left_Spaces;
+               end if;
+
                Found_Characters_On_Line := True;
             end if;
 
@@ -964,8 +993,32 @@ package body Wrapping.Semantic.Analysis is
          --  Add the end of the text to the result
 
          Result.Str.Append
-           ((Str_Kind, 0, 0,
+           ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
              To_Unbounded_Text (Str (Next_Index .. Str_Last))));
+      end if;
+
+      --  If we're on an indentation string, remove the spaces that have been
+      --  identified as needing removal;
+      if Result.Str_Kind = String_Indent then
+         for S of Result.Str loop
+            if S.Kind = Str_Kind and then S.Start_Of_Line then
+               declare
+                  Str : Text_Type := To_Text (S.Value);
+               begin
+                  --if Str'Length >= Spaces_To_Remove then
+                     S.Value := To_Unbounded_Text
+                       (Str (Str'First + S.Indent .. Str'Last));
+                  --   S.Indent := S.Indent - Spaces_To_Remove;-- TODO MAYBE WE NEED THIS
+                  --end if;
+
+                  --  if Str'Length >= Spaces_To_Remove then
+                  --     S.Value := To_Unbounded_Text
+                  --       (Str (Str'First + Spaces_To_Remove .. Str'Last));
+                  --     S.Indent := S.Indent - Spaces_To_Remove;
+                  --  end if;
+               end;
+            end if;
+         end loop;
       end if;
 
       Error_Callback := Prev_Error;

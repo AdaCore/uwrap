@@ -1,0 +1,18 @@
+package Spec is
+
+   X : Integer; 16 (line: 3)
+   
+   type  is record
+      F1, F2 : Integer; 24(line: 6)
+   end record; 15 (line: 7)
+   
+   type  is record
+      F3, F4 : Integer; 24(line: 10)
+      F5, F6 : Integer; 24(line: 11)
+      F7, F8 : Integer; 24(line: 12)
+      F9, F10 : Integer; 25(line: 13)
+   end record; 15 (line: 14)
+   
+   procedure P (P1 : Integer; P2 : Y; P3 : Y; P4 : Y; P5 : Y; P6 : Y; P7 : Y; P8 : Y; P9 : Y); 95 (line: 16)
+
+end Spec;

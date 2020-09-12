@@ -1,0 +1,65 @@
+template w_Replace do
+   var content: text;
+end;
+
+match language ("ada")
+wrap null (w_Replace);
+
+match AdaNodeList
+wrap null (w_Replace);
+
+match BasicDecl
+wrap w_Replace (it);
+
+function pre_comments () do
+   match p: token ().prev (\ many (is_trivia ()))
+   pick p.filter (Comment ()).fold ("", it & "\n" & @);
+end;
+
+match PackageDecl
+wrap w_Replace (defer (i"""
+package \e<p_defining_name ()> is
+
+   \e<child (\ many (not BasicDecl ()) \ BasicDecl ()).fold ("", @ & i"" & wrapper (w_Replace).content & buffer_col & " (line:" & buffer_line & ")", @ & "\n\n")>
+
+end \e<p_defining_name ()>;""")
+);
+
+match TypeDecl and child (RecordTypeDef)
+wrap w_Replace (defer (i"""
+type \e<p_defining_name> is record
+   \e<child (BasicDecl ()).fold ("", @ & i"" & wrapper (w_Replace).content & buffer_col & "(line:" & buffer_line & ")", @ & "\n")>
+end record;""")
+);
+
+#match PackageDecl
+#wrap w_Replace (defer (i"""
+#   \e<pre_comments ()>
+#   package \e<p_defining_name ()> is
+#
+#      \e<child (\ many (not BasicDecl ()) \ BasicDecl ()).fold ("", @ & pre_comments () & wrapper (w_Replace).content & buffer_col & " (line: " & buffer_line & ")", @ & "\n\n")>
+#
+#   end \e<p_defining_name ()>;""")
+#);
+
+#match TypeDecl and child (RecordTypeDef)
+#wrap w_Replace (defer (i"""
+#   type \e<p_defining_name> is record
+#      \e<child (BasicDecl ()).fold ("", @ & pre_comments () & wrapper (w_Replace).content & buffer_col & " (line: " & buffer_line & ")", @ & "\n")>
+#   end record;""")
+#);
+
+#match Params ()
+#wrap w_Replace (defer (i"""
+#   (
+#      \e<child (ParamSpec ()).fold ("", @ & wrapper (w_Replace).content, @ & "\n")>
+#   )""")
+#);
+
+#match Params () and max_column (it) > 80
+#wrap w_Replace (defer (i"""
+#   (\e<child (p: ParamSpec ()).fold ("", @ & b.wrapper (w_Replace).content & (match next (p) pick ";\n" else pick ")"))>""")
+#);
+
+match w_Replace and not parent (w_Replace ())
+wrap standard.out (content);

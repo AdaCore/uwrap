@@ -764,9 +764,13 @@ package body Wrapping.Runtime.Structure is
    is
       Other_Entity : W_Object := Top_Object.Dereference;
       Matched      : Boolean;
+      Result       : Boolean := False;
    begin
+      Push_Frame_Context;
+      --  Top_Frame.Top_Context.Current_Indentation := 0;
+
       if Other_Entity = Match_False then
-         return True;
+         Result := True;
       elsif Other_Entity.all in W_Regexp_Type'Class then
          Push_Buffer_Cursor;
 
@@ -788,7 +792,7 @@ package body Wrapping.Runtime.Structure is
 
          Pop_Buffer_Cursor;
 
-         return True;
+         Result := True;
       elsif Other_Entity.all in W_Text_Expression_Type'Class then
          Push_Buffer_Cursor;
 
@@ -807,14 +811,16 @@ package body Wrapping.Runtime.Structure is
 
          Pop_Buffer_Cursor;
 
-         return True;
+         Result := True;
       elsif Other_Entity.all in W_Intrinsic_Function_Type'Class then
          --  Functions always match, their result is evaluated later.
 
-         return True;
+         Result := True;
       end if;
 
-      return False;
+      Pop_Frame_Context;
+
+      return Result;
    end Match_With_Top_Object;
 
    --------
@@ -1105,31 +1111,38 @@ package body Wrapping.Runtime.Structure is
    function Write_String (Text : Text_Type) return Buffer_Slice
    is
       Result : Buffer_Slice;
+
+      procedure Write (Text : Text_Type) is
+      begin
+         Result.Last.Offset := Buffer.Cursor.Offset + Text'Length - 1;
+
+         Buffer.Str
+           (Buffer.Cursor.Offset
+            .. Result.Last.Offset) := Text;
+
+         Buffer.Cursor := Result.Last;
+         Buffer.Cursor.Offset := Buffer.Cursor.Offset + 1;
+
+         if Buffer.Full_Cursor_Update then
+            for C of Text loop
+               --  TODO: This does not handle CR/LF
+               if Is_Line_Terminator (C) then
+                  Buffer.Cursor.Line := Buffer.Cursor.Line + 1;
+                  Buffer.Cursor.Line_Offset := 1;
+                  Buffer.Cursor.Column := 1;
+               else
+                  Buffer.Cursor.Line_Offset := Buffer.Cursor.Line_Offset + 1;
+                  --  TODO : This does not handle tabs
+                  Buffer.Cursor.Column := Buffer.Cursor.Column + 1;
+               end if;
+            end loop;
+         end if;
+      end Write;
+
    begin
-      Result.First := Buffer.Cursor;
-      Result.Last := Result.First;
-      Result.Last.Offset := Result.Last.Offset + Text'Length - 1;
+      Result := (Buffer.Cursor, Buffer.Cursor);
 
-      Buffer.Str
-        (Result.First.Offset .. Result.Last.Offset) := Text;
-
-      Buffer.Cursor := Result.Last;
-      Buffer.Cursor.Offset := Buffer.Cursor.Offset + 1;
-
-      if Buffer.Full_Cursor_Update then
-         for C of Text loop
-            --  TODO: This does not handle CR/LF
-            if Is_Line_Terminator (C) then
-               Buffer.Cursor.Line := Buffer.Cursor.Line + 1;
-               Buffer.Cursor.Line_Offset := 1;
-               Buffer.Cursor.Column := 1;
-            else
-               Buffer.Cursor.Line_Offset := Buffer.Cursor.Line_Offset + 1;
-               --  TODO : This does not handle tabs
-               Buffer.Cursor.Column := Buffer.Cursor.Column + 1;
-            end if;
-         end loop;
-      end if;
+      Write (Text);
 
       return Result;
    end Write_String;
@@ -1160,5 +1173,25 @@ package body Wrapping.Runtime.Structure is
    begin
       return Buffer.Str (Slice.First.Offset .. Slice.Last.Offset);
    end Copy_String;
+
+   function Indent return Buffer_Slice is
+   begin
+      return Write_String
+        (Text_Type'
+           (1 ..
+                Top_Frame.Top_Context.Current_Indentation => ' '));
+   end Indent;
+
+   function Resolve_Indentation return Buffer_Slice is
+   begin
+      if Buffer.Cursor.Offset > 1
+        and then Is_Line_Terminator
+          (Buffer.Str (Buffer.Cursor.Offset - 1))
+      then
+         return Indent;
+      else
+         return Get_Empty_Slice;
+      end if;
+   end Resolve_Indentation;
 
 end Wrapping.Runtime.Structure;

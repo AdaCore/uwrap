@@ -297,13 +297,14 @@ package Wrapping.Semantic.Structure is
 
    type String_Part (Kind : String_Part_Kind := Str_Kind) is record
       Offset_Line, Offset_Column : Integer;
+      Start_Of_Line : Boolean; -- TODO: TO REMOVE
+      Indent : Integer;
 
       case Kind is
          when Str_Kind =>
             Value : Unbounded_Text_Type;
 
          when Expr_Kind =>
-            Indent : Integer;
             Expr   : T_Expr;
 
          when Group_Kind =>

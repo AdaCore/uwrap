@@ -218,6 +218,8 @@ package Wrapping.Runtime.Structure is
       --  computing the children on those wrappers (only an iteration on the
       --  first matching one would be necessary).
       Is_First_Matching_Wrapper : Boolean := True;
+
+      Current_Indentation : Integer := 0;
    end record;
 
    type Matched_Groups_Type is record
@@ -464,5 +466,9 @@ package Wrapping.Runtime.Structure is
    end record;
 
    Buffer : Text_Buffer_Type;
+
+   function Indent return Buffer_Slice;
+
+   function Resolve_Indentation return Buffer_Slice;
 
 end Wrapping.Runtime.Structure;
