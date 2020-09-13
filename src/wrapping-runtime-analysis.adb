@@ -1464,11 +1464,10 @@ package body Wrapping.Runtime.Analysis is
                           (Expr.Binary_Left).Write_String.Last;
                         Slice.Last := Evaluate_Expression
                           (Expr.Binary_Right).Write_String.Last;
-
                         Push_Object
                           (W_Object'
                              (new W_String_Type'
-                                  (Value => To_Unbounded_Text
+                                  (Value  => To_Unbounded_Text
                                        (Buffer.Str
                                           (Slice.First.Offset
                                            .. Slice.Last.Offset)))));
@@ -1796,6 +1795,9 @@ package body Wrapping.Runtime.Analysis is
       elsif Name = "buffer_col" then
          Push_Object
            (W_Object'(new W_Integer_Type'(Value => Buffer.Cursor.Column)));
+         return True;
+      elsif Name = "buffer_max_col" then
+         Push_Intrinsic_Function (null, Call_Max_Col'Access);
          return True;
       end if;
 

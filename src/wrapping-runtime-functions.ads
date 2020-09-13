@@ -37,4 +37,7 @@ package Wrapping.Runtime.Functions is
    procedure Call_Reindent
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
 
+   procedure Call_Max_Col
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+
 end Wrapping.Runtime.Functions;

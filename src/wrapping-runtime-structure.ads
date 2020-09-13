@@ -438,6 +438,7 @@ package Wrapping.Runtime.Structure is
       Line        : Natural;
       Line_Offset : Natural;
       Column      : Natural;
+      Max_Column  : Natural;
    end record;
 
    package Text_Buffer_Cursor_Vectors is new Ada.Containers.Vectors
@@ -457,7 +458,8 @@ package Wrapping.Runtime.Structure is
         (Offset => 1,
          Line        => 1,
          Line_Offset => 1,
-         Column      => 1);
+         Column      => 1,
+         Max_Column  => 1);
       Cursor_Stack : Text_Buffer_Cursor_Vectors.Vector;
 
       Full_Cursor_Update : Boolean := False;

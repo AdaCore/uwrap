@@ -16,6 +16,6 @@ F7, F8 : Integer;
 F9, F10 : Integer;
 end record with Import, Convention => C;
 -- P
-procedure P (P1 : Integer; P2 : Y; P3 : Y; P4 : Y; P5 : Y; P6 : Y; P7 : Y; P8 : Y; P9 : Y);
+procedure P (P1 : Integer; P2 : Y; P3 : Y; P4 : Y; P5 : Y; P6 : Y; P7 : Y; P8 : Y; P9 : Y; P10 : Y; P11 : Y; P12 : Y);
 end Spec;
 -- AFTER SPEC

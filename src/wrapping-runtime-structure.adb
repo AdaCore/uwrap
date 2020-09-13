@@ -1134,6 +1134,10 @@ package body Wrapping.Runtime.Structure is
                   Buffer.Cursor.Line_Offset := Buffer.Cursor.Line_Offset + 1;
                   --  TODO : This does not handle tabs
                   Buffer.Cursor.Column := Buffer.Cursor.Column + 1;
+
+                  if Buffer.Cursor.Max_Column < Buffer.Cursor.Column then
+                     Buffer.Cursor.Max_Column := Buffer.Cursor.Column;
+                  end if;
                end if;
             end loop;
          end if;
@@ -1147,6 +1151,10 @@ package body Wrapping.Runtime.Structure is
       return Result;
    end Write_String;
 
+   ---------------------
+   -- Get_Empty_Slice --
+   ---------------------
+
    function Get_Empty_Slice return Buffer_Slice is
       Result : Buffer_Slice := (Buffer.Cursor, Buffer.Cursor);
    begin
@@ -1158,21 +1166,39 @@ package body Wrapping.Runtime.Structure is
       return Result;
    end Get_Empty_Slice;
 
+   ------------------------
+   -- Push_Buffer_Cursor --
+   ------------------------
+
    procedure Push_Buffer_Cursor is
    begin
       Buffer.Cursor_Stack.Append (Buffer.Cursor);
    end Push_Buffer_Cursor;
 
+   -----------------------
+   -- Pop_Buffer_Cursor --
+   -----------------------
+
    procedure Pop_Buffer_Cursor is
+      Max_Column : Integer := Buffer.Cursor.Max_Column;
    begin
       Buffer.Cursor := Buffer.Cursor_Stack.Last_Element;
       Buffer.Cursor_Stack.Delete_Last;
+      Buffer.Cursor.Max_Column := Max_Column;
    end Pop_Buffer_Cursor;
+
+   -----------------
+   -- Copy_String --
+   -----------------
 
    function Copy_String (Slice : Buffer_Slice) return Text_Type is
    begin
       return Buffer.Str (Slice.First.Offset .. Slice.Last.Offset);
    end Copy_String;
+
+   ------------
+   -- Indent --
+   ------------
 
    function Indent return Buffer_Slice is
    begin
@@ -1181,6 +1207,10 @@ package body Wrapping.Runtime.Structure is
            (1 ..
                 Top_Frame.Top_Context.Current_Indentation => ' '));
    end Indent;
+
+   -------------------------
+   -- Resolve_Indentation --
+   -------------------------
 
    function Resolve_Indentation return Buffer_Slice is
    begin

@@ -17,6 +17,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Wide_Wide_Text_IO;             use Ada.Wide_Wide_Text_IO;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Strings.Wide_Wide_Unbounded;   use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
@@ -26,12 +27,12 @@ with Wrapping.Utils;            use Wrapping.Utils;
 
 package body Wrapping.Runtime.Functions is
 
-   P_Normalize_Ada_Name : Parameter_Profile :=
-     (1 => Make_Parameter ("str", False));
-
    -----------------------------
    -- Call_Normalize_Ada_Name --
    -----------------------------
+
+   P_Normalize_Ada_Name : Parameter_Profile :=
+     (1 => Make_Parameter ("str", False));
 
    procedure Call_Normalize_Ada_Name
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
@@ -85,13 +86,13 @@ package body Wrapping.Runtime.Functions is
       Push_Object (To_W_String (New_Name));
    end Call_Normalize_Ada_Name;
 
-   P_Replace_Text : Parameter_Profile :=
-     (Make_Parameter ("source", False), Make_Parameter ("pattern", False),
-      Make_Parameter ("replace", False));
-
    -----------------------
    -- Call_Replace_Text --
    -----------------------
+
+   P_Replace_Text : Parameter_Profile :=
+     (Make_Parameter ("source", False), Make_Parameter ("pattern", False),
+      Make_Parameter ("replace", False));
 
    procedure Call_Replace_Text
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
@@ -126,11 +127,11 @@ package body Wrapping.Runtime.Functions is
       Push_Object (Result);
    end Call_Replace_Text;
 
-   P_To_Lower : Parameter_Profile := (1 => Make_Parameter ("str", False));
-
    -------------------
    -- Call_To_Lower --
    -------------------
+
+   P_To_Lower : Parameter_Profile := (1 => Make_Parameter ("str", False));
 
    procedure Call_To_Lower
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
@@ -152,12 +153,12 @@ package body Wrapping.Runtime.Functions is
       Push_Object (Result);
    end Call_To_Lower;
 
-   P_Unindent : Parameter_Profile :=
-     (Make_Parameter ("ident", False), Make_Parameter ("str", False));
-
    -------------------
    -- Call_Reindent --
    -------------------
+
+   P_Unindent : Parameter_Profile :=
+     (Make_Parameter ("ident", False), Make_Parameter ("str", False));
 
    procedure Call_Reindent
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
@@ -187,5 +188,29 @@ package body Wrapping.Runtime.Functions is
                  True)));
       Push_Object (Result);
    end Call_Reindent;
+
+   ------------------
+   -- Call_Max_Col --
+   ------------------
+
+   P_Max_Col : Parameter_Profile :=
+     (1 => Make_Parameter ("str", False));
+
+   procedure Call_Max_Col
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
+   is
+      Result  : W_Object;
+      Actuals : Actuals_Type := Process_Parameters (P_Max_Col, Params);
+      Obj     : W_Object := Evaluate_Expression (Actuals (1));
+      Dummy   : Buffer_Slice;
+   begin
+      Push_Buffer_Cursor;
+      Buffer.Cursor.Max_Column := 0;
+      Dummy := Obj.Write_String;
+      Result := new W_Integer_Type'(Value => Buffer.Cursor.Max_Column);
+      Pop_Buffer_Cursor;
+
+      Push_Object (Result);
+   end Call_Max_Col;
 
 end Wrapping.Runtime.Functions;

@@ -725,9 +725,6 @@ package body Wrapping.Runtime.Objects is
    is
       Slice : Buffer_Slice;
    begin
-      --  That's the difficult part, need the right information in the
-      --  expressions below...
-
       Push_Buffer_Cursor;
       Slice := Object.Content.Write_String;
       Pop_Buffer_Cursor;
@@ -737,11 +734,6 @@ package body Wrapping.Runtime.Objects is
            (Object.Indent,
             Copy_String (Slice),
             False));
-      --  return Write_String
-      --    (Reindent
-      --       (Object.Indent,
-      --        Main_Buffer.Buffer
-      --          (Slice.First.Offset .. Slice.Last.Offset), False));
    end Write_String;
 
    ----------------------
