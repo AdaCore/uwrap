@@ -892,6 +892,8 @@ package body Wrapping.Semantic.Analysis is
                if Str (Current) = '<' then
                   Next_Index := Current;
 
+                  --  TODO: There's an issue here, subexpression can't have
+                  --  upper than because of the end symbol
                   while Next_Index < Str_Last and then Str (Next_Index) /= '>'
                   loop
                      Next_Index := Next_Index + 1;
