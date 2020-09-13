@@ -13,41 +13,25 @@ wrap w_Replace (it);
 
 function pre_comments () do
    match p: token ().prev (\ many (is_trivia ()))
-   pick p.filter (Comment ()).fold ("", it & "\n" & @);
+   pick p.filter (Comment ()).fold ("", i"" & it & "\n" & @);
 end;
 
 match PackageDecl
 wrap w_Replace (defer (i"""
-package \e<p_defining_name ()> is
+   \e<pre_comments ()>
+   package \e<p_defining_name ()> is
 
-   \e<child (\ many (not BasicDecl ()) \ BasicDecl ()).fold ("", @ & i"" & wrapper (w_Replace).content & buffer_col & " (line:" & buffer_line & ")", @ & "\n\n")>
+      \e<child (\ many (not BasicDecl ()) \ BasicDecl ()).fold ("", @ & pre_comments () & i"" & wrapper (w_Replace).content & buffer_col & " (line:" & buffer_line & ")", @ & "\n\n")>
 
-end \e<p_defining_name ()>;""")
+   end \e<p_defining_name ()>;""")
 );
 
 match TypeDecl and child (RecordTypeDef)
 wrap w_Replace (defer (i"""
-type \e<p_defining_name> is record
-   \e<child (BasicDecl ()).fold ("", @ & i"" & wrapper (w_Replace).content & buffer_col & "(line:" & buffer_line & ")", @ & "\n")>
-end record;""")
+   type \e<p_defining_name ()> is record
+      \e<child (BasicDecl ()).fold ("", @ & pre_comments () & i"" & wrapper (w_Replace).content & buffer_col & "(line:" & buffer_line & ")", @ & "\n")>
+   end record;""")
 );
-
-#match PackageDecl
-#wrap w_Replace (defer (i"""
-#   \e<pre_comments ()>
-#   package \e<p_defining_name ()> is
-#
-#      \e<child (\ many (not BasicDecl ()) \ BasicDecl ()).fold ("", @ & pre_comments () & wrapper (w_Replace).content & buffer_col & " (line: " & buffer_line & ")", @ & "\n\n")>
-#
-#   end \e<p_defining_name ()>;""")
-#);
-
-#match TypeDecl and child (RecordTypeDef)
-#wrap w_Replace (defer (i"""
-#   type \e<p_defining_name> is record
-#      \e<child (BasicDecl ()).fold ("", @ & pre_comments () & wrapper (w_Replace).content & buffer_col & " (line: " & buffer_line & ")", @ & "\n")>
-#   end record;""")
-#);
 
 #match Params ()
 #wrap w_Replace (defer (i"""

@@ -776,7 +776,20 @@ package body Wrapping.Semantic.Analysis is
 
       Str_First, Str_Last      : Integer;
       Left_Spaces              : Integer := 0;
-      Spaces_To_Remove         : Integer := Integer'Last;
+
+      Indentation_To_Ignore    : Integer := Integer'Last;
+      --  Most of the times, the whole block of text will be indented. For
+      --  example:
+      --     a
+      --        b
+      --     c
+      --  In this case, the identation before the leftmost token is considered
+      --  to be the indentation used to structure the wrapping program, not
+      --  the text istelf. It needs to be removed to end up to:
+      --  a
+      --     b
+      --  c
+
       Found_Characters_On_Line : Boolean := False;
       Line_Number              : Integer := 1;
       Start_Of_Line            : Boolean := False;
@@ -966,9 +979,9 @@ package body Wrapping.Semantic.Analysis is
             end if;
 
             if not Found_Characters_On_Line
-              and then Left_Spaces < Spaces_To_Remove
+              and then Left_Spaces < Indentation_To_Ignore
             then
-               Spaces_To_Remove := Left_Spaces;
+               Indentation_To_Ignore := Left_Spaces;
             end if;
 
             Found_Characters_On_Line := True;
@@ -977,9 +990,9 @@ package body Wrapping.Semantic.Analysis is
                Left_Spaces := Left_Spaces + 1;
             else
                if not Found_Characters_On_Line
-                 and then Left_Spaces < Spaces_To_Remove
+                 and then Left_Spaces < Indentation_To_Ignore
                then
-                  Spaces_To_Remove := Left_Spaces;
+                  Indentation_To_Ignore := Left_Spaces;
                end if;
 
                Found_Characters_On_Line := True;
@@ -1005,18 +1018,17 @@ package body Wrapping.Semantic.Analysis is
                declare
                   Str : Text_Type := To_Text (S.Value);
                begin
-                  --if Str'Length >= Spaces_To_Remove then
+                  if Str'Length >= Indentation_To_Ignore then
                      S.Value := To_Unbounded_Text
                        (Str (Str'First + S.Indent .. Str'Last));
-                  --   S.Indent := S.Indent - Spaces_To_Remove;-- TODO MAYBE WE NEED THIS
-                  --end if;
-
-                  --  if Str'Length >= Spaces_To_Remove then
-                  --     S.Value := To_Unbounded_Text
-                  --       (Str (Str'First + Spaces_To_Remove .. Str'Last));
-                  --     S.Indent := S.Indent - Spaces_To_Remove;
-                  --  end if;
+                  end if;
                end;
+            end if;
+
+            if S.Indent >= Indentation_To_Ignore then
+               S.Indent := S.Indent - Indentation_To_Ignore;
+            else
+               S.Indent := 0;
             end if;
          end loop;
       end if;
