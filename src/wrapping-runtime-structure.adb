@@ -1111,42 +1111,36 @@ package body Wrapping.Runtime.Structure is
    function Write_String (Text : Text_Type) return Buffer_Slice
    is
       Result : Buffer_Slice;
-
-      procedure Write (Text : Text_Type) is
-      begin
-         Result.Last.Offset := Buffer.Cursor.Offset + Text'Length - 1;
-
-         Buffer.Str
-           (Buffer.Cursor.Offset
-            .. Result.Last.Offset) := Text;
-
-         Buffer.Cursor := Result.Last;
-         Buffer.Cursor.Offset := Buffer.Cursor.Offset + 1;
-
-         if Buffer.Full_Cursor_Update then
-            for C of Text loop
-               --  TODO: This does not handle CR/LF
-               if Is_Line_Terminator (C) then
-                  Buffer.Cursor.Line := Buffer.Cursor.Line + 1;
-                  Buffer.Cursor.Line_Offset := 1;
-                  Buffer.Cursor.Column := 1;
-               else
-                  Buffer.Cursor.Line_Offset := Buffer.Cursor.Line_Offset + 1;
-                  --  TODO : This does not handle tabs
-                  Buffer.Cursor.Column := Buffer.Cursor.Column + 1;
-
-                  if Buffer.Cursor.Max_Column < Buffer.Cursor.Column then
-                     Buffer.Cursor.Max_Column := Buffer.Cursor.Column;
-                  end if;
-               end if;
-            end loop;
-         end if;
-      end Write;
-
    begin
       Result := (Buffer.Cursor, Buffer.Cursor);
 
-      Write (Text);
+      Result.Last.Offset := Buffer.Cursor.Offset + Text'Length - 1;
+
+      Buffer.Str
+        (Buffer.Cursor.Offset
+         .. Result.Last.Offset) := Text;
+
+      Buffer.Cursor := Result.Last;
+      Buffer.Cursor.Offset := Buffer.Cursor.Offset + 1;
+
+      if Buffer.Full_Cursor_Update then
+         for C of Text loop
+            --  TODO: This does not handle CR/LF
+            if Is_Line_Terminator (C) then
+               Buffer.Cursor.Line := Buffer.Cursor.Line + 1;
+               Buffer.Cursor.Line_Offset := 1;
+               Buffer.Cursor.Column := 1;
+            else
+               Buffer.Cursor.Line_Offset := Buffer.Cursor.Line_Offset + 1;
+               --  TODO : This does not handle tabs
+               Buffer.Cursor.Column := Buffer.Cursor.Column + 1;
+
+               if Buffer.Cursor.Max_Column < Buffer.Cursor.Column then
+                  Buffer.Cursor.Max_Column := Buffer.Cursor.Column;
+               end if;
+            end if;
+         end loop;
+      end if;
 
       return Result;
    end Write_String;
