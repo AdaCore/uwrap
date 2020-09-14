@@ -1,6 +1,6 @@
 template T do
    var t: text;
-   pick origin weave standard.out (@ & t & ": " & f_name & "\n"); 
+   pick origin weave standard.out (defer (@ & t & ": " & f_name & "\n")); 
 end;
 
 match Entity () walk T (@ & "A");

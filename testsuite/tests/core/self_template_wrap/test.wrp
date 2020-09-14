@@ -6,19 +6,19 @@ template main do
 end;
 
 match Entity ()
-weave n: main (a2 => @ & "a1 value is '\e<n.a1>'");
+weave n: main (a2 => defer (@ & "a1 value is '\e<n.a1>'"));
 
 match Entity ()
-weave n: main (a4 => @ & "a3 value is '\e<n.a3>'");
+weave n: main (a4 => defer (@ & "a3 value is '\e<n.a3>'"));
 
 match main ()
-weave (a1 => @ & it.origin.f_name);
+weave (a1 => defer (@ & it.origin.f_name));
 
 match main ()
-weave (a3 => @ & origin.f_name);
+weave (a3 => defer (@ & origin.f_name));
 
 match main ()
-weave standard.out (@ & "\e<a2>\n");
+weave standard.out (defer (@ & "\e<a2>\n"));
 
 match main ()
-weave standard.out (@ & "\e<a4>\n");
+weave standard.out (defer (@ & "\e<a4>\n"));

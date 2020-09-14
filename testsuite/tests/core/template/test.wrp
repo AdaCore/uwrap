@@ -7,7 +7,7 @@ end;
 template w_entity do
     var name : text;
     var level : text;
-    var output : text => "'\e<name>' [\e<level>]\n";
+    var output : text => defer ("'\e<name>' [\e<level>]\n");
 end;
 
 template w_option do
@@ -53,4 +53,4 @@ match e: w_entity () and (prev (o: w_option ()) or next (o: w_option ())) and pa
 pick w weave (contents => @ & "\e<e.origin.f_name> PREV OR NEXT OPTION: \e<o.option>\n");
 
 match w_root ()
-wrap standard.out ("DISPLAYING ROOT\n\e<contents>");
+wrap standard.out (defer ("DISPLAYING ROOT\n\e<contents>"));

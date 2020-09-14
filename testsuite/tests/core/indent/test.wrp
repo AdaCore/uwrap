@@ -33,10 +33,10 @@ weave (
 
 match w_C ()
 weave (
-   contents => i"""
+   contents => defer (i"""
    \e<origin.f_name> LEVEL 1
       LEVEL 2
-   BACK TO LEVEL 1""");
+   BACK TO LEVEL 1"""));
 
 match w_A ()
 wrap standard.out (defer (contents & "\n"));
