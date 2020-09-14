@@ -1723,10 +1723,8 @@ package body Wrapping.Runtime.Analysis is
                   if On_Group /= null then
                      On_Group.all (Str.Group_Number, Value);
                   else
-                     Push_Buffer_Cursor;
                      Slice.Last := Resolve_Indentation.Last;
                      Slice.Last := Value.Write_String.Last;
-                     Pop_Buffer_Cursor;
                   end if;
                end;
          end case;
