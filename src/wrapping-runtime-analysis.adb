@@ -478,6 +478,7 @@ package body Wrapping.Runtime.Analysis is
       Copy_Symbols := A_Closure.Captured_Symbols.Copy;
       Top_Frame.Symbols.Move (Copy_Symbols);
       Top_Frame.Temp_Names := A_Closure.Temp_Names;
+      Top_Frame.Top_Context.Left_Value := A_Closure.Left_Value;
 
       if A_Closure.Implicit_It /= null then
          Push_Implicit_It (A_Closure.Implicit_It);
@@ -2831,6 +2832,7 @@ package body Wrapping.Runtime.Analysis is
       A_Closure.Implicit_It   := Get_Implicit_It;
       A_Closure.Lexical_Scope := Top_Frame.Lexical_Scope;
       A_Closure.Temp_Names    := Top_Frame.Temp_Names;
+      A_Closure.Left_Value    := Top_Frame.Top_Context.Left_Value;
 
       return A_Closure;
    end Capture_Closure;

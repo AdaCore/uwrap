@@ -416,6 +416,7 @@ package Wrapping.Runtime.Structure is
       Implicit_It      : W_Object;
       Lexical_Scope    : T_Entity;
       Temp_Names       : Text_Maps_Access;
+      Left_Value       : W_Object;
    end record;
 
    type Deferred_Command_Type is record
