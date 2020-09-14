@@ -155,7 +155,7 @@ package body Wrapping.Utils is
       Prev    : Integer         := Source'First;
       Matches : Match_Array (0 .. Paren_Count (Matcher));
 
-      Source_Str : String := To_String (Source);
+      Source_Str : String (Source'Range) := To_String (Source);
    begin
       while Prev in Source'Range loop
          Match (Matcher, Source_Str (Prev .. Source'Last), Matches);
