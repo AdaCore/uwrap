@@ -1178,7 +1178,10 @@ package body Wrapping.Runtime.Structure is
    begin
       Buffer.Cursor := Buffer.Cursor_Stack.Last_Element;
       Buffer.Cursor_Stack.Delete_Last;
-      Buffer.Cursor.Max_Column := Max_Column;
+
+      if Max_Column > Buffer.Cursor.Max_Column then
+         Buffer.Cursor.Max_Column := Max_Column;
+      end if;
    end Pop_Buffer_Cursor;
 
    -----------------
