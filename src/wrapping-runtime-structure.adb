@@ -1116,9 +1116,7 @@ package body Wrapping.Runtime.Structure is
 
       Result.Last.Offset := Buffer.Cursor.Offset + Text'Length - 1;
 
-      Buffer.Str
-        (Buffer.Cursor.Offset
-         .. Result.Last.Offset) := Text;
+      Buffer.Str (Buffer.Cursor.Offset .. Result.Last.Offset) := Text;
 
       Buffer.Cursor := Result.Last;
       Buffer.Cursor.Offset := Buffer.Cursor.Offset + 1;
@@ -1200,9 +1198,7 @@ package body Wrapping.Runtime.Structure is
    function Indent return Buffer_Slice is
    begin
       return Write_String
-        (Text_Type'
-           (1 ..
-                Top_Frame.Top_Context.Current_Indentation => ' '));
+        (Text_Type'(1 .. Top_Frame.Top_Context.Indent => ' '));
    end Indent;
 
    -------------------------

@@ -219,7 +219,7 @@ package Wrapping.Runtime.Structure is
       --  first matching one would be necessary).
       Is_First_Matching_Wrapper : Boolean := True;
 
-      Current_Indentation : Integer := 0;
+      Indent : Integer := 0;
    end record;
 
    type Matched_Groups_Type is record

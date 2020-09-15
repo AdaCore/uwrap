@@ -333,7 +333,6 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Top_Context.Outer_Expr_Callback :=
         Outer_Expression_Match'Access;
       Top_Frame.Top_Context.Outer_Object := Object;
-      --  Top_Frame.Top_Context.Current_Indentation := 0;
    end Push_Frame_Context_Parameter_With_Match;
 
    ---------------------------------
@@ -446,8 +445,7 @@ package body Wrapping.Runtime.Analysis is
            Top_Frame.Top_Context.Visit_Decision;
          New_Frame.Top_Context.Yield_Callback :=
            Top_Frame.Top_Context.Yield_Callback;
-         New_Frame.Top_Context.Current_Indentation :=
-           Top_Frame.Top_Context.Current_Indentation;
+         New_Frame.Top_Context.Indent := Top_Frame.Top_Context.Indent;
       end if;
 
       New_Frame.Temp_Names := new Text_Maps.Map;
@@ -699,7 +697,6 @@ package body Wrapping.Runtime.Analysis is
       if Expr /= null then
          Push_Frame_Context;
          Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
-         --  Top_Frame.Top_Context.Current_Indentation := 0;
          Evaluate_Expression (Expr);
          Pop_Frame_Context;
 
@@ -1685,8 +1682,8 @@ package body Wrapping.Runtime.Analysis is
 
       for Str of Expr.Str loop
          Push_Frame_Context;
-         Top_Frame.Top_Context.Current_Indentation :=
-           Top_Frame.Top_Context.Current_Indentation + Str.Indent;
+         Top_Frame.Top_Context.Indent :=
+           Top_Frame.Top_Context.Indent + Str.Indent;
 
          case Str.Kind is
             when Str_Kind =>
