@@ -1208,8 +1208,7 @@ package body Wrapping.Runtime.Structure is
    function Resolve_Indentation return Buffer_Slice is
    begin
       if Buffer.Cursor.Offset > 1
-        and then Is_Line_Terminator
-          (Buffer.Str (Buffer.Cursor.Offset - 1))
+        and then Is_Line_Terminator (Buffer.Str (Buffer.Cursor.Offset - 1))
       then
          return Indent;
       else
