@@ -27,6 +27,7 @@ with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Strings;                     use Ada.Strings;
 with Ada.Tags;                        use Ada.Tags;
 with GNAT.Regpat;                     use GNAT.Regpat;
+with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 
 with Langkit_Support.Diagnostics;
 with Langkit_Support.Text; use Langkit_Support.Text;
@@ -38,6 +39,7 @@ with Wrapping.Semantic.Analysis;  use Wrapping.Semantic.Analysis;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Utils;              use Wrapping.Utils;
 with Wrapping.Runtime.Functions;  use Wrapping.Runtime.Functions;
+with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
 
 package body Wrapping.Runtime.Analysis is
 
@@ -76,13 +78,6 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Data_Stack.Length'Old + 1;
 
    procedure Handle_Arithmetic_Operator (Expr : T_Expr);
-
-   procedure Evaluate_String
-     (Expr : T_Expr;
-      On_Group : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expr : T_Expr) := null) with
-      Post => Top_Frame.Data_Stack.Length =
-      Top_Frame.Data_Stack.Length'Old + 1;
 
    procedure Apply_Wrapping_Program
      (It : W_Node; Lexical_Scope : access T_Entity_Type'Class) with
@@ -444,6 +439,7 @@ package body Wrapping.Runtime.Analysis is
            Top_Frame.Top_Context.Visit_Decision;
          New_Frame.Top_Context.Yield_Callback :=
            Top_Frame.Top_Context.Yield_Callback;
+         New_Frame.Top_Context.Indent := Top_Frame.Top_Context.Indent;
       end if;
 
       New_Frame.Temp_Names := new Text_Maps.Map;
@@ -474,6 +470,7 @@ package body Wrapping.Runtime.Analysis is
       Copy_Symbols := A_Closure.Captured_Symbols.Copy;
       Top_Frame.Symbols.Move (Copy_Symbols);
       Top_Frame.Temp_Names := A_Closure.Temp_Names;
+      Top_Frame.Top_Context.Left_Value := A_Closure.Left_Value;
 
       if A_Closure.Implicit_It /= null then
          Push_Implicit_It (A_Closure.Implicit_It);
@@ -1232,6 +1229,8 @@ package body Wrapping.Runtime.Analysis is
          end;
       end loop;
 
+      Buffer.Full_Cursor_Update := True;
+
       for T of Output loop
          declare
             Content_Object : W_Object;
@@ -1448,33 +1447,26 @@ package body Wrapping.Runtime.Analysis is
 
                      Run_Outer_Callback := False;
                   when Template_Operator_Amp =>
-                     Push_Frame_Context_No_Outer;
-                     Left  := Evaluate_Expression (Expr.Binary_Left);
-                     Right := Evaluate_Expression (Expr.Binary_Right);
-                     Pop_Frame_Context;
+                     declare
+                        Slice : Buffer_Slice := Get_Empty_Slice;
+                     begin
+                        Push_Frame_Context_No_Outer;
+                        Push_Buffer_Cursor;
+                        Slice.Last := Evaluate_Expression
+                          (Expr.Binary_Left).Write_String.Last;
+                        Slice.Last := Evaluate_Expression
+                          (Expr.Binary_Right).Write_String.Last;
+                        Push_Object
+                          (W_Object'
+                             (new W_String_Type'
+                                  (Value  => To_Unbounded_Text
+                                       (Buffer.Str
+                                          (Slice.First.Offset
+                                           .. Slice.Last.Offset)))));
 
-                     if Left.Dereference.all in W_Text_Expression_Type'Class
-                       and then Right.Dereference.all in
-                         W_Text_Expression_Type'Class
-                     then
-                        declare
-                           Container : W_Text_Vector := new W_Text_Vector_Type;
-                        begin
-                           Container.A_Vector.Append (Left);
-                           Container.A_Vector.Append (Right);
-
-                           Push_Object (Container);
-                        end;
-                     else
-                        declare
-                           Container : W_Vector := new W_Vector_Type;
-                        begin
-                           Container.A_Vector.Append (Left);
-                           Container.A_Vector.Append (Right);
-
-                           Push_Object (Container);
-                        end;
-                     end if;
+                        Pop_Buffer_Cursor;
+                        Pop_Frame_Context;
+                     end;
                   when Template_Operator_Plus | Template_Operator_Minus |
                     Template_Operator_Multiply | Template_Operator_Divide |
                     Template_Operator_Eq | Template_Operator_Neq |
@@ -1640,127 +1632,6 @@ package body Wrapping.Runtime.Analysis is
    end Evaluate_Expression;
 
    ----------------------------
-   -- Analyze_Replace_String --
-   ----------------------------
-
-   Expression_Unit_Number : Integer := 1;
-
-   ---------------------
-   -- Evaluate_String --
-   ---------------------
-
-   procedure Evaluate_String
-     (Expr : T_Expr;
-      On_Group : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expr : T_Expr) := null)
-   is
-      Result : W_Text_Vector := new W_Text_Vector_Type;
-
-      -----------------
-      -- Append_Text --
-      -----------------
-
-      procedure Append_Text (Text : Text_Type) is
-      begin
-         Result.A_Vector.Append (W_Object (To_W_String (Text)));
-      end Append_Text;
-
-      --------------
-      -- On_Error --
-      --------------
-
-      procedure On_Error
-        (Message : Text_Type; Filename : String; Loc : Source_Location)
-      is
-      begin
-         Push_Error_Location
-           (Expr.Node.Unit.Get_Filename, Start_Sloc (Expr.Node.Sloc_Range));
-
-         Put_Line (To_Text (Get_Sloc_Str) & ": " & Message);
-
-         raise Wrapping_Error;
-      end On_Error;
-
-      Prev_Error : Error_Callback_Type;
-   begin
-      Prev_Error     := Error_Callback;
-      Error_Callback := On_Error'Unrestricted_Access;
-
-      Push_Frame_Context_No_Match;
-      Top_Frame.Top_Context.Is_Root_Selection := True;
-
-      for Str of Expr.Str loop
-         case Str.Kind is
-            when Str_Kind =>
-               Result.A_Vector.Append (W_Object (To_W_String (Str.Value)));
-            when Expr_Kind =>
-               if On_Expression /= null then
-                  On_Expression.all (Str.Expr);
-               else
-                  Evaluate_Expression (Str.Expr);
-
-                  if Expr.Str_Kind = String_Indent then
-                     Result.A_Vector.Append
-                       (new W_Text_Reindent_Type'
-                          (Indent => Str.Indent, Content => Pop_Object));
-                  else
-                     Result.A_Vector.Append (W_Object (Pop_Object));
-                  end if;
-               end if;
-            when Group_Kind =>
-               declare
-                  Position : Integer := Str.Group_Number;
-                  Value    : W_Object;
-               begin
-                  for C of Top_Frame.Group_Sections loop
-                     if Integer (C.Groups.Length) < Position then
-                        Position := Position - Integer (C.Groups.Length);
-                     else
-                        Value := C.Groups.Element (Position);
-                        exit;
-                     end if;
-                  end loop;
-
-                  if Value = null then
-                     Error
-                       ("cannot find group " &
-                        Integer'Wide_Wide_Image (Str.Group_Number));
-                  end if;
-
-                  if On_Group /= null then
-                     On_Group.all (Str.Group_Number, Value);
-                  else
-                     Push_Buffer_Cursor;
-
-                     declare
-                        Slice : Buffer_Slice;
-                     begin
-                        Slice := Value.Write_String;
-                        Append_Text
-                          (Buffer.Str
-                             (Slice.First.Offset .. Slice.Last.Offset));
-                     end;
-
-                     Pop_Buffer_Cursor;
-                  end if;
-               end;
-         end case;
-      end loop;
-
-      if Expr.Str_Kind = String_Indent then
-         Push_Object
-           (W_Object'
-              (new W_Text_Reindent_Type'
-                 (Indent => 0, Content => W_Object (Result))));
-      else
-         Push_Object (Result);
-      end if;
-
-      Error_Callback := Prev_Error;
-      Pop_Frame_Context;
-   end Evaluate_String;
-
-   ----------------------------
    -- Push_Global_Identifier --
    ----------------------------
 
@@ -1803,6 +1674,17 @@ package body Wrapping.Runtime.Analysis is
          return True;
       elsif Name = "reindent" then
          Push_Intrinsic_Function (null, Call_Reindent'Access);
+         return True;
+      elsif Name = "buffer_line" then
+         Push_Object
+           (W_Object'(new W_Integer_Type'(Value => Buffer.Cursor.Line)));
+         return True;
+      elsif Name = "buffer_col" then
+         Push_Object
+           (W_Object'(new W_Integer_Type'(Value => Buffer.Cursor.Column)));
+         return True;
+      elsif Name = "buffer_max_col" then
+         Push_Intrinsic_Function (null, Call_Max_Col'Access);
          return True;
       end if;
 
@@ -2836,6 +2718,7 @@ package body Wrapping.Runtime.Analysis is
       A_Closure.Implicit_It   := Get_Implicit_It;
       A_Closure.Lexical_Scope := Top_Frame.Lexical_Scope;
       A_Closure.Temp_Names    := Top_Frame.Temp_Names;
+      A_Closure.Left_Value    := Top_Frame.Top_Context.Left_Value;
 
       return A_Closure;
    end Capture_Closure;

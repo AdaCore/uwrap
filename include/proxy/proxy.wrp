@@ -61,5 +61,5 @@ end;
 
 template generate_proxy2json pick origin do
    match wp_Unit ()
-   wrap standard.file (name & ".json", contents);
+   wrap standard.file (defer (name & ".json"), defer (contents));
 end;

@@ -776,8 +776,23 @@ package body Wrapping.Semantic.Analysis is
 
       Str_First, Str_Last      : Integer;
       Left_Spaces              : Integer := 0;
+
+      Indentation_To_Ignore    : Integer := Integer'Last;
+      --  Most of the times, the whole block of text will be indented. For
+      --  example:
+      --     a
+      --        b
+      --     c
+      --  In this case, the identation before the leftmost token is considered
+      --  to be the indentation used to structure the wrapping program, not
+      --  the text istelf. It needs to be removed to end up to:
+      --  a
+      --     b
+      --  c
+
       Found_Characters_On_Line : Boolean := False;
       Line_Number              : Integer := 1;
+      Is_Start_Of_Line         : Boolean := False;
    begin
       Str_First := Str'First;
       Str_Last  := Str'Last;
@@ -821,7 +836,8 @@ package body Wrapping.Semantic.Analysis is
 
       if Result.Str_Kind = String_Raw then
          Result.Str.Append
-           ((Str_Kind, 0, 0, To_Unbounded_Text (Str (Str_First .. Str_Last))));
+           ((Str_Kind, 0, 0, Left_Spaces,
+            To_Unbounded_Text (Str (Str_First .. Str_Last))));
 
          return;
       end if;
@@ -849,7 +865,7 @@ package body Wrapping.Semantic.Analysis is
                null;
             else
                Result.Str.Append
-                 ((Str_Kind, 0, 0,
+                 ((Str_Kind, 0, 0, Left_Spaces,
                    To_Unbounded_Text (Str (Next_Index .. Current))));
             end if;
 
@@ -861,8 +877,8 @@ package body Wrapping.Semantic.Analysis is
          elsif Str (Current) = '\' then
             if Current /= Str'First then
                Result.Str.Append
-                 ((Str_Kind, 0, 0,
-                   To_Unbounded_Text (Str (Next_Index .. Current - 1))));
+                 ((Str_Kind, 0, 0, Left_Spaces,
+                      To_Unbounded_Text (Str (Next_Index .. Current - 1))));
             end if;
 
             Current := Current + 1;
@@ -873,6 +889,8 @@ package body Wrapping.Semantic.Analysis is
                if Str (Current) = '<' then
                   Next_Index := Current;
 
+                  --  TODO: There's an issue here, subexpression can't have
+                  --  upper than because of the end symbol
                   while Next_Index < Str_Last and then Str (Next_Index) /= '>'
                   loop
                      Next_Index := Next_Index + 1;
@@ -901,21 +919,21 @@ package body Wrapping.Semantic.Analysis is
 
                      Result.Str.Append
                        ((Expr_Kind, 0, 0, Left_Spaces,
-                         Build_Expr (Expression_Unit.Root)));
+                        Build_Expr (Expression_Unit.Root)));
                   end;
 
                   Current    := Next_Index + 1;
                   Next_Index := Current;
                else
                   Result.Str.Append
-                    ((Str_Kind, 0, 0,
+                    ((Str_Kind, 0, 0, Left_Spaces,
                       To_Unbounded_Text (Str (Current - 1 .. Current))));
                   Next_Index := Current;
                   Current    := Current + 1;
                end if;
             elsif Str (Current) = 'n' then
                Result.Str.Append
-                 ((Str_Kind, 0, 0,
+                 ((Str_Kind, 0, 0, Left_Spaces,
                    To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
                Current    := Current + 1;
                Next_Index := Current;
@@ -936,23 +954,39 @@ package body Wrapping.Semantic.Analysis is
                   Group_Value : Natural :=
                     Natural'Wide_Wide_Value (Str (Current .. Next_Index));
                begin
-                  Result.Str.Append ((Group_Kind, 0, 0, Group_Value));
+                  Result.Str.Append
+                    ((Group_Kind, 0, 0, Left_Spaces, Group_Value));
                end;
 
                Current    := Next_Index + 1;
                Next_Index := Current;
             elsif Str (Current) = '\' then
-               Result.Str.Append ((Str_Kind, 0, 0, To_Unbounded_Text ("\")));
+               Result.Str.Append
+                 ((Str_Kind, 0, 0, Left_Spaces, To_Unbounded_Text ("\")));
                Next_Index := Current + 1;
                Current    := Current + 1;
             else
                Next_Index := Current;
                Current    := Current + 1;
             end if;
+
+            if not Found_Characters_On_Line
+              and then Left_Spaces < Indentation_To_Ignore
+            then
+               Indentation_To_Ignore := Left_Spaces;
+            end if;
+
+            Found_Characters_On_Line := True;
          else
             if Str (Current) = ' ' and not Found_Characters_On_Line then
                Left_Spaces := Left_Spaces + 1;
             else
+               if not Found_Characters_On_Line
+                 and then Left_Spaces < Indentation_To_Ignore
+               then
+                  Indentation_To_Ignore := Left_Spaces;
+               end if;
+
                Found_Characters_On_Line := True;
             end if;
 
@@ -964,8 +998,47 @@ package body Wrapping.Semantic.Analysis is
          --  Add the end of the text to the result
 
          Result.Str.Append
-           ((Str_Kind, 0, 0,
+           ((Str_Kind, 0, 0, Left_Spaces,
              To_Unbounded_Text (Str (Next_Index .. Str_Last))));
+      end if;
+
+      if Result.Str_Kind = String_Indent then
+         --  If we're on an indentation string, remove the spaces that have
+         --  been identified as needing removal;
+
+         Is_Start_Of_Line := True;
+
+         for S of Result.Str loop
+            if S.Kind = Str_Kind then
+               declare
+                  Str : Text_Type := To_Text (S.Value);
+               begin
+                  if Is_Start_Of_Line
+                    and then Str'Length >= Indentation_To_Ignore
+                  then
+                     S.Value := To_Unbounded_Text
+                       (Str (Str'First + S.Indent .. Str'Last));
+                  end if;
+
+                  Is_Start_Of_Line :=
+                    Str'Length > 0
+                    and then Is_Line_Terminator (Str (Str'Last));
+               end;
+            end if;
+
+            if S.Indent >= Indentation_To_Ignore then
+               S.Indent := S.Indent - Indentation_To_Ignore;
+            else
+               S.Indent := 0;
+            end if;
+         end loop;
+      else
+         --  If we're not on an indentation string, then reset the indent
+         --  values.
+
+         for S of Result.Str loop
+            S.Indent := 0;
+         end loop;
       end if;
 
       Error_Callback := Prev_Error;

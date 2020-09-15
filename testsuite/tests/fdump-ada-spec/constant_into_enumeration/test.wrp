@@ -15,6 +15,6 @@ pick child (new (w_Aspect ("Convention => C")));
 match ParamSpec (x"x : int") and parent (sb: SubpDecl())
 wrap n: w_ParamSpecCall (
    type_expr => "Flag_Type",
-   pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression ()> with Address => \e<n.name>'Address, Import;\n""",
+   pre_call_decl => defer ("""\e<sb.tmp ("local")> : aliased \e<p_type_expression ()> with Address => \e<n.name>'Address, Import;\n"""),
    actual_value => sb.tmp ("local")
 );

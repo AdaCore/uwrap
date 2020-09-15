@@ -21,14 +21,14 @@ with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.UTF_Encoding.Wide_Wide_Strings;
 use Ada.Strings.UTF_Encoding.Wide_Wide_Strings;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
+with Ada.Wide_Wide_Text_IO;    use Ada.Wide_Wide_Text_IO;
+with Ada.Strings.UTF_Encoding; use Ada.Strings.UTF_Encoding;
 
 with GNATCOLL.Strings_Impl; use GNATCOLL.Strings_Impl;
 with GNATCOLL.Mmap;         use GNATCOLL.Mmap;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
-
-with Ada.Wide_Wide_Text_IO;    use Ada.Wide_Wide_Text_IO;
-with Ada.Strings.UTF_Encoding; use Ada.Strings.UTF_Encoding;
+with Wrapping.Runtime.Strings;  use Wrapping.Runtime.Strings;
 
 package body Wrapping.Input.JSON is
 

@@ -19,6 +19,7 @@
 
 with Ada.Containers;                  use Ada.Containers;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
+with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Tags;                        use Ada.Tags;
 with Ada.Unchecked_Conversion;
 with Ada.Characters.Conversions;      use Ada.Characters.Conversions;
@@ -32,7 +33,7 @@ with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Ada.Wide_Wide_Text_IO;      use Ada.Wide_Wide_Text_IO;
 with Wrapping.Runtime.Functions; use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Objects;   use Wrapping.Runtime.Objects;
-with Unchecked_Conversion;
+with Wrapping.Runtime.Strings;   use Wrapping.Runtime.Strings;
 
 package body Wrapping.Runtime.Structure is
 
@@ -764,9 +765,13 @@ package body Wrapping.Runtime.Structure is
    is
       Other_Entity : W_Object := Top_Object.Dereference;
       Matched      : Boolean;
+      Result       : Boolean := False;
    begin
+      Push_Frame_Context;
+      --  Top_Frame.Top_Context.Current_Indentation := 0;
+
       if Other_Entity = Match_False then
-         return True;
+         Result := True;
       elsif Other_Entity.all in W_Regexp_Type'Class then
          Push_Buffer_Cursor;
 
@@ -788,7 +793,7 @@ package body Wrapping.Runtime.Structure is
 
          Pop_Buffer_Cursor;
 
-         return True;
+         Result := True;
       elsif Other_Entity.all in W_Text_Expression_Type'Class then
          Push_Buffer_Cursor;
 
@@ -807,14 +812,16 @@ package body Wrapping.Runtime.Structure is
 
          Pop_Buffer_Cursor;
 
-         return True;
+         Result := True;
       elsif Other_Entity.all in W_Intrinsic_Function_Type'Class then
          --  Functions always match, their result is evaluated later.
 
-         return True;
+         Result := True;
       end if;
 
-      return False;
+      Pop_Frame_Context;
+
+      return Result;
    end Match_With_Top_Object;
 
    --------
@@ -1097,53 +1104,5 @@ package body Wrapping.Runtime.Structure is
 
       Pop_Frame_Context;
    end Handle_Call_Parameters;
-
-   ------------------
-   -- Write_String --
-   ------------------
-
-   function Write_String (Text : Text_Type) return Buffer_Slice
-   is
-      Result : Buffer_Slice;
-   begin
-      Result.First := Buffer.Cursor;
-      Result.Last := Result.First;
-      Result.Last.Offset := Result.Last.Offset + Text'Length - 1;
-
-      Buffer.Str
-        (Result.First.Offset .. Result.Last.Offset) := Text;
-
-      Buffer.Cursor := Result.Last;
-      Buffer.Cursor.Offset := Buffer.Cursor.Offset + 1;
-
-      return Result;
-   end Write_String;
-
-   function Get_Empty_Slice return Buffer_Slice is
-      Result : Buffer_Slice := (Buffer.Cursor, Buffer.Cursor);
-   begin
-      Result.Last.Offset := Result.Last.Offset - 1;
-      Result.Last.Line := Result.Last.Line - 1;
-      Result.Last.Line_Offset := Result.Last.Line_Offset - 1;
-      Result.Last.Column := Result.Last.Column - 1;
-
-      return Result;
-   end Get_Empty_Slice;
-
-   procedure Push_Buffer_Cursor is
-   begin
-      Buffer.Cursor_Stack.Append (Buffer.Cursor);
-   end Push_Buffer_Cursor;
-
-   procedure Pop_Buffer_Cursor is
-   begin
-      Buffer.Cursor := Buffer.Cursor_Stack.Last_Element;
-      Buffer.Cursor_Stack.Delete_Last;
-   end Pop_Buffer_Cursor;
-
-   function Copy_String (Slice : Buffer_Slice) return Text_Type is
-   begin
-      return Buffer.Str (Slice.First.Offset .. Slice.Last.Offset);
-   end Copy_String;
 
 end Wrapping.Runtime.Structure;

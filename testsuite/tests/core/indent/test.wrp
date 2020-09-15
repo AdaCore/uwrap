@@ -21,22 +21,22 @@ wrap w_C ();
 
 match w_A ()
 weave (
-   contents => i"""
+   contents => defer (i"""
    \e<origin.f_name>:
-      \e<child (v: w_B ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>""");
+      \e<child (v: w_B ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>"""));
 
 match w_B ()
 weave (
-   contents => i"""
+   contents => defer (i"""
    \e<origin.f_name>:
-      \e<child (v: w_C ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>""");
+      \e<child (v: w_C ()).fold (c: "", c: (c & v.contents), c: (c & "\n"))>"""));
 
 match w_C ()
 weave (
-   contents => i"""
+   contents => defer (i"""
    \e<origin.f_name> LEVEL 1
       LEVEL 2
-   BACK TO LEVEL 1""");
+   BACK TO LEVEL 1"""));
 
 match w_A ()
-wrap standard.out (contents & "\n");
+wrap standard.out (defer (contents & "\n"));

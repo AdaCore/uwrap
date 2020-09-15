@@ -10,6 +10,8 @@
 **/*-loc.xml
 **/obj/**
 **/*.dll
+**/main
+**/lib
 
 obj/**
 lang_template/build/**

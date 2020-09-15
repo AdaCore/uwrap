@@ -716,34 +716,6 @@ package body Wrapping.Runtime.Objects is
       return Result;
    end Write_String;
 
-   ------------------
-   -- Write_String --
-   ------------------
-
-   overriding function Write_String
-     (Object : W_Text_Reindent_Type) return Buffer_Slice
-   is
-      Slice : Buffer_Slice;
-   begin
-      --  That's the difficult part, need the right information in the
-      --  expressions below...
-
-      Push_Buffer_Cursor;
-      Slice := Object.Content.Write_String;
-      Pop_Buffer_Cursor;
-
-      return Write_String
-        (Reindent
-           (Object.Indent,
-            Copy_String (Slice),
-            False));
-      --  return Write_String
-      --    (Reindent
-      --       (Object.Indent,
-      --        Main_Buffer.Buffer
-      --          (Slice.First.Offset .. Slice.Last.Offset), False));
-   end Write_String;
-
    ----------------------
    -- Push_Call_Result --
    ----------------------

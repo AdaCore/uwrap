@@ -124,10 +124,6 @@ package Wrapping.Runtime.Structure is
 
    type Capture_Result is access all Capture_Result_Type;
 
-   type Text_Buffer_Type;
-
-   type Text_Buffer is access all Text_Buffer_Type;
-
    type Text_Buffer_Cursor;
 
    type Buffer_Slice;
@@ -218,6 +214,10 @@ package Wrapping.Runtime.Structure is
       --  computing the children on those wrappers (only an iteration on the
       --  first matching one would be necessary).
       Is_First_Matching_Wrapper : Boolean := True;
+
+      Indent : Integer := 0;
+      --  Current indentation when generating text in indent mode, with the
+      --  syntax i"".
    end record;
 
    type Matched_Groups_Type is record
@@ -347,10 +347,10 @@ package Wrapping.Runtime.Structure is
    procedure Push_Match_False;
 
    function Write_String (Object : W_Object_Type) return Buffer_Slice;
-   --  This function resolves a runtime object into the String value, and writes
-   --  this string in the global string buffer. The result of this function
-   --  varies over time - as the underlying object gets completed by various
-   --  wrapping and weaving opertions. This should be called as late as
+   --  This function resolves a runtime object into the String value, and
+   --  writes this string in the global string buffer. The result of this
+   --  function varies over time - as the underlying object gets completed by
+   --  various wrapping and weaving opertions. This should be called as late as
    --  possible in the process (unless explicitely requested through e.g. a
    --  string conversion). Keeping a reference to the runtime object is
    --  prefered. Note that this is directly linked to the actual semantics of
@@ -414,6 +414,7 @@ package Wrapping.Runtime.Structure is
       Implicit_It      : W_Object;
       Lexical_Scope    : T_Entity;
       Temp_Names       : Text_Maps_Access;
+      Left_Value       : W_Object;
    end record;
 
    type Deferred_Command_Type is record
@@ -421,44 +422,32 @@ package Wrapping.Runtime.Structure is
       A_Closure : Closure;
    end record;
 
-   function Write_String (Text : Text_Type) return Buffer_Slice;
-
-   function Get_Empty_Slice return Buffer_Slice;
-   --  Return an empty slice, still with a first value set on the current
-   --  position in the text buffer.
-
-   procedure Push_Buffer_Cursor;
-
-   procedure Pop_Buffer_Cursor;
-
    type Text_Buffer_Cursor is record
       Offset      : Natural;
+      --  Offset refering to position in Buffer.Str
+
       Line        : Natural;
+      --  Current line where this cursor is located. This is only updated
+      --  if Buffer.Full_Cursor_Update is true.
+
       Line_Offset : Natural;
+      --  Current line character offset where this cursor is located. This is
+      --  only updated if Buffer.Full_Cursor_Update is true.
+
       Column      : Natural;
+      --  Current column where this cursor is located. This is only updated if
+      --  Buffer.Full_Cursor_Update is true.
+      --  TODO: tabs are not currently supported.
+
+      Max_Column  : Natural;
+      --  Max column that has been encountered so far in this buffer position.
    end record;
-
-   package Text_Buffer_Cursor_Vectors is new Ada.Containers.Vectors
-     (Positive, Text_Buffer_Cursor);
-
-   use Text_Buffer_Cursor_Vectors;
+   --  Used to point to a position in the text buffer.
 
    type Buffer_Slice is record
       First, Last : Text_Buffer_Cursor;
    end record;
-
-   function Copy_String (Slice : Buffer_Slice) return Text_Type;
-
-   type Text_Buffer_Type is record
-      Str    : Text_Access;
-      Cursor : Text_Buffer_Cursor :=
-        (Offset => 1,
-         Line        => 1,
-         Line_Offset => 1,
-         Column      => 1);
-      Cursor_Stack : Text_Buffer_Cursor_Vectors.Vector;
-   end record;
-
-   Buffer : Text_Buffer_Type;
+   --  Represents a slice of data in the main text buffer, First and Last are
+   --  inclusive. Empty slice have a last cursor before the first cursor.
 
 end Wrapping.Runtime.Structure;

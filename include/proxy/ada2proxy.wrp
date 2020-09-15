@@ -20,7 +20,7 @@ template w_TypeDeclProxy extends w_TypeDecl do
 
    match origin (child (RecordTypeDef ())) do
       weave (
-         declaration => i"""
+         declaration => defer (i"""
             type \e<type_proxy> is record
                Address        : System.Address;
                Is_Proxy_Owned : Boolean;
@@ -31,7 +31,7 @@ template w_TypeDeclProxy extends w_TypeDecl do
             type \e<type_proxy_access> is access all \e<type_proxy>;
 
             function Convert is new Ada.Unchecked_Conversion (System.Address, \e<type_proxy_access>);
-         """
+         """)
       );
    then
       var proxy_type: object => it;
@@ -39,27 +39,27 @@ template w_TypeDeclProxy extends w_TypeDecl do
       pick parent (w_PackageDecl ()) do
          pick child (new ({
             sb: w_SubpDeclCallProxy (
-               name => "\e<proxy_type.name>_Proxy_Allocate",
+               name => defer ("\e<proxy_type.name>_Proxy_Allocate"),
                subp_kind => "function",
                memory_mode => "heap",
                is_proxy_owned => "True",
-               call => "\e<type_access>'(new \e<type>)"
+               call => defer ("\e<type_access>'(new \e<type>)")
             ) {
                w_TypeExprProxy (origin_type_decl => proxy_type.origin)
             },
 
             sb: w_SubpDeclCallProxy (
-               name => "\e<proxy_type.name>_Proxy_Free",
+               name => defer ("\e<proxy_type.name>_Proxy_Free"),
                subp_kind => "procedure",
-               pre_call_decl => @ & i"""
+               pre_call_decl => defer (@ & i"""
                   procedure Free is new Ada.Unchecked_Deallocation (\e<type>, \e<type_access>);
                   procedure Free is new Ada.Unchecked_Deallocation (\e<type_proxy>, \e<type_proxy_access>);
-               """
+               """)
             ) {
                p: w_ParamSpecCallProxy (
                   name => "Proxy", 
                   memory_mode => "heap",
-                  call_stmt => @ & defer (i"""
+                  call_stmt => defer (@ & i"""
                      Free (\e<p.var_name>);
                      Free (\e<p.proxy_name>);
                   """))
@@ -104,7 +104,7 @@ then
    pick child (new ({
       w_Aspect ("Export => True"),
       w_Aspect ("Convention => C"),
-      w_Aspect ("""External_Name => "\e<s.wrapper (wp_Function ()).symbol>" """)
+      w_Aspect (defer ("""External_Name => "\e<s.wrapper (wp_Function ()).symbol>" """))
    }));
 
    match subp_kind ("function") do
@@ -113,34 +113,34 @@ then
          match memory_mode ("stack") do
             weave (
                result_type_expr => "System.Address",
-               call_decl => """\e<origin.tmp ("t1")> : aliased \e<ret_proxy.type> := \e<call>;\n""",
+               call_decl => defer ("""\e<origin.tmp ("t1")> : aliased \e<ret_proxy.type> := \e<call>;\n"""),
                call_stmt => "null;",
-               return_stmt => """return \e<origin.tmp ("t2")>.all'Address;""",
-               post_call_decl => i"""
+               return_stmt => defer ("""return \e<origin.tmp ("t2")>.all'Address;"""),
+               post_call_decl => defer (i"""
                   \e<origin.tmp ("t2")> : \e<ret_proxy.type_proxy_access> := new \e<ret_proxy.type_proxy>'
                      (Is_Proxy_Owned => \e<is_proxy_owned>,
                       Is_Automatic   => False,
                       Address        => Allocate_Byte_Copy (\e<origin.tmp ("t1")>'Address, \e<origin.tmp ("t1")>'Size));
-               """);
+               """));
          else
             weave (
                result_type_expr => "System.Address",
-               call_decl => """\e<origin.tmp ("t1")> : \e<ret_proxy.type_access> := \e<ret_proxy.type_access> (\e<call>);\n""",
+               call_decl => defer ("""\e<origin.tmp ("t1")> : \e<ret_proxy.type_access> := \e<ret_proxy.type_access> (\e<call>);\n"""),
                call_stmt => "null;",
-               return_stmt => """return \e<origin.tmp ("t2")>.all'Address;""",
-               post_call_decl => i"""
+               return_stmt => defer ("""return \e<origin.tmp ("t2")>.all'Address;"""),
+               post_call_decl => defer (i"""
                   \e<origin.tmp ("t2")> : \e<ret_proxy.type_proxy_access> := new \e<ret_proxy.type_proxy>'
                      (Is_Proxy_Owned => \e<is_proxy_owned>,
                       Is_Automatic   => False,
                       Address        => Allocate_Byte_Copy (\e<origin.tmp ("t1")>.all'Address, \e<origin.tmp ("t1")>.all'Size));
-               """);         
+               """));         
          end;
       else
          weave (
-            result_type_expr => ret.txt,
-            call_decl => @ & i"""
-               \e<origin.tmp ("t1")> : \e<ret.txt> := \e<ret.txt> (\e<call>);""",
-            return_stmt => """return \e<origin.tmp ("t1")>;"""
+            result_type_expr => defer (ret.txt),
+            call_decl => defer (@ & i"""
+               \e<origin.tmp ("t1")> : \e<ret.txt> := \e<ret.txt> (\e<call>);"""),
+            return_stmt => defer ("""return \e<origin.tmp ("t1")>;""")
          );    
       end;
    end;
@@ -167,30 +167,30 @@ template w_ParamSpecCallProxy extends w_ParamSpecCall do
       match memory_mode ("stack") do
          weave (
             type_expr => child (w_TypeExpr).txt,
-            pre_call_decl => @ & i"""
+            pre_call_decl => defer (@ & i"""
                \e<proxy_name> : \e<ret_proxy.type_proxy_access> := Convert (\e<name>);
                \e<var_name> : \e<ret_proxy.type>
                  with Address => \e<proxy_name>.Address, Import;
-            """,
-            actual_value => var_name);
+            """),
+            actual_value => defer (var_name));
       else
          weave (
             type_expr => child (w_TypeExpr).txt,
-            pre_call_decl => @ & i"""
+            pre_call_decl => defer (@ & i"""
                \e<proxy_name> : \e<ret_proxy.type_proxy_access> := Convert (\e<name>);
                \e<var_name> : \e<ret_proxy.type_access>
                  with Address => \e<proxy_name>.Address'Address, Import;
-            """,
-            actual_value => var_name);
+            """),
+            actual_value => defer (var_name));
       end;
    else
       var original_type: text => (match ret.origin_type_expr (x".") pick ret.origin_type_expr else pick ret.origin_type_decl);
 
       weave (
          type_expr => child (w_TypeExpr).txt,
-         pre_call_decl => @ & i"""
+         pre_call_decl => @ & defer (i"""
             \e<var_name> : \e<original_type> := \e<original_type> (\e<name>);
-         """,
+         """),
          actual_value => var_name);
    end;
 end;
@@ -319,7 +319,7 @@ template generate_ada2proxy pick origin do
    match s: w_ComponentDecl () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ()) do
       pick t.child (new ({
          w: w_SubpDeclCallProxy (
-            name => "Get_" & s.name,
+            name => defer ("Get_" & s.name),
             subp_kind => "function",
             call => defer ("\e<w.child (w_ParamSpecCallProxy).var_name>.\e<s.origin.p_defining_name ()>")
             #result_type_expr => te.txt,
@@ -336,7 +336,7 @@ template generate_ada2proxy pick origin do
             name => "Set_" & s.name,
             subp_kind => "procedure",
             result_type_expr => te.origin,
-            call_stmt => @ & defer (i"""
+            call_stmt => defer (@ & i"""
                      \e<w.child (w_ParamSpecCallProxy).var_name>.\e<s.origin.p_defining_name ()> := \e<te.origin> (Val);
                   """)
          ) {
