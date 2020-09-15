@@ -220,6 +220,8 @@ package Wrapping.Runtime.Structure is
       Is_First_Matching_Wrapper : Boolean := True;
 
       Indent : Integer := 0;
+      --  Current indentation when generating text in indent mode, with the
+      --  syntax i"".
    end record;
 
    type Matched_Groups_Type is record
@@ -425,53 +427,109 @@ package Wrapping.Runtime.Structure is
    end record;
 
    function Write_String (Text : Text_Type) return Buffer_Slice;
+   --  Writes the given string to the main text buffer, and return the slice
+   --  of text that was added. Sequence of calls to Write_String will add
+   --  to the buffer, essentially concatenating strings one after the other.
+   --  This function is expected to be used in conjunction with
+   --  Push_Buffer_Cursor and Pop_Buffer_Cursor in order to use the buffer
+   --  as a temporary working memory to create text and keep track of values
+   --  such as line / column.
 
    function Get_Empty_Slice return Buffer_Slice;
    --  Return an empty slice, still with a first value set on the current
    --  position in the text buffer.
 
    procedure Push_Buffer_Cursor;
+   --  Pushes a new cursor to the stack of cursors. This allows subsequent
+   --  calls to Write_String to update that cursor. It is expected to reset
+   --  the value of Buffer.Curor.Max_Column afterwards if needed. The value
+   --  will then carry the max column as strings are being written.
 
    procedure Pop_Buffer_Cursor;
+   --  Pops the last cursor, allowing to invalidate all the text written since
+   --  the last Push_Buffer_Cursor. If the Max_Column of the current cursor
+   --  before the call is larger than after, then it will be copied over,
+   --  as to always track the larger column encountered.
+   --  TODO: this is probably a bug - means that the column can never be
+   --  reduced while in actual fact we only want to track max column for a
+   --  give section of text.
 
    type Text_Buffer_Cursor is record
       Offset      : Natural;
+      --  Offset refering to position in Buffer.Str
+
       Line        : Natural;
+      --  Current line where this cursor is located. This is only updated
+      --  if Buffer.Full_Cursor_Update is true.
+
       Line_Offset : Natural;
+      --  Current line character offset where this cursor is located. This is
+      --  only updated if Buffer.Full_Cursor_Update is true.
+
       Column      : Natural;
+      --  Current column where this cursor is located. This is only updated if
+      --  Buffer.Full_Cursor_Update is true.
+      --  TODO: tabs are not currently supported.
+
       Max_Column  : Natural;
+      --  Max column that has been encountered so far in this buffer position.
    end record;
+   --  Used to point to a position in the text buffer.
 
    package Text_Buffer_Cursor_Vectors is new Ada.Containers.Vectors
      (Positive, Text_Buffer_Cursor);
-
    use Text_Buffer_Cursor_Vectors;
 
    type Buffer_Slice is record
       First, Last : Text_Buffer_Cursor;
    end record;
+   --  Represents a slice of data in the main text buffer, First and Last are
+   --  inclusive. Empty slice have a last cursor before the first cursor.
 
    function Copy_String (Slice : Buffer_Slice) return Text_Type;
+   --  Copy the slice of buffer into the returned text. Note that this is
+   --  relatively slow operation - buffer slices are meant to index directly
+   --  the Buffer.Str object as to avoid copies as much as possible. But when
+   --  performances is not an issue, this is a nice shortcut.
 
    type Text_Buffer_Type is record
       Str    : Text_Access;
+      --  String buffer. This is initialized at a fixed size early in the
+      --  driver. Relevant data is between 1 and Cursor.Offset.
+
       Cursor : Text_Buffer_Cursor :=
         (Offset => 1,
          Line        => 1,
          Line_Offset => 1,
          Column      => 1,
          Max_Column  => 1);
+      --  Current cursor designating the position after the last written
+      --  character.
+
       Cursor_Stack : Text_Buffer_Cursor_Vectors.Vector;
+      --  Holds the stack of cursors. Should only be accessed through
+      --  Push_Buffer_Cursor and Pop_Buffer_Cursor
 
       Full_Cursor_Update : Boolean := False;
       --  When this is true, Write_String will update
       --  Line / Line_Offset / Column values.
    end record;
+   --  This types is used to gather all data necessary to hold a global text
+   --  buffer. Strings are added to this buffer during e.g. concatenation,
+   --  or creation of string objects. It also provides support for counting
+   --  columns and lines as text is being added, allowing to write conditions
+   --  based on the current position in the text being written.
 
    Buffer : Text_Buffer_Type;
+   --  This is the global buffer holding temporary text as it's being written
+   --  by various expresions.
 
    function Indent return Buffer_Slice;
+   --  Write a slice representing the current indentation on the text buffer
+   --  and return the indices for this slice.
 
    function Resolve_Indentation return Buffer_Slice;
+   --  If the current buffer is on a new line, indents and returns the slice
+   --  for the created indentation, otherwise returns an empty slice.
 
 end Wrapping.Runtime.Structure;
