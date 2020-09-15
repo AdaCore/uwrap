@@ -212,16 +212,12 @@ child of the type of the predicate. For example:
 
    match A () # will match for instances of A and B
 
-Text Reference Evaluation
--------------------------
+Building Text Templates
+-----------------------
 
-There is a fundamental difference to understand between text and string 
-fields. String is a direct value. When referenced in an expression, its value
-is evaluated directly and cannot change over time. Text is a text reference. 
-When referenced in an expression, a pointer to that text is created. This 
-pointer will only be resolved upon evaluation of the actual string.
-
-For example:
+It is common when writing complex templates to need to describe how various
+variables are combined. To that extend, when evaluating values for a given
+template variables, other can referred to. E.g:
 
 .. code-block:: text
 
@@ -237,9 +233,11 @@ For example:
       V2 => "B",
       V3 => a.V1 & "-" & a.V2);
 
-In the above code, V3 is a text structure, which has a reference to a.V1, 
-a string "-", and a.V2. Its actual value will evolve as V1 and V2 will evolve. 
-For example, a further iteration on the wrapper values could modify V1 and V2:
+Note that the previous example works because V1 and V2 are evaluated before
+V3. However, it may be the case that these values can be overridden and 
+evolve over time. For example:
+
+.. code-block:: text
 
 .. code-block:: text
 
@@ -248,8 +246,22 @@ For example, a further iteration on the wrapper values could modify V1 and V2:
       V1 => @ & "_Weaved", 
       V2 => @ & "_Weaved");
 
-As a consequence, the value of V3 which was initially "A-B" is now 
-"A_Weaved-B_Weaved".
+In this case, as V3 is already computed, it will not change. A typical way
+to work around this issue is to defer the computation of the expression as late
+as possible, typically whenever needed to be converted to a string. This can
+be done with a ``defer`` expression:
+
+.. code-block:: text
+
+   match some_other_predicate
+   wrap a: A (
+      V1 => "A", 
+      V2 => "B",
+      V3 => defer (a.V1 & "-" & a.V2));
+
+With this wrapper, V3 actual value will evolve as V1 and V2 will evolve, and 
+the combined result of the last two pieces of code will value V3 to  
+"A_Weaved-B_Weaved" as opposed to "A-B" at the end of the program.
 
 The value "A-B" could have been computed on the matcher, and then modified 
 later on:
@@ -264,31 +276,14 @@ later on:
 Matching against V3 value doesn't fix its value, it just evaluates its current 
 value which can be modified later one.
 
-TODO: check that the following holds (it does for @ and should when referencing 
-V1 directly too.)
-
-Note that modifying V1 and V2 after themselves in the expression above doesn'this
+Note that modifying V1 and V2 after themselves in the expression above doesn't
 create an infinite recursion. The reference to V1 is replaced upon 
-``V1 => @ & "_Weaved" by a new reference that concatenates the old reference and
-the string "_Weaved". Consequently, that old reference may itself still evolve
-over time if it was build after references to other text fields.
-
-The ``string ()`` conversion allows to force conversion of a text reference to
-a final string, for example:
-
-.. code-block:: text
-
-  wrap a: A (
-      V1 => "A", 
-      V2 => "B",
-      V3 => string (a.V1 & "-" & a.V2));
-
-In the above example, V3 receives a raw string "A-B" which will not change 
-anymore (even if it's referenced in a text).
+``V1 => @ & "_Weaved" by a new reference that concatenates the old reference 
+and the string "_Weaved". Consequently, that old reference may itself still 
+evolve over time if it was build after references to other text fields.
 
 Note that standard templates ``out`` and ``file`` evaluate at the very end of 
-the program execution, so they will operate on text references after all links
-have been made.
+the program execution.
 
 This capability is fundamental to the creation of complex wrapping texts, where
 the warious wrapping and weavings steps are building a text structure from 

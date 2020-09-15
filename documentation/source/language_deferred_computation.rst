@@ -72,10 +72,9 @@ Deferred Computation
 
 While this provides certain control over the iteration, it's usually not 
 sufficient to always bring all the information to build the desired output
-when processing a specific node. Three methods are available to structure 
-deffered analysis:
+when processing a specific node. Two methods are available to structure 
+deferred analysis:
 
- - defered text computation
  - wrapper analysis passes
  - deferred computation
 
@@ -93,69 +92,11 @@ when all other processing is fininshed, which will allow information that was
 not yet available at the time of the creation of the wrapper to be computed
 and used for the output.
 
-Defered Text Computation
-------------------------
-
-Templates variables are always a reference to a piece of data. The concatenation
-operators concatenates these references rather than the referenced values. The
-specific value will only be retreived when computing the actual string for a 
-reference, which can happen either when evaluating certain functions, matching,
-or on I/O. So for example:
-
- .. code-block:: text
-
-   template X do
-      var V1 : text;
-      var V2 : text;
-      var V3 : text;
-   end;
-
-   match "A"
-   wrap X (V3 => V1 & V2);
-
-Even if V1 and V2 have no value at the point of the analysis of the A node, V3
-is set as the concatenation of these two references. In a futher calls, we could
-have:
-
-.. code-block:: text
-
-   weave X (V1 => "Hello ", V2 => "World");
-
-When computing V3 value later, for example in the context of an I/O, the correct
-value "Hello World" would be analyzed. 
-
-This way of deferring computation is very useful when actual values are not
-yet know, but their structure already exist. For example, it can be used to 
-describe the template of a piece of code:
-
-.. code-block:: text
-
-   template C_Function do
-      var result : text => "void";
-      var name : text => "default_name";
-      var parameters : text => "";
-      var variables : text => "";
-      var statements : text => "";
-
-      var code => i"""
-         \e<result> \e<name> (\e<parameters>) {
-            \e<variables>
-            \e<statements>
-         }
-      """;
-   end;
-
-Variables in the above template can be changed later in the process without
-having to modifify the variable ``code``.
-
 Wrapper Post processing
 -----------------------
 
-Using defered text computation is a relatively simple and efficient way to 
-structure output ahead of actual value computation, however in many cases the
-actual structure to hold these values don't exist yet at the point of the 
-iteration. One way to work this around is to rely on the fact that, once 
-created, wrappers are scheduled to be processed one all already scheduled 
+A first way to handle deferred computation is at the template instance level.
+Once created, wrappers are scheduled to be processed one all already scheduled 
 processing in finished. For example, one can write:
 
 .. code-block:: text
@@ -246,46 +187,33 @@ Deferred Expressions
 --------------------
 
 An alternative to defer commands is defer expressions. A defer expression is an
-expression computed only at the point of conversion to string, and can be used in particular when the underlying structure is not
-yet available, or when the values actually need to be known, for example because
-of a function call.
+expression computed only at the point of conversion to string, and can be used 
+in particular when the underlying structure is not yet available, or when the 
+values actually need to be known.
 
-This can in particular workaround some limitation of deferred text computation, 
-for example when needing function calls. In the following example, V3 and V4
-have to be computed after respectively the concatenation of V1, V2 and their
-lowercased version. While it's possible to write "V1 & V2" and have the actual
-value computed when converting to a final string, writing 
-"to_lower (V1) & to_lower (V2)" will result in an actual call to V1 and V2:
-
-.. code-block:: text
-
-   template X do
-      var V1: text;
-      var V2: text;
-      var V3: text;
-      var V4: text;
-   end;
-
-   match "A"
-   wrap X (
-      V3 => V1 & V2;
-      V4 => to_lower (V1) & to_lower (V2));
-
-At this point in time, V1 and V2 are empty and V4 will always be empty as well. 
-An alternative is to use defer expressions:
+This is a common pattern when describing text templates. For example:
 
  .. code-block:: text
 
-   match "A"
-   wrap X (V3 => defer (to_lower (V1)) & defer (to_lower (V2)));
-
-V3 is now the result of the concatenation of two defer expressions which will
-be computed only when V3 needs to be converted to string. Better yet, in the
-above case, we could use one unique defer (which would be preferable and more
-efficient):
+   template X do
+      var V1 : text;
+      var V2 : text;
+      var V3 : text;
+   end;
 
    match "A"
-   wrap X (V3 => defer (to_lower (V1) & to_lower (V2)));
+   wrap X (V3 => defer (V1 & V2));
+
+Even if V1 and V2 have no value at the point of the analysis of the A node, V3
+is set as a deferred expression concatenating of these two references. In a 
+futher calls, we could have:
+
+.. code-block:: text
+
+   weave X (V1 => "Hello ", V2 => "World");
+
+When computing V3 value later, for example in the context of an I/O, the correct
+value "Hello World" would be analyzed. 
 
 Defer can contain arbitrary complex expression, and as for defer commands can
 be used in particular to describe computation on structure that is not yet
