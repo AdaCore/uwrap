@@ -9,7 +9,7 @@ wrap w_DefiningName ("\e<a>_Wrapped");
 match ParamSpec(x"arr") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
 wrap w: w_ParamSpecCall (
    type_expr => "in out Integer_Array",
-   pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<te.child (TypeExpr ())> with Address => \e<w.name>'Address, Import;""",
+   pre_call_decl => defer ("""\e<sb.tmp ("local")> : aliased \e<te.child (TypeExpr ())> with Address => \e<w.name>'Address, Import;"""),
    actual_value => sb.tmp ("local") & "'Access"
 );
 

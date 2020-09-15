@@ -3,8 +3,8 @@ import ada.wrappers;
 template access_into_out pick origin do
    match ParamSpec(x"access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
    wrap w: w_ParamSpecCall (
-      pre_call_decl => """\e<sb.tmp ("call")> : aliased \e<te.child (TypeExpr ())> with Address => \e<w.name>'Address, Import;""",
-      actual_value => """\e<sb.tmp ("call")>'Unchecked_Access""",
+      pre_call_decl => defer ("""\e<sb.tmp ("call")> : aliased \e<te.child (TypeExpr ())> with Address => \e<w.name>'Address, Import;"""),
+      actual_value => defer ("""\e<sb.tmp ("call")>'Unchecked_Access"""),
       mode => "out",
       type_expr => defer (w.child (w_TypeExpr()).child (w_TypeExpr ()).txt)
    );
@@ -17,12 +17,12 @@ template access_into_return pick origin do
 
       wrap n: w_ParamSpecCall (
          generate_formal => "NO",  # TODO: introduce boolean here instead
-         actual_value => """\e<tmp("call")>'Unchecked_Access""",
-         pre_call_decl => """
+         actual_value => defer ("""\e<tmp("call")>'Unchecked_Access"""),
+         pre_call_decl => defer ("""
             \e<tmp("call")> : aliased \e<te>;
             \e<tmp("ret")>  : aliased \e<n.result_type_expr> with Address => \e<tmp("call")>'Address, Import;
-            """,
-         return_stmt => """return \e<tmp("ret")>;""",
+            """),
+         return_stmt => defer ("""return \e<tmp("ret")>;"""),
          result_type_expr => defer (te.wrapper (w_TypeExpr()).txt));
    end;
 end;
@@ -35,12 +35,12 @@ template address_into_return pick origin do
 
    wrap w_ParamSpecCall (
       generate_formal => "NO",  # TODO: introduce boolean here instead
-      actual_value => """\e<tmp("call")>""",
-      pre_call_decl => """
+      actual_value => defer ("""\e<tmp("call")>"""),
+      pre_call_decl => defer ("""
          \e<tmp("ret")>  : aliased \e<result_type>;
          \e<tmp("call")> : aliased System.Address := \e<tmp("ret")>'Address;
-         """,
-      return_stmt => """return \e<tmp("ret")>;""",
+         """),
+      return_stmt => defer ("""return \e<tmp("ret")>;"""),
       result_type_expr => result_type);
 end;
 
@@ -63,18 +63,18 @@ template chars_into_string pick origin do
    match ParamSpec(x"Interfaces.C.Strings.chars_ptr") and parent (sb: SubpDecl())
    wrap w: w_ParamSpecCall (
       type_expr => "String",
-      pre_call_decl => """\e<sb.tmp ("c_string")> : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (\e<w.name>);\n""",
-      actual_value => """\e<sb.tmp ("c_string")>""",
-      post_call_stmt => """Interfaces.C.Strings.Free (\e<sb.tmp ("c_string")>);\n"""
+      pre_call_decl => defer ("""\e<sb.tmp ("c_string")> : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (\e<w.name>);\n"""),
+      actual_value => defer ("""\e<sb.tmp ("c_string")>"""),
+      post_call_stmt => defer ("""Interfaces.C.Strings.Free (\e<sb.tmp ("c_string")>);\n""")
    );
 
    match SubpDecl() and child (TypeExpr (x"Interfaces.C.Strings.chars_ptr"))
    wrap w: w_SubpDeclCall (
       subp_kind => "function",
       result_type_expr => "String",
-      call_decl => """\e<tmp ("c_string")> : aliased Interfaces.C.Strings.chars_ptr := \e<w.call>;\n""",
+      call_decl => defer ("""\e<tmp ("c_string")> : aliased Interfaces.C.Strings.chars_ptr := \e<w.call>;\n"""),
       call_stmt => "null;", 
-      return_stmt => """return Interfaces.C.Strings.Value (\e<tmp ("c_string")>);"""
+      return_stmt => defer ("""return Interfaces.C.Strings.Value (\e<tmp ("c_string")>);""")
    );
 end;
 
@@ -92,12 +92,12 @@ match w_ExceptionRegistry () do
        new (w_Unit () {p: w_PackageDecl(name => r.package)}))
    do
       pick p weave (
-         spec_content => @ & """
+         spec_content => defer (@ & """
             package \e<p.tmp ("registry_map")> is new Ada.Containers.Ordered_Maps
               (Integer, Ada.Exceptions.Exception_Id, "<", Ada.Exceptions."=");
             \e<r.name> : \e<p.tmp ("registry_map")>.Map;
-            \e<r.exceptions>""",
-         stmt => @ & r.init
+            \e<r.exceptions>"""),
+         stmt => defer (@ & r.init)
        );
 
       match not u.child (w_WithClause (ref ("Ada.Exceptions")))
@@ -130,8 +130,8 @@ template error_code_into_exception pick origin do
       match r: (w_ExceptionRegistry.filter (package (text (package_container)) and name (text (registry_name)))
          or new (w_ExceptionRegistry (package => text (package_container), name => text (registry_name))))
       pick r weave (
-         exceptions => @ & "\e<exception_name> : exception;\n",
-         init => @ & "\e<registry_name>.Insert (Integer (\e<expr>), \e<exception_name>'Identity);\n"
+         exceptions => defer (@ & "\e<exception_name> : exception;\n"),
+         init => defer (@ & "\e<registry_name>.Insert (Integer (\e<expr>), \e<exception_name>'Identity);\n")
       );
    end;
 end;
@@ -142,7 +142,7 @@ template into_binary_compatible pick origin do
    match ParamSpec() and parent (sb: SubpDecl ())
    wrap w: w_ParamSpecCall(
       type_expr => type_name,
-      pre_call_decl => """\e<sb.tmp ("local")> : aliased \e<p_type_expression ()> with Address => \e<w.name>'Address, Import;\n""",
+      pre_call_decl => defer ("""\e<sb.tmp ("local")> : aliased \e<p_type_expression ()> with Address => \e<w.name>'Address, Import;\n"""),
       actual_value => sb.tmp ("local")
    );
 
@@ -150,12 +150,12 @@ template into_binary_compatible pick origin do
    wrap w: w_SubpDeclCall
       (subp_kind => "function",
        result_type_expr => type_name,
-       call_decl => """\e<tmp ("result_orig")> : aliased \e<te> := \e<w.call>;\n""",
-       post_call_decl => """
+       call_decl => defer ("""\e<tmp ("result_orig")> : aliased \e<te> := \e<w.call>;\n"""),
+       post_call_decl => defer ("""
          \e<tmp ("result_wrapped")> : aliased \e<type_name> 
-         with Address => \e<tmp ("result_orig")>'Address, Import;\n""",
+         with Address => \e<tmp ("result_orig")>'Address, Import;\n"""),
        call_stmt => "null;", 
-       return_stmt => """return \e<tmp ("result_wrapped")>;""");
+       return_stmt => defer ("""return \e<tmp ("result_wrapped")>;"""));
 end;
 
 template into_explicit_conversion pick origin do
@@ -197,13 +197,13 @@ template return_into_exception pick origin do
 
    wrap w: w_SubpDeclCall (
       subp_kind => "procedure",
-      call_decl => """\e<tmp ("res")> : Integer := Integer (\e<w.call>);\n""",
+      call_decl => defer ("""\e<tmp ("res")> : Integer := Integer (\e<w.call>);\n"""),
       call_stmt => "null;", 
-      post_call_stmt => """
+      post_call_stmt => defer ("""
          if \e<tmp ("res")> /= 0 then
             Ada.Exceptions.Raise_Exception
                (\e<registry_package>.\e<registry_name>.Element (Integer (\e<tmp ("res")>)));
          end if;
-      """
+      """)
    );
 end;

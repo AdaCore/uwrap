@@ -49,7 +49,7 @@ end;
 template w_Param extends w_NamedEntity do
    var generate_formal: text;
 
-   var formal_text: text => type_expr & " "  & name;
+   var formal_text: text => defer (type_expr & " "  & name);
    var actual_text: text;
 
    var type_expr: text;
@@ -90,13 +90,13 @@ end;
 
 template wrappers2cs pick origin do
    match w_DllImportFunction () do
-      weave (contents => i"""
+      weave (contents => defer (i"""
          [DllImport("libproxy")]
-         private \e<static> extern \e<returned_type> \e<name> (\e<child (w_ParamDll ()).fold ("", @ & formal_text, @ & ", ")>);""");
+         private \e<static> extern \e<returned_type> \e<name> (\e<child (w_ParamDll ()).fold ("", @ & formal_text, @ & ", ")>);"""));
    end;
 
    match w_FunctionCall () do
-      weave (contents => i"""
+      weave (contents => defer (i"""
          public \e<static> \e<returned_type> \e<name> (\e<child (w_ParamCall ()).fold ("", @ & formal_text, @ & ", ")>) {
             \e<pre_call_decl>
             \e<pre_call_stmt>
@@ -105,43 +105,43 @@ template wrappers2cs pick origin do
             \e<call_stmt>
             \e<post_call_decl>
             \e<post_call_stmt>
-         }""");
+         }"""));
    end;
 
    match p: w_ParamCall () and s: parent (w_FunctionCall) do
       pick s weave (
-         pre_call_decl    => @ & p.pre_call_decl,
-         pre_call_stmt    => @ & p.pre_call_stmt,
-         call_decl        => @ & p.call_decl,
-         post_call_decl   => @ & p.post_call_decl,
-         post_call_stmt   => @ & p.post_call_stmt
+         pre_call_decl    => defer (@ & p.pre_call_decl),
+         pre_call_stmt    => defer (@ & p.pre_call_stmt),
+         call_decl        => defer (@ & p.call_decl),
+         post_call_decl   => defer (@ & p.post_call_decl),
+         post_call_stmt   => defer (@ & p.post_call_stmt)
       );
    end;
 
    match w_Class () do
-      weave (contents => i"""
+      weave (contents => defer (i"""
          public class \e<name> {
             public System.IntPtr handle;
 
             \e<child (\ w_NamedEntity ()).fold ("", @ & contents, @ & "\n\n")>
-         }""");
+         }"""));
    end;
 
    match w_Namespace () do
-      weave (contents => i"""
+      weave (contents => defer (i"""
          namespace \e<name> {
             public static class \e<name>Module {
                \e<child (\ w_Function ()).fold ("", @ & contents & "\n")>
             }
 
             \e<child (\ w_Class ()).fold ("", @ & contents & "\n")>
-         }""");
+         }"""));
    end;
 
    match w_Unit () do
-      wrap standard.file (name & ".cs", contents);
+      wrap standard.file (defer (name & ".cs"), defer (contents));
       
-      weave (contents => i"""
+      weave (contents => defer (i"""
          using System.Runtime.InteropServices;
 
          \e<child (w_Using ()).fold ("", @ & "using " & ref & ";\n")>
@@ -151,6 +151,6 @@ template wrappers2cs pick origin do
             }
 
             \e<child (w_Class ()).fold ("", @ & contents & "\n")>
-         }""");
+         }"""));
    end;
 end;

@@ -35,20 +35,20 @@ template generate_proxy2cs pick origin do
          static => "static");
 
       match type ("void") do
-         weave w: w_FunctionCall (call_stmt => "\e<w.call>;");
+         weave w: w_FunctionCall (call_stmt => defer ("\e<w.call>;"));
       elsmatch type ("int32") do
-         weave w: w_FunctionCall (call_stmt => "return \e<w.call>;");
+         weave w: w_FunctionCall (call_stmt => defer ("return \e<w.call>;"));
       else
          weave w: w_FunctionCall (
-            pre_call_decl => "\e<ret_type_cs> res = new \e<ret_type_cs> ();",
-            pre_call_stmt => "res.handle = \e<w.call>;",
+            pre_call_decl => defer ("\e<ret_type_cs> res = new \e<ret_type_cs> ();"),
+            pre_call_stmt => defer ("res.handle = \e<w.call>;"),
             call_stmt => "return res;"
          );
       end;
 
       wrap w_DllImportFunction (
          name => child (\ name ("symbol")).value,
-         returned_type => ret_type_native,
+         returned_type => defer (ret_type_native),
          static => "static");
    end;
 
@@ -59,16 +59,16 @@ template generate_proxy2cs pick origin do
 
       wrap w_ParamCall (
          name => child (\ name ("name")).value,
-         type_expr => ret_type_cs
+         type_expr => defer (ret_type_cs)
       );
 
       match type ("int32") do
          weave w: w_ParamCall (
-            actual_value => "\e<w.name>"
+            actual_value => defer ("\e<w.name>")
          );
       else
          weave w: w_ParamCall (
-            actual_value => "\e<w.name>.handle"
+            actual_value => defer ("\e<w.name>.handle")
          );
       end;
 
