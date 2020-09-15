@@ -23,6 +23,7 @@ with Ada.Strings.Wide_Wide_Unbounded;   use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Strings;  use Wrapping.Runtime.Strings;
 with Wrapping.Utils;            use Wrapping.Utils;
 
 package body Wrapping.Runtime.Functions is
@@ -205,7 +206,7 @@ package body Wrapping.Runtime.Functions is
       Dummy   : Buffer_Slice;
    begin
       Push_Buffer_Cursor;
-      Buffer.Cursor.Max_Column := 0;
+      Reset_Max_Column;
       Dummy := Obj.Write_String;
       Result := new W_Integer_Type'(Value => Buffer.Cursor.Max_Column);
       Pop_Buffer_Cursor;

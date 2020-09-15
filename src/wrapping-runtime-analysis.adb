@@ -27,6 +27,7 @@ with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Strings;                     use Ada.Strings;
 with Ada.Tags;                        use Ada.Tags;
 with GNAT.Regpat;                     use GNAT.Regpat;
+with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 
 with Langkit_Support.Diagnostics;
 with Langkit_Support.Text; use Langkit_Support.Text;
@@ -38,7 +39,7 @@ with Wrapping.Semantic.Analysis;  use Wrapping.Semantic.Analysis;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Utils;              use Wrapping.Utils;
 with Wrapping.Runtime.Functions;  use Wrapping.Runtime.Functions;
-with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
+with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
 
 package body Wrapping.Runtime.Analysis is
 
@@ -77,13 +78,6 @@ package body Wrapping.Runtime.Analysis is
       Top_Frame.Data_Stack.Length'Old + 1;
 
    procedure Handle_Arithmetic_Operator (Expr : T_Expr);
-
-   procedure Evaluate_String
-     (Expr : T_Expr;
-      On_Group : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expr : T_Expr) := null) with
-      Post => Top_Frame.Data_Stack.Length =
-      Top_Frame.Data_Stack.Length'Old + 1;
 
    procedure Apply_Wrapping_Program
      (It : W_Node; Lexical_Scope : access T_Entity_Type'Class) with
@@ -1636,109 +1630,6 @@ package body Wrapping.Runtime.Analysis is
 
       Pop_Error_Location;
    end Evaluate_Expression;
-
-   ----------------------------
-   -- Analyze_Replace_String --
-   ----------------------------
-
-   Expression_Unit_Number : Integer := 1;
-
-   ---------------------
-   -- Evaluate_String --
-   ---------------------
-
-   procedure Evaluate_String
-     (Expr : T_Expr;
-      On_Group : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expr : T_Expr) := null)
-   is
-      --------------
-      -- On_Error --
-      --------------
-
-      procedure On_Error
-        (Message : Text_Type; Filename : String; Loc : Source_Location)
-      is
-      begin
-         Push_Error_Location
-           (Expr.Node.Unit.Get_Filename, Start_Sloc (Expr.Node.Sloc_Range));
-
-         Put_Line (To_Text (Get_Sloc_Str) & ": " & Message);
-
-         raise Wrapping_Error;
-      end On_Error;
-
-      Prev_Error : Error_Callback_Type;
-      Slice : Buffer_Slice := Get_Empty_Slice;
-   begin
-      Push_Buffer_Cursor;
-      Prev_Error     := Error_Callback;
-      Error_Callback := On_Error'Unrestricted_Access;
-
-      Push_Frame_Context_No_Match;
-      Top_Frame.Top_Context.Is_Root_Selection := True;
-
-      Slice.Last := Resolve_Indentation.Last;
-
-      for Str of Expr.Str loop
-         Push_Frame_Context;
-         Top_Frame.Top_Context.Indent :=
-           Top_Frame.Top_Context.Indent + Str.Indent;
-
-         case Str.Kind is
-            when Str_Kind =>
-               Slice.Last := Resolve_Indentation.Last;
-               Slice.Last := Write_String (To_Text (Str.Value)).Last;
-
-            when Expr_Kind =>
-               if On_Expression /= null then
-                  On_Expression.all (Str.Expr);
-               else
-                  Evaluate_Expression (Str.Expr);
-                  Slice.Last := Pop_Object.Write_String.Last;
-               end if;
-            when Group_Kind =>
-               declare
-                  Position : Integer := Str.Group_Number;
-                  Value    : W_Object;
-               begin
-                  for C of Top_Frame.Group_Sections loop
-                     if Integer (C.Groups.Length) < Position then
-                        Position := Position - Integer (C.Groups.Length);
-                     else
-                        Value := C.Groups.Element (Position);
-                        exit;
-                     end if;
-                  end loop;
-
-                  if Value = null then
-                     Error
-                       ("cannot find group " &
-                        Integer'Wide_Wide_Image (Str.Group_Number));
-                  end if;
-
-                  if On_Group /= null then
-                     On_Group.all (Str.Group_Number, Value);
-                  else
-                     Slice.Last := Resolve_Indentation.Last;
-                     Slice.Last := Value.Write_String.Last;
-                  end if;
-               end;
-         end case;
-
-         Pop_Frame_Context;
-      end loop;
-
-      Push_Object
-        (W_Object'
-           (new W_String_Type'
-                (Value => To_Unbounded_Text
-                     (Buffer.Str (Slice.First.Offset .. Slice.Last.Offset)))));
-
-      Error_Callback := Prev_Error;
-      Pop_Frame_Context;
-      Pop_Buffer_Cursor;
-   end Evaluate_String;
 
    ----------------------------
    -- Push_Global_Identifier --

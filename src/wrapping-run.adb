@@ -42,6 +42,7 @@ with Wrapping.Runtime.Analysis;  use Wrapping.Runtime.Analysis;
 with Wrapping.Input.Kit;
 with Wrapping.Input.JSON;        use Wrapping.Input.JSON;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
+with Wrapping.Runtime.Strings;   use Wrapping.Runtime.Strings;
 
 package body Wrapping.Run is
 

@@ -28,6 +28,7 @@ with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 with Wrapping.Utils;              use Wrapping.Utils;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
+with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
 
 package Wrapping.Runtime.Objects is
 

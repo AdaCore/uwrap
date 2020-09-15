@@ -33,6 +33,7 @@ with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Ada.Wide_Wide_Text_IO;      use Ada.Wide_Wide_Text_IO;
 with Wrapping.Runtime.Functions; use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Objects;   use Wrapping.Runtime.Objects;
+with Wrapping.Runtime.Strings;   use Wrapping.Runtime.Strings;
 
 package body Wrapping.Runtime.Structure is
 
@@ -1103,117 +1104,5 @@ package body Wrapping.Runtime.Structure is
 
       Pop_Frame_Context;
    end Handle_Call_Parameters;
-
-   ------------------
-   -- Write_String --
-   ------------------
-
-   function Write_String (Text : Text_Type) return Buffer_Slice
-   is
-      Result : Buffer_Slice;
-   begin
-      Result := (Buffer.Cursor, Buffer.Cursor);
-
-      Result.Last.Offset := Buffer.Cursor.Offset + Text'Length - 1;
-
-      Buffer.Str (Buffer.Cursor.Offset .. Result.Last.Offset) := Text;
-
-      Buffer.Cursor := Result.Last;
-      Buffer.Cursor.Offset := Buffer.Cursor.Offset + 1;
-
-      if Buffer.Full_Cursor_Update then
-         for C of Text loop
-            --  TODO: This does not handle CR/LF
-            if Is_Line_Terminator (C) then
-               Buffer.Cursor.Line := Buffer.Cursor.Line + 1;
-               Buffer.Cursor.Line_Offset := 1;
-               Buffer.Cursor.Column := 1;
-            else
-               Buffer.Cursor.Line_Offset := Buffer.Cursor.Line_Offset + 1;
-               --  TODO : This does not handle tabs
-               Buffer.Cursor.Column := Buffer.Cursor.Column + 1;
-
-               if Buffer.Cursor.Max_Column < Buffer.Cursor.Column then
-                  Buffer.Cursor.Max_Column := Buffer.Cursor.Column;
-               end if;
-            end if;
-         end loop;
-      end if;
-
-      return Result;
-   end Write_String;
-
-   ---------------------
-   -- Get_Empty_Slice --
-   ---------------------
-
-   function Get_Empty_Slice return Buffer_Slice is
-      Result : Buffer_Slice := (Buffer.Cursor, Buffer.Cursor);
-   begin
-      Result.Last.Offset := Result.First.Offset - 1;
-      Result.Last.Line := Result.First.Line - 1;
-      Result.Last.Line_Offset := Result.First.Line_Offset - 1;
-      Result.Last.Column := Result.First.Column - 1;
-
-      return Result;
-   end Get_Empty_Slice;
-
-   ------------------------
-   -- Push_Buffer_Cursor --
-   ------------------------
-
-   procedure Push_Buffer_Cursor is
-   begin
-      Buffer.Cursor_Stack.Append (Buffer.Cursor);
-   end Push_Buffer_Cursor;
-
-   -----------------------
-   -- Pop_Buffer_Cursor --
-   -----------------------
-
-   procedure Pop_Buffer_Cursor is
-      Max_Column : Integer := Buffer.Cursor.Max_Column;
-   begin
-      Buffer.Cursor := Buffer.Cursor_Stack.Last_Element;
-      Buffer.Cursor_Stack.Delete_Last;
-
-      if Max_Column > Buffer.Cursor.Max_Column then
-         Buffer.Cursor.Max_Column := Max_Column;
-      end if;
-   end Pop_Buffer_Cursor;
-
-   -----------------
-   -- Copy_String --
-   -----------------
-
-   function Copy_String (Slice : Buffer_Slice) return Text_Type is
-   begin
-      return Buffer.Str (Slice.First.Offset .. Slice.Last.Offset);
-   end Copy_String;
-
-   ------------
-   -- Indent --
-   ------------
-
-   function Indent return Buffer_Slice is
-   begin
-      return Write_String
-        (Text_Type'(1 .. Top_Frame.Top_Context.Indent => ' '));
-   end Indent;
-
-   -------------------------
-   -- Resolve_Indentation --
-   -------------------------
-
-   function Resolve_Indentation return Buffer_Slice is
-   begin
-      if Buffer.Cursor.Offset > 1
-        and then Is_Line_Terminator (Buffer.Str (Buffer.Cursor.Offset - 1))
-      then
-         return Indent;
-      else
-         return Get_Empty_Slice;
-      end if;
-   end Resolve_Indentation;
 
 end Wrapping.Runtime.Structure;

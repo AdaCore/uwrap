@@ -24,9 +24,10 @@ with Ada.Containers.Vectors;
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 with Langkit_Support.Slocs;       use Langkit_Support.Slocs;
 
+with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
-with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
+with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
 
 generic
    Language_Name : Text_Type;

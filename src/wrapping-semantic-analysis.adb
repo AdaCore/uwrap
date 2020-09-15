@@ -792,7 +792,7 @@ package body Wrapping.Semantic.Analysis is
 
       Found_Characters_On_Line : Boolean := False;
       Line_Number              : Integer := 1;
-      Start_Of_Line            : Boolean := False;
+      Is_Start_Of_Line         : Boolean := False;
    begin
       Str_First := Str'First;
       Str_Last  := Str'Last;
@@ -836,9 +836,8 @@ package body Wrapping.Semantic.Analysis is
 
       if Result.Str_Kind = String_Raw then
          Result.Str.Append
-           ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
+           ((Str_Kind, 0, 0, Left_Spaces,
             To_Unbounded_Text (Str (Str_First .. Str_Last))));
-         Start_Of_Line := False;
 
          return;
       end if;
@@ -866,7 +865,7 @@ package body Wrapping.Semantic.Analysis is
                null;
             else
                Result.Str.Append
-                 ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
+                 ((Str_Kind, 0, 0, Left_Spaces,
                    To_Unbounded_Text (Str (Next_Index .. Current))));
             end if;
 
@@ -875,13 +874,11 @@ package body Wrapping.Semantic.Analysis is
             Next_Index               := Current;
             Found_Characters_On_Line := False;
             Left_Spaces              := 0;
-            Start_Of_Line            := True;
          elsif Str (Current) = '\' then
             if Current /= Str'First then
                Result.Str.Append
-                 ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
+                 ((Str_Kind, 0, 0, Left_Spaces,
                       To_Unbounded_Text (Str (Next_Index .. Current - 1))));
-               Start_Of_Line := False;
             end if;
 
             Current := Current + 1;
@@ -921,28 +918,25 @@ package body Wrapping.Semantic.Analysis is
                      end if;
 
                      Result.Str.Append
-                       ((Expr_Kind, 0, 0, Start_Of_Line, Left_Spaces,
+                       ((Expr_Kind, 0, 0, Left_Spaces,
                         Build_Expr (Expression_Unit.Root)));
-                     Start_Of_Line := False;
                   end;
 
                   Current    := Next_Index + 1;
                   Next_Index := Current;
                else
                   Result.Str.Append
-                    ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
+                    ((Str_Kind, 0, 0, Left_Spaces,
                       To_Unbounded_Text (Str (Current - 1 .. Current))));
                   Next_Index := Current;
                   Current    := Current + 1;
-                  Start_Of_Line := False;
                end if;
             elsif Str (Current) = 'n' then
                Result.Str.Append
-                 ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
+                 ((Str_Kind, 0, 0, Left_Spaces,
                    To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
                Current    := Current + 1;
                Next_Index := Current;
-               Start_Of_Line := False;
             elsif Str (Current) in '0' .. '9' then
                Next_Index := Current;
 
@@ -961,18 +955,14 @@ package body Wrapping.Semantic.Analysis is
                     Natural'Wide_Wide_Value (Str (Current .. Next_Index));
                begin
                   Result.Str.Append
-                    ((Group_Kind, 0, 0, Start_Of_Line,
-                     Left_Spaces, Group_Value));
-                  Start_Of_Line := False;
+                    ((Group_Kind, 0, 0, Left_Spaces, Group_Value));
                end;
 
                Current    := Next_Index + 1;
                Next_Index := Current;
             elsif Str (Current) = '\' then
                Result.Str.Append
-                 ((Str_Kind, 0, 0, Start_Of_Line,
-                  Left_Spaces, To_Unbounded_Text ("\")));
-               Start_Of_Line := False;
+                 ((Str_Kind, 0, 0, Left_Spaces, To_Unbounded_Text ("\")));
                Next_Index := Current + 1;
                Current    := Current + 1;
             else
@@ -1008,22 +998,31 @@ package body Wrapping.Semantic.Analysis is
          --  Add the end of the text to the result
 
          Result.Str.Append
-           ((Str_Kind, 0, 0, Start_Of_Line, Left_Spaces,
+           ((Str_Kind, 0, 0, Left_Spaces,
              To_Unbounded_Text (Str (Next_Index .. Str_Last))));
       end if;
 
-      --  If we're on an indentation string, remove the spaces that have been
-      --  identified as needing removal;
       if Result.Str_Kind = String_Indent then
+         --  If we're on an indentation string, remove the spaces that have
+         --  been identified as needing removal;
+
+         Is_Start_Of_Line := True;
+
          for S of Result.Str loop
-            if S.Kind = Str_Kind and then S.Start_Of_Line then
+            if S.Kind = Str_Kind then
                declare
                   Str : Text_Type := To_Text (S.Value);
                begin
-                  if Str'Length >= Indentation_To_Ignore then
+                  if Is_Start_Of_Line
+                    and then Str'Length >= Indentation_To_Ignore
+                  then
                      S.Value := To_Unbounded_Text
                        (Str (Str'First + S.Indent .. Str'Last));
                   end if;
+
+                  Is_Start_Of_Line :=
+                    Str'Length > 0
+                    and then Is_Line_Terminator (Str (Str'Last));
                end;
             end if;
 
@@ -1032,6 +1031,13 @@ package body Wrapping.Semantic.Analysis is
             else
                S.Indent := 0;
             end if;
+         end loop;
+      else
+         --  If we're not on an indentation string, then reset the indent
+         --  values.
+
+         for S of Result.Str loop
+            S.Indent := 0;
          end loop;
       end if;
 
