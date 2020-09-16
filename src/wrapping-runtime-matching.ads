@@ -17,33 +17,33 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
-
-with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
-with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
+with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
 
-package Wrapping.Runtime.Functions is
+package Wrapping.Runtime.Matching is
 
-   procedure Call_Normalize_Ada_Name
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   procedure Push_Match_True (An_Entity : access W_Object_Type'Class);
 
-   procedure Call_Replace_Text
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   procedure Push_Match_False;
 
-   procedure Call_To_Lower
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   function Evaluate_Match_Expression (Expr : T_Expr) return Boolean;
 
-   procedure Call_Reindent
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   function Evaluate_Match_Result
+     (Object : W_Object; Matching_Expression : T_Expr) return Boolean;
 
-   procedure Call_Max_Col
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   procedure Push_Match_Result
+     (Object : W_Object; Matching_Expression : T_Expr);
 
-   procedure Call_Convert_To_Text
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   procedure Push_Match_It_Result
+     (It : W_Object; Matching_Expression : T_Expr);
 
-   procedure Call_Convert_To_String
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   function Match (Pattern, Text : Text_Type) return Boolean;
+   --  Match a pattern with a text, adding group and captured variables on the
+   --  top frame
 
-end Wrapping.Runtime.Functions;
+   procedure Evaluate_Generator_Regexp
+     (Root      : access W_Object_Type'Class;
+      Expr      : T_Expr;
+      Generator : Generator_Type);
+
+end Wrapping.Runtime.Matching;

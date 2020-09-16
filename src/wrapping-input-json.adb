@@ -29,6 +29,7 @@ with GNATCOLL.Mmap;         use GNATCOLL.Mmap;
 
 with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
 with Wrapping.Runtime.Strings;  use Wrapping.Runtime.Strings;
+with Wrapping.Runtime.Frames;   use Wrapping.Runtime.Frames;
 
 package body Wrapping.Input.JSON is
 

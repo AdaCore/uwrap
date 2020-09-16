@@ -20,8 +20,10 @@
 with Ada.Wide_Wide_Text_IO;             use Ada.Wide_Wide_Text_IO;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 
-with Wrapping.Runtime.Objects;  use Wrapping.Runtime.Objects;
-with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Analysis;    use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Objects;     use Wrapping.Runtime.Objects;
+with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
+with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 
 package body Wrapping.Runtime.Strings is
 

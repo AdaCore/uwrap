@@ -25,9 +25,11 @@ with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Text_IO;
 with Ada.Containers;                    use Ada.Containers;
 
-with Wrapping.Runtime.Analysis;   use Wrapping.Runtime.Analysis;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Utils;              use Wrapping.Utils;
+with Wrapping.Runtime.Analysis;   use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Matching;   use Wrapping.Runtime.Matching;
+with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
 
 package body Wrapping.Input.Kit is
 

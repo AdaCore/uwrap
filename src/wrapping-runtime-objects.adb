@@ -20,15 +20,22 @@
 with Ada.Containers;        use Ada.Containers;
 with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
 
-with Wrapping.Runtime.Analysis;  use Wrapping.Runtime.Analysis;
-with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 with Libtemplatelang.Common;     use Libtemplatelang.Common;
+
+with Wrapping.Runtime.Structure;   use Wrapping.Runtime.Structure;
+with Wrapping.Runtime.Analysis;    use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
+with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
+with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
+with Wrapping.Runtime.Closures;    use Wrapping.Runtime.Closures;
 
 package body Wrapping.Runtime.Objects is
 
    function Is_Wrapping (Node : access W_Node_Type'Class) return Boolean is
      (Node.all in W_Template_Instance_Type'Class
       and then W_Template_Instance (Node).Origin /= null);
+
+   procedure Run_Deferred_Expr (Deferred_Expr : W_Deferred_Expr_Type);
 
    -------------------
    -- Has_Allocator --
@@ -715,6 +722,19 @@ package body Wrapping.Runtime.Objects is
 
       return Result;
    end Write_String;
+
+   -----------------------------
+   -- Push_Intrinsic_Function --
+   -----------------------------
+
+   procedure Push_Intrinsic_Function (Prefix : W_Object; A_Call : Call_Access)
+   is
+   begin
+      Push_Object
+        (W_Object'
+           (new W_Intrinsic_Function_Type'
+                (Prefix => Prefix, Call => A_Call, others => <>)));
+   end Push_Intrinsic_Function;
 
    ----------------------
    -- Push_Call_Result --
@@ -1803,5 +1823,31 @@ package body Wrapping.Runtime.Objects is
       An_Entity.As_Singleton.Evaluate_Bowse_Functions
         (A_Mode, Match_Expression);
    end Evaluate_Bowse_Functions;
+
+   ----------------------------------
+   -- Capture_Deferred_Environment --
+   ----------------------------------
+
+   procedure Capture_Deferred_Environment
+     (Deferred_Expr : W_Deferred_Expr; Expr : T_Expr)
+   is
+   begin
+      Deferred_Expr.A_Closure := Capture_Closure (Expr.Deferred_Closure);
+      Deferred_Expr.Expr      := Expr.Deferred_Expr;
+   end Capture_Deferred_Environment;
+
+   -----------------------
+   -- Run_Deferred_Expr --
+   -----------------------
+
+   procedure Run_Deferred_Expr (Deferred_Expr : W_Deferred_Expr_Type) is
+      Result : W_Object;
+   begin
+      Push_Frame (Deferred_Expr.A_Closure);
+
+      Result := Evaluate_Expression (Deferred_Expr.Expr);
+      Pop_Frame;
+      Push_Object (Result);
+   end Run_Deferred_Expr;
 
 end Wrapping.Runtime.Objects;

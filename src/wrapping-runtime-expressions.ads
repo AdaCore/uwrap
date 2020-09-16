@@ -17,33 +17,28 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
+with Ada.Containers;              use Ada.Containers;
 
-with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
-with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
+with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
+with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
 
-package Wrapping.Runtime.Functions is
+package Wrapping.Runtime.Expressions is
 
-   procedure Call_Normalize_Ada_Name
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   procedure Evaluate_Expression (Expr : T_Expr) with
+     Post => Top_Frame.Data_Stack.Length =
+       Top_Frame.Data_Stack.Length'Old + 1;
 
-   procedure Call_Replace_Text
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   function Evaluate_Expression (Expr : T_Expr) return W_Object;
 
-   procedure Call_To_Lower
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   function Handle_Template_Call
+     (Instance : W_Object; Args : T_Arg_Vectors.Vector)
+      return Visit_Action with
+     Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
 
-   procedure Call_Reindent
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   function Push_Global_Identifier (Name : Text_Type) return Boolean with
+     Post => Top_Frame.Data_Stack.Length'Old =
+       (if Push_Global_Identifier'Result then Top_Frame.Data_Stack.Length - 1
+        else Top_Frame.Data_Stack.Length);
 
-   procedure Call_Max_Col
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-   procedure Call_Convert_To_Text
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-   procedure Call_Convert_To_String
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-end Wrapping.Runtime.Functions;
+end Wrapping.Runtime.Expressions;

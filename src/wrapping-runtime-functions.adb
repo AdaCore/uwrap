@@ -17,14 +17,18 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Containers;                    use Ada.Containers;
 with Ada.Wide_Wide_Text_IO;             use Ada.Wide_Wide_Text_IO;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Strings.Wide_Wide_Unbounded;   use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
 
-with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
-with Wrapping.Runtime.Strings;  use Wrapping.Runtime.Strings;
-with Wrapping.Utils;            use Wrapping.Utils;
+with Wrapping.Utils;               use Wrapping.Utils;
+with Wrapping.Runtime.Analysis;    use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Strings;     use Wrapping.Runtime.Strings;
+with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
+with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
+with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
 
 package body Wrapping.Runtime.Functions is
 
@@ -213,5 +217,64 @@ package body Wrapping.Runtime.Functions is
 
       Push_Object (Result);
    end Call_Max_Col;
+
+   --------------------------
+   -- Call_Convert_To_Text --
+   --------------------------
+
+   procedure Call_Convert_To_Text
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
+   is
+   begin
+      if Params.Length in 1 .. 2 then
+         Push_Frame_Context_Parameter;
+
+         Push_Object
+           (W_Object'
+              (new W_Text_Conversion_Type'
+                 (An_Object =>
+                    Evaluate_Expression (Params.Element (1).Expr))));
+
+         Pop_Frame_Context;
+
+         if Params.Length = 2 then
+            Push_Match_Result (Top_Object, Params.Element (2).Expr);
+            Delete_Object_At_Position (-2);
+         end if;
+      else
+         Error ("conversion takes up to 2 arguments");
+      end if;
+   end Call_Convert_To_Text;
+
+   ----------------------------
+   -- Call_Convert_To_String --
+   ----------------------------
+
+   procedure Call_Convert_To_String
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
+   is
+      Slice : Buffer_Slice;
+   begin
+      if Params.Length in 1 .. 2 then
+         Push_Frame_Context_Parameter;
+         Push_Buffer_Cursor;
+         Slice :=
+           Evaluate_Expression
+             (Params.Element (1).Expr).Write_String;
+         Pop_Buffer_Cursor;
+
+         Push_Object
+           (To_W_String
+              (Buffer.Str
+                   (Slice.First.Offset .. Slice.Last.Offset)));
+
+         if Params.Length = 2 then
+            Push_Match_Result (Top_Object, Params.Element (2).Expr);
+            Delete_Object_At_Position (-2);
+         end if;
+      else
+         Error ("conversion takes up to 2 arguments");
+      end if;
+   end Call_Convert_To_String;
 
 end Wrapping.Runtime.Functions;

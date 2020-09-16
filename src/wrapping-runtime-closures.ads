@@ -17,33 +17,11 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
+with Wrapping.Utils;             use Wrapping.Utils;
+with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 
-with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
-with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
-with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
+package Wrapping.Runtime.Closures is
 
-package Wrapping.Runtime.Functions is
+   function Capture_Closure (Names : Text_Sets.Set) return Closure;
 
-   procedure Call_Normalize_Ada_Name
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-   procedure Call_Replace_Text
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-   procedure Call_To_Lower
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-   procedure Call_Reindent
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-   procedure Call_Max_Col
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-   procedure Call_Convert_To_Text
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-   procedure Call_Convert_To_String
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-end Wrapping.Runtime.Functions;
+end Wrapping.Runtime.Closures;

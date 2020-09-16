@@ -337,15 +337,6 @@ package Wrapping.Runtime.Structure is
       Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
    pragma Warnings (On, "postcondition does not mention");
 
-   procedure Evaluate_Generator_Regexp
-     (Root      : access W_Object_Type'Class;
-      Expr      : T_Expr;
-      Generator : Generator_Type);
-
-   procedure Push_Match_True (An_Entity : access W_Object_Type'Class);
-
-   procedure Push_Match_False;
-
    function Write_String (Object : W_Object_Type) return Buffer_Slice;
    --  This function resolves a runtime object into the String value, and
    --  writes this string in the global string buffer. The result of this
@@ -394,15 +385,6 @@ package Wrapping.Runtime.Structure is
    function Process_Parameters
      (Profile : Parameter_Profile; Arg : T_Arg_Vectors.Vector)
       return Actuals_Type;
-
-   function Evaluate_Match_Result
-     (Object : W_Object; Matching_Expression : T_Expr) return Boolean;
-
-   procedure Push_Match_Result
-     (Object : W_Object; Matching_Expression : T_Expr);
-
-   procedure Push_Match_It_Result
-     (It : W_Object; Matching_Expression : T_Expr);
 
    procedure Handle_Call_Parameters
      (Args               : T_Arg_Vectors.Vector;

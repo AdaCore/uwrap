@@ -304,6 +304,8 @@ package Wrapping.Runtime.Objects is
      (An_Entity : access W_Intrinsic_Function_Type) return Boolean
    is (An_Entity.Generator);
 
+   procedure Push_Intrinsic_Function (Prefix : W_Object; A_Call : Call_Access);
+
    type W_Function_Type is new W_Object_Type with record
       A_Function : T_Function;
    end record;
@@ -350,6 +352,9 @@ package Wrapping.Runtime.Objects is
 
    overriding function Write_String
      (Object : W_Deferred_Expr_Type) return Buffer_Slice;
+
+   procedure Capture_Deferred_Environment
+     (Deferred_Expr : W_Deferred_Expr; Expr : T_Expr);
 
    type W_Node_Type is new W_Object_Type with record
       Parent, Next, Prev : W_Node;
