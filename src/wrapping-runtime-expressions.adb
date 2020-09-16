@@ -24,7 +24,7 @@ with Libtemplatelang.Common;   use Libtemplatelang.Common;
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 
 with Wrapping.Semantic.Analysis;  use Wrapping.Semantic.Analysis;
-with Wrapping.Runtime.Analysis;   use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Commands;   use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Matching;   use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
 with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;

@@ -27,7 +27,7 @@ with Ada.Strings.UTF_Encoding; use Ada.Strings.UTF_Encoding;
 with GNATCOLL.Strings_Impl; use GNATCOLL.Strings_Impl;
 with GNATCOLL.Mmap;         use GNATCOLL.Mmap;
 
-with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Commands; use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Strings;  use Wrapping.Runtime.Strings;
 with Wrapping.Runtime.Frames;   use Wrapping.Runtime.Frames;
 
@@ -169,7 +169,7 @@ package body Wrapping.Input.JSON is
 
       Close (File);
 
-      Wrapping.Runtime.Analysis.Analyse_Input (W_Node (Root_Node));
+      Analyse_Input (W_Node (Root_Node));
    end Analyze_File;
 
 end Wrapping.Input.JSON;

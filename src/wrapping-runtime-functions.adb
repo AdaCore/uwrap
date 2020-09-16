@@ -24,7 +24,7 @@ with Ada.Strings.Wide_Wide_Unbounded;   use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
 
 with Wrapping.Utils;               use Wrapping.Utils;
-with Wrapping.Runtime.Analysis;    use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Commands;    use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Strings;     use Wrapping.Runtime.Strings;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;

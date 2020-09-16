@@ -27,7 +27,7 @@ with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
 with Wrapping.Utils;              use Wrapping.Utils;
 
-package Wrapping.Runtime.Analysis is
+package Wrapping.Runtime.Commands is
 
    Templates_To_Traverse : W_Template_Instance_Vectors.Vector;
 
@@ -59,4 +59,4 @@ package Wrapping.Runtime.Analysis is
    --  Go through the commands in the lexical scope and apply then using the
    --  It value as the currently iterated object.
 
-end Wrapping.Runtime.Analysis;
+end Wrapping.Runtime.Commands;

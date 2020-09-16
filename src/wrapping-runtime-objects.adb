@@ -23,7 +23,7 @@ with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
 with Libtemplatelang.Common;     use Libtemplatelang.Common;
 
 with Wrapping.Runtime.Structure;   use Wrapping.Runtime.Structure;
-with Wrapping.Runtime.Analysis;    use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Commands;    use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
 with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;

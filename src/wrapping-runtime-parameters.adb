@@ -21,7 +21,7 @@ with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Wrapping.Runtime.Frames;    use Wrapping.Runtime.Frames;
-with Wrapping.Runtime.Analysis;  use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Commands;  use Wrapping.Runtime.Commands;
 
 package body Wrapping.Runtime.Parameters is
 

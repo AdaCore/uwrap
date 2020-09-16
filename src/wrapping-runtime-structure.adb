@@ -32,7 +32,7 @@ with Libtemplatelang.Analysis;   use Libtemplatelang.Analysis;
 
 with Wrapping.Semantic.Structure;  use Wrapping.Semantic.Structure;
 with Wrapping.Semantic.Analysis;   use Wrapping.Semantic.Analysis;
-with Wrapping.Runtime.Analysis;    use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Commands;    use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Functions;   use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Objects;     use Wrapping.Runtime.Objects;
 with Wrapping.Runtime.Strings;     use Wrapping.Runtime.Strings;

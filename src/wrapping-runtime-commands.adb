@@ -45,7 +45,7 @@ with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Closures;    use Wrapping.Runtime.Closures;
 
-package body Wrapping.Runtime.Analysis is
+package body Wrapping.Runtime.Commands is
 
    Visitor_Counter : Integer := 0;
    --  This is the counter of visitor. Every time a visitor is started
@@ -876,4 +876,4 @@ package body Wrapping.Runtime.Analysis is
       end if;
    end Outer_Expression_Pick;
 
-end Wrapping.Runtime.Analysis;
+end Wrapping.Runtime.Commands;

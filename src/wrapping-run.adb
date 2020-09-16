@@ -38,7 +38,7 @@ with Libadalang.Introspection;
 
 with Wrapping.Semantic;          use Wrapping.Semantic;
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
-with Wrapping.Runtime.Analysis;  use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Commands;  use Wrapping.Runtime.Commands;
 with Wrapping.Input.Kit;
 with Wrapping.Input.JSON;        use Wrapping.Input.JSON;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;

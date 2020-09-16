@@ -27,7 +27,7 @@ with Ada.Containers;                    use Ada.Containers;
 
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Utils;              use Wrapping.Utils;
-with Wrapping.Runtime.Analysis;   use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Commands;   use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Matching;   use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
 
@@ -66,7 +66,7 @@ package body Wrapping.Input.Kit is
       Root_Entity : W_Node;
    begin
       Root_Entity := W_Node (Get_Entity_For_Node (Unit.Root));
-      Wrapping.Runtime.Analysis.Analyse_Input (Root_Entity);
+      Analyse_Input (Root_Entity);
    end Analyze_Unit;
 
    -------------------

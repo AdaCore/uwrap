@@ -22,7 +22,7 @@ with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
 with Ada.Containers;              use Ada.Containers;
 
 with Wrapping.Utils;            use Wrapping.Utils;
-with Wrapping.Runtime.Analysis; use Wrapping.Runtime.Analysis;
+with Wrapping.Runtime.Commands; use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Objects;  use Wrapping.Runtime.Objects;
 
 package body Wrapping.Runtime.Frames is
