@@ -27,12 +27,14 @@ with Wrapping.Runtime.Objects;  use Wrapping.Runtime.Objects;
 
 package body Wrapping.Runtime.Frames is
 
+   Data_Frame_Stack : Data_Frame_Vectors.Vector;
+
    -----------------
    --  Call_Yield --
    -----------------
 
    procedure Call_Yield
-     (Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback)
+     (Callback : Yield_Callback_Type := Top_Context.Yield_Callback)
    is
    begin
       if Callback /= null then
@@ -42,7 +44,7 @@ package body Wrapping.Runtime.Frames is
          --     child ().filter (condition)
          --  child will values to filter, calling the callback on the
          --  condition. That condition should not be yeilding.
-         Top_Frame.Top_Context.Yield_Callback := null;
+         Top_Context.Yield_Callback := null;
 
          Callback.all;
          Delete_Object_At_Position (-2);
@@ -214,7 +216,7 @@ package body Wrapping.Runtime.Frames is
 
    procedure Push_Frame_Context is
    begin
-      Push_Frame_Context (Top_Frame.Top_Context.all);
+      Push_Frame_Context (Top_Context.all);
    end Push_Frame_Context;
 
    ----------------------------------
@@ -224,7 +226,7 @@ package body Wrapping.Runtime.Frames is
    procedure Push_Frame_Context_Parameter is
    begin
       Push_Frame_Context_No_Match;
-      Top_Frame.Top_Context.Is_Root_Selection := True;
+      Top_Context.Is_Root_Selection := True;
    end Push_Frame_Context_Parameter;
 
    ---------------------------------------------
@@ -234,11 +236,10 @@ package body Wrapping.Runtime.Frames is
    procedure Push_Frame_Context_Parameter_With_Match (Object : W_Object) is
    begin
       Push_Frame_Context;
-      Top_Frame.Top_Context.Is_Root_Selection   := True;
-      Top_Frame.Top_Context.Match_Mode          := Match_Ref_Default;
-      Top_Frame.Top_Context.Outer_Expr_Callback :=
-        Outer_Expression_Match'Access;
-      Top_Frame.Top_Context.Outer_Object := Object;
+      Top_Context.Is_Root_Selection   := True;
+      Top_Context.Match_Mode          := Match_Ref_Default;
+      Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+      Top_Context.Outer_Object        := Object;
    end Push_Frame_Context_Parameter_With_Match;
 
    ---------------------------------
@@ -248,9 +249,9 @@ package body Wrapping.Runtime.Frames is
    procedure Push_Frame_Context_No_Outer is
    begin
       Push_Frame_Context;
-      Top_Frame.Top_Context.Pick_Callback       := null;
-      Top_Frame.Top_Context.Outer_Expr_Callback := null;
-      Top_Frame.Top_Context.Outer_Object        := null;
+      Top_Context.Function_Result_Callback := null;
+      Top_Context.Outer_Expr_Callback      := null;
+      Top_Context.Outer_Object             := null;
    end Push_Frame_Context_No_Outer;
 
    ---------------------------------
@@ -260,9 +261,9 @@ package body Wrapping.Runtime.Frames is
    procedure Push_Frame_Context_No_Match is
    begin
       Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode          := Match_None;
-      Top_Frame.Top_Context.Outer_Expr_Callback := null;
-      Top_Frame.Top_Context.Outer_Object        := null;
+      Top_Context.Match_Mode          := Match_None;
+      Top_Context.Outer_Expr_Callback := null;
+      Top_Context.Outer_Object        := null;
    end Push_Frame_Context_No_Match;
 
    --------------------------------
@@ -272,8 +273,8 @@ package body Wrapping.Runtime.Frames is
    procedure Push_Frame_Context_No_Pick is
    begin
       Push_Frame_Context;
-      Top_Frame.Top_Context.Pick_Callback       := null;
-      Top_Frame.Top_Context.Outer_Expr_Callback := null;
+      Top_Context.Function_Result_Callback := null;
+      Top_Context.Outer_Expr_Callback      := null;
    end Push_Frame_Context_No_Pick;
 
    ------------------------
@@ -281,10 +282,10 @@ package body Wrapping.Runtime.Frames is
    ------------------------
 
    procedure Push_Frame_Context (Context : Frame_Context_Type) is
-      Parent : Frame_Context := Top_Frame.Top_Context;
+      Parent : Frame_Context := Top_Context;
    begin
       Top_Frame.Top_Context := new Frame_Context_Type'(Context);
-      Top_Frame.Top_Context.Parent_Context := Parent;
+      Top_Context.Parent_Context := Parent;
    end Push_Frame_Context;
 
    -----------------------
@@ -293,7 +294,7 @@ package body Wrapping.Runtime.Frames is
 
    procedure Pop_Frame_Context is
    begin
-      Top_Frame.Top_Context := Top_Frame.Top_Context.Parent_Context;
+      Top_Frame.Top_Context := Top_Context.Parent_Context;
    end Pop_Frame_Context;
 
    -------------------------------
@@ -321,16 +322,16 @@ package body Wrapping.Runtime.Frames is
    procedure Update_Frames is
    begin
       if Data_Frame_Stack.Length > 0 then
-         Top_Frame := Data_Frame_Stack.Last_Element;
+         Top_Frame_Ref := Data_Frame_Stack.Last_Element;
       else
-         Top_Frame := null;
+         Top_Frame_Ref := null;
       end if;
 
       if Data_Frame_Stack.Length > 1 then
-         Parent_Frame :=
+         Parent_Frame_Ref :=
            Data_Frame_Stack.Element (Data_Frame_Stack.Last_Index - 1);
       else
-         Parent_Frame := null;
+         Parent_Frame_Ref := null;
       end if;
    end Update_Frames;
 
@@ -345,13 +346,11 @@ package body Wrapping.Runtime.Frames is
       New_Frame.Top_Context   := new Frame_Context_Type;
 
       if Parent_Frame /= null then
-         New_Frame.Top_Context.Allocate_Callback :=
-           Top_Frame.Top_Context.Allocate_Callback;
-         New_Frame.Top_Context.Visit_Decision :=
-           Top_Frame.Top_Context.Visit_Decision;
-         New_Frame.Top_Context.Yield_Callback :=
-           Top_Frame.Top_Context.Yield_Callback;
-         New_Frame.Top_Context.Indent := Top_Frame.Top_Context.Indent;
+         New_Frame.Top_Context.Allocate_Callback
+           := Top_Context.Allocate_Callback;
+         New_Frame.Top_Context.Visit_Decision := Top_Context.Visit_Decision;
+         New_Frame.Top_Context.Yield_Callback := Top_Context.Yield_Callback;
+         New_Frame.Top_Context.Indent := Top_Context.Indent;
       end if;
 
       New_Frame.Temp_Names := new Text_Maps.Map;
@@ -382,7 +381,7 @@ package body Wrapping.Runtime.Frames is
       Copy_Symbols := A_Closure.Captured_Symbols.Copy;
       Top_Frame.Symbols.Move (Copy_Symbols);
       Top_Frame.Temp_Names := A_Closure.Temp_Names;
-      Top_Frame.Top_Context.Left_Value := A_Closure.Left_Value;
+      Top_Context.Left_Value := A_Closure.Left_Value;
 
       if A_Closure.Implicit_It /= null then
          Push_Implicit_It (A_Closure.Implicit_It);

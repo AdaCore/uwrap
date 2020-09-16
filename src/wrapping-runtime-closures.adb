@@ -31,7 +31,7 @@ package body Wrapping.Runtime.Closures is
       A_Closure : Closure := new Closure_Type;
    begin
       Push_Frame_Context;
-      Top_Frame.Top_Context.Is_Root_Selection := True;
+      Top_Context.Is_Root_Selection := True;
 
       for Name of Names loop
          if Push_Global_Identifier (Name) then
@@ -62,7 +62,7 @@ package body Wrapping.Runtime.Closures is
       A_Closure.Implicit_It   := Get_Implicit_It;
       A_Closure.Lexical_Scope := Top_Frame.Lexical_Scope;
       A_Closure.Temp_Names    := Top_Frame.Temp_Names;
-      A_Closure.Left_Value    := Top_Frame.Top_Context.Left_Value;
+      A_Closure.Left_Value    := Top_Context.Left_Value;
 
       return A_Closure;
    end Capture_Closure;

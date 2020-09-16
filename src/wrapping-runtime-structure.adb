@@ -102,7 +102,7 @@ package body Wrapping.Runtime.Structure is
          --    x.all ()
          --  as opposed to:
          --    x.all().something().
-         if Top_Frame.Top_Context.Yield_Callback = null then
+         if Top_Context.Yield_Callback = null then
             return;
          end if;
 
@@ -113,10 +113,10 @@ package body Wrapping.Runtime.Structure is
          --  if we do fold (i : inti, i: acc);
 
          Push_Frame_Context_Parameter;
-         Top_Frame.Top_Context.Name_Captured       := To_Unbounded_Text ("");
-         Top_Frame.Top_Context.Outer_Expr_Callback :=
+         Top_Context.Name_Captured       := To_Unbounded_Text ("");
+         Top_Context.Outer_Expr_Callback :=
            Outer_Expression_Match'Access;
-         Top_Frame.Top_Context.Visit_Decision :=
+         Top_Context.Visit_Decision :=
            Visit_Decision'Unchecked_Access;
 
          --  Then evaluate that folding expression
@@ -134,9 +134,8 @@ package body Wrapping.Runtime.Structure is
 
          --  If there's an name to store the result, store it there.
 
-         if Top_Frame.Top_Context.Name_Captured /= "" then
-            Include_Symbol
-              (To_Text (Top_Frame.Top_Context.Name_Captured), Result);
+         if Top_Context.Name_Captured /= "" then
+            Include_Symbol (To_Text (Top_Context.Name_Captured), Result);
          end if;
       end Evaluate_Yield_Function;
 
@@ -154,19 +153,18 @@ package body Wrapping.Runtime.Structure is
          --  captured by the possible wrap or weave command.
 
          Push_Frame_Context;
-         Top_Frame.Top_Context.Visit_Decision :=
-           Visit_Decision'Unchecked_Access;
+         Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
 
          Push_Implicit_It (Browsed);
 
-         if Top_Frame.Top_Context.Outer_Expr_Callback /= null then
-            Top_Frame.Top_Context.Outer_Expr_Callback.all;
+         if Top_Context.Outer_Expr_Callback /= null then
+            Top_Context.Outer_Expr_Callback.all;
          end if;
 
          Pop_Object;
          Pop_Frame_Context;
 
-         if Top_Frame.Top_Context.Yield_Callback /= null then
+         if Top_Context.Yield_Callback /= null then
             Evaluate_Yield_Function;
 
             if Visit_Decision = Unknown then
@@ -196,11 +194,11 @@ package body Wrapping.Runtime.Structure is
       --  entity outside of folding context. When folding, the result of the
       --  folding expression will actually be what needs to be captured.
 
-      if Top_Frame.Top_Context.Name_Captured /= ""
-        and then Top_Frame.Top_Context.Yield_Callback = null
+      if Top_Context.Name_Captured /= ""
+        and then Top_Context.Yield_Callback = null
       then
          Include_Symbol
-           (To_Text (Top_Frame.Top_Context.Name_Captured),
+           (To_Text (Top_Context.Name_Captured),
             new W_Reference_Type'(Value => W_Object (Browsed), others => <>));
       end if;
 
@@ -209,9 +207,9 @@ package body Wrapping.Runtime.Structure is
       --  this browsing iteration.
 
       Push_Frame_Context_Parameter_With_Match (W_Object (Browsed));
-      Top_Frame.Top_Context.Name_Captured  := To_Unbounded_Text ("");
-      Top_Frame.Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
-      Top_Frame.Top_Context.Yield_Callback := null;
+      Top_Context.Name_Captured  := To_Unbounded_Text ("");
+      Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
+      Top_Context.Yield_Callback := null;
 
       Evaluate_Expression (Match_Expression);
 
@@ -236,13 +234,13 @@ package body Wrapping.Runtime.Structure is
             --  stop allocating). This case is supposed to have being taken
             --  care of earlier but raise an error here just in case.
 
-            if Top_Frame.Top_Context.Yield_Callback /= null then
+            if Top_Context.Yield_Callback /= null then
                Error ("allocation in yield browsing functions is illegal");
             end if;
 
             return Stop;
          else
-            if Top_Frame.Top_Context.Yield_Callback /= null then
+            if Top_Context.Yield_Callback /= null then
                Evaluate_Yield_Function;
 
                --  The result of the expansion can be calls to wrap functions,
@@ -333,7 +331,6 @@ package body Wrapping.Runtime.Structure is
       Result       : Boolean := False;
    begin
       Push_Frame_Context;
-      --  Top_Frame.Top_Context.Current_Indentation := 0;
 
       if Other_Entity = Match_False then
          Result := True;

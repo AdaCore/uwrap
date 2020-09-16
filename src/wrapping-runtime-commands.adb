@@ -123,7 +123,7 @@ package body Wrapping.Runtime.Commands is
          --  There's nothing to check on the expression below. Deactivate the
          --  expression callback (otherwise, it may perform wrong calls, either
          --  to an unwanted check, or to the outer pick function.
-         Top_Frame.Top_Context.Outer_Expr_Callback := null;
+         Top_Context.Outer_Expr_Callback := null;
 
          Evaluate_Expression (Template_Clause.Call.Args.Element (1).Expr);
          Result := Pop_Object.Dereference;
@@ -240,13 +240,13 @@ package body Wrapping.Runtime.Commands is
 
    procedure Install_Command_Context (Command : T_Command) is
    begin
-      Top_Frame.Top_Context.Allocate_Callback :=
+      Top_Context.Allocate_Callback :=
         Allocate_Detached'Unrestricted_Access;
-      Top_Frame.Top_Context.Outer_Expr_Callback :=
+      Top_Context.Outer_Expr_Callback :=
         Outer_Expression_Match'Access;
-      Top_Frame.Top_Context.Current_Command   := Command;
-      Top_Frame.Top_Context.Is_Root_Selection := True;
-      Top_Frame.Top_Context.Outer_Object      := Top_Object;
+      Top_Context.Current_Command   := Command;
+      Top_Context.Is_Root_Selection := True;
+      Top_Context.Outer_Object      := Top_Object;
 
       Push_Match_Groups_Section;
    end Install_Command_Context;
@@ -300,14 +300,12 @@ package body Wrapping.Runtime.Commands is
             --  in particular for cases where more than one object is being
             --  retreived.
 
-            Top_Frame.Top_Context.Outer_Expr_Callback :=
-              Outer_Expression_Pick'Access;
+            Top_Context.Outer_Expr_Callback := Outer_Expression_Pick'Access;
 
             Evaluate_Expression (Command.Pick_Expression);
             Pop_Object;
 
-            Top_Frame.Top_Context.Outer_Expr_Callback :=
-              Outer_Expression_Match'Access;
+            Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
          else
             Handle_Command_Back (Command);
          end if;
@@ -371,8 +369,8 @@ package body Wrapping.Runtime.Commands is
             --  TODO: This doesn't consider different visits, each should have
             --  its own decision
 
-            if Top_Frame.Top_Context.Visit_Decision.all = Unknown then
-               Top_Frame.Top_Context.Visit_Decision.all :=
+            if Top_Context.Visit_Decision.all = Unknown then
+               Top_Context.Visit_Decision.all :=
                  Command.Template_Section.A_Visit_Action;
             end if;
          elsif Command.Template_Section.Call.Reference /= null
@@ -487,8 +485,8 @@ package body Wrapping.Runtime.Commands is
 
                if A_Var.Init_Expr /= null then
                   Push_Frame_Context_No_Match;
-                  Top_Frame.Top_Context.Left_Value        := New_Ref.Value;
-                  Top_Frame.Top_Context.Is_Root_Selection := True;
+                  Top_Context.Left_Value        := New_Ref.Value;
+                  Top_Context.Is_Root_Selection := True;
 
                   Evaluate_Expression (A_Var.Init_Expr);
 
@@ -519,8 +517,8 @@ package body Wrapping.Runtime.Commands is
                       (Name)
                   then
                      Push_Frame_Context_No_Match;
-                     Top_Frame.Top_Context.Left_Value        := New_Ref.Value;
-                     Top_Frame.Top_Context.Is_Root_Selection := True;
+                     Top_Context.Left_Value        := New_Ref.Value;
+                     Top_Context.Is_Root_Selection := True;
 
                      if Calling_Frame.Template_Parameters_Position.Length > 0
                      then
@@ -603,7 +601,7 @@ package body Wrapping.Runtime.Commands is
       Visit_Result   : aliased Visit_Action := Unknown;
    begin
       Push_Frame (Wrapping.Semantic.Analysis.Root);
-      Top_Frame.Top_Context.Visit_Decision := Visit_Result'Unchecked_Access;
+      Top_Context.Visit_Decision := Visit_Result'Unchecked_Access;
 
       Result := null;
 
@@ -846,12 +844,12 @@ package body Wrapping.Runtime.Commands is
 
    procedure Outer_Expression_Match is
    begin
-      if Top_Frame.Top_Context.Match_Mode not in Match_None | Match_Has then
+      if Top_Context.Match_Mode not in Match_None | Match_Has then
          --  If we're matching, and we're not forcing the "has" mode, then
          --  check that the initial object we had on the stack matches the
          --  new one.
 
-         if not Top_Frame.Top_Context.Outer_Object.Match_With_Top_Object then
+         if not Top_Context.Outer_Object.Match_With_Top_Object then
             Pop_Object;
             Push_Match_False;
          end if;
@@ -864,15 +862,15 @@ package body Wrapping.Runtime.Commands is
 
    procedure Outer_Expression_Pick is
    begin
-      if Top_Frame.Top_Context.Pick_Callback /= null
-        and then Top_Frame.Top_Context.Current_Command.Command_Sequence = null
+      if Top_Context.Function_Result_Callback /= null
+        and then Top_Context.Current_Command.Command_Sequence = null
       then
          --  We are on a final pick expression (not followed by a command
          --  sequence). The Pick_Callback contains what to do with the
          --  picked object.
-         Top_Frame.Top_Context.Pick_Callback (Top_Object);
+         Top_Context.Function_Result_Callback (Top_Object);
       else
-         Handle_Command_Back (Top_Frame.Top_Context.Current_Command);
+         Handle_Command_Back (Top_Context.Current_Command);
       end if;
    end Outer_Expression_Pick;
 

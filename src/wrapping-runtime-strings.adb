@@ -56,7 +56,7 @@ package body Wrapping.Runtime.Strings is
       Slice : Buffer_Slice := Get_Empty_Slice;
    begin
       Push_Frame_Context_No_Match;
-      Top_Frame.Top_Context.Is_Root_Selection := True;
+      Top_Context.Is_Root_Selection := True;
 
       Push_Buffer_Cursor;
       Prev_Error     := Error_Callback;
@@ -76,8 +76,7 @@ package body Wrapping.Runtime.Strings is
 
          --  Each string may have its own extra indentation - add it to the
          --  current identiation.
-         Top_Frame.Top_Context.Indent :=
-           Top_Frame.Top_Context.Indent + Str.Indent;
+         Top_Context.Indent := Top_Context.Indent + Str.Indent;
 
          case Str.Kind is
             when Str_Kind =>
@@ -241,7 +240,7 @@ package body Wrapping.Runtime.Strings is
    function Indent return Buffer_Slice is
    begin
       return Write_String
-        (Text_Type'(1 .. Top_Frame.Top_Context.Indent => ' '));
+        (Text_Type'(1 .. Top_Context.Indent => ' '));
    end Indent;
 
    -------------------------

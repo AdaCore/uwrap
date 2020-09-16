@@ -107,11 +107,6 @@ package body Wrapping.Runtime.Parameters is
       In_Named_Section : Boolean := False;
    begin
       Push_Frame_Context_Parameter;
-      --  TODO: Do we really need expr callback here? Or maybe just reset
-      --  to null? Which should probably always set to null when processing
-      --  parameters...
-      Top_Frame.Top_Context.Outer_Expr_Callback :=
-        Outer_Expression_Match'Access;
 
       Parameter_Index := 1;
 

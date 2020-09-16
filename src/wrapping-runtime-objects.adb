@@ -251,7 +251,7 @@ package body Wrapping.Runtime.Objects is
       if Object.all in W_Map_Type'Class then
          if W_Map (Object).A_Map.Contains (Key) then
             Push_Object (W_Map (Object).A_Map.Element (Key));
-         elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
+         elsif Top_Context.Match_Mode /= Match_None then
             Push_Match_False;
          else
             Error ("map doesn't contain element "
@@ -260,7 +260,7 @@ package body Wrapping.Runtime.Objects is
       elsif Object.all in W_Set_Type'Class then
          if W_Set (Object).A_Set.Contains (Key) then
             Push_Object (Key);
-         elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
+         elsif Top_Context.Match_Mode /= Match_None then
             Push_Match_False;
          else
             Error ("set doesn't contain element "
@@ -278,7 +278,7 @@ package body Wrapping.Runtime.Objects is
                    W_Vector (Object).A_Vector.Last_Index
          then
             Push_Object (W_Vector (Object).A_Vector.Element (Index));
-         elsif Top_Frame.Top_Context.Match_Mode /= Match_None then
+         elsif Top_Context.Match_Mode /= Match_None then
             Push_Match_False;
          else
             Error ("vector doesn't contain index " & Index'Wide_Wide_Image);
@@ -779,34 +779,35 @@ package body Wrapping.Runtime.Objects is
          Temp_Symbols.Insert (Computed_Name, Evaluate_Expression (Value));
       end Evaluate_Parameter;
 
-      Last_Picked : W_Object;
+      Last_Result : W_Object;
 
-      -------------------
-      -- Pick_Callback --
-      -------------------
+      ---------------------
+      -- Result_Callback --
+      ---------------------
 
-      procedure Pick_Callback (Object : W_Object) is
+      procedure Result_Callback (Object : W_Object) is
       begin
-         --  When reaching a value to be picked on a function f, either: (1)
-         --  the caller is not an expansion, in which case we found
-         --      the value, we can interrupt the above expansion if any.
-         --  (2) the parent is an expansion, e.g. f ().all(). In this case, we
-         --      restore temporarily frame parent frame (the frame of the
-         --      caller) and execute the rest of the caller actions for the
-         --      specific value picked, then go back fetching other values for
-         --      the function.
+         --  When reaching a value to be picked on a function f, either:
+         --  (1) the caller is not iterating over generated values, in which
+         --      case we found the value, we can interrupt the above expansion
+         --      if any.
+         --  (2) the caller is an iterating over generated values, e.g.
+         --      f ().all(). In this case, we restore temporarily frame parent
+         --      frame (the frame of the caller) and execute the rest of the
+         --      caller actions for the specific value picked, then go back
+         --      fetching other values for the function.
 
          if Calling_Frame.Top_Context.Yield_Callback = null then
-            Last_Picked                 := Object;
+            Last_Result                 := Object;
             Top_Frame.Interrupt_Program := True;
          else
             Push_Frame (Calling_Frame);
             Push_Implicit_It (Object);
             Call_Yield (Calling_Frame.Top_Context.Yield_Callback);
-            Last_Picked := Pop_Object;
+            Last_Result := Pop_Object;
             Pop_Frame;
          end if;
-      end Pick_Callback;
+      end Result_Callback;
 
       Prev_It : W_Object := Get_Implicit_It;
    begin
@@ -819,15 +820,16 @@ package body Wrapping.Runtime.Objects is
 
       Push_Implicit_It (Prev_It);
       Top_Frame.Symbols.Move (Temp_Symbols);
-      Top_Frame.Top_Context.Pick_Callback := Pick_Callback'Unrestricted_Access;
-      Top_Frame.Top_Context.Yield_Callback := null;
+      Top_Context.Function_Result_Callback :=
+        Result_Callback'Unrestricted_Access;
+      Top_Context.Yield_Callback := null;
 
       Handle_Command_Sequence (An_Entity.A_Function.Program.First_Element);
 
       Pop_Frame;
 
-      if Last_Picked /= null then
-         Push_Object (Last_Picked);
+      if Last_Result /= null then
+         Push_Object (Last_Result);
       else
          Push_Match_False;
       end if;
@@ -1211,7 +1213,7 @@ package body Wrapping.Runtime.Objects is
       --  By default, nodes only consider ref as being "is" matches, and calls
       --  as being "has" matches. So pass through calls before looking.
 
-      if Top_Frame.Top_Context.Match_Mode = Match_Call_Default then
+      if Top_Context.Match_Mode = Match_Call_Default then
          return True;
       end if;
 
@@ -1395,7 +1397,7 @@ package body Wrapping.Runtime.Objects is
 
                   when Into | Into_Override_Anchor =>
                      if Decision = Into_Override_Anchor
-                       or else not Top_Frame.Top_Context.Regexpr_Anchored
+                       or else not Top_Context.Regexpr_Anchored
                      then
                         for C2 of C.Children_Ordered loop
                            Next_Children_List.Append (C2);
@@ -1443,7 +1445,7 @@ package body Wrapping.Runtime.Objects is
                   null;
             end case;
 
-            if Top_Frame.Top_Context.Regexpr_Anchored
+            if Top_Context.Regexpr_Anchored
               and then Decision /= Into_Override_Anchor
             then
                return Stop;
@@ -1536,7 +1538,7 @@ package body Wrapping.Runtime.Objects is
       Result : W_Object;
    begin
       Push_Frame_Context;
-      Top_Frame.Top_Context.Allocate_Callback := null;
+      Top_Context.Allocate_Callback := null;
 
       Found :=
         W_Node_Type'Class (An_Entity.all).Traverse
@@ -1550,14 +1552,13 @@ package body Wrapping.Runtime.Objects is
          --  not require an allocator. If none is found and if there
          --  are allocators, then re-try, this time with allocators enabled.
 
-         if Top_Frame.Top_Context.Yield_Callback /= null then
+         if Top_Context.Yield_Callback /= null then
             --  TODO: it would be best to check that earlier in the system, as
             --  opposed to only when trying to call a folding function.
             Error ("allocators are not allowed in folding browsing functions");
          end if;
 
-         Top_Frame.Top_Context.Allocate_Callback :=
-           Allocate'Unrestricted_Access;
+         Top_Context.Allocate_Callback := Allocate'Unrestricted_Access;
 
          Found :=
            W_Node_Type'Class (An_Entity.all).Traverse
@@ -1581,12 +1582,12 @@ package body Wrapping.Runtime.Objects is
 
       Pop_Frame_Context;
       Push_Frame_Context;
-      Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+      Top_Context.Match_Mode := Match_Ref_Default;
 
       if not Found
         and then not
-        (Top_Frame.Top_Context.Match_Mode /= Match_None
-         or else Top_Frame.Top_Context.Yield_Callback /= null)
+          (Top_Context.Match_Mode /= Match_None
+           or else Top_Context.Yield_Callback /= null)
       then
          Error ("no result found for browsing function");
       end if;
@@ -1662,7 +1663,7 @@ package body Wrapping.Runtime.Objects is
       --  "is" mode
 
       if Other_Entity.all in W_Static_Entity_Type'Class then
-         if Top_Frame.Top_Context.Match_Mode in Match_Call_Default |
+         if Top_Context.Match_Mode in Match_Call_Default |
                Match_Ref_Default                                   | Match_Is
          then
             if not Instance_Of
@@ -1722,7 +1723,7 @@ package body Wrapping.Runtime.Objects is
                return Into_Override_Anchor;
             else
                Push_Frame_Context;
-               Top_Frame.Top_Context.Is_First_Matching_Wrapper := True;
+               Top_Context.Is_First_Matching_Wrapper := True;
 
                for T of W_Node (E).Templates_Ordered loop
                   Last_Decision := Visitor (T, Current_Result);
@@ -1730,7 +1731,7 @@ package body Wrapping.Runtime.Objects is
                   if Current_Result /= Match_False
                     and then Current_Result /= null
                   then
-                     Top_Frame.Top_Context.Is_First_Matching_Wrapper := False;
+                     Top_Context.Is_First_Matching_Wrapper := False;
                      Result := Current_Result;
                   end if;
 

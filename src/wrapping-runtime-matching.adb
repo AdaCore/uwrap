@@ -63,7 +63,7 @@ package body Wrapping.Runtime.Matching is
    begin
       if Expr /= null then
          Push_Frame_Context;
-         Top_Frame.Top_Context.Match_Mode := Match_Ref_Default;
+         Top_Context.Match_Mode := Match_Ref_Default;
          Evaluate_Expression (Expr);
          Pop_Frame_Context;
 
@@ -220,29 +220,28 @@ package body Wrapping.Runtime.Matching is
       begin
          Push_Frame_Context;
 
-         Top_Frame.Top_Context.Regexpr := Matcher'Unchecked_Access;
+         Top_Context.Regexpr := Matcher'Unchecked_Access;
 
          Result_Variable.Object :=
            new W_Regexpr_Result_Type'(Result => new W_Vector_Type);
 
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
-            Top_Frame.Top_Context.Regexpr_Anchored := True;
+            Top_Context.Regexpr_Anchored := True;
             Matcher.Current_Expr                   := Expr.Reg_Expr_Right;
          else
             Matcher.Current_Expr := Expr;
          end if;
 
          Matcher.Generator              := Generator;
-         Matcher.Overall_Yield_Callback :=
-           Top_Frame.Top_Context.Yield_Callback;
+         Matcher.Overall_Yield_Callback := Top_Context.Yield_Callback;
          Matcher.Capturing := Result_Variable'Unchecked_Access;
 
-         Top_Frame.Top_Context.Yield_Callback := Handle_Regexpr'Access;
+         Top_Context.Yield_Callback := Handle_Regexpr'Access;
 
          --  Upon processing, the regular expression engine modifies the
          --  visit decision outcome. Make sure it doesn't modify it for the
          --  above iteration in case there's no generation.
-         Top_Frame.Top_Context.Visit_Decision :=
+         Top_Context.Visit_Decision :=
            Dummy_Generation_Control'Unchecked_Access;
 
          Handle_Regexpr_Next_Value;
@@ -264,7 +263,7 @@ package body Wrapping.Runtime.Matching is
    function Get_Right_Expression_Matcher
      (Allocated_Next_Matcher : Regexpr_Matcher) return Regexpr_Matcher
    is
-      Matcher : Regexpr_Matcher := Top_Frame.Top_Context.Regexpr;
+      Matcher : Regexpr_Matcher := Top_Context.Regexpr;
       Expr    : T_Expr;
    begin
       if Matcher = null then
@@ -290,16 +289,16 @@ package body Wrapping.Runtime.Matching is
 
    procedure Handle_Regexpr_Next_Value is
       Expr         : T_Expr;
-      Matcher      : Regexpr_Matcher := Top_Frame.Top_Context.Regexpr;
+      Matcher      : Regexpr_Matcher := Top_Context.Regexpr;
       Next_Matcher : aliased Regexpr_Matcher_Type;
    begin
-      if Top_Frame.Top_Context.Regexpr = null then
+      if Top_Context.Regexpr = null then
          --  We hit the end of the analysis.
 
          Push_Match_True (Top_Object);
 
          return;
-      elsif not Top_Frame.Top_Context.Is_First_Matching_Wrapper then
+      elsif not Top_Context.Is_First_Matching_Wrapper then
          --  If we are not on the wrapper, Is_First_Matching_Wrapper is always
          --  true. If we are on a wrapper, we only want to look at the next
          --  step in the iteration if we're on the first one that matches.
@@ -312,21 +311,21 @@ package body Wrapping.Runtime.Matching is
          return;
       end if;
 
-      Expr := Top_Frame.Top_Context.Regexpr.Current_Expr;
+      Expr := Top_Context.Regexpr.Current_Expr;
 
       if Expr.Kind = Template_Reg_Expr
         and then Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier
         and then
           Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind =
           Template_Operator_Few
-        and then Top_Frame.Top_Context.Regexpr.Quantifiers_Hit >=
+        and then Top_Context.Regexpr.Quantifiers_Hit >=
           Expr.Reg_Expr_Left.Min
       then
          --  We are on a 'few' quantifier and we hit the minimum required
          --  matches. Try to skip it and only execute the right edge.
 
          Push_Frame_Context;
-         Top_Frame.Top_Context.Regexpr :=
+         Top_Context.Regexpr :=
            Get_Right_Expression_Matcher (Next_Matcher'Unchecked_Access);
          Handle_Regexpr_Next_Value;
          Pop_Frame_Context;
@@ -358,13 +357,12 @@ package body Wrapping.Runtime.Matching is
         and then
           Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind =
           Template_Operator_Many
-        and then Top_Frame.Top_Context.Regexpr.Quantifiers_Hit >=
-          Expr.Reg_Expr_Left.Min
+        and then Top_Context.Regexpr.Quantifiers_Hit >= Expr.Reg_Expr_Left.Min
       then
          Push_Frame_Context;
 
          Pop_Object;
-         Top_Frame.Top_Context.Regexpr :=
+         Top_Context.Regexpr :=
            Get_Right_Expression_Matcher (Next_Matcher'Unchecked_Access);
 
          Handle_Regexpr_Next_Value;
@@ -388,20 +386,20 @@ package body Wrapping.Runtime.Matching is
       Sub_Matcher           : aliased Regexpr_Matcher_Type;
       Next_Matcher          : aliased Regexpr_Matcher_Type;
       Root_Capture_Callback : Boolean         := False;
-      Matcher               : Regexpr_Matcher := Top_Frame.Top_Context.Regexpr;
+      Matcher               : Regexpr_Matcher := Top_Context.Regexpr;
 
       -----------------------
       -- Control_Iteration --
       -----------------------
 
       procedure Control_Iteration is
-         Matcher : Regexpr_Matcher := Top_Frame.Top_Context.Regexpr;
+         Matcher : Regexpr_Matcher := Top_Context.Regexpr;
       begin
          if Top_Object /= Match_False then
             if Matcher.Overall_Yield_Callback /= null then
-               Top_Frame.Top_Context.Visit_Decision.all := Into;
+               Top_Context.Visit_Decision.all := Into;
             else
-               Top_Frame.Top_Context.Visit_Decision.all := Stop;
+               Top_Context.Visit_Decision.all := Stop;
             end if;
          end if;
       end Control_Iteration;
@@ -410,7 +408,7 @@ package body Wrapping.Runtime.Matching is
       Object : W_Object := Top_Object;
 
    begin
-      if Top_Frame.Top_Context.Regexpr = null then
+      if Top_Context.Regexpr = null then
          Push_Match_True (Top_Object);
 
          if Matcher.Overall_Yield_Callback /= null then
@@ -421,7 +419,7 @@ package body Wrapping.Runtime.Matching is
       end if;
 
       Push_Frame_Context;
-      Top_Frame.Top_Context.Regexpr_Anchored := True;
+      Top_Context.Regexpr_Anchored := True;
 
       if Expr.Kind = Template_Reg_Expr_Anchor then
          --  We reached a right anchor. We should not have reached this stage.
@@ -485,7 +483,7 @@ package body Wrapping.Runtime.Matching is
                Sub_Matcher.Outer_Next_Expr.Capture_Installed := False;
             end if;
 
-            Top_Frame.Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
+            Top_Context.Regexpr := Sub_Matcher'Unchecked_Access;
             Matcher.Quantifiers_Hit       := Matcher.Quantifiers_Hit + 1;
             Handle_Regexpr;
             Matcher.Quantifiers_Hit := Matcher.Quantifiers_Hit - 1;
@@ -505,11 +503,11 @@ package body Wrapping.Runtime.Matching is
             Capture_Value (Matcher.Capturing, Capture);
 
             Push_Frame_Context;
-            Top_Frame.Top_Context.Regexpr :=
+            Top_Context.Regexpr :=
               Get_Right_Expression_Matcher (Next_Matcher'Unchecked_Access);
 
-            if Top_Frame.Top_Context.Regexpr /= null then
-               Top_Frame.Top_Context.Yield_Callback := Handle_Regexpr'Access;
+            if Top_Context.Regexpr /= null then
+               Top_Context.Yield_Callback := Handle_Regexpr'Access;
                Handle_Regexpr_Next_Value;
                Control_Iteration;
 

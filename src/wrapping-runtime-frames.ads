@@ -37,13 +37,14 @@ package Wrapping.Runtime.Frames is
      (Positive, Data_Frame);
    use Data_Frame_Vectors;
 
-   Data_Frame_Stack : Data_Frame_Vectors.Vector;
-
-   Top_Frame    : Data_Frame;
-   Parent_Frame : Data_Frame;
-
    type Frame_Context_Type;
    type Frame_Context is access all Frame_Context_Type;
+
+   function Top_Frame return Data_Frame with Inline;
+
+   function Parent_Frame return Data_Frame with Inline;
+
+   function Top_Context return Frame_Context with Inline;
 
    type Allocate_Callback_Type is access procedure
      (E : access W_Object_Type'Class);
@@ -53,6 +54,10 @@ package Wrapping.Runtime.Frames is
    type Capture_Mode is (Capture, Rollback);
 
    type Capture_Callback_Type is access procedure (Mode : Capture_Mode);
+
+   type Yield_Callback_Type is access procedure;
+
+   type Function_Result_Callback_Type is access procedure (Object : W_Object);
 
    type Match_Kind is
      (
@@ -81,11 +86,7 @@ package Wrapping.Runtime.Frames is
       --  Force a match has, typically through a is', e.g. has (x.f_name ())
      );
 
-   type Yield_Callback_Type is access procedure;
-
    type Visit_Action_Ptr is access all Visit_Action;
-
-   type Pick_Callback_Type is access procedure (Object : W_Object);
 
    type Regexpr_Matcher_Type;
 
@@ -142,9 +143,12 @@ package Wrapping.Runtime.Frames is
       --  needs to apply wrapping to the expansion of a and b The type below
       --  allows to idenrify this callback
 
-      Pick_Callback : Pick_Callback_Type;
-      --  When set, this designates the callback to call upon pick. If the
-      --  result is Stop, then stop the analysis, otherwise continues.
+      Function_Result_Callback : Function_Result_Callback_Type;
+      --  When a function is called, it will generate one or more results.
+      --  When generated, these results will be provided to the caller through
+      --  this Function_Result_Callback, which will be able to either stack
+      --  the object, or evaluate the rest of an expression for which the
+      --  function call is a prefix.
 
       Visit_Decision : Visit_Action_Ptr;
 
@@ -214,7 +218,7 @@ package Wrapping.Runtime.Frames is
    end record;
 
    procedure Call_Yield
-     (Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback)
+     (Callback : Yield_Callback_Type := Top_Context.Yield_Callback)
    with Post => W_Stack_Size = W_Stack_Size'Old;
    --  Calls the current yield callback if set, setting the proper context
    --  around it. Calling this function will replace the element on the top
@@ -296,8 +300,17 @@ package Wrapping.Runtime.Frames is
 
 private
 
-   Top_Object_Ref : W_Object;
+   Top_Object_Ref   : W_Object;
+   Top_Frame_Ref    : Data_Frame;
+   Parent_Frame_Ref : Data_Frame;
 
    function Top_Object return W_Object is (Top_Object_Ref);
+
+   function Top_Frame return Data_Frame is (Top_Frame_Ref);
+
+   function Parent_Frame return Data_Frame is (Parent_Frame_Ref);
+
+   function Top_Context return Frame_Context is
+     (Top_Frame_Ref.Top_Context);
 
 end Wrapping.Runtime.Frames;
