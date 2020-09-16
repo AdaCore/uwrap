@@ -66,10 +66,10 @@ package Wrapping.Runtime.Structure is
      (Positive, Deferred_Command);
    use Deferred_Command_Vectors;
 
-   --  This is the root type of all values that are manipulated by expressions
    type W_Object_Type is tagged record
       null;
    end record;
+   --  This is the root type of all values that are manipulated by expressions
 
    procedure Include_Symbol (Name : Text_Type; Object : not null W_Object);
 
@@ -163,31 +163,8 @@ package Wrapping.Runtime.Structure is
 
    Null_Object : constant W_Object := new W_Object_Type;
 
-   Match_False : constant W_Object := Null_Object;
-
    function Get_Object_For_Entity
      (An_Entity : access T_Entity_Type'Class) return W_Object;
-
-   type Parameter is record
-      Name        : Unbounded_Text_Type;
-      Is_Optional : Boolean;
-   end record;
-
-   type Parameter_Profile is array (Positive range <>) of Parameter;
-
-   type Actuals_Type is array (Positive range <>) of T_Expr;
-
-   function Make_Parameter
-     (Name : Text_Type; Is_Optional : Boolean) return Parameter;
-
-   function Process_Parameters
-     (Profile : Parameter_Profile; Arg : T_Arg_Vectors.Vector)
-      return Actuals_Type;
-
-   procedure Handle_Call_Parameters
-     (Args               : T_Arg_Vectors.Vector;
-      Evaluate_Parameter : access procedure
-        (Name : Text_Type; Position : Integer; Value : T_Expr));
 
    type Closure_Type is record
       Captured_Symbols : W_Object_Maps.Map;

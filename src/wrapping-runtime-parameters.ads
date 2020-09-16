@@ -18,35 +18,28 @@
 ------------------------------------------------------------------------------
 
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
-with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
-with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
 
-package Wrapping.Runtime.Matching is
+package Wrapping.Runtime.Parameters is
 
-   procedure Push_Match_True (An_Entity : access W_Object_Type'Class);
+   type Parameter is record
+      Name        : Unbounded_Text_Type;
+      Is_Optional : Boolean;
+   end record;
 
-   procedure Push_Match_False;
+   type Parameter_Profile is array (Positive range <>) of Parameter;
 
-   function Evaluate_Match_Expression (Expr : T_Expr) return Boolean;
+   type Actuals_Type is array (Positive range <>) of T_Expr;
 
-   function Evaluate_Match_Result
-     (Object : W_Object; Matching_Expression : T_Expr) return Boolean;
+   function Make_Parameter
+     (Name : Text_Type; Is_Optional : Boolean) return Parameter;
 
-   procedure Push_Match_Result
-     (Object : W_Object; Matching_Expression : T_Expr);
+   function Process_Parameters
+     (Profile : Parameter_Profile; Arg : T_Arg_Vectors.Vector)
+      return Actuals_Type;
 
-   procedure Push_Match_It_Result
-     (It : W_Object; Matching_Expression : T_Expr);
+   procedure Handle_Call_Parameters
+     (Args               : T_Arg_Vectors.Vector;
+      Evaluate_Parameter : access procedure
+        (Name : Text_Type; Position : Integer; Value : T_Expr));
 
-   function Match (Pattern, Text : Text_Type) return Boolean;
-   --  Match a pattern with a text, adding group and captured variables on the
-   --  top frame
-
-   procedure Evaluate_Generator_Regexp
-     (Root      : access W_Object_Type'Class;
-      Expr      : T_Expr;
-      Generator : Generator_Type);
-
-   Match_False : constant W_Object := Null_Object;
-
-end Wrapping.Runtime.Matching;
+end Wrapping.Runtime.Parameters;

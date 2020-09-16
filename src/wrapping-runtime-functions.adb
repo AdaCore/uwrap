@@ -29,6 +29,7 @@ with Wrapping.Runtime.Strings;     use Wrapping.Runtime.Strings;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
 with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
+with Wrapping.Runtime.Parameters;  use Wrapping.Runtime.Parameters;
 
 package body Wrapping.Runtime.Functions is
 

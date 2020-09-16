@@ -28,6 +28,7 @@ with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
 with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 with Wrapping.Runtime.Closures;    use Wrapping.Runtime.Closures;
+with Wrapping.Runtime.Parameters;  use Wrapping.Runtime.Parameters;
 
 package body Wrapping.Runtime.Objects is
 

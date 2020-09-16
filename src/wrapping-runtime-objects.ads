@@ -17,6 +17,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+--  This package declares the types of the objects manipulated by the wrapping
+--  language expression, all derived from W_Object_Type. They are all prefixed
+--  by W_ to be able to easily distinguish them from other types.
+
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Containers.Vectors;
@@ -29,16 +33,10 @@ with Wrapping.Utils;              use Wrapping.Utils;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
+with Wrapping.Runtime.Matching;   use Wrapping.Runtime.Matching;
 
 package Wrapping.Runtime.Objects is
 
-   --  These types are the types manipulated by the wrapping language
-   --  expression. They are all prefixed by W_ to be able to easily distinguish
-   --  them from other types (in particular the Ada types of the same names).
-
-   --  TODO: Review usage of this type - many instances do not actually require
-   --  it now that we've merged the concept of language entity and runtime
-   --  object.
    type W_Reference_Type;
    type W_Reference is access all W_Reference_Type;
    package W_Reference_Maps is new Ada.Containers.Indefinite_Ordered_Maps
