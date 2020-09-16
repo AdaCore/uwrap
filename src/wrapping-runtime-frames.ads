@@ -73,11 +73,7 @@ package Wrapping.Runtime.Frames is
       --  We are doing a match in the context of a call, e.g.: match x, and
       --  taking the default behavior in this context. For example, x.f_name
       --  () is by default an is match. Not that this mode applies both to the
-      --  call named matched and its result. TODO: document that subtelty, or
-      --  revisit. e.g. x.a(), a() and its result is matched by the same mode.
-      --  This is due to w_Tmpl () where we are matching w_Tmpl(), or name ()
-      --  where we're matching both name and its result (which is essentially
-      --  here the same).
+      --  call named matched and its result.
 
       Match_Is,
       --  Force a match is, typically through a is', e.g. is (x.f_name ())

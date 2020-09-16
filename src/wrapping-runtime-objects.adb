@@ -104,25 +104,6 @@ package body Wrapping.Runtime.Objects is
    procedure Call_Browse_Wrapper is new Call_Gen_Browse
      (Wrapping.Runtime.Structure.Wrapper);
 
-   --------------------
-   -- Call_Browse_It --
-   --------------------
-
-   procedure Call_Browse_It
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
-   is
-   begin
-      --  TODO: This is probably never executed, as It is an object directly
-      --  returned by push_value on nodes.
-      if Params.Length = 0 then
-         Push_Match_True (Object);
-      elsif Params.Length = 1 then
-         Push_Match_It_Result (W_Object (Object), Params.Element (1).Expr);
-      else
-         Error ("'it' only takes 1 argument");
-      end if;
-   end Call_Browse_It;
-
    --------------
    -- Call_Tmp --
    --------------
@@ -1156,8 +1137,6 @@ package body Wrapping.Runtime.Objects is
          Is_Generator := True;
       elsif Name = "tmp" then
          A_Call := Call_Tmp'Access;
-      elsif Name = "it" then
-         A_Call := Call_Browse_It'Access;
       end if;
 
       if A_Call /= null then

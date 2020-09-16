@@ -34,10 +34,6 @@ with Langkit_Support.Text; use Langkit_Support.Text;
 
 package body Wrapping.Semantic.Analysis is
 
-   --  TODO: Since names are resolved in the runtime analysis, we probably
-   --  don't need lexical scopes here...
-   Lexical_Scope_Stack : T_Entity_Vectors.Vector;
-
    Entity_Stack : T_Entity_Vectors.Vector;
 
    function Build_Template (Node : Template_Node) return T_Template;
@@ -183,7 +179,6 @@ package body Wrapping.Semantic.Analysis is
    procedure Pop_Lexical_Scope_Entity is
    begin
       Pop_Entity;
-      Lexical_Scope_Stack.Delete_Last;
    end Pop_Lexical_Scope_Entity;
 
    ------------------

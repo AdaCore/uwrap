@@ -185,8 +185,7 @@ package body Wrapping.Runtime.Structure is
       --  but directly the entity that is being evaluated under these calls.
       --  However, we cannot create a sub frame as whatever we match needs
       --  to find its way to the command frame (otherwise any extracted group
-      --  would be deleted upon frame popped). TODO: these specificities needs
-      --  to be duly documented in the UG.
+      --  would be deleted upon frame popped).
       Push_Implicit_It (Browsed);
 
       --  If there's a name capture above this expression, its value needs to
