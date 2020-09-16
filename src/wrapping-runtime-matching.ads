@@ -19,6 +19,7 @@
 
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
+with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
 
 package Wrapping.Runtime.Matching is
 

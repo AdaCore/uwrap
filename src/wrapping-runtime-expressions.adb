@@ -35,32 +35,26 @@ package body Wrapping.Runtime.Expressions is
    procedure Handle_Identifier (Node : Template_Node'Class);
 
    procedure Handle_Call (Expr : T_Expr) with
-     Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1;
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    procedure Handle_Fold
      (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector) with
-     Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1;
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    procedure Handle_Filter
      (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector) with
-     Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1;
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    procedure Handle_New (Create_Tree : T_Create_Tree) with
-     Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1;
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    procedure Handle_All
      (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector) with
-     Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1;
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    procedure Handle_Selector
      (Expr : T_Expr; Suffix : in out T_Expr_Vectors.Vector) with
-     Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1;
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    procedure Handle_Arithmetic_Operator (Expr : T_Expr);
 
@@ -120,7 +114,7 @@ package body Wrapping.Runtime.Expressions is
 
                Evaluate_Expression (Expr.Match_Capture_Expr);
 
-               if Top_Frame.Data_Stack.Last_Element /= Match_False then
+               if Top_Object /= Match_False then
                   Include_Symbol (Captured_Name, Top_Object);
                else
                   --  For early reference, that name may have already been
@@ -533,16 +527,14 @@ package body Wrapping.Runtime.Expressions is
 
    procedure Handle_Identifier (Node : Template_Node'Class) is
       procedure Handle_Language_Entity_Selection with
-         Post => Top_Frame.Data_Stack.Length =
-         Top_Frame.Data_Stack.Length'Old + 1;
+         Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
          ------------------------------------
          -- Handle_Static_Entity_Selection --
          ------------------------------------
 
       procedure Handle_Static_Entity_Selection with
-         Post => Top_Frame.Data_Stack.Length =
-         Top_Frame.Data_Stack.Length'Old + 1
+         Post => W_Stack_Size = W_Stack_Size'Old + 1
       is
          Name : Text_Type := Node.Text;
       begin
@@ -621,18 +613,11 @@ package body Wrapping.Runtime.Expressions is
          end if;
       end Handle_Language_Entity_Selection;
 
-      Top : W_Object;
    begin
-      if Top_Frame.Data_Stack.Length /= 0 then
-         Top := Top_Object.Dereference;
-
-         if Top.all in W_Static_Entity_Type'Class then
-            Handle_Static_Entity_Selection;
-         else
-            Handle_Language_Entity_Selection;
-         end if;
+      if Top_Object.Dereference.all in W_Static_Entity_Type'Class then
+         Handle_Static_Entity_Selection;
       else
-         Handle_Global_Identifier (Node.Text);
+         Handle_Language_Entity_Selection;
       end if;
    end Handle_Identifier;
 
@@ -735,7 +720,7 @@ package body Wrapping.Runtime.Expressions is
          end if;
 
          if A_Template.Program /= null then
-            Handle_Command_Front (A_Template.Program);
+            Handle_Command_In_Current_Frame (A_Template.Program);
          end if;
       end Handle_Template_Call_Recursive;
 
@@ -845,7 +830,7 @@ package body Wrapping.Runtime.Expressions is
    -----------------------------
 
    procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector) with
-      Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old + 1
+      Post => W_Stack_Size = W_Stack_Size'Old + 1
    is
       Terminal : T_Expr;
 

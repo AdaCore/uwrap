@@ -30,13 +30,10 @@ with Wrapping.Runtime.Objects;     use Wrapping.Runtime.Objects;
 package body Wrapping.Runtime.Matching is
 
    procedure Handle_Regexpr with
-     Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1 and
-       Top_Frame.Top_Context = Top_Frame.Top_Context'Old;
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    procedure Handle_Regexpr_Next_Value with
-     Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1;
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    procedure Capture_Value (Capturing : Capture_Result; Mode : Capture_Mode);
 

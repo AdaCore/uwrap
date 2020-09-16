@@ -26,19 +26,18 @@ with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
 package Wrapping.Runtime.Expressions is
 
    procedure Evaluate_Expression (Expr : T_Expr) with
-     Post => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1;
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    function Evaluate_Expression (Expr : T_Expr) return W_Object;
 
    function Handle_Template_Call
      (Instance : W_Object; Args : T_Arg_Vectors.Vector)
       return Visit_Action with
-     Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
+     Post => W_Stack_Size = W_Stack_Size'Old;
 
    function Push_Global_Identifier (Name : Text_Type) return Boolean with
-     Post => Top_Frame.Data_Stack.Length'Old =
-       (if Push_Global_Identifier'Result then Top_Frame.Data_Stack.Length - 1
-        else Top_Frame.Data_Stack.Length);
+     Post => W_Stack_Size'Old =
+       (if Push_Global_Identifier'Result then W_Stack_Size - 1
+          else W_Stack_Size);
 
 end Wrapping.Runtime.Expressions;

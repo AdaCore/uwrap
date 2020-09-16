@@ -28,6 +28,9 @@ package Wrapping.Utils is
 
    package Text_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, Text_Type);
+
+   type Text_Maps_Access is access all Text_Maps.Map;
+
    package Text_Sets is new Ada.Containers.Indefinite_Ordered_Sets (Text_Type);
 
    package Integer_Vector is new Ada.Containers.Vectors (Positive, Integer);

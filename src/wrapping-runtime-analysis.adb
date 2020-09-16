@@ -47,6 +47,33 @@ with Wrapping.Runtime.Closures;    use Wrapping.Runtime.Closures;
 
 package body Wrapping.Runtime.Analysis is
 
+   Visitor_Counter : Integer := 0;
+   --  This is the counter of visitor. Every time a visitor is started
+   --  (including the main one), it is to be incremented. This provdes a unique
+   --  id to each visit execution, which later allows to check that a language
+   --  entity isn't visited twice by the same visitor invokation.
+
+   Current_Visitor_Id : Integer := 0;
+   --  The Id for the current visitor, updated when entering a vistor
+   --  invokation. Note that the main iteration is always id 0. TODO:
+   --  maybe this should be frame information?
+
+   Deferred_Commands : Deferred_Command_Vectors.Vector;
+
+   procedure Handle_Command_Nodefer (Command : T_Command) with
+     Post => W_Stack_Size = W_Stack_Size'Old;
+   --  Same as Handle_Command_Front but skips the defer part of the command,
+   --  computing its actions right away. This assumes that the command
+   --  context has been previously installed and will be cleared afterwards
+   --  (see Install_Command_Context / Uninstall_Command_Context).
+
+   procedure Handle_Command_Back (Command : T_Command) with
+     Post => W_Stack_Size = W_Stack_Size'Old;
+
+   function Analyze_Visitor
+     (E : access W_Object_Type'Class; Result : out W_Object)
+      return Wrapping.Semantic.Structure.Visit_Action;
+
    -------------------------
    -- Push_Error_Location --
    -------------------------
@@ -178,19 +205,9 @@ package body Wrapping.Runtime.Analysis is
       Pop_Error_Location;
    end Apply_Template_Action;
 
-   procedure Handle_Command_Front_Nodefer (Command : T_Command) with
-      Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
-      --  Same as Handle_Command_Front but skips the defer part of the command,
-      --  computing its actions right away. This assumes that the command
-      --  context has been previously installed and will be cleared afterwards
-      --  (see Install_Command_Context / Uninstall_Command_Context).
-
-   procedure Handle_Command_Back (Command : T_Command) with
-      Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
-
-      --------------------
-      -- Handle_Command --
-      --------------------
+   --------------------
+   -- Handle_Command --
+   --------------------
 
    procedure Handle_Command (Command : T_Command; It : W_Node) is
    begin
@@ -200,7 +217,7 @@ package body Wrapping.Runtime.Analysis is
       Push_Frame (Command);
       Push_Implicit_It (It);
 
-      Handle_Command_Front (Command);
+      Handle_Command_In_Current_Frame (Command);
 
       Pop_Object; -- Pop It.
       Pop_Frame;
@@ -247,7 +264,7 @@ package body Wrapping.Runtime.Analysis is
    -- Handle_Command_Front --
    --------------------------
 
-   procedure Handle_Command_Front (Command : T_Command) is
+   procedure Handle_Command_In_Current_Frame (Command : T_Command) is
    begin
       if Top_Frame.Interrupt_Program then
          return;
@@ -265,16 +282,16 @@ package body Wrapping.Runtime.Analysis is
          end;
       else
          Install_Command_Context (Command);
-         Handle_Command_Front_Nodefer (Command);
+         Handle_Command_Nodefer (Command);
          Uninstall_Command_Context;
       end if;
-   end Handle_Command_Front;
+   end Handle_Command_In_Current_Frame;
 
    ----------------------------------
    -- Handle_Command_Front_Nodefer --
    ----------------------------------
 
-   procedure Handle_Command_Front_Nodefer (Command : T_Command) is
+   procedure Handle_Command_Nodefer (Command : T_Command) is
    begin
       if Evaluate_Match_Expression (Command.Match_Expression) then
          if Command.Pick_Expression /= null then
@@ -319,7 +336,7 @@ package body Wrapping.Runtime.Analysis is
             end;
          end if;
       end if;
-   end Handle_Command_Front_Nodefer;
+   end Handle_Command_Nodefer;
 
    -------------------------
    -- Handle_Command_Back --
@@ -386,7 +403,7 @@ package body Wrapping.Runtime.Analysis is
       --  Only commands with a command sequence and no else part can be defered
 
       if Evaluate_Match_Expression (Command.Command.Defer_Expression) then
-         Handle_Command_Front_Nodefer (Command.Command);
+         Handle_Command_Nodefer (Command.Command);
          Result := True;
       end if;
 
@@ -534,7 +551,7 @@ package body Wrapping.Runtime.Analysis is
          for C of reverse Seq.Commands loop
             exit when Top_Frame.Interrupt_Program;
 
-            Handle_Command_Front (T_Command (C));
+            Handle_Command_In_Current_Frame (T_Command (C));
          end loop;
 
          exit when Top_Frame.Interrupt_Program;

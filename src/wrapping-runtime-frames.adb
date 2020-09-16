@@ -27,6 +27,62 @@ with Wrapping.Runtime.Objects;  use Wrapping.Runtime.Objects;
 
 package body Wrapping.Runtime.Frames is
 
+   -----------------
+   --  Call_Yield --
+   -----------------
+
+   procedure Call_Yield
+     (Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback)
+   is
+   begin
+      if Callback /= null then
+         Push_Frame_Context;
+
+         --  Yield is not transitive. For example in something like:
+         --     child ().filter (condition)
+         --  child will values to filter, calling the callback on the
+         --  condition. That condition should not be yeilding.
+         Top_Frame.Top_Context.Yield_Callback := null;
+
+         Callback.all;
+         Delete_Object_At_Position (-2);
+         Pop_Frame_Context;
+      end if;
+   end Call_Yield;
+
+   ------------------------
+   -- Get_Visible_Symbol --
+   ------------------------
+
+   function Get_Visible_Symbol
+     (A_Frame : Data_Frame_Type; Name : Text_Type) return W_Object
+   is
+   begin
+      if Top_Frame.Symbols.Contains (Name) then
+         return Top_Frame.Symbols.Element (Name);
+      end if;
+
+      return null;
+   end Get_Visible_Symbol;
+
+   ----------------
+   -- Get_Module --
+   ----------------
+
+   function Get_Module
+     (A_Frame : Data_Frame_Type) return Semantic.Structure.T_Module
+   is
+      use Semantic.Structure;
+
+      Scope : Semantic.Structure.T_Entity := A_Frame.Lexical_Scope;
+   begin
+      while Scope /= null and then Scope.all not in T_Module_Type'Class loop
+         Scope := Scope.Parent;
+      end loop;
+
+      return Semantic.Structure.T_Module (Scope);
+   end Get_Module;
+
    -------------------
    -- Update_Object --
    -------------------

@@ -67,8 +67,7 @@ package Wrapping.Runtime.Strings is
      (Expr : T_Expr;
       On_Group : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expr : T_Expr) := null) with
-       Post => Top_Frame.Data_Stack.Length =
-         Top_Frame.Data_Stack.Length'Old + 1
+       Post => W_Stack_Size = W_Stack_Size'Old + 1
          and Expr.Kind = Template_Str;
    --  This procedure is the entry point to string evaluation. It will evaluate
    --  various parts of the strings, process indentation, run expression

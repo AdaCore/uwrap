@@ -53,212 +53,9 @@ package Wrapping.Runtime.Structure is
      (W_Object, W_Object, Lt_Wrapper, Eq_Wrapper);
    use W_Object_Any_Maps;
 
-   type Matched_Groups_Type;
-   type Matched_Groups is access all Matched_Groups_Type;
-   package Matched_Groups_Vectors is new Ada.Containers.Vectors
-     (Positive, Matched_Groups);
-   use Matched_Groups_Vectors;
-
-   type Data_Frame_Type;
-   type Data_Frame is access all Data_Frame_Type;
-   package Data_Frame_Vectors is new Ada.Containers.Vectors
-     (Positive, Data_Frame);
-   use Data_Frame_Vectors;
-
-   Data_Frame_Stack : Data_Frame_Vectors.Vector;
-
-   Top_Frame    : Data_Frame;
-   Parent_Frame : Data_Frame;
-
-   type Frame_Context_Type;
-   type Frame_Context is access all Frame_Context_Type;
-
-   type Allocate_Callback_Type is access procedure
-     (E : access W_Object_Type'Class);
-
-   type Outer_Expr_Callback_Type is access procedure;
-
-   type Capture_Mode is (Capture, Rollback);
-
-   type Capture_Callback_Type is access procedure (Mode : Capture_Mode);
-
-   type Match_Kind is
-     (
-      --  We're not doing any match
-      Match_None,
-
-      --  We are doing a match in the context of a reference, e.g.: match
-      --  x, and taking the default behavior in this context. For example,
-      --  x.f_name is by default an is match
-      Match_Ref_Default,
-
-      --  We are doing a match in the context of a call, e.g.: match x, and
-      --  taking the default behavior in this context. For example, x.f_name
-      --  () is by default an is match. Not that this mode applies both to the
-      --  call named matched and its result. TODO: document that subtelty, or
-      --  revisit. e.g. x.a(), a() and its result is matched by the same mode.
-      --  This is due to w_Tmpl () where we are matching w_Tmpl(), or name ()
-      --  where we're matching both name and its result (which is essentially
-      --  here the same).
-      Match_Call_Default,
-
-      --  Force a match is, typically through a is', e.g. is (x.f_name ())
-      Match_Is,
-
-      --  Force a match has, typically through a is', e.g. has (x.f_name ())
-      Match_Has);
-
-   type Yield_Callback_Type is access procedure;
-
-   type Visit_Action_Ptr is access all Visit_Action;
-
-   type Pick_Callback_Type is access procedure (Object : W_Object);
-
-   type Regexpr_Matcher_Type;
-
-   type Regexpr_Matcher is access all Regexpr_Matcher_Type;
-
-   type Generator_Type is access procedure (Expr : T_Expr);
-
-   type Capture_Result_Type;
-
-   type Capture_Result is access all Capture_Result_Type;
-
    type Text_Buffer_Cursor;
 
    type Buffer_Slice;
-
-   type Capture_Result_Type is record
-      Parent : Capture_Result;
-      Object : W_Object;
-   end record;
-
-   type Regexpr_Matcher_Type is record
-      Outer_Next_Expr        : Regexpr_Matcher;
-      Current_Expr           : T_Expr;
-      Generator              : Generator_Type;
-      Overall_Yield_Callback : Yield_Callback_Type;
-      Capturing              : Capture_Result;
-      Generator_Decision     : Visit_Action := Unknown;
-      Quantifiers_Hit        : Integer := 0;
-      Capture_Installed      : Boolean := False;
-   end record;
-
-   --  A Frame_Context is a type that is recording stack-based properties that
-   --  vary within a given frame, typically through an expression, or various
-   --  parts of a command. Each Frame is supposed to start with a fresh frame
-   --  context (ie information does not travel through frame contexts).
-   type Frame_Context_Type is record
-      Parent_Context : Frame_Context;
-
-      --  Some processing may need to be done once reaching an expression
-      --  terminals. For example:
-      --    X (A or B);
-      --  needs to match X against A and against B.
-      --     pick a.b wrap C ()
-      --  needs to apply the C wrapping to a.b.
-      --     pick (a.all () and b) wrap C ()
-      --  needs to apply wrapping to the expansion of a and b The type below
-      --  allows to idenrify this callback
-      Outer_Expr_Callback : Outer_Expr_Callback_Type;
-
-      --  The command currently processed
-      Current_Command : T_Command;
-
-      Match_Mode : Match_Kind := Match_None;
-
-      --  When hitting a capture expression, the name is being stored here so
-      --  that the capturing expression can update its value.
-      Name_Captured : Unbounded_Text_Type;
-
-      --  This is set by functions that iterate over generators, and called by
-      --  generators on each returned value. This should never be called
-      --  directly, but instead through the Call_Yield subprogram which will
-      --  set the correct frame context.
-      Yield_Callback : Yield_Callback_Type;
-
-      --  Callback used to record objects allocated through the new ()
-      --  function. This needs to be set in particular in browsing functions,
-      --  in order to be able to capture things such as child (new ()).
-      Allocate_Callback : Allocate_Callback_Type := null;
-
-      --  When set, this identifies the value at the left of the expression.
-      --  For example, in A (V => @ & "something"), @ is the left value
-      --  refering to V.
-      Left_Value : W_Object;
-
-      --  This flag allows to detect if we're on the root selection of an
-      --  entity. E.g. in A.B.C (D, E.F), A, D and E are root selections.
-      --  This is used to know if we can look at globals when resolving names.
-      Is_Root_Selection : Boolean := True;
-
-      --  The object to around this context. For example, in:
-      --     match A (B.C, D);
-      --  B.C and D match against A, A matches against self.
-      Outer_Object : W_Object;
-
-      Visit_Decision : Visit_Action_Ptr;
-
-      Regexpr_Anchored : Boolean := False;
-
-      --  When set, this designates the callback to call upon pick. If the
-      --  result is Stop, then stop the analysis, otherwise continues.
-      Pick_Callback : Pick_Callback_Type;
-
-      Regexpr : Regexpr_Matcher;
-
-      --  When iterating over wrappers, we can have several matches on the same
-      --  node. During an iteration, this flag matches wether we're calling
-      --  visitors on the first wrapper that matches a given condition, or
-      --  another one. This is used in particular to avoid duplicates when
-      --  computing the children on those wrappers (only an iteration on the
-      --  first matching one would be necessary).
-      Is_First_Matching_Wrapper : Boolean := True;
-
-      Indent : Integer := 0;
-      --  Current indentation when generating text in indent mode, with the
-      --  syntax i"".
-   end record;
-
-   type Matched_Groups_Type is record
-      Groups : W_Object_Vectors.Vector;
-   end record;
-
-   type Text_Maps_Access is access all Text_Maps.Map;
-
-   type Data_Frame_Type is record
-      Symbols : W_Object_Maps.Map;
-
-      Group_Sections : Matched_Groups_Vectors.Vector;
-      Data_Stack     : W_Object_Vectors.Vector;
-      Top_Context    : Frame_Context;
-      Lexical_Scope  : T_Entity;
-
-      Temp_Names : Text_Maps_Access;
-
-      Interrupt_Program : Boolean := False;
-
-      --  When the frame is stacked for a template, it's accessible through
-      --  this variable
-      Current_Template : W_Object;
-
-      Template_Parameters_Position : T_Expr_Vectors.Vector;
-      Template_Parameters_Names    : T_Expr_Maps.Map;
-   end record;
-
-   procedure Call_Yield
-     (Callback : Yield_Callback_Type := Top_Frame.Top_Context.Yield_Callback)
-   with Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
-   --  Calls the current yield callback if set, setting the proper context
-   --  around it. Calling this function will replace the element on the top
-   --  of the stack by the element stacked by yield. If the Callback is null,
-   --  this is a null operation.
-
-   function Get_Visible_Symbol
-     (A_Frame : Data_Frame_Type; Name : Text_Type) return W_Object;
-
-   function Get_Module
-     (A_Frame : Data_Frame_Type) return Semantic.Structure.T_Module;
 
    type Closure_Type;
    type Closure is access all Closure_Type;
@@ -276,17 +73,17 @@ package Wrapping.Runtime.Structure is
 
    procedure Include_Symbol (Name : Text_Type; Object : not null W_Object);
 
+   function W_Stack_Size return Natural with Inline;
+
    function Push_Value
      (An_Entity : access W_Object_Type; Name : Text_Type) return Boolean is
      (False) with
-      Post'Class => Top_Frame.Data_Stack.Length'Old =
-      (if Push_Value'Result then Top_Frame.Data_Stack.Length - 1
-       else Top_Frame.Data_Stack.Length);
+      Post'Class => W_Stack_Size'Old =
+      (if Push_Value'Result then W_Stack_Size - 1 else W_Stack_Size);
 
    procedure Push_Call_Result
      (An_Entity : access W_Object_Type; Params : T_Arg_Vectors.Vector)
-     with Post'Class => Top_Frame.Data_Stack.Length =
-       Top_Frame.Data_Stack.Length'Old + 1;
+     with Post'Class => W_Stack_Size = W_Stack_Size'Old + 1;
    --  Calling an entity means either doing an actual call if this entity
    --  refers to a function, or performing a comparison between the object
    --  and the provided parameters. In the second case, by convention, the
@@ -332,9 +129,10 @@ package Wrapping.Runtime.Structure is
 
    pragma Warnings (Off, "postcondition does not mention");
    function Browse_Entity
-     (Browsed :     access W_Object_Type'Class; Match_Expression : T_Expr;
+     (Browsed : access W_Object_Type'Class;
+      Match_Expression : T_Expr;
       Result  : out W_Object) return Visit_Action with
-      Post => Top_Frame.Data_Stack.Length = Top_Frame.Data_Stack.Length'Old;
+     Post => W_Stack_Size = W_Stack_Size'Old;
    pragma Warnings (On, "postcondition does not mention");
 
    function Write_String (Object : W_Object_Type) return Buffer_Slice;
