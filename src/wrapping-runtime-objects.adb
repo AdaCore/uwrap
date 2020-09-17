@@ -972,8 +972,7 @@ package body Wrapping.Runtime.Objects is
    --------------
 
    procedure Add_Next (Cur, Next : access W_Node_Type'Class) is
-      Found : Boolean := False with
-         Ghost;
+      Found : Boolean := False with Ghost;
    begin
       Next.Next := Cur.Next;
       Next.Prev := W_Node (Cur);
@@ -1063,7 +1062,7 @@ package body Wrapping.Runtime.Objects is
       end loop;
 
       if Register then
-         Templates_To_Traverse.Append (New_Template);
+         Register_Template_Instance (New_Template);
       end if;
 
       return New_Template;

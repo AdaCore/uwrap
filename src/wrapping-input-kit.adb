@@ -55,7 +55,7 @@ package body Wrapping.Input.Kit is
       end if;
 
       Analyze_Unit (Unit);
-      Analyze_Templates;
+      Analyzed_Deferred;
    end Analyze_File;
 
    ------------------

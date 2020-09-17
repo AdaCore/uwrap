@@ -60,6 +60,8 @@ package body Wrapping.Runtime.Commands is
 
    Deferred_Commands : Deferred_Command_Vectors.Vector;
 
+   Templates_To_Traverse : W_Template_Instance_Vectors.Vector;
+
    procedure Handle_Command_Nodefer (Command : T_Command) with
      Post => W_Stack_Size = W_Stack_Size'Old;
    --  Same as Handle_Command_Front but skips the defer part of the command,
@@ -588,6 +590,15 @@ package body Wrapping.Runtime.Commands is
       Pop_Frame;
    end Apply_Wrapping_Program;
 
+   --------------------------------
+   -- Register_Template_Instance --
+   --------------------------------
+
+   procedure Register_Template_Instance (Instance : W_Template_Instance) is
+   begin
+      Templates_To_Traverse.Append (Instance);
+   end Register_Template_Instance;
+
    ---------------------
    -- Analyze_Visitor --
    ---------------------
@@ -675,7 +686,7 @@ package body Wrapping.Runtime.Commands is
    -- Analyze_Templates --
    -----------------------
 
-   procedure Analyze_Templates is
+   procedure Analyzed_Deferred is
       A_Template_Instance : W_Template_Instance;
       Dummy_Action        : Visit_Action;
       Traverse_Result     : W_Object;
@@ -836,7 +847,7 @@ package body Wrapping.Runtime.Commands is
             Pop_Frame;
          end;
       end loop;
-   end Analyze_Templates;
+   end Analyzed_Deferred;
 
    ----------------------------
    -- Outer_Expression_Match --

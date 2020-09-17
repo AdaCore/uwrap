@@ -33,7 +33,8 @@ with Wrapping.Runtime.Parameters; use Wrapping.Runtime.Parameters;
 
 package body Wrapping.Runtime.Expressions is
 
-   procedure Handle_Identifier (Node : Template_Node'Class);
+   procedure Handle_Identifier (Node : Template_Node'Class) with
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    procedure Handle_Call (Expr : T_Expr) with
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
@@ -57,18 +58,8 @@ package body Wrapping.Runtime.Expressions is
      (Expr : T_Expr; Suffix : in out T_Expr_Vectors.Vector) with
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
-   procedure Handle_Arithmetic_Operator (Expr : T_Expr);
-
-   -------------------------
-   -- Evaluate_Expression --
-   -------------------------
-
-   function Evaluate_Expression (Expr : T_Expr) return W_Object is
-   begin
-      Evaluate_Expression (Expr);
-
-      return Pop_Object;
-   end Evaluate_Expression;
+   procedure Handle_Arithmetic_Operator (Expr : T_Expr) with
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
    -------------------------
    -- Evaluate_Expression --
@@ -171,6 +162,7 @@ package body Wrapping.Runtime.Expressions is
                      end if;
 
                      Run_Outer_Callback := False;
+
                   when Template_Operator_Or =>
                      Left := Evaluate_Expression (Expr.Binary_Left);
 
@@ -187,6 +179,7 @@ package body Wrapping.Runtime.Expressions is
                      end if;
 
                      Run_Outer_Callback := False;
+
                   when Template_Operator_Amp =>
                      declare
                         Slice : Buffer_Slice := Get_Empty_Slice;
@@ -304,7 +297,7 @@ package body Wrapping.Runtime.Expressions is
 
             Push_Frame_Context;
             Top_Context.Match_Mode := Match_Has;
-            Do_Pop_Frame_Context             := True;
+            Do_Pop_Frame_Context   := True;
 
          when Template_At_Ref =>
             if Top_Context.Left_Value = null then
@@ -356,6 +349,7 @@ package body Wrapping.Runtime.Expressions is
             Error
               ("unexpected expression node kind: '" &
                Expr.Node.Kind'Wide_Wide_Image & "'");
+
       end case;
 
       if Run_Outer_Callback
@@ -369,6 +363,17 @@ package body Wrapping.Runtime.Expressions is
       end if;
 
       Pop_Error_Location;
+   end Evaluate_Expression;
+
+   -------------------------
+   -- Evaluate_Expression --
+   -------------------------
+
+   function Evaluate_Expression (Expr : T_Expr) return W_Object is
+   begin
+      Evaluate_Expression (Expr);
+
+      return Pop_Object;
    end Evaluate_Expression;
 
    ----------------------------
@@ -525,98 +530,55 @@ package body Wrapping.Runtime.Expressions is
    -----------------------
 
    procedure Handle_Identifier (Node : Template_Node'Class) is
-      procedure Handle_Language_Entity_Selection with
-         Post => W_Stack_Size = W_Stack_Size'Old + 1;
-
-         ------------------------------------
-         -- Handle_Static_Entity_Selection --
-         ------------------------------------
-
-      procedure Handle_Static_Entity_Selection with
-         Post => W_Stack_Size = W_Stack_Size'Old + 1
-      is
-         Name : Text_Type := Node.Text;
-      begin
-         --  TODO: We probably don't need a specific function here anymore.
-
-         if not Top_Object.Push_Value (Name) then
-            if Top_Context.Match_Mode /= Match_None then
-               Push_Match_False;
-            else
-               Error ("'" & Node.Text & "' not found");
-            end if;
-         end if;
-      end Handle_Static_Entity_Selection;
-
-      --------------------------------------
-      -- Handle_Language_Entity_Selection --
-      --------------------------------------
-
-      procedure Handle_Language_Entity_Selection is
-         Name : Text_Type := Node.Text;
-
-         Implicit_It     : W_Object;
-         Found_It_Entity : Boolean;
-         Prefix_Entity   : W_Object;
-      begin
-         --  We're resolving a reference to an entity
-
-         if Top_Context.Is_Root_Selection then
-            --  If we're on the implicit entity, then first check if there's
-            --  some more global identifier overriding it.
-
-            if Push_Global_Identifier (Node.Text) then
-
-               return;
-            end if;
-
-            --  Retreive the entity from implicit It. If Implicit new exist,
-            --  we need to also attempt at retreiving its value. We'll return
-            --  either the entity coming from one of the two, or raise an error
-            --  if both contain such name.
-
-            Implicit_It := Get_Implicit_It;
-
-            Found_It_Entity := Implicit_It.Push_Value (Name);
-
-            if Found_It_Entity then
-               return;
-            end if;
-
-            if Top_Context.Match_Mode /= Match_None then
-               Push_Match_False;
-               return;
-            else
-               Error ("'" & Node.Text & "' not found");
-            end if;
-         else
-            --  We're on an explicit name. Push the result.
-
-            Prefix_Entity := Top_Object.Dereference;
-
-            if Prefix_Entity = Match_False then
-               Error ("prefix not found");
-            end if;
-
-            if Prefix_Entity.Push_Value (Name) then
-               --  We found a component of the entity and it has been pushed
-               return;
-            else
-               if Top_Context.Match_Mode /= Match_None then
-                  Push_Match_False;
-                  return;
-               else
-                  Error ("'" & Name & "' component not found");
-               end if;
-            end if;
-         end if;
-      end Handle_Language_Entity_Selection;
-
+      Name          : Text_Type := Node.Text;
+      Prefix_Entity : W_Object;
    begin
-      if Top_Object.Dereference.all in W_Static_Entity_Type'Class then
-         Handle_Static_Entity_Selection;
+      --  We're resolving a reference to an entity
+
+      if Top_Context.Is_Root_Selection then
+         --  If we're on the implicit entity, then first check if there's
+         --  some more global identifier overriding it.
+
+         if Push_Global_Identifier (Node.Text) then
+
+            return;
+         end if;
+
+         --  Retreive the entity from implicit It. If Implicit new exist,
+         --  we need to also attempt at retreiving its value. We'll return
+         --  either the entity coming from one of the two, or raise an error
+         --  if both contain such name.
+
+         if Get_Implicit_It.Push_Value (Name) then
+            return;
+         end if;
+
+         if Top_Context.Match_Mode /= Match_None then
+            Push_Match_False;
+            return;
+         else
+            Error ("'" & Node.Text & "' not found");
+         end if;
       else
-         Handle_Language_Entity_Selection;
+         --  We're on an explicit name. Push the result.
+
+         Prefix_Entity := Top_Object.Dereference;
+
+         if Prefix_Entity = Match_False then
+            Error ("prefix not found");
+         end if;
+
+         if Prefix_Entity.Push_Value (Name) then
+            --  We found a component of the entity and it has been pushed
+            return;
+         else
+            if Top_Context.Match_Mode /= Match_None then
+               Push_Match_False;
+               return;
+            else
+               Error ("'" & Name & "' component not found");
+            end if;
+         end if;
       end if;
    end Handle_Identifier;
 
@@ -1059,7 +1021,6 @@ package body Wrapping.Runtime.Expressions is
                   --  We're just looking for the first matching value,
                   --  interrupt the current iteration
 
-                  --  ??? SHOULD THAT BE Visit_Decision instead?
                   Parent_Frame.Interrupt_Program := True;
                end if;
             end if;

@@ -246,13 +246,13 @@ package body Wrapping.Run is
                end loop;
             end loop;
 
-            Analyze_Templates;
+            Analyzed_Deferred;
          elsif Language = "json" then
             for File of App.Args.Files.Get loop
                Wrapping.Input.JSON.Analyze_File (To_String (File));
             end loop;
 
-            Analyze_Templates;
+            Analyzed_Deferred;
          elsif Language = "test" then
             for File of App.Args.Files.Get loop
                Testlang.Input.Analyze_File (To_String (File));

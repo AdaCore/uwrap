@@ -29,18 +29,15 @@ with Wrapping.Utils;              use Wrapping.Utils;
 
 package Wrapping.Runtime.Commands is
 
-   Templates_To_Traverse : W_Template_Instance_Vectors.Vector;
-
    procedure Analyse_Input (Root_Entity : W_Node);
    --  This function will go through a a deep-traversal tree on the node,
    --  On each node, Apply_Wrapping_Program will be called, executing tyhe
    --  wrapping program
 
-   procedure Analyze_Templates;
-
-   procedure Outer_Expression_Match;
-
-   procedure Outer_Expression_Pick;
+   procedure Analyzed_Deferred;
+   --  Runs analysis following input processing, that is:
+   --     - Runs the wrapping program on generated templates
+   --     - Evaluates and run deferred commands
 
    procedure Handle_Command_Sequence
      (Sequence : T_Command_Sequence_Element) with
@@ -95,5 +92,27 @@ package Wrapping.Runtime.Commands is
    --  This procedure is applying the wrapping program on the current node. It
    --  will go through all commands in the root lexical scope and apply them in
    --  reverse order, so that last commands can override earlier ones.
+
+   procedure Register_Template_Instance (Instance : W_Template_Instance);
+   --  Registers a template instance to be processed later by
+   --  Analyzed_Deferred.
+
+   procedure Outer_Expression_Match;
+   --  To be set as the context Outer_Callback for an expression that has an
+   --- outer match, e.g.:
+   --     <some node> (<some expression>).
+   --  Outer callback performing a match to the outer object if the context
+   --  match mode is requiring it.
+
+   procedure Outer_Expression_Pick;
+   --  To be set for a pick expression to run the rest of the computation,
+   --  e.g.:
+   --     pick <some expression> wrap <some wrapping call>
+   --  Can also be used in the context of an expression with a function call if
+   --  the Conctext.Function_Result_Callback is set, e.g.:
+   --     function <some function> () do
+   --        pick <some expression>;
+   --     end;
+   --     <some function> ().<left side expression>;
 
 end Wrapping.Runtime.Commands;
