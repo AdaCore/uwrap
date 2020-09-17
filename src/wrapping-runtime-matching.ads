@@ -35,9 +35,6 @@ package Wrapping.Runtime.Matching is
      (Matching_Expression : T_Expr;
       Object : W_Object := Top_Object);
 
-   procedure Push_Match_It_Result
-     (It : W_Object; Matching_Expression : T_Expr);
-
    function Match (Pattern, Text : Text_Type) return Boolean;
    --  Match a pattern with a text, adding group and captured variables on the
    --  top frame

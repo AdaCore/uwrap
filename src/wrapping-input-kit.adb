@@ -171,7 +171,7 @@ package body Wrapping.Input.Kit is
       if Params.Length = 0 then
          Push_Match_True (Object);
       elsif Params.Length = 1 then
-         Push_Match_It_Result (W_Object (Object), Params.Element (1).Expr);
+         Push_Match_Result (Params.Element (1).Expr, Get_Implicit_It);
       elsif Params.Length > 1 then
          Error ("matcher takes only 1 argument");
       end if;

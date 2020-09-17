@@ -95,33 +95,6 @@ package body Wrapping.Runtime.Matching is
       end if;
    end Push_Match_Result;
 
-   --------------------------
-   -- Push_Match_It_Result --
-   --------------------------
-
-   procedure Push_Match_It_Result (It : W_Object; Matching_Expression : T_Expr)
-   is
-   begin
-      if Matching_Expression = null then
-         Push_Object (It);
-      else
-         Push_Frame_Context_Parameter_With_Match (It);
-
-         Push_Implicit_It (It);
-         Evaluate_Expression (Matching_Expression);
-
-         if Pop_Object /= Match_False then
-            Pop_Object; -- Pop It
-            Push_Object (It);
-         else
-            Pop_Object; -- Pop It
-            Push_Match_False;
-         end if;
-
-         Pop_Frame_Context;
-      end if;
-   end Push_Match_It_Result;
-
    -----------
    -- Match --
    -----------
