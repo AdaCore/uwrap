@@ -314,7 +314,7 @@ package body Wrapping.Runtime.Structure is
 
    procedure Generate_Values (Object : access W_Object_Type; Expr : T_Expr) is
    begin
-      Push_Match_Result (W_Object (Object), Expr);
+      Push_Match_Result (Expr, W_Object (Object));
       Call_Yield;
    end Generate_Values;
 

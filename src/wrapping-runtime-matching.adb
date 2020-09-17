@@ -55,43 +55,27 @@ package body Wrapping.Runtime.Matching is
       Push_Object (Match_False);
    end Push_Match_False;
 
-   -------------------------------
-   -- Evaluate_Match_Expression --
-   -------------------------------
-
-   function Evaluate_Match_Expression (Expr : T_Expr) return Boolean is
-   begin
-      if Expr /= null then
-         Push_Frame_Context;
-         Top_Context.Match_Mode := Match_Ref_Default;
-         Evaluate_Expression (Expr);
-         Pop_Frame_Context;
-
-         return Pop_Object /= Match_False;
-      else
-         return True;
-      end if;
-   end Evaluate_Match_Expression;
-
    ---------------------------
    -- Evaluate_Match_Result --
    ---------------------------
 
-   function Evaluate_Match_Result
-     (Object : W_Object; Matching_Expression : T_Expr) return Boolean
+   function Evaluate_Match
+     (Matching_Expression : T_Expr;
+      Object : W_Object := Top_Object) return Boolean
    is
    begin
-      Push_Match_Result (Object, Matching_Expression);
+      Push_Match_Result (Matching_Expression, Object);
 
       return Pop_Object /= Match_False;
-   end Evaluate_Match_Result;
+   end Evaluate_Match;
 
    -----------------------
    -- Push_Match_Result --
    -----------------------
 
    procedure Push_Match_Result
-     (Object : W_Object; Matching_Expression : T_Expr)
+     (Matching_Expression : T_Expr;
+      Object : W_Object := Top_Object)
    is
    begin
       if Matching_Expression = null then
@@ -497,7 +481,7 @@ package body Wrapping.Runtime.Matching is
             end if;
          end if;
       else
-         if not Evaluate_Match_Result (Object, Expr) then
+         if not Evaluate_Match (Expr) then
             Push_Match_False;
          else
             Capture_Value (Matcher.Capturing, Capture);

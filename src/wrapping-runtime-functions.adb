@@ -239,7 +239,7 @@ package body Wrapping.Runtime.Functions is
          Pop_Frame_Context;
 
          if Params.Length = 2 then
-            Push_Match_Result (Top_Object, Params.Element (2).Expr);
+            Push_Match_Result (Params.Element (2).Expr);
             Delete_Object_At_Position (-2);
          end if;
       else
@@ -270,7 +270,7 @@ package body Wrapping.Runtime.Functions is
                    (Slice.First.Offset .. Slice.Last.Offset)));
 
          if Params.Length = 2 then
-            Push_Match_Result (Top_Object, Params.Element (2).Expr);
+            Push_Match_Result (Params.Element (2).Expr);
             Delete_Object_At_Position (-2);
          end if;
       else

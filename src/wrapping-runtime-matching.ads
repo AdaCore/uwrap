@@ -27,13 +27,13 @@ package Wrapping.Runtime.Matching is
 
    procedure Push_Match_False;
 
-   function Evaluate_Match_Expression (Expr : T_Expr) return Boolean;
-
-   function Evaluate_Match_Result
-     (Object : W_Object; Matching_Expression : T_Expr) return Boolean;
+   function Evaluate_Match
+     (Matching_Expression : T_Expr;
+      Object : W_Object := Top_Object) return Boolean;
 
    procedure Push_Match_Result
-     (Object : W_Object; Matching_Expression : T_Expr);
+     (Matching_Expression : T_Expr;
+      Object : W_Object := Top_Object);
 
    procedure Push_Match_It_Result
      (It : W_Object; Matching_Expression : T_Expr);

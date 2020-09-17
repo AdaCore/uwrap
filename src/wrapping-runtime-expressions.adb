@@ -333,9 +333,8 @@ package body Wrapping.Runtime.Expressions is
 
          when Template_Match_Expr =>
             Push_Frame_Context_No_Pick;
-            Push_Match_Result (Top_Object, Expr.Match_Match_Expr);
 
-            if Pop_Object /= Match_False then
+            if Evaluate_Match (Expr.Match_Match_Expr) then
                Evaluate_Expression (Expr.Match_Pick_Expr);
             elsif Expr.Match_Else_Expr /= null then
                Evaluate_Expression (Expr.Match_Else_Expr);
@@ -1009,7 +1008,7 @@ package body Wrapping.Runtime.Expressions is
          procedure Yield_Callback is
          begin
             Push_Implicit_It (Top_Object);
-            Push_Match_Result (Top_Object, Expr);
+            Push_Match_Result (Expr);
             Delete_Object_At_Position (-2);
 
             if Top_Object /= Match_False then

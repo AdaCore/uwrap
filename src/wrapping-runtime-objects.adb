@@ -1172,7 +1172,7 @@ package body Wrapping.Runtime.Objects is
          Push_Match_True (An_Entity);
       elsif Params.Length = 1 then
          Push_Implicit_It (W_Object (An_Entity));
-         Push_Match_Result (W_Object (An_Entity), Params.Element (1).Expr);
+         Push_Match_Result (Params.Element (1).Expr, W_Object (An_Entity));
          Delete_Object_At_Position (-2);
       else
          Error ("comparing with a node requires one parameter");

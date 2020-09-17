@@ -295,7 +295,7 @@ package body Wrapping.Runtime.Commands is
 
    procedure Handle_Command_Nodefer (Command : T_Command) is
    begin
-      if Evaluate_Match_Expression (Command.Match_Expression) then
+      if Evaluate_Match (Command.Match_Expression) then
          if Command.Pick_Expression /= null then
             --  When evaluating a pick expression, the wrapping program will
             --  be evaluated by the outer epxression callback. This caters
@@ -325,8 +325,7 @@ package body Wrapping.Runtime.Commands is
 
                   exit when Else_Section = null;
 
-                  if Evaluate_Match_Expression (Else_Section.Match_Expression)
-                  then
+                  if Evaluate_Match (Else_Section.Match_Expression) then
                      Handle_Command_Sequence (Else_Section);
                      exit;
                   end if;
@@ -402,7 +401,7 @@ package body Wrapping.Runtime.Commands is
 
       --  Only commands with a command sequence and no else part can be defered
 
-      if Evaluate_Match_Expression (Command.Command.Defer_Expression) then
+      if Evaluate_Match (Command.Command.Defer_Expression) then
          Handle_Command_Nodefer (Command.Command);
          Result := True;
       end if;
