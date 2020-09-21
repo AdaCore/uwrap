@@ -236,10 +236,10 @@ package body Wrapping.Runtime.Frames is
    procedure Push_Frame_Context_Parameter_With_Match (Object : W_Object) is
    begin
       Push_Frame_Context;
-      Top_Context.Is_Root_Selection   := True;
-      Top_Context.Match_Mode          := Match_Ref_Default;
-      Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-      Top_Context.Outer_Object        := Object;
+      Top_Context.Is_Root_Selection := True;
+      Top_Context.Match_Mode        := Match_Ref_Default;
+      Top_Context.Outer_Expr_Action := Action_Match;
+      Top_Context.Outer_Object      := Object;
    end Push_Frame_Context_Parameter_With_Match;
 
    ---------------------------------
@@ -250,7 +250,7 @@ package body Wrapping.Runtime.Frames is
    begin
       Push_Frame_Context;
       Top_Context.Function_Result_Callback := null;
-      Top_Context.Outer_Expr_Callback      := null;
+      Top_Context.Outer_Expr_Action        := Action_None;
       Top_Context.Outer_Object             := null;
    end Push_Frame_Context_No_Outer;
 
@@ -261,9 +261,9 @@ package body Wrapping.Runtime.Frames is
    procedure Push_Frame_Context_No_Match is
    begin
       Push_Frame_Context;
-      Top_Context.Match_Mode          := Match_None;
-      Top_Context.Outer_Expr_Callback := null;
-      Top_Context.Outer_Object        := null;
+      Top_Context.Match_Mode        := Match_None;
+      Top_Context.Outer_Expr_Action := Action_None;
+      Top_Context.Outer_Object      := null;
    end Push_Frame_Context_No_Match;
 
    --------------------------------
@@ -274,7 +274,7 @@ package body Wrapping.Runtime.Frames is
    begin
       Push_Frame_Context;
       Top_Context.Function_Result_Callback := null;
-      Top_Context.Outer_Expr_Callback      := null;
+      Top_Context.Outer_Expr_Action        := Action_None;
    end Push_Frame_Context_No_Pick;
 
    ------------------------

@@ -39,19 +39,13 @@ package Wrapping.Runtime.Commands is
    --     - Runs the wrapping program on generated templates
    --     - Evaluates and run deferred commands
 
-   procedure Handle_Command_Sequence
-     (Sequence : T_Command_Sequence_Element) with
-     Post => W_Stack_Size = W_Stack_Size'Old;
-   --  Handles a sequence of commands, assuming that the outer frame has been
-   --  set, in particular with the It object and other necessary data.
-
    procedure Handle_Command (Command : T_Command; It : W_Node);
    --  Entry point to handle a command. Will push a frame and trigger the
    --  evaluation of various sections. This function will first set a frame
    --  for the command, following by the given steps:
    --     - Handle_Command_In_Current_Frame will handle store the command in
    --       the list of defered_commands, or call directly the next stage.
-   --     - Handle_Command_Nodefer is the second stage. It is
+   --     - Handle_Command_Post_Defer is the second stage. It is
    --       is called either directly by Handle_Command_In_Current_Frame, or
    --       once a deferred command is ready to be executed. It will evaluate
    --       the match clause if any. From then:
@@ -67,7 +61,7 @@ package Wrapping.Runtime.Commands is
    --            command sequence, it will go through the elsematch and else
    --            sections to find a subsequence to execute. If found, it will
    --            be executed through the Analysis.Handle_Command_Sequence call.
-   --    - Analyze_Command_Back is the third stage. It can be called
+   --    - Analyze_Command_Post_Pick is the third stage. It can be called
    --      directly from Handle_Command_Nodefer, from the pick
    --      Outer_Expr_Callback or from Handle_Command_Sequence (see later). It
    --      first adjust the value on the top of the stack and raises an error
@@ -86,6 +80,18 @@ package Wrapping.Runtime.Commands is
    --  Similar to Handle_Command, but does it wihtin the current frame. It is
    --  supposed to be already set at this point.
 
+   procedure Handle_Command_Post_Pick (Command : T_Command) with
+     Post => W_Stack_Size = W_Stack_Size'Old;
+   --  Handle a command after the execution of a pick clause. Note that a pick
+   --  clause can generate more than one value, this function may be called
+   --  more than once for a given pick clause.
+
+   procedure Handle_Command_Sequence
+     (Sequence : T_Command_Sequence_Element) with
+     Post => W_Stack_Size = W_Stack_Size'Old;
+   --  Handles a sequence of commands, assuming that the outer frame has been
+   --  set, in particular with the It object and other necessary data.
+
    procedure Apply_Wrapping_Program
      (It : W_Node; Lexical_Scope : access T_Entity_Type'Class) with
      Post => W_Stack_Size = W_Stack_Size'Old;
@@ -96,23 +102,5 @@ package Wrapping.Runtime.Commands is
    procedure Register_Template_Instance (Instance : W_Template_Instance);
    --  Registers a template instance to be processed later by
    --  Analyzed_Deferred.
-
-   procedure Outer_Expression_Match;
-   --  To be set as the context Outer_Callback for an expression that has an
-   --- outer match, e.g.:
-   --     <some node> (<some expression>).
-   --  Outer callback performing a match to the outer object if the context
-   --  match mode is requiring it.
-
-   procedure Outer_Expression_Pick;
-   --  To be set for a pick expression to run the rest of the computation,
-   --  e.g.:
-   --     pick <some expression> wrap <some wrapping call>
-   --  Can also be used in the context of an expression with a function call if
-   --  the Conctext.Function_Result_Callback is set, e.g.:
-   --     function <some function> () do
-   --        pick <some expression>;
-   --     end;
-   --     <some function> ().<left side expression>;
 
 end Wrapping.Runtime.Commands;

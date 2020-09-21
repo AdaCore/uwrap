@@ -66,7 +66,7 @@ package body Wrapping.Runtime.Expressions is
    -------------------------
 
    procedure Evaluate_Expression (Expr : T_Expr) is
-      --  Some expression need to run the outer object callback. For example:
+      --  Some expression need to run the outer action. For example:
       --    match a
       --  a needs to match with It. Other do not. For example in:
       --     match has'a
@@ -77,7 +77,7 @@ package body Wrapping.Runtime.Expressions is
       --     match has'a or has'b
       --  (has would discusonnect the outer match, but the overall expression
       --  would match again).
-      Run_Outer_Callback : Boolean := True;
+      Run_Outer_Action : Boolean := True;
 
       Do_Pop_Frame_Context : Boolean := False;
    begin
@@ -120,7 +120,7 @@ package body Wrapping.Runtime.Expressions is
                end if;
 
                Pop_Frame_Context;
-               Run_Outer_Callback := False;
+               Run_Outer_Action := False;
             end;
 
          when Template_Selector =>
@@ -134,7 +134,7 @@ package body Wrapping.Runtime.Expressions is
             --  Handle_Selector, when evaluating the right operand. At this
             --  stage, we may also not be in the right match mode anymore
             --  (e.g we don't know if we match a reference or a call result).
-            Run_Outer_Callback := False;
+            Run_Outer_Action := False;
 
          when Template_Binary_Expr =>
             --  The convention for "and" and "or" binary operators is to push
@@ -161,7 +161,7 @@ package body Wrapping.Runtime.Expressions is
                         Push_Match_False;
                      end if;
 
-                     Run_Outer_Callback := False;
+                     Run_Outer_Action := False;
 
                   when Template_Operator_Or =>
                      Left := Evaluate_Expression (Expr.Binary_Left);
@@ -178,7 +178,7 @@ package body Wrapping.Runtime.Expressions is
                         end if;
                      end if;
 
-                     Run_Outer_Callback := False;
+                     Run_Outer_Action := False;
 
                   when Template_Operator_Amp =>
                      declare
@@ -317,7 +317,7 @@ package body Wrapping.Runtime.Expressions is
             end if;
 
             Push_Frame_Context;
-            Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+            Top_Context.Outer_Expr_Action := Action_Match;
 
             if Expr.Node.As_Qualified_Match.F_Op = Template_Operator_Is then
                Top_Context.Match_Mode := Match_Is;
@@ -329,7 +329,7 @@ package body Wrapping.Runtime.Expressions is
 
             Pop_Frame_Context;
 
-            Run_Outer_Callback := False;
+            Run_Outer_Action := False;
 
          when Template_Match_Expr =>
             Push_Frame_Context_No_Pick;
@@ -351,10 +351,8 @@ package body Wrapping.Runtime.Expressions is
 
       end case;
 
-      if Run_Outer_Callback
-        and then Top_Context.Outer_Expr_Callback /= null
-      then
-         Top_Context.Outer_Expr_Callback.all;
+      if Run_Outer_Action then
+         Execute_Expr_Outer_Action;
       end if;
 
       if Do_Pop_Frame_Context then
@@ -513,6 +511,46 @@ package body Wrapping.Runtime.Expressions is
       end if;
    end Push_Global_Identifier;
 
+   -------------------------------
+   -- Execute_Expr_Outer_Action --
+   -------------------------------
+
+   procedure Execute_Expr_Outer_Action is
+   begin
+      case Top_Context.Outer_Expr_Action is
+         when Action_Match =>
+            if Top_Context.Match_Mode not in Match_None | Match_Has then
+               --  If we're matching, and we're not forcing the "has" mode,
+               --  then check that the initial object we had on the stack
+               --  matches the new one.
+
+               if not Top_Context.Outer_Object.Match_With_Top_Object then
+                  Pop_Object;
+                  Push_Match_False;
+               end if;
+            end if;
+
+         when Action_Post_Pick_Exec =>
+            if Top_Context.Function_Result_Callback /= null
+              and then Top_Context.Current_Command.Command_Sequence = null
+            then
+               --  We are on the pick of a function, not on a command. The
+               --  Function result callback has been set and need to be called
+               --  to process the result.
+
+               Top_Context.Function_Result_Callback (Top_Object);
+            else
+               --  We are on the expression of the pick clause of a regular
+               --  command. Execute the Post_Pick section.
+
+               Handle_Command_Post_Pick (Top_Context.Current_Command);
+            end if;
+
+         when Action_None =>
+            null;
+
+      end case;
+   end Execute_Expr_Outer_Action;
    ------------------------------
    -- Handle_Global_Identifier --
    ------------------------------
@@ -755,8 +793,7 @@ package body Wrapping.Runtime.Expressions is
       --     match to_lower (some_value)
       --  will always go through.
 
-      Top_Context.Outer_Expr_Callback :=
-        Outer_Expression_Match'Access;
+      Top_Context.Outer_Expr_Action := Action_Match;
 
       Called := Evaluate_Expression (Expr.Called).Dereference;
 
@@ -948,11 +985,10 @@ package body Wrapping.Runtime.Expressions is
       Pop_Frame_Context;
 
       Push_Frame_Context;
-      Top_Context.Yield_Callback :=
-        Yield_Callback'Unrestricted_Access;
-      Top_Context.Match_Mode          := Match_None;
-      Top_Context.Outer_Expr_Callback := null;
-      Top_Context.Is_Root_Selection   := True;
+      Top_Context.Yield_Callback    := Yield_Callback'Unrestricted_Access;
+      Top_Context.Match_Mode        := Match_None;
+      Top_Context.Outer_Expr_Action := Action_None;
+      Top_Context.Is_Root_Selection := True;
 
       Evaluate_Expression (Selector.Selector_Left);
 
@@ -967,14 +1003,14 @@ package body Wrapping.Runtime.Expressions is
       if Suffix.Length > 0 then
          Compute_Selector_Suffix (Suffix);
          Delete_Object_At_Position (-2);
-      elsif Top_Context.Outer_Expr_Callback /= null then
+      elsif Top_Context.Outer_Expr_Action /= Action_None then
          Push_Frame_Context;
 
          if Top_Context.Match_Mode = Match_Ref_Default then
             Top_Context.Match_Mode := Match_Call_Default;
          end if;
 
-         Top_Context.Outer_Expr_Callback.all;
+         Execute_Expr_Outer_Action;
 
          Pop_Frame_Context;
       end if;
@@ -1118,14 +1154,14 @@ package body Wrapping.Runtime.Expressions is
       if Suffix.Length > 0 then
          Compute_Selector_Suffix (Suffix);
          Delete_Object_At_Position (-2);
-      elsif Top_Context.Outer_Expr_Callback /= null then
+      elsif Top_Context.Outer_Expr_Action /= Action_None then
          Push_Frame_Context;
 
          if Top_Context.Match_Mode = Match_Ref_Default then
             Top_Context.Match_Mode := Match_Call_Default;
          end if;
 
-         Top_Context.Outer_Expr_Callback.all;
+         Execute_Expr_Outer_Action;
 
          Pop_Frame_Context;
       end if;
@@ -1168,15 +1204,16 @@ package body Wrapping.Runtime.Expressions is
          --  We still however need to keep control to the same visit iteration
          Top_Context.Visit_Decision := Visit_Decision;
 
-         --  The outer callback has to be a match check here. If it's a
-         --  Outer_Expression_Pick, this is only to be called on the
-         --  returning value.
-         Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
-
          if Suffix.Length > 0 then
             --  If there's a suffix, then compute it to get the value of the
-            --  expansion
+            --  expansion. The outer action has to be a match check here.
+            --  If it's a post pick execute, this is only to be called on
+            --  the returning value.
+
+            Push_Frame_Context;
+            Top_Context.Outer_Expr_Action := Action_Match;
             Compute_Selector_Suffix (Suffix);
+            Pop_Frame_Context;
          else
             --  Otherwise, the value is the just the last stacked object.
             --  Dereference it to remove the potential "It" attribute
@@ -1187,10 +1224,11 @@ package body Wrapping.Runtime.Expressions is
          --  this case an expand action is set and needs to be executed.
          Call_Yield (Initial_Context.Yield_Callback);
 
-         if Initial_Context.Outer_Expr_Callback /= null then
+         if Initial_Context.Outer_Expr_Action /= Action_None then
             --  Execute the outer action once per run of the suffix, which may
             --  be a Outer_Expression_Pick call.
-            Initial_Context.Outer_Expr_Callback.all;
+
+            Execute_Expr_Outer_Action;
          end if;
 
          Pop_Frame_Context;

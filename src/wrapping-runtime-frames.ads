@@ -82,6 +82,23 @@ package Wrapping.Runtime.Frames is
       --  Force a match has, typically through a is', e.g. has (x.f_name ())
      );
 
+   type Outer_Expr_Action_Type is
+     (Action_None,
+      --  Nothing to be done at the end of the expression evaluation
+
+      Action_Match,
+      --  A Match with the outer object should be performed.
+
+      Action_Post_Pick_Exec
+      --  The post pick section of the current command needs to be executed;.
+      --  be either the remaining of a selector or a template clause or a
+      --  command sequence. E.g., where a is a function call:
+      --     function a () do pick <some expression> end;
+      --     a ().left_expr ()
+      --  or
+      --     pick a () wrap left_expr ();
+     );
+
    type Visit_Action_Ptr is access all Visit_Action;
 
    type Regexpr_Matcher_Type;
@@ -128,7 +145,7 @@ package Wrapping.Runtime.Frames is
       --  function. This needs to be set in particular in browsing functions,
       --  in order to be able to capture things such as child (new ()).
 
-      Outer_Expr_Callback : Outer_Expr_Callback_Type;
+      Outer_Expr_Action : Outer_Expr_Action_Type := Action_None;
       --  Some processing may need to be done once reaching an expression
       --  terminals. For example:
       --    X (A or B);
@@ -136,8 +153,8 @@ package Wrapping.Runtime.Frames is
       --     pick a.b wrap C ()
       --  needs to apply the C wrapping to a.b.
       --     pick (a.all () and b) wrap C ()
-      --  needs to apply wrapping to the expansion of a and b The type below
-      --  allows to idenrify this callback
+      --  needs to apply wrapping to the expansion of a and b This flag
+      --  identifies what to be done.
 
       Function_Result_Callback : Function_Result_Callback_Type;
       --  When a function is called, it will generate one or more results.

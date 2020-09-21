@@ -113,11 +113,9 @@ package body Wrapping.Runtime.Structure is
          --  if we do fold (i : inti, i: acc);
 
          Push_Frame_Context_Parameter;
-         Top_Context.Name_Captured       := To_Unbounded_Text ("");
-         Top_Context.Outer_Expr_Callback :=
-           Outer_Expression_Match'Access;
-         Top_Context.Visit_Decision :=
-           Visit_Decision'Unchecked_Access;
+         Top_Context.Name_Captured     := To_Unbounded_Text ("");
+         Top_Context.Outer_Expr_Action := Action_Match;
+         Top_Context.Visit_Decision    := Visit_Decision'Unchecked_Access;
 
          --  Then evaluate that folding expression
 
@@ -157,8 +155,8 @@ package body Wrapping.Runtime.Structure is
 
          Push_Implicit_It (Browsed);
 
-         if Top_Context.Outer_Expr_Callback /= null then
-            Top_Context.Outer_Expr_Callback.all;
+         if Top_Context.Outer_Expr_Action /= Action_None then
+            Execute_Expr_Outer_Action;
          end if;
 
          Pop_Object;

@@ -62,15 +62,12 @@ package body Wrapping.Runtime.Commands is
 
    Templates_To_Traverse : W_Template_Instance_Vectors.Vector;
 
-   procedure Handle_Command_Nodefer (Command : T_Command) with
+   procedure Handle_Command_Post_Defer (Command : T_Command) with
      Post => W_Stack_Size = W_Stack_Size'Old;
-   --  Same as Handle_Command_Front but skips the defer part of the command,
-   --  computing its actions right away. This assumes that the command
-   --  context has been previously installed and will be cleared afterwards
-   --  (see Install_Command_Context / Uninstall_Command_Context).
-
-   procedure Handle_Command_Back (Command : T_Command) with
-     Post => W_Stack_Size = W_Stack_Size'Old;
+   --  Same as Handles a command after consideration of its defer clause.
+   --  This assumes that the command context has been previously installed and
+   --  will be cleared afterwards (see Install_Command_Context /
+   --  Uninstall_Command_Context).
 
    function Analyze_Visitor
      (E : access W_Object_Type'Class; Result : out W_Object)
@@ -125,7 +122,7 @@ package body Wrapping.Runtime.Commands is
          --  There's nothing to check on the expression below. Deactivate the
          --  expression callback (otherwise, it may perform wrong calls, either
          --  to an unwanted check, or to the outer pick function.
-         Top_Context.Outer_Expr_Callback := null;
+         Top_Context.Outer_Expr_Action := Action_None;
 
          Evaluate_Expression (Template_Clause.Call.Args.Element (1).Expr);
          Result := Pop_Object.Dereference;
@@ -244,8 +241,7 @@ package body Wrapping.Runtime.Commands is
    begin
       Top_Context.Allocate_Callback :=
         Allocate_Detached'Unrestricted_Access;
-      Top_Context.Outer_Expr_Callback :=
-        Outer_Expression_Match'Access;
+      Top_Context.Outer_Expr_Action := Action_Match;
       Top_Context.Current_Command   := Command;
       Top_Context.Is_Root_Selection := True;
       Top_Context.Outer_Object      := Top_Object;
@@ -262,9 +258,9 @@ package body Wrapping.Runtime.Commands is
       Pop_Match_Groups_Section;
    end Uninstall_Command_Context;
 
-   --------------------------
-   -- Handle_Command_Front --
-   --------------------------
+   -------------------------------------
+   -- Handle_Command_In_Current_Frame --
+   -------------------------------------
 
    procedure Handle_Command_In_Current_Frame (Command : T_Command) is
    begin
@@ -284,34 +280,46 @@ package body Wrapping.Runtime.Commands is
          end;
       else
          Install_Command_Context (Command);
-         Handle_Command_Nodefer (Command);
+         Handle_Command_Post_Defer (Command);
          Uninstall_Command_Context;
       end if;
    end Handle_Command_In_Current_Frame;
 
-   ----------------------------------
-   -- Handle_Command_Front_Nodefer --
-   ----------------------------------
+   ----------------------------
+   -- Handle_Command_Nodefer --
+   ----------------------------
 
-   procedure Handle_Command_Nodefer (Command : T_Command) is
+   procedure Handle_Command_Post_Defer (Command : T_Command) is
    begin
       if Evaluate_Match (Command.Match_Expression) then
+         --  This command matched, evaluate pick if needed or go directly
+         --  to the post pick section if there's none.
+
          if Command.Pick_Expression /= null then
             --  When evaluating a pick expression, the wrapping program will
             --  be evaluated by the outer epxression callback. This caters
             --  in particular for cases where more than one object is being
             --  retreived.
 
-            Top_Context.Outer_Expr_Callback := Outer_Expression_Pick'Access;
+            Top_Context.Outer_Expr_Action := Action_Post_Pick_Exec;
 
             Evaluate_Expression (Command.Pick_Expression);
             Pop_Object;
 
-            Top_Context.Outer_Expr_Callback := Outer_Expression_Match'Access;
+            Top_Context.Outer_Expr_Action := Action_Match;
          else
-            Handle_Command_Back (Command);
+            Handle_Command_Post_Pick (Command);
          end if;
       else
+         --  This command did not match. If there is a command sequence, e.g.:
+         --     match <some expression do
+         --        <some actions>
+         --     else
+         --        <some other actions>
+         --     end;
+         --  Look for the elsmatch and else sections one by one. Execute the
+         --  commands of the first one that matches
+
          if Command.Command_Sequence /= null then
             declare
                Else_Section : T_Command_Sequence_Element :=
@@ -335,13 +343,13 @@ package body Wrapping.Runtime.Commands is
             end;
          end if;
       end if;
-   end Handle_Command_Nodefer;
+   end Handle_Command_Post_Defer;
 
-   -------------------------
-   -- Handle_Command_Back --
-   -------------------------
+   ------------------------------
+   -- Handle_Command_Post_Pick --
+   ------------------------------
 
-   procedure Handle_Command_Back (Command : T_Command) is
+   procedure Handle_Command_Post_Pick (Command : T_Command) is
       Top : W_Object := Top_Object.Dereference;
       It  : W_Node;
    begin
@@ -385,7 +393,7 @@ package body Wrapping.Runtime.Commands is
       end if;
 
       Pop_Object;
-   end Handle_Command_Back;
+   end Handle_Command_Post_Pick;
 
    ----------------------------
    -- Handle_Defered_Command --
@@ -402,7 +410,7 @@ package body Wrapping.Runtime.Commands is
       --  Only commands with a command sequence and no else part can be defered
 
       if Evaluate_Match (Command.Command.Defer_Expression) then
-         Handle_Command_Nodefer (Command.Command);
+         Handle_Command_Post_Defer (Command.Command);
          Result := True;
       end if;
 
@@ -847,41 +855,5 @@ package body Wrapping.Runtime.Commands is
          end;
       end loop;
    end Analyzed_Deferred;
-
-   ----------------------------
-   -- Outer_Expression_Match --
-   ----------------------------
-
-   procedure Outer_Expression_Match is
-   begin
-      if Top_Context.Match_Mode not in Match_None | Match_Has then
-         --  If we're matching, and we're not forcing the "has" mode, then
-         --  check that the initial object we had on the stack matches the
-         --  new one.
-
-         if not Top_Context.Outer_Object.Match_With_Top_Object then
-            Pop_Object;
-            Push_Match_False;
-         end if;
-      end if;
-   end Outer_Expression_Match;
-
-   ---------------------------
-   -- Outer_Expression_Pick --
-   ---------------------------
-
-   procedure Outer_Expression_Pick is
-   begin
-      if Top_Context.Function_Result_Callback /= null
-        and then Top_Context.Current_Command.Command_Sequence = null
-      then
-         --  We are on a final pick expression (not followed by a command
-         --  sequence). The Pick_Callback contains what to do with the
-         --  picked object.
-         Top_Context.Function_Result_Callback (Top_Object);
-      else
-         Handle_Command_Back (Top_Context.Current_Command);
-      end if;
-   end Outer_Expression_Pick;
 
 end Wrapping.Runtime.Commands;

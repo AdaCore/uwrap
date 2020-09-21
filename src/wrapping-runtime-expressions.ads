@@ -32,25 +32,25 @@ package Wrapping.Runtime.Expressions is
    --  top object. The status of the current context influences significantely
    --  the behavior of this procedure. In particular:
    --
-   --     * Top_Context.Outer_Callback: Expressions can be performed in a
+   --     * Top_Context.Outer_Expr_Action: Expressions can be performed in a
    --       context where a specific action needs to be performed against the
    --       enclosing context. This can be either a match with the outer
    --       object, for example in:
    --          <some object> (<some expression>)
    --       <some expression> needs to be matched against <some object>. In
-   --       this case, the outer callback will do a check based on the state
-   --       of Top_Context.Match_Mode and replace the top value by a
-   --       Match_False if the result is false. The Outer_Callback may also be
-   --       a callback to the "back" side of a command, for example:
+   --       this case, the outer action will do a check based on the
+   --       state of Top_Context.Match_Mode and replace the top value by a
+   --       Match_False if the result is false. The outer action may also
+   --       be a callback to the "back" side of a command, for example:
    --          pick <some expression> wrap <some wrapping>
-   --       In this case, wrapping clause is called by the outer callback as
+   --       In this case, wrapping clause is called by the outer action as
    --       well.
-   --       Note that Outer_Callback may be preved through sub-expressions
-   --       calls. For example in:
+   --       Note that the outer action may be preserved through
+   --       sub-expression calls. For example in:
    --          A.B
-   --       The Outer_Callback will only be called on the resulting B. But in:
+   --       The outer action will only be called on the resulting B. But in:
    --          A and B
-   --       The Outer_Callback will be called on A and on B, which means that
+   --       The outer action will be called on A and on B, which means that
    --       both A and B will go through a matching - or that both A and B will
    --       be picked.
    --
@@ -93,5 +93,9 @@ package Wrapping.Runtime.Expressions is
    --  Looks for an identifier of the given name either on the current frame
    --  symbols or in the visible lexical scopes. Push a W_Object refering
    --  to this object if found, nothing if not found.
+
+   procedure Execute_Expr_Outer_Action;
+   --  Execute the outer action of an expression. The specific outer action
+   --  to execute is controlled by Top_Context.Outer_Expr_Action.
 
 end Wrapping.Runtime.Expressions;
