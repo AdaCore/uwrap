@@ -586,17 +586,24 @@ template wrappers_post_process pick origin do
    match s: w_TypeExpr (o: origin (child (Identifier ())))
    weave (txt => build_type_expr (it.origin ()));
     
-   match p: w_PackageDecl (parent (u: w_Unit ())) do
-      pick u weave (
-         spec => defer (@ & p.spec),
-         body => defer (@ & p.body)
-      );
-    
-      match p.origin ()
-      pick u weave (
-         body_with_clauses => defer (@ & "with \e<p.original_name>;\n"),
-         body_use_clauses => defer (@ & "use \e<p.original_name>;\n")
-      );
+   match p: w_PackageDecl (parent (u: (w_Unit () or w_PackageDecl ()))) do
+      match u (w_Unit ()) do
+         pick u weave (
+            spec => defer (@ & p.spec),
+            body => defer (@ & p.body)
+         );
+
+         match p.origin ()
+         pick u weave (
+            body_with_clauses => defer (@ & "with \e<p.original_name>;\n"),
+            body_use_clauses => defer (@ & "use \e<p.original_name>;\n")
+         );         
+      else
+         pick u weave (
+            spec_content => defer (@ & p.spec),
+            body_content => defer (@ & p.body)
+         );      
+      end;
    end;
 
    match ((w: w_WithClause () and c: has ("with")) or (w: w_UseClause () and c: has ("use")))

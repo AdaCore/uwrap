@@ -1,0 +1,12 @@
+import ada.wrappers;
+
+walk wrap_ada_specs ();
+
+match DefiningName ()
+wrap w_DefiningName (normalize_ada_name (it));
+
+match DefiningName ("Spec")
+wrap w_DefiningName ("Spec_Wrapped");
+
+match DefiningName (x"Some_Type")
+wrap w_DefiningName ("My_Types");
