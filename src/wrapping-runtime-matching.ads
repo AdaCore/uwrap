@@ -44,6 +44,6 @@ package Wrapping.Runtime.Matching is
       Expr      : T_Expr;
       Generator : Generator_Type);
 
-   Match_False : constant W_Object := Null_Object;
+   Match_False : constant W_Object := new W_Object_Type;
 
 end Wrapping.Runtime.Matching;

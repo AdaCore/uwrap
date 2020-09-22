@@ -40,7 +40,12 @@ package Wrapping.Runtime.Structure is
    type W_Object is access all W_Object_Type'Class;
 
    function Lt_Wrapper (Left, Right : W_Object) return Boolean;
+   --  Wraps the Lt primitives of W_Object_Type in a way that can then be used
+   --  in sets of W_Object
+
    function Eq_Wrapper (Left, Right : W_Object) return Boolean;
+   --  Wraps the Eq primitives of W_Object_Type in a way that can then be used
+   --  in sets of W_Object
 
    package W_Object_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, W_Object);
@@ -73,36 +78,50 @@ package Wrapping.Runtime.Structure is
    --  This is the root type of all values that are manipulated by expressions
 
    procedure Include_Symbol (Name : Text_Type; Object : not null W_Object);
+   --  Adds or replace a symbol of a given name in the current frame.
 
    function W_Stack_Size return Natural with Inline;
+   --  Returns the current stack of W_Object in the current frame.
 
    function Push_Value
      (An_Entity : access W_Object_Type; Name : Text_Type) return Boolean is
      (False) with
       Post'Class => W_Stack_Size'Old =
-      (if Push_Value'Result then W_Stack_Size - 1 else W_Stack_Size);
+       (if Push_Value'Result then W_Stack_Size - 1 else W_Stack_Size);
+   --  Looks in the current object members for a given name. If found, the
+   --  corresponding object will be pushed to the stack, and this function
+   --  will return True, otherwise nothing is pushed on the stack and this
+   --  function returns false.
 
    procedure Push_Call_Result
      (An_Entity : access W_Object_Type; Params : T_Arg_Vectors.Vector)
      with Post'Class => W_Stack_Size = W_Stack_Size'Old + 1;
-   --  Calling an entity means either doing an actual call if this entity
-   --  refers to a function, or performing a comparison between the object
-   --  and the provided parameters. In the second case, by convention, the
-   --  result of the call (last object on the stack) is either Match_False,
-   --  or Match_True (An_Entity). By default, this returns an error (the
-   --  object is not made for being called).
+   --  Some W_Objects are callable, that is they can take a set of parameters
+   --  e.g.:
+   --    it (<expression>)
+   --  will run a match of the expression against it, or
+   --    to_lower (<expression>)
+   --  will call the to_lower function.
+   --  This function will raise an exeption if the entity is actually not
+   --  callable.
+   --  TODO: Is that a friendly behavior in the context of a match? Shouldn't
+   --  we stack false instead?
 
    function Is_Generator (An_Entity : access W_Object_Type) return Boolean
    is (False);
    --  If this returns true, then the Push_Call_Result call before is
-   --  responsible to call the yield callback, if any. Otherwise, this is done
-   --  by the caller.
+   --  a generator responsible to call the yield callback, if any. Otherwise,
+   --- this is done by the caller.
 
    procedure Generate_Values (Object : access W_Object_Type; Expr : T_Expr);
    --  If this object is a container or a generator, will generate values
    --  matching the expression given in parameter one by one, calling the
    --  yield action. If no Yield action is set in the frame, only generate
-   --  the first matching one, false if none.
+   --  the first matching one, false if none. Note that this is different from
+   --  Push_Call_Result, which may also generate values from a call, e.g.:
+   --    x ().all ()
+   --  This generates values directly on the object, e.g.:
+   --    x.all ()
 
    function Match_With_Top_Object
      (An_Entity : access W_Object_Type) return Boolean;
@@ -128,13 +147,11 @@ package Wrapping.Runtime.Structure is
      (An_Entity        : access W_Object_Type; A_Mode : Browse_Mode;
       Match_Expression : T_Expr) is null;
 
-   pragma Warnings (Off, "postcondition does not mention");
    function Browse_Entity
      (Browsed : access W_Object_Type'Class;
       Match_Expression : T_Expr;
       Result  : out W_Object) return Visit_Action with
      Post => W_Stack_Size = W_Stack_Size'Old;
-   pragma Warnings (On, "postcondition does not mention");
 
    function Write_String (Object : W_Object_Type) return Buffer_Slice;
    --  This function resolves a runtime object into the String value, and
@@ -147,7 +164,9 @@ package Wrapping.Runtime.Structure is
    --  the language, so should remain consistent with it.
 
    function To_Debug_String (Object : W_Object_Type) return Text_Type
-     is ("<empty>");
+   is ("<empty>");
+   --  Returns a string used for the purposed of debugging possibly based on
+   --  the result of Write_String.
 
    function Dereference (Object : access W_Object_Type) return W_Object is
      (W_Object (Object));
@@ -157,12 +176,14 @@ package Wrapping.Runtime.Structure is
    function Lt
      (Left : access W_Object_Type; Right : access W_Object_Type'Class)
       return Boolean;
+   --  Returns true if Left is lower than right, false otherwise. By default,
+   --  does an address comparison.
 
    function Eq
      (Left : access W_Object_Type; Right : access W_Object_Type'Class)
       return Boolean;
-
-   Null_Object : constant W_Object := new W_Object_Type;
+   --  Returns true if Left is equal to right, false otherwise. By default,
+   --  does an address comparison.
 
    function Get_Object_For_Entity
      (An_Entity : access T_Entity_Type'Class) return W_Object;
