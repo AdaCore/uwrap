@@ -138,7 +138,7 @@ package body Wrapping.Runtime.Structure is
          Push_Implicit_It (Generated);
          Push_Object (Generated);
          Call_Yield;
-         Delete_Object_At_Position (-2);
+         Pop_Underneath_Top;
 
          --  Pop frame context. This will in particular restore the name
          --  catpure, which we're using as the accumulator.

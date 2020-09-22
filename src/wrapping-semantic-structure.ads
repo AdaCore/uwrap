@@ -32,6 +32,7 @@ package Wrapping.Semantic.Structure is
    --  The purpose is to create the "program" of the wrapping.
 
    type Visit_Action is (Over, Into, Into_Override_Anchor, Stop, Unknown);
+   type Visit_Action_Ptr is access all Visit_Action;
 
    type T_Entity_Type;
    type T_Entity is access all T_Entity_Type'Class;

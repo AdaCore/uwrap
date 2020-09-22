@@ -155,7 +155,7 @@ package body Wrapping.Runtime.Matching is
 
    procedure Evaluate_Generator_Regexp
      (Root      : access W_Object_Type'Class; Expr : T_Expr;
-      Generator : Generator_Type)
+      Generator : Generator_Callback_Type)
    is
       Result_Variable : aliased Capture_Result_Type;
       Dummy_Generation_Control : aliased Visit_Action;
@@ -168,7 +168,7 @@ package body Wrapping.Runtime.Matching is
         or else Expr.Kind not in Template_Reg_Expr_Anchor | Template_Reg_Expr
       then
          Generator (Expr);
-         Delete_Object_At_Position (-2);
+         Pop_Underneath_Top;
 
          return;
       end if;
@@ -187,7 +187,7 @@ package body Wrapping.Runtime.Matching is
 
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Anchor then
             Top_Context.Regexpr_Anchored := True;
-            Matcher.Current_Expr                   := Expr.Reg_Expr_Right;
+            Matcher.Current_Expr := Expr.Reg_Expr_Right;
          else
             Matcher.Current_Expr := Expr;
          end if;
@@ -205,7 +205,7 @@ package body Wrapping.Runtime.Matching is
            Dummy_Generation_Control'Unchecked_Access;
 
          Handle_Regexpr_Next_Value;
-         Delete_Object_At_Position (-2);
+         Pop_Underneath_Top;
 
          Pop_Frame_Context;
 
@@ -490,7 +490,7 @@ package body Wrapping.Runtime.Matching is
 
                if Matcher.Overall_Yield_Callback /= null then
                   Matcher.Overall_Yield_Callback.all;
-                  Delete_Object_At_Position (-2);
+                  Pop_Underneath_Top;
                end if;
             end if;
          end if;

@@ -42,7 +42,7 @@ package Wrapping.Runtime.Matching is
    procedure Evaluate_Generator_Regexp
      (Root      : access W_Object_Type'Class;
       Expr      : T_Expr;
-      Generator : Generator_Type);
+      Generator : Generator_Callback_Type);
 
    Match_False : constant W_Object := new W_Object_Type;
    --  TODO: There is a potential confusion at some point. The usage of

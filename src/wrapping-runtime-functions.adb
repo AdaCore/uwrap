@@ -240,7 +240,7 @@ package body Wrapping.Runtime.Functions is
 
          if Params.Length = 2 then
             Push_Match_Result (Params.Element (2).Expr);
-            Delete_Object_At_Position (-2);
+            Pop_Underneath_Top;
          end if;
       else
          Error ("conversion takes up to 2 arguments");
@@ -271,7 +271,7 @@ package body Wrapping.Runtime.Functions is
 
          if Params.Length = 2 then
             Push_Match_Result (Params.Element (2).Expr);
-            Delete_Object_At_Position (-2);
+            Pop_Underneath_Top;
          end if;
       else
          Error ("conversion takes up to 2 arguments");

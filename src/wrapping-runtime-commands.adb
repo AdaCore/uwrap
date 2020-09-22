@@ -521,7 +521,7 @@ package body Wrapping.Runtime.Commands is
             declare
                Name : Text_Type := A_Var.Name_Node.Text;
             begin
-               New_Ref := W_Reference (Top_Frame.Symbols.Element (Name));
+               New_Ref := W_Reference (Get_Local_Symbol (Name));
 
                if A_Var.Init_Expr /= null then
                   Push_Frame_Context_No_Match;

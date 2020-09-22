@@ -104,8 +104,8 @@ package body Wrapping.Runtime.Expressions is
                Push_Frame_Context;
                Top_Context.Name_Captured := To_Unbounded_Text (Captured_Name);
 
-               if Top_Frame.Symbols.Contains (Captured_Name) then
-                  Previous_Value := Top_Frame.Symbols.Element (Captured_Name);
+               if Get_Local_Symbol (Captured_Name) /= null then
+                  Previous_Value := Get_Local_Symbol (Captured_Name);
                end if;
 
                Evaluate_Expression (Expr.Match_Capture_Expr);
@@ -119,7 +119,7 @@ package body Wrapping.Runtime.Expressions is
 
                   if Previous_Value /= null then
                      Include_Symbol (Captured_Name, Previous_Value);
-                  elsif Top_Frame.Symbols.Contains (Captured_Name) then
+                  elsif Get_Local_Symbol (Captured_Name) /= null then
                      Top_Frame.Symbols.Delete (Captured_Name);
                   end if;
                end if;
@@ -433,7 +433,7 @@ package body Wrapping.Runtime.Expressions is
 
       --  Check in the dynamic symols in the frame
 
-      Tentative_Symbol := Get_Visible_Symbol (Top_Frame.all, Name);
+      Tentative_Symbol := Get_Local_Symbol (Name);
 
       A_Module := Get_Module (Top_Frame.all);
 
@@ -875,7 +875,7 @@ package body Wrapping.Runtime.Expressions is
          Evaluate_Expression (Suffix_Expression);
 
          if Has_Prev then
-            Delete_Object_At_Position (-2);
+            Pop_Underneath_Top;
          end if;
 
          Has_Prev                                := True;
@@ -895,7 +895,7 @@ package body Wrapping.Runtime.Expressions is
       Evaluate_Expression (Terminal);
 
       if Has_Prev then
-         Delete_Object_At_Position (-2);
+         Pop_Underneath_Top;
       end if;
 
       Pop_Frame_Context;
@@ -1016,7 +1016,7 @@ package body Wrapping.Runtime.Expressions is
 
       if Suffix.Length > 0 then
          Compute_Selector_Suffix (Suffix);
-         Delete_Object_At_Position (-2);
+         Pop_Underneath_Top;
       elsif Top_Context.Outer_Expr_Action /= Action_None then
          Push_Frame_Context;
 
@@ -1067,7 +1067,7 @@ package body Wrapping.Runtime.Expressions is
          begin
             Push_Implicit_It (Top_Object);
             Push_Match_Result (Expr);
-            Delete_Object_At_Position (-2);
+            Pop_Underneath_Top;
 
             if Top_Object /= Match_False then
                if Original_Yield /= null then
@@ -1158,7 +1158,7 @@ package body Wrapping.Runtime.Expressions is
          --  This is an identifier. Call the generator for the object
 
          Evaluate_Expression (Prefix_Function);
-         Delete_Object_At_Position (-2);
+         Pop_Underneath_Top;
          Object_Mode := True;
       else
          Object_Mode := False;
@@ -1169,12 +1169,12 @@ package body Wrapping.Runtime.Expressions is
          Generator => Generator'Unrestricted_Access,
          Expr      => Filtered_Expr);
 
-      Delete_Object_At_Position (-2);
+      Pop_Underneath_Top;
       Pop_Frame_Context;
 
       if Suffix.Length > 0 then
          Compute_Selector_Suffix (Suffix);
-         Delete_Object_At_Position (-2);
+         Pop_Underneath_Top;
       elsif Top_Context.Outer_Expr_Action /= Action_None then
          Push_Frame_Context;
 

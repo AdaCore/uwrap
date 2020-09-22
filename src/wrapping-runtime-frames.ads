@@ -41,23 +41,39 @@ package Wrapping.Runtime.Frames is
    type Frame_Context is access all Frame_Context_Type;
 
    function Top_Frame return Data_Frame with Inline;
+   --  Returns the value of the last frame pushed
 
    function Parent_Frame return Data_Frame with Inline;
+   --  Returns the value of the parent of the last frame pushed, null if it's
+   --  the root frame.
 
    function Top_Context return Frame_Context with Inline;
+   --  Returns the last context pushed on the top frame.
 
    type Allocate_Callback_Type is access procedure
      (E : access W_Object_Type'Class);
+   --  Profile of callback called when a new node is created within an
+   --  expression, as a non-wrapping node.
 
    type Outer_Expr_Callback_Type is access procedure;
+   --  Profile of callback for outer expression processing, expecting the
+   --  object to work on at the top of the stack
 
    type Capture_Mode is (Capture, Rollback);
+   --  Through regular expression processing, entities are going through stages
+   --  of capturing and rolling back. This type is used to track where we're
+   --  on.
 
    type Capture_Callback_Type is access procedure (Mode : Capture_Mode);
+   --  Callback type for capturing values during regular expression processing.
 
    type Yield_Callback_Type is access procedure;
+   --  Callback type for runinning processing following the yield of a value
+   --  by a generator.
 
    type Function_Result_Callback_Type is access procedure;
+   --  Callback type for running processing following the result of a function
+   --  being picked.
 
    type Match_Kind is
      (
@@ -99,13 +115,12 @@ package Wrapping.Runtime.Frames is
       --     pick a () wrap left_expr ();
      );
 
-   type Visit_Action_Ptr is access all Visit_Action;
-
    type Regexpr_Matcher_Type;
-
    type Regexpr_Matcher is access all Regexpr_Matcher_Type;
 
-   type Generator_Type is access procedure (Expr : T_Expr);
+   type Generator_Callback_Type is access procedure (Expr : T_Expr);
+   --  Callback used in regular expression processing to generate values
+   --  matching a given match expression.
 
    type Capture_Result_Type;
 
@@ -113,26 +128,51 @@ package Wrapping.Runtime.Frames is
 
    type Data_Frame_Type is record
       Symbols : W_Object_Maps.Map;
+      --  These are the runtime symbols that have been capture by this frame
+      --  to date.
 
       Group_Sections : Matched_Groups_Vectors.Vector;
+      --  In string regular expressions, groups can be captured by position.
+      --  These are stored in this field.
+
       Data_Stack     : W_Object_Vectors.Vector;
+      --  Stack of the data currently being processed.
+
       Top_Context    : Frame_Context;
+      --  Last Context pushed on this frame.
+
       Lexical_Scope  : T_Entity;
+      --  Lexical scope that lead to the creation of this frame, could be the
+      --  root object for the global frame, a template or a function.
 
       Temp_Names : Text_Maps_Access;
+      --  Temporary names generated for this frame, with their string
+      --  association.
 
       Interrupt_Program : Boolean := False;
+      --  When set to true, this flag will interrupt the current program, and
+      --  either move to the parent frame or simply stop the global program,
+      --  moving to the next node to process.
 
       Current_Template : W_Object;
       --  When the frame is stacked for a template, it's accessible through
       --  this variable
 
       Template_Parameters_Position : T_Expr_Vectors.Vector;
+      --  If this frame is a template, this will store the parameters that were
+      --  passed in the order they were provided. Positional parameters are
+      --  always provided before named ones.
+
       Template_Parameters_Names    : T_Expr_Maps.Map;
+      --  If this frame is a template, this will store the parameters that
+      --  were passed in a name => value convention.
    end record;
+   --  This type hold a frame, which can be either the global frame, or a
+   --  frame local to a template instance or a function.
 
    type Frame_Context_Type is record
       Parent_Context : Frame_Context;
+      --  The parent context.
 
       Yield_Callback : Yield_Callback_Type;
       --  This is set by functions that iterate over generators, and called by
@@ -164,11 +204,17 @@ package Wrapping.Runtime.Frames is
       --  function call is a prefix.
 
       Visit_Decision : Visit_Action_Ptr;
+      --  This pointer is a pointer to the variable used by the last node
+      --  iteration, and allows to control the decision to take on the next
+      --  step. In particular it allows to interrupt a sub-iteration
 
       Current_Command : T_Command;
       --  The command currently processed
 
       Match_Mode : Match_Kind := Match_None;
+      --  Tracks wether or not we're in a match section, which can be either
+      --  the match section of a command, or a matching preducate, e.g. in a
+      --  find.
 
       Name_Captured : Unbounded_Text_Type;
       --  When hitting a capture expression, the name is being stored here so
@@ -190,8 +236,15 @@ package Wrapping.Runtime.Frames is
       --  B.C and D match against A, A matches against self.
 
       Regexpr_Anchored : Boolean := False;
+      --  When processing a regular expressions, this allows to track wether
+      --  we're in an anchored section, that is we should not look past the
+      --  first level of iteration. For example, for next, this means only
+      --  matching the directly next node, for child this means only matching
+      --  across the first level children.
 
       Regexpr : Regexpr_Matcher;
+      --  When processing a regular expression, pointer to the current regexpr
+      --  matcher.
 
       Is_First_Matching_Wrapper : Boolean := True;
       --  When iterating over wrappers, we can have several matches on the same
@@ -213,22 +266,79 @@ package Wrapping.Runtime.Frames is
    type Matched_Groups_Type is record
       Groups : W_Object_Vectors.Vector;
    end record;
+   --  Contains a set of matched value by index. It's important to store these
+   --  by level. For example in:
+   --    match x"(.*) (.*)" do
+   --       match x"(.*)" wrap standard.out ("\3");
+   --       match x"(a.*b)" wrap standard.out ("\3");
+   --    end;
+   --  there's only one frame. The first match provides two groups. The second
+   --  match provides a third group only valid for that second match, the third
+   --  match provides another third group. We need to be able to push and pop
+   --  the ones related to the second and third while keeping the first.
 
    type Capture_Result_Type is record
       Parent : Capture_Result;
       Object : W_Object;
    end record;
+   --  This type is used to track the variable in which we're currently
+   --  capturing the result of a regular expressions. Such capture is
+   --  recursive. E.g. in:
+   --     a: many (b: (something) \ c (something))
+   --  a is the parent of b and c. When e.g. b is processed, captured object
+   --  must be provided to b and a.
 
    type Regexpr_Matcher_Type is record
       Outer_Next_Expr        : Regexpr_Matcher;
+      --  In expressions such as
+      --     (b \ c) \ d
+      --  When processing "b \ c", the outer next expr is pointing to d so that
+      --  it's possible, when reaching the end of the subexpression b \ c, to
+      --  retreive and process d.
+
       Current_Expr           : T_Expr;
-      Generator              : Generator_Type;
+      --  This field tracks the expression to analyze in a given frame context.
+      --  Stacked frame contexts through the analysis will move this pointer
+      --  across the whole expression.
+
+      Generator              : Generator_Callback_Type;
+      --  Callback generating values from a given node of a regular expression.
+      --  this may generate more than one value, which will be captured by the
+      --  yield callback installed by the regular expression processor.
+
       Overall_Yield_Callback : Yield_Callback_Type;
+      --  When entering a regular expression, there may be already a yield
+      --  callback installed. However, resolving the regular expression itself
+      --  relies on generating values which will be captured through internal
+      --  yield callbacks. This allows to keep track of the callback that
+      --  was installed before entering the expression, so that in something
+      --  such as:
+      --     child (a \ b).fold ()
+      --  we can store the yield callback that corresponds to fold when
+      --  entering the expression, and call it when reaching a successful match
+      --  on b. Incenditally, when not null, this means that the regular
+      --  expression will generate every possible chain.
+
       Capturing              : Capture_Result;
-      Generator_Decision     : Visit_Action := Unknown;
+      --  The object to which we're currently capturing results
+
       Quantifiers_Hit        : Integer := 0;
+      --  Quantifiers such as many or few may have boundaries (finding at least
+      --  and at most certain numbers of matches). This field captures how many
+      --  have been found so far and allows to decide wether more need to
+      --  be retreived, or wether the number that we have is already enough
+
       Capture_Installed      : Boolean := False;
+      --  Tracks wether the capturing object has already been installed for
+      --  the given matcher. This is important in particular as quantifiers
+      --  will execute many times, but only needs to install the capture
+      --  variable initially.
    end record;
+   --  This type is used in regular expressions, to map to a given term of
+   --  the expression. For example in:
+   --    a \ b \ many (c)
+   --  3 of these types will be created by the algorithm one after the other
+   --  to keep track of all the data necessary for the processing.
 
    procedure Call_Yield
      (Callback : Yield_Callback_Type := Top_Context.Yield_Callback)
@@ -238,34 +348,53 @@ package Wrapping.Runtime.Frames is
    --  of the stack by the element stacked by yield. If the Callback is null,
    --  this is a null operation.
 
-   function Get_Visible_Symbol
-     (A_Frame : Data_Frame_Type; Name : Text_Type) return W_Object;
+   function Get_Local_Symbol (Name : Text_Type) return W_Object;
+   --  Return a symbol of a given name local to the top frame, null
+   --  if none.
 
-   function Get_Module
-     (A_Frame : Data_Frame_Type) return Semantic.Structure.T_Module;
+   function Get_Module (A_Frame : Data_Frame_Type) return T_Module;
+   --  Return the module enclosing this frame.
 
    function Top_Object return W_Object with Inline;
    --  Return the object at the top of the current stack.
 
    procedure Push_Frame (Lexical_Scope : access T_Entity_Type'Class);
+   --  Push a new frame as a child of the current one, linked to the scope
+   --  in parameter which may be the root scope, a function or a template.
 
    procedure Push_Frame (Frame : Data_Frame);
+   --  Push the frame in parameter on top of the frame list, with the previous
+   --  one sets as it parents. This frame may already be in the frame stack
+   --  below. This can be used in particular when e.g. function needs to
+   --  generate values in the parent frames, then go back to their scope to
+   --  continue processing.
 
    procedure Push_Frame (A_Closure : Closure);
+   --  Push a frame re-installing the closure in parameter, for example to
+   --  run a deferred command or a deferred expression.
 
    procedure Pop_Frame;
+   --  Pop the last push frame, updating both the Top_Frame and Parent_Frame
+   --  references.
 
    procedure Push_Frame_Context;
+   --  Push a new frame context as the exact copy of the top one.
 
    procedure Push_Frame_Context (Context : Frame_Context_Type);
+   --  Push a new frame context as a copy of the one provided in parameter.
 
    procedure Push_Frame_Context_Parameter;
+   --  Push a frame context to prepare a parameter evaluation
 
    procedure Push_Frame_Context_Parameter_With_Match (Object : W_Object);
+   --  Push a frame context to prepare the matching expression of a predicate
+   --  against a given outer object.
 
    procedure Push_Frame_Context_No_Outer;
+   --  Push a frame context with no outer object or function
 
    procedure Push_Frame_Context_No_Match;
+   --  Push a frame context with matching deactivated.
 
    procedure Push_Frame_Context_No_Pick;
    --  Many expression part need to deactivate being picked as function
@@ -281,35 +410,54 @@ package Wrapping.Runtime.Frames is
    --  a new context with the proper flags.
 
    procedure Pop_Frame_Context;
+   --  Pops the last pushed frame context.
 
    procedure Push_Match_Groups_Section;
+   --  Push a new group section. For example in:
+   --    match x"(.*) (.*)" do
+   --       match x"(.*)" wrap standard.out ("\3");
+   --       match x"(a.*b)" wrap standard.out ("\3");
+   --    end;
+   --  Each match requires a specific group section as we need to be able to
+   --  push and pop the second and third one without altering the first.
 
    procedure Pop_Match_Groups_Section;
+   --  Pops the last pushed group section.
 
    procedure Push_Object (Object : access W_Object_Type'Class);
+   --  Pushes an object to the data stack.
 
    procedure Push_Implicit_It (Object : access W_Object_Type'Class);
+   --  Pushes a reference to the object in parameter as the implicit it
+   --  parameter.
 
    procedure Push_Allocated_Entity (Object : access W_Object_Type'Class);
+   --  Pushes a reference to the object in parameter as a newly allocated
+   --  entity, which can then be used by certain functions to link to the
+   --  structure currently iterated on. For example in:
+   --     child (new (something ()))
+   --  the allocated callback will recognized the entity as having being
+   --  allocated and will set it as a child of the current it object.
 
    procedure Push_Temporary_Name (Name : Text_Type; Counter : in out Integer);
    --  Push the temporary of the given name on the stack. If one needs to be
    --  created, counter will be used to append to the name and be incremented.
 
-   procedure Pop_Object (Number : Positive := 1);
+   procedure Pop_Object;
+   --  Pops the last object pushed to the stack.
 
-   procedure Delete_Object_At_Position (Position : Integer) with
-     Pre => Position /= 0;
-   --  Deletes a specific object. Negative deletes from end, positives delete
-   --  from start
+   procedure Pop_Underneath_Top;
+   --  Deletes the object right below the top object
 
    function Pop_Object return W_Object;
+   --  Pops the last object pushed on the stack and returns it.
 
    function Top_Is_Implicit return Boolean;
    --  Return True if the top object on the frame is an implicitely stacked
    --  object
 
-   function Get_Implicit_It (From : Data_Frame := Top_Frame) return W_Object;
+   function Get_Implicit_It return W_Object;
+   --  Returns last pushed implicit it for the frame in parameter
 
 private
 

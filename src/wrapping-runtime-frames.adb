@@ -51,7 +51,7 @@ package body Wrapping.Runtime.Frames is
          Top_Context.Yield_Callback := null;
 
          Callback.all;
-         Delete_Object_At_Position (-2);
+         Pop_Underneath_Top;
          Pop_Frame_Context;
       end if;
    end Call_Yield;
@@ -60,33 +60,31 @@ package body Wrapping.Runtime.Frames is
    -- Get_Visible_Symbol --
    ------------------------
 
-   function Get_Visible_Symbol
-     (A_Frame : Data_Frame_Type; Name : Text_Type) return W_Object
-   is
+   function Get_Local_Symbol (Name : Text_Type) return W_Object is
    begin
       if Top_Frame.Symbols.Contains (Name) then
          return Top_Frame.Symbols.Element (Name);
       end if;
 
       return null;
-   end Get_Visible_Symbol;
+   end Get_Local_Symbol;
 
    ----------------
    -- Get_Module --
    ----------------
 
    function Get_Module
-     (A_Frame : Data_Frame_Type) return Semantic.Structure.T_Module
+     (A_Frame : Data_Frame_Type) return T_Module
    is
       use Semantic.Structure;
 
-      Scope : Semantic.Structure.T_Entity := A_Frame.Lexical_Scope;
+      Scope : T_Entity := A_Frame.Lexical_Scope;
    begin
       while Scope /= null and then Scope.all not in T_Module_Type'Class loop
          Scope := Scope.Parent;
       end loop;
 
-      return Semantic.Structure.T_Module (Scope);
+      return T_Module (Scope);
    end Get_Module;
 
    -------------------
@@ -167,26 +165,21 @@ package body Wrapping.Runtime.Frames is
    -- Pop_Object --
    ----------------
 
-   procedure Pop_Object (Number : Positive := 1) is
+   procedure Pop_Object is
    begin
-      Top_Frame.Data_Stack.Delete_Last (Count_Type (Number));
+      Top_Frame.Data_Stack.Delete_Last;
       Update_Object;
    end Pop_Object;
 
-   -------------------------------
-   -- Delete_Object_At_Position --
-   -------------------------------
+   ------------------------
+   -- Pop_Underneath_Top --
+   ------------------------
 
-   procedure Delete_Object_At_Position (Position : Integer) is
+   procedure Pop_Underneath_Top is
    begin
-      if Position > 0 then
-         Top_Frame.Data_Stack.Delete (Position);
-      else
-         Top_Frame.Data_Stack.Delete
-           (Integer (Top_Frame.Data_Stack.Length) + Position + 1);
-      end if;
+      Top_Frame.Data_Stack.Delete (Integer (Top_Frame.Data_Stack.Length) - 1);
       Update_Object;
-   end Delete_Object_At_Position;
+   end Pop_Underneath_Top;
 
    ----------------
    -- Pop_Object --
@@ -406,15 +399,16 @@ package body Wrapping.Runtime.Frames is
    -- Get_Implicit_It --
    ---------------------
 
-   function Get_Implicit_It (From : Data_Frame := Top_Frame) return W_Object is
+   function Get_Implicit_It return W_Object is
    begin
       for I in reverse
-        From.Data_Stack.First_Index .. From.Data_Stack.Last_Index
+        Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index
       loop
-         if From.Data_Stack.Element (I).all in W_Reference_Type'Class
-           and then W_Reference (From.Data_Stack.Element (I)).Is_Implicit_It
+         if Top_Frame.Data_Stack.Element (I).all in W_Reference_Type'Class
+           and then
+             W_Reference (Top_Frame.Data_Stack.Element (I)).Is_Implicit_It
          then
-            return W_Reference (From.Data_Stack.Element (I)).Value;
+            return W_Reference (Top_Frame.Data_Stack.Element (I)).Value;
          end if;
       end loop;
 
