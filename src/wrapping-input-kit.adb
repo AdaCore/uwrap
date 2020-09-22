@@ -204,7 +204,7 @@ package body Wrapping.Input.Kit is
          while Cur_Token /= null loop
             Cur_Token.Pre_Visit;
 
-            A_Visit_Action := Browse_Entity (Cur_Token, Expr, Result);
+            A_Visit_Action := Generate_Entity (Cur_Token, Expr, Result);
 
             exit when A_Visit_Action in Stop | Over
               or else Cur_Token.Node = Last_Ref;

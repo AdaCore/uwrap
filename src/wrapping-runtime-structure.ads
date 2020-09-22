@@ -129,29 +129,73 @@ package Wrapping.Runtime.Structure is
    --  could be made, true otherwise. If the top object doesn't match, replace
    --  it with a match false.
 
-   type Browse_Mode is
+   type Traverse_Mode is
      (Parent, Child_Depth, Child_Breadth, Next, Prev, Sibling, Wrapper);
+   --  Traveral is provided for various kind of modes - this type identifies
+   --  which specific one should be used.
 
-   --  TODO: This is probably actually needed only at the node level.
    function Traverse
-     (An_Entity  : access W_Object_Type; A_Mode : Browse_Mode;
-      Include_It : Boolean; Final_Result : out W_Object;
-      Visitor    : access function
+     (An_Entity    : access W_Object_Type;
+      --  The object at the root of the traversed relation.
+
+      A_Mode       : Traverse_Mode;
+      --  Defines the mode in which the traveral is expected to happen.
+
+      Include_Self : Boolean;
+      --  When true, the value of An_Entity will be the first one on which the
+      --  visitor is called, false otherwise.
+
+      Final_Result : out W_Object;
+      --  Provides the final non-null result of the visitor calls.
+
+      Visitor      : access function
         (E : access W_Object_Type'Class; Result : out W_Object)
-         return Visit_Action)
-      return Visit_Action;
+         return Visit_Action
+      --  Called on each visited node. As a result of the visit, the visitor
+      --  may set a specific value as the result of its operation, to be
+      --  transfered later by the overall Traverse function. This function
+      --  can also provide a specific decision as to how to carry on the visit,
+      --  which can be Over (to avoid e.g. looking at children in the child
+      --  mode) or Stop to interrupt the traversal.
+     )
+      return Visit_Action
+     with Post'Class => W_Stack_Size = W_Stack_Size'Old;
+   --  Traverse entities related to the entity in parameter in the mode
+   --  provided in parameter. If the outcome of the traveral is a specific
+   --  visit action to be passed to the calling context, it'll be returned,
+   --  Unknown otherwise. Note that Traverse can be called by various
+   --  processes, including but not limited to expressions. As a result it
+   --  returns its resulting value as opposed to pushing it on the stack like
+   --  many others.
 
-   --  TODO this into push browse_Result? And see with the other push browse
-   --  result what should be changed
-   procedure Evaluate_Bowse_Functions
-     (An_Entity        : access W_Object_Type; A_Mode : Browse_Mode;
-      Match_Expression : T_Expr) is null;
+   procedure Push_Traverse_Result
+     (An_Entity        : access W_Object_Type;
+      A_Mode           : Traverse_Mode;
+      Match_Expression : T_Expr)
+     with Post'Class => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Wrapper around Traverse for the purpose of evalating a traverse function
+   --  in the context of an expression. Will also be responsible of expression
+   --  traversal post processing such as linkage with new nodes or hollow
+   --  nodes creation (see documentation in the W_Node overriden function for
+   --  more details).
 
-   function Browse_Entity
-     (Browsed : access W_Object_Type'Class;
+   function Generate_Entity
+     (Generated        : access W_Object_Type'Class;
       Match_Expression : T_Expr;
-      Result  : out W_Object) return Visit_Action with
+      Result           : out W_Object) return Visit_Action with
      Post => W_Stack_Size = W_Stack_Size'Old;
+   --  Generates a new entity. If Match_Expession is not null, then the entity
+   --  will be matched against the match expression and will only be generated
+   --  if the match is positive, result will be Match_False otherwise. If this
+   --  function is called in the context of value generation, then the Yield
+   --  callback will be called, and Result will be set to the result of that
+   --  callback, Generated otherwise.
+   --  This function will also take care of setting the value for the capturing
+   --  variable, so that in expressions like:
+   --     x: child (<some expression>)
+   --  x can be accessible in <some expression>.
+   --  TODO: work a bit more on this, should be more used, and probably
+   --        simplified.
 
    function Write_String (Object : W_Object_Type) return Buffer_Slice;
    --  This function resolves a runtime object into the String value, and

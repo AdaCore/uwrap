@@ -67,8 +67,8 @@ package body Wrapping.Runtime.Structure is
    --------------
 
    function Traverse
-     (An_Entity  : access W_Object_Type; A_Mode : Browse_Mode;
-      Include_It : Boolean; Final_Result : out W_Object;
+     (An_Entity  : access W_Object_Type; A_Mode : Traverse_Mode;
+      Include_Self : Boolean; Final_Result : out W_Object;
       Visitor    : access function
         (E : access W_Object_Type'Class; Result : out W_Object)
          return Visit_Action)
@@ -79,14 +79,28 @@ package body Wrapping.Runtime.Structure is
       return Into;
    end Traverse;
 
+   ------------------------------
+   -- Evaluate_Bowse_Functions --
+   ------------------------------
+
+   procedure Push_Traverse_Result
+     (An_Entity        : access W_Object_Type;
+      A_Mode           : Traverse_Mode;
+      Match_Expression : T_Expr) is
+   begin
+      Push_Match_False;
+   end Push_Traverse_Result;
+
    -------------------
    -- Browse_Entity --
    -------------------
 
-   function Browse_Entity
-     (Browsed :     access W_Object_Type'Class; Match_Expression : T_Expr;
-      Result  : out W_Object) return Visit_Action
+   function Generate_Entity
+     (Generated          : access W_Object_Type'Class;
+      Match_Expression : T_Expr;
+      Result           : out W_Object) return Visit_Action
    is
+
       procedure Evaluate_Yield_Function with
          Post => W_Stack_Size = W_Stack_Size'Old;
 
@@ -120,7 +134,7 @@ package body Wrapping.Runtime.Structure is
 
          --  Then evaluate that folding expression
 
-         Push_Implicit_It (Browsed);
+         Push_Implicit_It (Generated);
          Call_Yield;
 
          --  The result of the evaluate expression is the result of the yield
@@ -154,7 +168,7 @@ package body Wrapping.Runtime.Structure is
          Push_Frame_Context;
          Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
 
-         Push_Implicit_It (Browsed);
+         Push_Implicit_It (Generated);
 
          if Top_Context.Outer_Expr_Action /= Action_None then
             Execute_Expr_Outer_Action;
@@ -172,8 +186,7 @@ package body Wrapping.Runtime.Structure is
                return Visit_Decision;
             end if;
          else
-            Result :=
-              new W_Reference_Type'(Value => W_Object (Browsed), others => <>);
+            Result := W_Object (Generated);
 
             return Stop;
          end if;
@@ -185,7 +198,7 @@ package body Wrapping.Runtime.Structure is
       --  However, we cannot create a sub frame as whatever we match needs
       --  to find its way to the command frame (otherwise any extracted group
       --  would be deleted upon frame popped).
-      Push_Implicit_It (Browsed);
+      Push_Implicit_It (Generated);
 
       --  If there's a name capture above this expression, its value needs to
       --  be available in the underlying match expression. We only capture the
@@ -196,15 +209,14 @@ package body Wrapping.Runtime.Structure is
         and then Top_Context.Yield_Callback = null
       then
          Include_Symbol
-           (To_Text (Top_Context.Name_Captured),
-            new W_Reference_Type'(Value => W_Object (Browsed), others => <>));
+           (To_Text (Top_Context.Name_Captured), W_Object (Generated));
       end if;
 
       --  Prior to evaluating the expression, we need to remove potential
       --  name capture, as it would override the one we are capturing in
       --  this browsing iteration.
 
-      Push_Frame_Context_Parameter_With_Match (W_Object (Browsed));
+      Push_Frame_Context_Parameter_With_Match (W_Object (Generated));
       Top_Context.Name_Captured  := To_Unbounded_Text ("");
       Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
       Top_Context.Yield_Callback := null;
@@ -251,7 +263,7 @@ package body Wrapping.Runtime.Structure is
                   return Visit_Decision;
                end if;
             else
-               Result := W_Object (Browsed);
+               Result := W_Object (Generated);
 
                return Stop;
             end if;
@@ -259,7 +271,7 @@ package body Wrapping.Runtime.Structure is
       else
          return Into;
       end if;
-   end Browse_Entity;
+   end Generate_Entity;
 
    ------------------
    -- Write_String --

@@ -153,15 +153,15 @@ package Wrapping.Runtime.Objects is
      (An_Entity : access W_Reference_Type) return Boolean;
 
    overriding function Traverse
-     (An_Entity  : access W_Reference_Type; A_Mode : Browse_Mode;
-      Include_It : Boolean; Final_Result : out W_Object;
-      Visitor    : access function
+     (An_Entity    : access W_Reference_Type; A_Mode : Traverse_Mode;
+      Include_Self : Boolean; Final_Result : out W_Object;
+      Visitor      : access function
         (E : access W_Object_Type'Class; Result : out W_Object)
          return Visit_Action)
       return Visit_Action;
 
-   overriding procedure Evaluate_Bowse_Functions
-     (An_Entity        : access W_Reference_Type; A_Mode : Browse_Mode;
+   overriding procedure Push_Traverse_Result
+     (An_Entity        : access W_Reference_Type; A_Mode : Traverse_Mode;
       Match_Expression : T_Expr);
 
    function Is_Implicit (Object : W_Reference_Type) return Boolean is
@@ -412,15 +412,15 @@ package Wrapping.Runtime.Objects is
    procedure Pre_Visit (An_Entity : access W_Node_Type) is null;
 
    overriding function Traverse
-     (An_Entity  : access W_Node_Type; A_Mode : Browse_Mode;
+     (An_Entity  : access W_Node_Type; A_Mode : Traverse_Mode;
       Include_It : Boolean; Final_Result : out W_Object;
       Visitor    : access function
         (E : access W_Object_Type'Class; Result : out W_Object)
          return Visit_Action)
       return Visit_Action;
 
-   overriding procedure Evaluate_Bowse_Functions
-     (An_Entity        : access W_Node_Type; A_Mode : Browse_Mode;
+   overriding procedure Push_Traverse_Result
+     (An_Entity        : access W_Node_Type; A_Mode : Traverse_Mode;
       Match_Expression : T_Expr);
 
    overriding
@@ -464,7 +464,7 @@ package Wrapping.Runtime.Objects is
      (An_Entity : access W_Template_Instance_Type) return Boolean;
 
    overriding function Traverse
-     (An_Entity  : access W_Template_Instance_Type; A_Mode : Browse_Mode;
+     (An_Entity  : access W_Template_Instance_Type; A_Mode : Traverse_Mode;
       Include_It : Boolean; Final_Result : out W_Object;
       Visitor    : access function
         (E : access W_Object_Type'Class; Result : out W_Object)
@@ -532,15 +532,15 @@ package Wrapping.Runtime.Objects is
      (An_Entity.As_Singleton.Match_With_Top_Object);
 
    overriding function Traverse
-     (An_Entity  : access W_Regexpr_Result_Type; A_Mode : Browse_Mode;
+     (An_Entity  : access W_Regexpr_Result_Type; A_Mode : Traverse_Mode;
       Include_It : Boolean; Final_Result : out W_Object;
       Visitor    : access function
         (E : access W_Object_Type'Class; Result : out W_Object)
          return Visit_Action)
       return Visit_Action;
 
-   overriding procedure Evaluate_Bowse_Functions
-     (An_Entity        : access W_Regexpr_Result_Type; A_Mode : Browse_Mode;
+   overriding procedure Push_Traverse_Result
+     (An_Entity        : access W_Regexpr_Result_Type; A_Mode : Traverse_Mode;
       Match_Expression : T_Expr);
 
    overriding function Write_String
