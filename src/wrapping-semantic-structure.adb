@@ -27,6 +27,12 @@ package body Wrapping.Semantic.Structure is
 
    procedure Compute_Closure (Root : T_Entity; Closure : in out Text_Sets.Set);
 
+   function Get_Static_Entity_By_Name
+     (Current_Scope : T_Entity; Name : Selector) return T_Entity;
+
+   function Get_Template_By_Name
+     (Current_Scope : T_Entity; Name : Selector) return T_Entity;
+
    ---------------
    -- Add_Child --
    ---------------
@@ -267,15 +273,18 @@ package body Wrapping.Semantic.Structure is
    -------------------------------
 
    function Get_Static_Entity_By_Name
-     (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity
+     (Current_Scope : T_Entity; Name : Selector) return T_Entity
    is
+
+      function Get_Visible_Entity
+        (An_Entity : T_Entity; Name : Text_Type) return T_Entity;
 
       ------------------------
       -- Get_Visible_Entity --
       ------------------------
 
       function Get_Visible_Entity
-        (An_Entity : T_Entity; Name : Text_Type) return Structure.T_Entity
+        (An_Entity : T_Entity; Name : Text_Type) return T_Entity
       is
       begin
          if An_Entity.all in T_Module_Type then
@@ -341,7 +350,7 @@ package body Wrapping.Semantic.Structure is
    --------------------------
 
    function Get_Template_By_Name
-     (Current_Scope : T_Entity; Name : Selector) return Structure.T_Entity
+     (Current_Scope : T_Entity; Name : Selector) return T_Entity
    is
       An_Entity : T_Entity;
    begin
@@ -525,11 +534,16 @@ package body Wrapping.Semantic.Structure is
 
    procedure Compute_Closure (Root : T_Entity; Closure : in out Text_Sets.Set)
    is
+
+      procedure Capture (Name : Text_Type);
+
       Local_Symbols : Text_Sets.Set;
 
       procedure Not_Capture_Identifiers (Expr : T_Expr);
 
       procedure Capture_Identifiers (Expr : T_Expr);
+
+      procedure Capture_Identifiers_In_Expressions (Entity : T_Entity);
 
       -------------
       -- Capture --

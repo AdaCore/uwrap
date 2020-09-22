@@ -37,6 +37,9 @@ package body Wrapping.Runtime.Matching is
 
    procedure Capture_Value (Capturing : Capture_Result; Mode : Capture_Mode);
 
+   function Get_Right_Expression_Matcher
+     (Allocated_Next_Matcher : Regexpr_Matcher) return Regexpr_Matcher;
+
    ---------------------
    -- Push_Match_True --
    ---------------------
@@ -213,9 +216,9 @@ package body Wrapping.Runtime.Matching is
       end;
    end Evaluate_Generator_Regexp;
 
-   -------------------------------
-   -- Handle_Regexpr_Next_Value --
-   -------------------------------
+   ----------------------------------
+   -- Get_Right_Expression_Matcher --
+   ----------------------------------
 
    function Get_Right_Expression_Matcher
      (Allocated_Next_Matcher : Regexpr_Matcher) return Regexpr_Matcher
@@ -243,6 +246,10 @@ package body Wrapping.Runtime.Matching is
          return Allocated_Next_Matcher;
       end if;
    end Get_Right_Expression_Matcher;
+
+   -------------------------------
+   -- Handle_Regexpr_Next_Value --
+   -------------------------------
 
    procedure Handle_Regexpr_Next_Value is
       Expr         : T_Expr;

@@ -61,6 +61,11 @@ package body Wrapping.Runtime.Expressions is
    procedure Handle_Arithmetic_Operator (Expr : T_Expr) with
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
+   procedure Handle_Global_Identifier (Name : Text_Type);
+
+   procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector) with
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
+
    -------------------------
    -- Evaluate_Expression --
    -------------------------
@@ -551,6 +556,7 @@ package body Wrapping.Runtime.Expressions is
 
       end case;
    end Execute_Expr_Outer_Action;
+
    ------------------------------
    -- Handle_Global_Identifier --
    ------------------------------
@@ -655,6 +661,14 @@ package body Wrapping.Runtime.Expressions is
       --
       --   If the template has already been evaluated, then we only update its
       --   variables.
+
+      procedure Store_Parameter
+        (Name : Text_Type; Position : Integer; Value : T_Expr);
+
+      procedure Update_Parameter
+        (Name : Text_Type; Position : Integer; Value : T_Expr);
+
+      procedure Handle_Template_Call_Recursive (A_Template : T_Template);
 
       A_Template_Instance : W_Template_Instance :=
         W_Template_Instance (Instance);
@@ -826,9 +840,7 @@ package body Wrapping.Runtime.Expressions is
    -- Compute_Selector_Suffix --
    -----------------------------
 
-   procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector) with
-      Post => W_Stack_Size = W_Stack_Size'Old + 1
-   is
+   procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector) is
       Terminal : T_Expr;
 
       Has_Prev          : Boolean := False;
@@ -932,6 +944,8 @@ package body Wrapping.Runtime.Expressions is
 
    procedure Handle_Fold (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector) is
 
+      procedure Yield_Callback;
+
       Fold_Expr : T_Expr := Selector.Selector_Right;
 
       Is_First : Boolean := True;
@@ -1022,6 +1036,12 @@ package body Wrapping.Runtime.Expressions is
 
    procedure Handle_Filter (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector)
    is
+
+      procedure Generator (Expr : T_Expr);
+
+      procedure Object_Generator
+        (Node : access W_Object_Type'Class; Expr : T_Expr);
+
       Filtered_Expr   : T_Expr := Selector.Selector_Right.Filter_Expr;
       Prefix_Function : T_Expr;
 
@@ -1034,6 +1054,8 @@ package body Wrapping.Runtime.Expressions is
       ---------------
 
       procedure Generator (Expr : T_Expr) is
+
+         procedure Yield_Callback;
 
          Original_Yield : Yield_Callback_Type := Top_Context.Yield_Callback;
 
@@ -1172,6 +1194,9 @@ package body Wrapping.Runtime.Expressions is
    ----------------
 
    procedure Handle_All (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector) is
+
+      procedure Yield_Callback;
+
       Initial_Context : Frame_Context := Top_Context;
 
       --------------------
@@ -1249,6 +1274,14 @@ package body Wrapping.Runtime.Expressions is
    ----------------
 
    procedure Handle_New (Create_Tree : T_Create_Tree) is
+
+      function Handle_Create_Template
+        (New_Tree : T_Create_Tree; Parent : W_Template_Instance)
+         return W_Template_Instance;
+
+      function Handle_Create_Tree
+        (A_Tree : T_Create_Tree; Parent : W_Template_Instance)
+         return W_Template_Instance;
 
       ----------------------------
       -- Handle_Create_Template --

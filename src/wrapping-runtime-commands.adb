@@ -73,6 +73,21 @@ package body Wrapping.Runtime.Commands is
      (E : access W_Object_Type'Class; Result : out W_Object)
       return Wrapping.Semantic.Structure.Visit_Action;
 
+   procedure Push_Error_Location (An_Entity : access T_Entity_Type'Class);
+
+   procedure Pop_Error_Location;
+
+   procedure Apply_Template_Action
+     (It : W_Node; Template_Clause : T_Template_Section);
+
+   procedure Allocate_Detached (E : access W_Object_Type'Class);
+
+   procedure Install_Command_Context (Command : T_Command);
+
+   procedure Uninstall_Command_Context;
+
+   function Handle_Defered_Command (Command : Deferred_Command) return Boolean;
+
    -------------------------
    -- Push_Error_Location --
    -------------------------

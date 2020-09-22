@@ -22,10 +22,7 @@ project UWrap is
       case Build_Mode is
          when "dev" =>
             for Default_Switches ("Ada") use
-              ("-g", "-O0", "-gnata", "-gnatw.T",
-               --  TODO: Activate GNAT style checks, except mandatory subprogram
-               --  specs, because there are a ton to fix.
-               "-gnatyg-s");
+              ("-g", "-O0", "-gnata", "-gnatw.T", "-gnatyg");
 
          when "prod" =>
             --  Debug information is useful even with optimization for

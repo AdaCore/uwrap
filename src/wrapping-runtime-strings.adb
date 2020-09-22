@@ -36,6 +36,10 @@ package body Wrapping.Runtime.Strings is
       On_Group : access procedure (Index : Integer; Value : W_Object) := null;
       On_Expression : access procedure (Expr : T_Expr) := null)
    is
+
+      procedure On_Error
+        (Message : Text_Type; Filename : String; Loc : Source_Location);
+
       --------------
       -- On_Error --
       --------------

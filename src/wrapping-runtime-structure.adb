@@ -87,15 +87,16 @@ package body Wrapping.Runtime.Structure is
      (Browsed :     access W_Object_Type'Class; Match_Expression : T_Expr;
       Result  : out W_Object) return Visit_Action
    is
+      procedure Evaluate_Yield_Function with
+         Post => W_Stack_Size = W_Stack_Size'Old;
+
       Visit_Decision : aliased Visit_Action := Unknown;
 
       -----------------------------
       -- Evaluate_Yield_Function --
       -----------------------------
 
-      procedure Evaluate_Yield_Function with
-         Post => W_Stack_Size = W_Stack_Size'Old
-      is
+      procedure Evaluate_Yield_Function is
       begin
          --  In certain cases, there's no expression to be evaluated upon
          --  yield. E.g.:
@@ -425,6 +426,9 @@ package body Wrapping.Runtime.Structure is
    function Get_Object_For_Entity
      (An_Entity : access T_Entity_Type'Class) return W_Object
    is
+
+      procedure Allocate_Variable (Var : T_Var);
+
       Result : W_Template_Instance;
       Name   : Text_Type := An_Entity.Full_Name;
 

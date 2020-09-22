@@ -29,6 +29,10 @@ package body Wrapping.Runtime.Frames is
 
    Data_Frame_Stack : Data_Frame_Vectors.Vector;
 
+   procedure Update_Object;
+
+   procedure Update_Frames;
+
    -----------------
    --  Call_Yield --
    -----------------

@@ -17,6 +17,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+--  This package provides data structures required by most of the runtime
+--  processing.
+
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Containers.Ordered_Sets;
@@ -32,8 +35,6 @@ with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Utils;              use Wrapping.Utils;
 
 package Wrapping.Runtime.Structure is
-   --  The purpose is to provide the data structures created live during the
-   --  wrapping process (e.g. call stacks, template instances, etc.)
 
    type W_Object_Type;
    type W_Object is access all W_Object_Type'Class;

@@ -38,11 +38,31 @@ package body Wrapping.Runtime.Objects is
 
    procedure Run_Deferred_Expr (Deferred_Expr : W_Deferred_Expr_Type);
 
+   function Has_Allocator (Node : Template_Node'Class) return Boolean;
+
+   procedure Call_Tmp
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+
+   procedure Call_Insert
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+
+   procedure Call_Include
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+
+   procedure Call_Append
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+
+   procedure Call_Get
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+
    -------------------
    -- Has_Allocator --
    -------------------
 
    function Has_Allocator (Node : Template_Node'Class) return Boolean is
+
+      function Visit (Node : Template_Node'Class) return Visit_Status;
+
       Found : Boolean := False;
 
       -----------
@@ -76,6 +96,9 @@ package body Wrapping.Runtime.Objects is
    procedure Call_Gen_Browse
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
+
+      procedure Generator (Expr : T_Expr);
+
       ---------------
       -- Generator --
       ---------------
@@ -97,10 +120,15 @@ package body Wrapping.Runtime.Objects is
    end Call_Gen_Browse;
 
    procedure Call_Browse_Parent is new Call_Gen_Browse (Parent);
+
    procedure Call_Browse_Child is new Call_Gen_Browse (Child_Breadth);
+
    procedure Call_Browse_Next is new Call_Gen_Browse (Next);
+
    procedure Call_Browse_Prev is new Call_Gen_Browse (Prev);
+
    procedure Call_Browse_Sibling is new Call_Gen_Browse (Sibling);
+
    procedure Call_Browse_Wrapper is new Call_Gen_Browse
      (Wrapping.Runtime.Structure.Wrapper);
 
@@ -739,6 +767,12 @@ package body Wrapping.Runtime.Objects is
    overriding procedure Push_Call_Result
      (An_Entity : access W_Function_Type; Params : T_Arg_Vectors.Vector)
    is
+
+      procedure Evaluate_Parameter
+        (Name : Text_Type; Position : Integer; Value : T_Expr);
+
+      procedure Result_Callback (Object : W_Object);
+
       Calling_Frame : Data_Frame;
       Called_Frame  : Data_Frame;
       Temp_Symbols  : W_Object_Maps.Map;
@@ -1222,12 +1256,19 @@ package body Wrapping.Runtime.Objects is
          return Visit_Action)
       return Visit_Action
    is
+      function Traverse_Wrapper
+        (Entity : access W_Object_Type'Class; A_Mode : Browse_Mode)
+         return Visit_Action;
+      --  Wraps the default traverse function, capturing the result if not null
+      --  or false.
+
+      function Visit_Wrapper
+        (Entity : access W_Object_Type'Class) return Visit_Action;
+
       Current               : W_Node;
       Current_Children_List : W_Node_Vectors.Vector;
       Next_Children_List    : W_Node_Vectors.Vector;
 
-      --  Wraps the default traverse function, capturing the result if not null
-      --  or false.
       ----------------------
       -- Traverse_Wrapper --
       ----------------------
@@ -1460,6 +1501,16 @@ package body Wrapping.Runtime.Objects is
      (An_Entity        : access W_Node_Type; A_Mode : Browse_Mode;
       Match_Expression : T_Expr)
    is
+
+      function Visitor
+        (E : access W_Object_Type'Class; Result : out W_Object)
+         return Visit_Action;
+
+      function Create_Hollow_Next
+        (Prev : access W_Node_Type'Class) return W_Hollow_Node;
+
+      procedure Allocate (E : access W_Object_Type'Class);
+
       -------------
       -- Visitor --
       -------------
@@ -1677,6 +1728,11 @@ package body Wrapping.Runtime.Objects is
          return Visit_Action)
       return Visit_Action
    is
+
+      function Template_Visitor
+        (E : access W_Object_Type'Class; Result : out W_Object)
+         return Visit_Action;
+
       ----------------------
       -- Template_Visitor --
       ----------------------

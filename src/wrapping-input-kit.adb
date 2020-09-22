@@ -37,6 +37,15 @@ package body Wrapping.Input.Kit is
 
    function Get_Entity_For_Node (Node : Kit_Node) return W_Kit_Node;
 
+   procedure Create_Tokens (Node : W_Kit_Node);
+
+   procedure Call_Token
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+
+   function Eval_Field (Node : Kit_Node; Name : Text_Type) return W_Object;
+
+   function Eval_Property (Node : Kit_Node; Name : Text_Type) return W_Object;
+
    ------------------
    -- Analyze_File --
    ------------------
@@ -167,6 +176,8 @@ package body Wrapping.Input.Kit is
    procedure Call_Token
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
+      procedure Generator (Expr : T_Expr);
+
       Prefix     : W_Kit_Node := W_Kit_Node (Object);
       Match_Expr : T_Expr;
 

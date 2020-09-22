@@ -159,6 +159,9 @@ package body Wrapping.Run is
       end if;
 
       declare
+         procedure Analyze_Directory
+           (Base_Module_Name : String; Dir_Path : String);
+
          Input_Directories : Args.Input_Directories.Result_Array :=
            Args.Input_Directories.Get;
 

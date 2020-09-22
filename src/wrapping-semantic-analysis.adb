@@ -36,26 +36,51 @@ package body Wrapping.Semantic.Analysis is
 
    Entity_Stack : T_Entity_Vectors.Vector;
 
+   procedure Push_Entity
+     (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class);
+
+   procedure Push_Named_Entity
+     (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class;
+      Name      : Text_Type);
+
+   procedure Push_Named_Entity
+     (An_Entity : access T_Named_Entity_Type'Class; Node : Template_Node'Class;
+      Name_Node : Template_Node'Class);
+
+   procedure Pop_Entity;
+
    function Build_Template (Node : Template_Node) return T_Template;
+
    function Build_Module
      (Node : Template_Node; Module_Name : Text_Type) return T_Module;
+
    function Build_Command (Node : Template_Node'Class) return T_Command;
+
    function Build_Function (Node : Template_Node) return T_Function;
+
    function Build_Variable (Node : Var'Class) return T_Var;
+
    function Build_Expr (Node : Template_Node'Class) return T_Expr;
+
    function Build_Arg (Node : Template_Node'Class) return T_Arg;
+
    function Build_Create_Tree
      (Node : Template_Node'Class) return T_Create_Tree;
+
    function Build_Command_Sequence
      (Node : Command_Sequence'Class) return T_Command_Sequence;
+
    function Build_Command_Sequence_Element
      (Node : Command_Sequence_Element'Class) return T_Command_Sequence_Element;
+
    function Build_Template_Call
      (Node : Template_Call'Class) return T_Template_Call;
 
    procedure Analyze_String (Node : Template_Node'Class; Result : T_Expr);
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String);
+
+   procedure Pop_Lexical_Scope_Entity;
 
    Context : constant Analysis_Context := Create_Context;
 
@@ -369,6 +394,9 @@ package body Wrapping.Semantic.Analysis is
    -------------------
 
    function Build_Command (Node : Template_Node'Class) return T_Command is
+
+      function Visit (Node : Template_Node'Class) return Visit_Status;
+
       A_Command : T_Command := new T_Command_Type;
 
       -----------
@@ -743,6 +771,10 @@ package body Wrapping.Semantic.Analysis is
    --------------------
 
    procedure Analyze_String (Node : Template_Node'Class; Result : T_Expr) is
+
+      procedure On_Error
+        (Message : Text_Type; Filename : String; Loc : Source_Location);
+
       Str     : constant Text_Type        := Node.Text;
       Context : constant Analysis_Context := Node.Unit.Context;
 

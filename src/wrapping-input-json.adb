@@ -125,6 +125,9 @@ package body Wrapping.Input.JSON is
    ------------------
 
    procedure Analyze_File (Filename : String) is
+
+      procedure Iterate_On_Value (Name : UTF8_String; Value : JSON_Value);
+
       File : Mapped_File;
       Str  : Str_Access;
       Root : JSON_Value;
