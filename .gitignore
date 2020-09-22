@@ -12,6 +12,7 @@
 **/*.dll
 **/main
 **/lib
+**/*.cgpr
 
 obj/**
 lang_template/build/**
