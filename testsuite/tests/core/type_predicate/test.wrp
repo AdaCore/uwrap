@@ -1,0 +1,2 @@
+match x: Entity
+wrap standard.out (x.f_name & "\n");

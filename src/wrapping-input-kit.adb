@@ -160,23 +160,6 @@ package body Wrapping.Input.Kit is
       return Left = Right;
    end Eq;
 
-   ---------------------------
-   -- Call_Check_Expression --
-   ---------------------------
-
-   procedure Call_Check_Expression
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
-   is
-   begin
-      if Params.Length = 0 then
-         Push_Match_True (Object);
-      elsif Params.Length = 1 then
-         Push_Match_Result (Params.Element (1).Expr, Get_Implicit_It);
-      elsif Params.Length > 1 then
-         Error ("matcher takes only 1 argument");
-      end if;
-   end Call_Check_Expression;
-
    ----------------
    -- Call_Token --
    ----------------
@@ -410,12 +393,7 @@ package body Wrapping.Input.Kit is
          --  TODO: This also accepts An_Entity.Node_Type() which might be
          --  bizzare... Need to decide if this is OK.
 
-         Push_Object
-           (W_Object'
-              (new W_Intrinsic_Function_Type'
-                 (Prefix => W_Object (An_Entity),
-                  Call   => Call_Check_Expression'Unrestricted_Access,
-                  others => <>)));
+         Push_Object (An_Entity);
          return True;
       end if;
 
@@ -598,12 +576,7 @@ package body Wrapping.Input.Kit is
             --  expression. TODO: This also accepts An_Entity.Node_Type()
             --  which might be bizzare... Need to decide if this is OK.
 
-            Push_Object
-              (W_Object'
-                 (new W_Intrinsic_Function_Type'
-                    (Prefix => W_Object (An_Entity),
-                     Call   => Call_Check_Expression'Unrestricted_Access,
-                     others => <>)));
+            Push_Object (An_Entity);
 
             return True;
          end if;
