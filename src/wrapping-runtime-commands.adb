@@ -47,6 +47,22 @@ with Wrapping.Runtime.Closures;    use Wrapping.Runtime.Closures;
 
 package body Wrapping.Runtime.Commands is
 
+   type Deferred_Command_Type;
+   type Deferred_Command is access all Deferred_Command_Type;
+   package Deferred_Command_Vectors is new Ada.Containers.Vectors
+     (Positive, Deferred_Command);
+   use Deferred_Command_Vectors;
+
+   type Deferred_Command_Type is record
+      Command   : T_Command;
+      --  The command that was deferred.
+
+      A_Closure : Closure;
+      --  The closure capturing the data to re-load when running the command.
+   end record;
+   --  This type record the necessary data to store and re-launch a defered
+   --  command.
+
    Visitor_Counter : Integer := 0;
    --  This is the counter of visitor. Every time a visitor is started
    --  (including the main one), it is to be incremented. This provdes a unique

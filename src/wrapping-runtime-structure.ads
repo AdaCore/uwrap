@@ -20,12 +20,12 @@
 --  This package provides data structures required by most of the runtime
 --  processing.
 
+with Ada.Containers;                  use Ada.Containers;
+with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Containers.Ordered_Sets;
 with Ada.Containers.Vectors;
-with Ada.Containers;                  use Ada.Containers;
-with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 
 with Langkit_Support.Text; use Langkit_Support.Text;
 
@@ -65,12 +65,6 @@ package Wrapping.Runtime.Structure is
 
    type Closure_Type;
    type Closure is access all Closure_Type;
-
-   type Deferred_Command_Type;
-   type Deferred_Command is access all Deferred_Command_Type;
-   package Deferred_Command_Vectors is new Ada.Containers.Vectors
-     (Positive, Deferred_Command);
-   use Deferred_Command_Vectors;
 
    type W_Object_Type is tagged record
       null;
@@ -231,19 +225,29 @@ package Wrapping.Runtime.Structure is
 
    function Get_Object_For_Entity
      (An_Entity : access T_Entity_Type'Class) return W_Object;
+   --  Static entities types such as modules and template are associated with
+   --  a global W_Object that allows to store related data. For example,
+   --  templates store the list of all instances created after their type.
+   --  This function returns the runtime object that corresponds to this
+   --  static object.
 
    type Closure_Type is record
       Captured_Symbols : W_Object_Maps.Map;
-      Implicit_It      : W_Object;
-      Lexical_Scope    : T_Entity;
-      Temp_Names       : Text_Maps_Access;
-      Left_Value       : W_Object;
-   end record;
+      --  The symbols captured by this closure.
 
-   type Deferred_Command_Type is record
-      Command   : T_Command;
-      A_Closure : Closure;
+      Implicit_It      : W_Object;
+      --  The value of it at the point of capture to this closure.
+
+      Lexical_Scope    : T_Entity;
+      --  A reference to the lexical scope active at the point of capture.
+
+      Temp_Names       : Text_Maps_Access;
+      --  The list of temporary names generated at the point of capture.
+
+      Left_Value       : W_Object;
+      --  The left value @, if any, active at the point of capture.
    end record;
+   --  This type contains the objects necessary to capture a closure.
 
    type Text_Buffer_Cursor is record
       Offset      : Natural;
