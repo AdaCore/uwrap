@@ -94,8 +94,8 @@ package Wrapping.Runtime.Structure is
    --  function returns false.
 
    procedure Push_Call_Result
-     (An_Entity : access W_Object_Type; Params : T_Arg_Vectors.Vector)
-     with Post'Class => W_Stack_Size = W_Stack_Size'Old + 1;
+     (An_Entity : access W_Object_Type; Params : T_Arg_Vectors.Vector) with
+     Post'Class => W_Stack_Size = W_Stack_Size'Old + 1;
    --  Some W_Objects are callable, that is they can take a set of parameters
    --  e.g.:
    --    it (<expression>)
@@ -113,7 +113,8 @@ package Wrapping.Runtime.Structure is
    --  a generator responsible to call the yield callback, if any. Otherwise,
    --- this is done by the caller.
 
-   procedure Generate_Values (Object : access W_Object_Type; Expr : T_Expr);
+   procedure Generate_Values (Object : access W_Object_Type; Expr : T_Expr)
+     with Post'Class => W_Stack_Size = W_Stack_Size'Old + 1;
    --  If this object is a container or a generator, will generate values
    --  matching the expression given in parameter one by one, calling the
    --  yield action. If no Yield action is set in the frame, only generate
@@ -124,7 +125,8 @@ package Wrapping.Runtime.Structure is
    --    x.all ()
 
    function Match_With_Top_Object
-     (An_Entity : access W_Object_Type) return Boolean;
+     (An_Entity : access W_Object_Type) return Boolean
+     with Post'Class => W_Stack_Size = W_Stack_Size'Old;
    --  Match this object with the top of the stack. Return False if no decision
    --  could be made, true otherwise. If the top object doesn't match, replace
    --  it with a match false.
@@ -179,17 +181,17 @@ package Wrapping.Runtime.Structure is
    --  nodes creation (see documentation in the W_Node overriden function for
    --  more details).
 
-   function Generate_Entity
+   function Process_Generated_Value
      (Generated        : access W_Object_Type'Class;
-      Match_Expression : T_Expr;
-      Result           : out W_Object) return Visit_Action with
-     Post => W_Stack_Size = W_Stack_Size'Old;
-   --  Generates a new entity. If Match_Expession is not null, then the entity
-   --  will be matched against the match expression and will only be processed
-   --  if the match is positive, result will be null otherwise. If this
-   --  function is called in the context of value generation, then the Yield
-   --  callback will be called, and Result will be set to the result of that
-   --  callback. Otherwise, Result will take the value of Generated.
+      Match_Expression : T_Expr) return Visit_Action with
+     Post => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Process an entity that has been generated a new entity. If
+   --  Match_Expession is not null, then the entity will be matched against the
+   --  match expression and will only be further processed if the match is
+   --  positive, result will be null otherwise. If this function is called in
+   --  the context of value generation, then the Yield callback will be called,
+   --  and Result will be set to the result of that callback. Otherwise, Result
+   --  will take the value of Generated.
    --  This function will also take care of setting the value for the capturing
    --  variable, so that in expressions like:
    --     x: child (<some expression>)

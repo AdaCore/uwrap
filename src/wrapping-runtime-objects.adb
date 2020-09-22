@@ -460,24 +460,21 @@ package body Wrapping.Runtime.Objects is
    ---------------------
 
    procedure Generate_Values (Object : access W_Vector_Type; Expr : T_Expr) is
-      Result : W_Object;
-      Action : Visit_Action;
+      Last_Result : W_Object := Match_False;
    begin
-      if Object.A_Vector.Length = 0 then
-         Push_Match_False;
-      else
-         for E of Object.A_Vector loop
-            Action := Generate_Entity (E, Expr, Result);
-
-            exit when Action = Stop;
-         end loop;
-
-         if Result /= null then
-            Push_Object (Result);
-         else
-            Push_Match_False;
+      for E of Object.A_Vector loop
+         if Process_Generated_Value (E, Expr) = Stop then
+            return;
          end if;
-      end if;
+
+         if Top_Object /= Match_False then
+            Last_Result := Top_Object;
+         end if;
+
+         Pop_Object;
+      end loop;
+
+      Push_Object (Last_Result);
    end Generate_Values;
 
    ----------------
@@ -514,24 +511,21 @@ package body Wrapping.Runtime.Objects is
    ---------------------
 
    procedure Generate_Values (Object : access W_Set_Type; Expr : T_Expr) is
-      Result : W_Object;
-      Action : Visit_Action;
+      Last_Result : W_Object := Match_False;
    begin
-      if Object.A_Set.Length = 0 then
-         Push_Match_False;
-      else
-         for E of Object.A_Set loop
-            Action := Generate_Entity (E, Expr, Result);
-
-            exit when Action = Stop;
-         end loop;
-
-         if Result /= null then
-            Push_Object (Result);
-         else
-            Push_Match_False;
+      for E of Object.A_Set loop
+         if Process_Generated_Value (E, Expr) = Stop then
+            return;
          end if;
-      end if;
+
+         if Top_Object /= Match_False then
+            Last_Result := Top_Object;
+         end if;
+
+         Pop_Object;
+      end loop;
+
+      Push_Object (Last_Result);
    end Generate_Values;
 
    ----------------
@@ -568,24 +562,21 @@ package body Wrapping.Runtime.Objects is
    ---------------------
 
    procedure Generate_Values (Object : access W_Map_Type; Expr : T_Expr) is
-      Result : W_Object;
-      Action : Visit_Action;
+      Last_Result : W_Object := Match_False;
    begin
-      if Object.A_Map.Length = 0 then
-         Push_Match_False;
-      else
-         for E of Object.A_Map loop
-            Action := Generate_Entity (E, Expr, Result);
-
-            exit when Action = Stop;
-         end loop;
-
-         if Result /= null then
-            Push_Object (Result);
-         else
-            Push_Match_False;
+      for E of Object.A_Map loop
+         if Process_Generated_Value (E, Expr) = Stop then
+            return;
          end if;
-      end if;
+
+         if Top_Object /= Match_False then
+            Last_Result := Top_Object;
+         end if;
+
+         Pop_Object;
+      end loop;
+
+      Push_Object (Last_Result);
    end Generate_Values;
 
    ------------------
@@ -819,11 +810,9 @@ package body Wrapping.Runtime.Objects is
          else
             Push_Frame (Calling_Frame);
             Top_Context.Visit_Decision.all :=
-              Generate_Entity (Top_Object, null, Last_Result);
+              Process_Generated_Value (Top_Object, null);
 
-            if Last_Result = null then
-               Last_Result := Match_False;
-            end if;
+            Last_Result := Pop_Object;
 
             Pop_Frame;
          end if;
@@ -1521,11 +1510,16 @@ package body Wrapping.Runtime.Objects is
       -------------
 
       function Visitor
-        (E : access W_Object_Type'Class; Result : out W_Object)
+        (E : access W_Object_Type'Class;
+         Result : out W_Object)
          return Visit_Action
       is
+         Action : Visit_Action;
       begin
-         return Generate_Entity (E, Match_Expression, Result);
+         Action := Process_Generated_Value (E, Match_Expression);
+         Result := Pop_Object;
+
+         return Action;
       end Visitor;
 
       ------------------------

@@ -45,5 +45,12 @@ package Wrapping.Runtime.Matching is
       Generator : Generator_Type);
 
    Match_False : constant W_Object := new W_Object_Type;
+   --  TODO: There is a potential confusion at some point. The usage of
+   --  Match_False prevents in many cases the usage of a regular false boolean
+   --  as a valid result - essentially meaning that booleans as objects are not
+   --  supported. For example, when generating values from a container, the
+   --  result of the generation will be the last non-Match_False value. We may
+   --  want to introduce a proper W_Boolean type at some point, and make sure
+   --  to differenciate it from Match_False when needed.
 
 end Wrapping.Runtime.Matching;

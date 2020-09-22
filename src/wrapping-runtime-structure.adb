@@ -95,14 +95,13 @@ package body Wrapping.Runtime.Structure is
    -- Browse_Entity --
    -------------------
 
-   function Generate_Entity
-     (Generated          : access W_Object_Type'Class;
-      Match_Expression : T_Expr;
-      Result           : out W_Object) return Visit_Action
+   function Process_Generated_Value
+     (Generated        : access W_Object_Type'Class;
+      Match_Expression : T_Expr) return Visit_Action
    is
 
-      procedure Evaluate_Yield_Function with
-         Post => W_Stack_Size = W_Stack_Size'Old;
+      procedure Push_Yield_Result with
+         Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
       Visit_Decision : aliased Visit_Action := Unknown;
 
@@ -110,7 +109,7 @@ package body Wrapping.Runtime.Structure is
       -- Evaluate_Yield_Function --
       -----------------------------
 
-      procedure Evaluate_Yield_Function is
+      procedure Push_Yield_Result is
       begin
          --  In certain cases, there's no expression to be evaluated upon
          --  yield. E.g.:
@@ -118,6 +117,8 @@ package body Wrapping.Runtime.Structure is
          --  as opposed to:
          --    x.all().something().
          if Top_Context.Yield_Callback = null then
+            Push_Object (Generated);
+
             return;
          end if;
 
@@ -135,11 +136,9 @@ package body Wrapping.Runtime.Structure is
          --  Then evaluate that folding expression
 
          Push_Implicit_It (Generated);
+         Push_Object (Generated);
          Call_Yield;
-
-         --  The result of the evaluate expression is the result of the yield
-         --  callback, as opposed to the matching entity in normal browsing.
-         Result := Pop_Object;
+         Delete_Object_At_Position (-2);
 
          --  Pop frame context. This will in particular restore the name
          --  catpure, which we're using as the accumulator.
@@ -148,37 +147,35 @@ package body Wrapping.Runtime.Structure is
          --  If there's an name to store the result, store it there.
 
          if Top_Context.Name_Captured /= "" then
-            Include_Symbol (To_Text (Top_Context.Name_Captured), Result);
+            Include_Symbol (To_Text (Top_Context.Name_Captured), Top_Object);
          end if;
-      end Evaluate_Yield_Function;
+      end Push_Yield_Result;
 
       Expression_Result : W_Object;
 
    begin
-      Result := null;
-
       --  If the match expression is null, we're only looking for the presence
       --  of a node, not its form. The result is always true.
+
       if Match_Expression = null then
          --  In the case of
          --     pick child().all(),
          --  child needs to be evaluated against the outer expression to be
          --  captured by the possible wrap or weave command.
 
-         Push_Frame_Context;
-         Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
-
-         Push_Implicit_It (Generated);
-
          if Top_Context.Outer_Expr_Action /= Action_None then
+            Push_Frame_Context;
+            Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
+            Push_Implicit_It (Generated);
+
             Execute_Expr_Outer_Action;
+
+            Pop_Object;
+            Pop_Frame_Context;
          end if;
 
-         Pop_Object;
-         Pop_Frame_Context;
-
          if Top_Context.Yield_Callback /= null then
-            Evaluate_Yield_Function;
+            Push_Yield_Result;
 
             if Visit_Decision = Unknown then
                return Into;
@@ -186,7 +183,7 @@ package body Wrapping.Runtime.Structure is
                return Visit_Decision;
             end if;
          else
-            Result := W_Object (Generated);
+            Push_Object (W_Object (Generated));
 
             return Stop;
          end if;
@@ -237,7 +234,7 @@ package body Wrapping.Runtime.Structure is
             --  is a new entity, this means that this new entity is actually
             --  the result of the browse, not the one searched.
 
-            Result := Expression_Result;
+            Push_Object (Expression_Result);
 
             --  Note that it is illegal to call a fold function with an
             --  allocator in the fold expression (we would never know when to
@@ -251,7 +248,7 @@ package body Wrapping.Runtime.Structure is
             return Stop;
          else
             if Top_Context.Yield_Callback /= null then
-               Evaluate_Yield_Function;
+               Push_Yield_Result;
 
                --  The result of the expansion can be calls to wrap functions,
                --  and one of this wrap function may be a visit decision. If
@@ -263,15 +260,17 @@ package body Wrapping.Runtime.Structure is
                   return Visit_Decision;
                end if;
             else
-               Result := W_Object (Generated);
+               Push_Object (Generated);
 
                return Stop;
             end if;
          end if;
       else
+         Push_Match_False;
+
          return Into;
       end if;
-   end Generate_Entity;
+   end Process_Generated_Value;
 
    ------------------
    -- Write_String --

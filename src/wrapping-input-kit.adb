@@ -190,7 +190,6 @@ package body Wrapping.Input.Kit is
       ---------------
 
       procedure Generator (Expr : T_Expr) is
-         Result         : W_Object;
          A_Visit_Action : Visit_Action     := Into;
          Cur_Token      : W_Kit_Node_Token :=
            W_Kit_Node_Token (Top_Object.Dereference);
@@ -201,21 +200,21 @@ package body Wrapping.Input.Kit is
             Analyzed_First := True;
          end if;
 
-         while Cur_Token /= null loop
-            Cur_Token.Pre_Visit;
-
-            A_Visit_Action := Generate_Entity (Cur_Token, Expr, Result);
-
-            exit when A_Visit_Action in Stop | Over
-              or else Cur_Token.Node = Last_Ref;
-
-            Cur_Token := W_Kit_Node_Token (Cur_Token.Next);
-         end loop;
-
-         if Result /= null then
-            Push_Object (Result);
-         else
+         if Cur_Token = null then
             Push_Match_False;
+         else
+            while Cur_Token /= null loop
+               Cur_Token.Pre_Visit;
+
+               A_Visit_Action := Process_Generated_Value (Cur_Token, Expr);
+
+               exit when A_Visit_Action in Stop | Over
+                 or else Cur_Token.Node = Last_Ref;
+
+               Pop_Object;
+
+               Cur_Token := W_Kit_Node_Token (Cur_Token.Next);
+            end loop;
          end if;
       end Generator;
 

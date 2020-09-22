@@ -1086,8 +1086,7 @@ package body Wrapping.Runtime.Expressions is
       begin
          Push_Frame_Context_No_Match;
          Top_Context.Match_Mode := Match_Mode;
-         Top_Context.Yield_Callback :=
-           Yield_Callback'Unrestricted_Access;
+         Top_Context.Yield_Callback := Yield_Callback'Unrestricted_Access;
 
          --  We may be called from an anchored context. However, this anchor
          --  should not be passed to the prefix, to which we're just getting
