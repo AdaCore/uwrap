@@ -543,7 +543,7 @@ package body Wrapping.Runtime.Expressions is
                --  Function result callback has been set and need to be called
                --  to process the result.
 
-               Top_Context.Function_Result_Callback (Top_Object);
+               Top_Context.Function_Result_Callback.all;
             else
                --  We are on the expression of the pick clause of a regular
                --  command. Execute the Post_Pick section.

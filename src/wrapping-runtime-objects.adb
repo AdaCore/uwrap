@@ -772,7 +772,7 @@ package body Wrapping.Runtime.Objects is
       procedure Evaluate_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr);
 
-      procedure Result_Callback (Object : W_Object);
+      procedure Result_Callback;
 
       Calling_Frame : Data_Frame;
       Called_Frame  : Data_Frame;
@@ -801,7 +801,7 @@ package body Wrapping.Runtime.Objects is
       -- Result_Callback --
       ---------------------
 
-      procedure Result_Callback (Object : W_Object) is
+      procedure Result_Callback is
       begin
          --  When reaching a value to be picked on a function f, either:
          --  (1) the caller is not iterating over generated values, in which
@@ -814,13 +814,17 @@ package body Wrapping.Runtime.Objects is
          --      fetching other values for the function.
 
          if Calling_Frame.Top_Context.Yield_Callback = null then
-            Last_Result                 := Object;
+            Last_Result                 := Top_Object;
             Top_Frame.Interrupt_Program := True;
          else
             Push_Frame (Calling_Frame);
-            Push_Implicit_It (Object);
-            Call_Yield (Calling_Frame.Top_Context.Yield_Callback);
-            Last_Result := Pop_Object;
+            Top_Context.Visit_Decision.all :=
+              Generate_Entity (Top_Object, null, Last_Result);
+
+            if Last_Result = null then
+               Last_Result := Match_False;
+            end if;
+
             Pop_Frame;
          end if;
       end Result_Callback;
@@ -1494,9 +1498,9 @@ package body Wrapping.Runtime.Objects is
       return Into;
    end Traverse;
 
-   ------------------------------
-   -- Evaluate_Bowse_Functions --
-   ------------------------------
+   --------------------------
+   -- Push_Traverse_Result --
+   --------------------------
 
    procedure Push_Traverse_Result
      (An_Entity        : access W_Node_Type; A_Mode : Traverse_Mode;

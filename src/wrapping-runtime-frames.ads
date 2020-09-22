@@ -57,7 +57,7 @@ package Wrapping.Runtime.Frames is
 
    type Yield_Callback_Type is access procedure;
 
-   type Function_Result_Callback_Type is access procedure (Object : W_Object);
+   type Function_Result_Callback_Type is access procedure;
 
    type Match_Kind is
      (

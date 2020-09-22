@@ -185,17 +185,15 @@ package Wrapping.Runtime.Structure is
       Result           : out W_Object) return Visit_Action with
      Post => W_Stack_Size = W_Stack_Size'Old;
    --  Generates a new entity. If Match_Expession is not null, then the entity
-   --  will be matched against the match expression and will only be generated
-   --  if the match is positive, result will be Match_False otherwise. If this
+   --  will be matched against the match expression and will only be processed
+   --  if the match is positive, result will be null otherwise. If this
    --  function is called in the context of value generation, then the Yield
    --  callback will be called, and Result will be set to the result of that
-   --  callback, Generated otherwise.
+   --  callback. Otherwise, Result will take the value of Generated.
    --  This function will also take care of setting the value for the capturing
    --  variable, so that in expressions like:
    --     x: child (<some expression>)
    --  x can be accessible in <some expression>.
-   --  TODO: work a bit more on this, should be more used, and probably
-   --        simplified.
 
    function Write_String (Object : W_Object_Type) return Buffer_Slice;
    --  This function resolves a runtime object into the String value, and
