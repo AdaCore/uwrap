@@ -409,36 +409,6 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Push_Value;
 
-   ----------------------
-   -- Push_Call_Result --
-   ----------------------
-
-   overriding procedure Push_Call_Result
-     (An_Entity : access W_Vector_Type; Params : T_Arg_Vectors.Vector)
-   is
-      Result : W_Object;
-   begin
-      --  TODO: This will essentially enable checks against strings, which is
-      --  useful when vector indeed represent strings. Verify if this is OK.
-      --  We may need a specific vector string type for this, and have a more
-      --  comprehensive test here.
-
-      if Params.Length = 0 then
-         Push_Match_True (An_Entity);
-      elsif Params.Length = 1 then
-         Push_Implicit_It (An_Entity);
-         Evaluate_Expression (Params.Element (1).Expr);
-         Result := Pop_Object;
-         Pop_Object;
-
-         if Result /= Match_False then
-            Push_Match_True (An_Entity);
-         else
-            Push_Match_False;
-         end if;
-      end if;
-   end Push_Call_Result;
-
    ------------------
    -- Write_String --
    ------------------
@@ -676,7 +646,6 @@ package body Wrapping.Runtime.Objects is
      (An_Entity : access W_Text_Expression_Type; Params : T_Arg_Vectors.Vector)
    is
    begin
-      --  TODO: Should that be the high level call result?
       if Params.Length = 0 then
          Push_Match_True (An_Entity);
       elsif Params.Length = 1 then
@@ -707,22 +676,6 @@ package body Wrapping.Runtime.Objects is
    is
    begin
       return Object.An_Object.Write_String;
-   end Write_String;
-
-   ------------------
-   -- Write_String --
-   ------------------
-
-   overriding function Write_String
-     (Object : W_Text_Vector_Type) return Buffer_Slice
-   is
-      Result : Buffer_Slice := Get_Empty_Slice;
-   begin
-      for T of Object.A_Vector loop
-         Result.Last := T.Write_String.Last;
-      end loop;
-
-      return Result;
    end Write_String;
 
    -----------------------------

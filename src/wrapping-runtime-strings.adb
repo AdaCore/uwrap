@@ -58,6 +58,7 @@ package body Wrapping.Runtime.Strings is
 
       Prev_Error : Error_Callback_Type;
       Slice : Buffer_Slice := Get_Empty_Slice;
+
    begin
       Push_Frame_Context_No_Match;
       Top_Context.Is_Root_Selection := True;

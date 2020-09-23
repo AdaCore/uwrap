@@ -457,12 +457,10 @@ package body Wrapping.Runtime.Structure is
                     (Value => new W_Map_Type, others => <>));
 
             when Text_Kind =>
-               --  Text is currently modelled as a reference to a text
-               --  container.
                Result.Indexed_Variables.Insert
                  (Var.Name_Node.Text,
                   new W_Reference_Type'
-                    (Value => new W_Text_Vector_Type, others => <>));
+                    (Value => new W_String_Type, others => <>));
 
             when others =>
                Error ("global variable type not yet supported");

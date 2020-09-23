@@ -477,11 +477,7 @@ package body Wrapping.Runtime.Commands is
 
                case A_Var.Kind is
                   when Text_Kind =>
-                     --  Symbols contained in templates are references to
-                     --  values. Create the reference and the referenced
-                     --  empty value here.
-
-                     New_Ref.Value := new W_Text_Vector_Type;
+                     New_Ref.Value := new W_String_Type;
 
                   when Set_Kind =>
                      New_Ref.Value := new W_Set_Type;
@@ -504,13 +500,9 @@ package body Wrapping.Runtime.Commands is
 
                if Top_Frame.Current_Template /= null then
                   W_Template_Instance (Top_Frame.Current_Template)
-                    .Indexed_Variables
-                    .Insert
-                    (Name, New_Ref);
+                    .Indexed_Variables.Insert (Name, New_Ref);
                   W_Template_Instance (Top_Frame.Current_Template)
-                    .Ordered_Variables
-                    .Append
-                    (New_Ref);
+                    .Ordered_Variables.Append (New_Ref);
                end if;
             end;
          end loop;
