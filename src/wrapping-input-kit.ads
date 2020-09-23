@@ -17,6 +17,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+--  This package implements a generic version of an input tree for any langkit
+--  generated library.
+
 with Ada.Containers.Indefinite_Hashed_Maps;
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Vectors;
@@ -150,44 +153,71 @@ package Wrapping.Input.Kit is
    type W_Kit_Node_Vector_Access is access all W_Kit_Node_Vectors.Vector;
 
    procedure Analyze_File (File : String);
+   --  Takes the file in parameter, parse the contents and run the uwrap
+   --  program on it. Deferred commands still need to be analyzed, presumably
+   --  once all files are analyzed. Only Kit_Node will be parsed. Tokens will
+   --  only be retreived and analyzed by a token () query.
 
    procedure Analyze_Unit (Unit : Analysis_Unit);
+   --  Same as Analyze_File but works directly on a Unit instead.
 
    ----------------
    -- W_Kit_Node --
    ----------------
 
    function Lt (Left, Right : Kit_Node) return Boolean;
+   --  Sorts nodes by kind then location
 
    function Eq (Left, Right : W_Kit_Node) return Boolean;
+   --  Returns true if both references are pointing to the same object
 
-   package W_Kit_Node_Entity_Node_Maps is new Ada.Containers
-     .Indefinite_Ordered_Maps
-     (Kit_Node, W_Kit_Node, Lt, Eq);
+   package W_Kit_Node_Entity_Node_Maps is
+     new Ada.Containers.Indefinite_Ordered_Maps (Kit_Node, W_Kit_Node, Lt, Eq);
    use W_Kit_Node_Entity_Node_Maps;
 
    type W_Kit_Node_Type is new W_Node_Type with record
       Node              : Kit_Node;
+      --  Pointer to the initial langkit node
+
       Children_Computed : Boolean := False;
+      --  In order to avoid unecessary processing, children are computed
+      --  on-demand by the Pre_Visit primitive. This flag is false up until
+      --  this is done.
+
       Children_By_Node  : W_Kit_Node_Entity_Node_Maps.Map;
+      --  Mapping between the child of this node and the original langkit node
+
       Tokens            : W_Kit_Node_Vector_Access;
+      --  List of non-trivia tokens corresponding to the whole unit containing
+      --  this node (shared by all nodes of the same unit)
+
       Trivia_Tokens     : W_Kit_Node_Vector_Access;
+      --  List of trivia tokens corresponding to the whole unit containing
+      --  this node (shared by all nodes of the same unit)
    end record;
+   --  This type manages a reference to a node coming from langkit.
 
    overriding procedure Pre_Visit (An_Entity : access W_Kit_Node_Type);
+   --  Computes children of the current node
 
    overriding function Push_Value
      (An_Entity : access W_Kit_Node_Type; Name : Text_Type) return Boolean;
+   --  Pushes values for various intrinsic, fields and properties of the
+   --  current node. Will also push the current entity if the entity is an
+   --  instance of a type of the name in parameter.
 
    overriding function Write_String
      (Object : W_Kit_Node_Type) return Buffer_Slice;
+   --  Write the entire code corresponding to that entity
 
    overriding function To_Debug_String
      (Object : W_Kit_Node_Type) return Text_Type;
+   --  See parent documentation
 
    overriding function Language
      (An_Entity : W_Kit_Node_Type) return Text_Type is
      (Language_Name);
+   --  See parent documentation
 
    ----------------
    -- W_Property --
@@ -196,10 +226,13 @@ package Wrapping.Input.Kit is
    type W_Property_Type is new W_Object_Type with record
       Property_Node : Any_Node_Data_Reference;
    end record;
+   --  Holds a reference to a specific property to be called.
 
    overriding procedure Push_Call_Result
      (An_Entity : access W_Property_Type;
       Params    : T_Arg_Vectors.Vector);
+   --  Calls the property with the parameters in copy and pushes the result on
+   --  the stack.
 
    ----------------------
    -- W_Kit_Token_Node --
@@ -208,32 +241,25 @@ package Wrapping.Input.Kit is
    type W_Kit_Node_Token_Type is new W_Node_Type with record
       Node : Token_Reference;
    end record;
+   --  Holds a refernece to the token
 
    overriding function Push_Value
      (An_Entity : access W_Kit_Node_Token_Type; Name : Text_Type)
       return Boolean;
+   --  Pushes various intrinsic of tokens, in particular information about
+   --  location
 
    overriding function Write_String
      (Object : W_Kit_Node_Token_Type) return Buffer_Slice;
+   --  Write the content of that particular token on the buffer
 
    overriding function To_Debug_String
      (Object : W_Kit_Node_Token_Type) return Text_Type;
+   --  See parent documentation
 
    overriding function Language
      (An_Entity : W_Kit_Node_Token_Type) return Text_Type is
      (Language_Name & "_token");
-
-private
-
-   type W_Source_Node_Type;
-   type W_Source_Node is access all W_Source_Node_Type'Class;
-
-   type W_Source_Node_Type is new W_Object_Type with record
-      A_Node : Kit_Node;
-   end record;
-
-   overriding function Write_String
-     (Object : W_Source_Node_Type) return Buffer_Slice is
-     (Write_String (Object.A_Node.Text));
+   --  See parent documentation
 
 end Wrapping.Input.Kit;

@@ -17,6 +17,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+--  This package implements a tree structure for JSON nodes based on the
+--  GNATColl implementation.
+
 with Ada.Containers.Indefinite_Ordered_Maps;
 
 with GNATCOLL.JSON; use GNATCOLL.JSON;
@@ -34,19 +37,30 @@ package Wrapping.Input.JSON is
       Node : JSON_Value;
       Name : Unbounded_Text_Type;
    end record;
+   --  Base node type for JSON nodes.
 
    overriding function Push_Value
      (An_Entity : access W_JSON_Node_Type; Name : Text_Type) return Boolean;
+   --  Pushes the value for one of the three instrinsic functions defined for
+   --  JSON (kind, name and value) or calls parent.
 
    overriding function Write_String
      (Object : W_JSON_Node_Type) return Buffer_Slice;
+   --  Writes an empty string (there's no string correspondance to JSON nodes)
+   --  TODO: witing the contents of the node would be a useful alternative and
+   --  allow text regexpr on the entire text.
 
    overriding function To_Debug_String
      (Object : W_JSON_Node_Type) return Text_Type;
+   --  See parent documentation
 
    overriding function Language (Object : W_JSON_Node_Type) return Text_Type is
      ("json");
+   --  See parent documentation
 
    procedure Analyze_File (Filename : String);
+   --  Takes the file in parameter, parse the JSON contents and run the uwrap
+   --  program on it. Deferred commands still need to be analyzed, presumably
+   --  once all files are analyzed.
 
 end Wrapping.Input.JSON;

@@ -248,14 +248,10 @@ package body Wrapping.Run is
                   Adalang.Input.Analyze_Unit (Unit);
                end loop;
             end loop;
-
-            Analyzed_Deferred;
          elsif Language = "json" then
             for File of App.Args.Files.Get loop
                Wrapping.Input.JSON.Analyze_File (To_String (File));
             end loop;
-
-            Analyzed_Deferred;
          elsif Language = "test" then
             for File of App.Args.Files.Get loop
                Testlang.Input.Analyze_File (To_String (File));
@@ -263,6 +259,8 @@ package body Wrapping.Run is
          else
             Error ("Unknown language '" & To_Text (Language) & "'");
          end if;
+
+         Analyzed_Deferred;
       end;
    end App_Post_Process;
 

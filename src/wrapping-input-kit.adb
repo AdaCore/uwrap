@@ -46,25 +46,40 @@ package body Wrapping.Input.Kit is
 
    function Eval_Property (Node : Kit_Node; Name : Text_Type) return W_Object;
 
+   type W_Source_Node_Type;
+   type W_Source_Node is access all W_Source_Node_Type'Class;
+
+   type W_Source_Node_Type is new W_Object_Type with record
+      A_Node : Kit_Node;
+   end record;
+
+   overriding function Write_String
+     (Object : W_Source_Node_Type) return Buffer_Slice is
+     (Write_String (Object.A_Node.Text));
+
    ------------------
    -- Analyze_File --
    ------------------
 
    procedure Analyze_File (File : String) is
-      Unit    : Analysis_Unit;
+      Unit    : access Analysis_Unit;
       Context : Analysis_Context := Create_Context;
-
    begin
-      Unit := Get_From_File (Context, File);
+      --  This is a kludge to create a unit without deleting it at the end
+      --  of the scope and allowing further processing to be done on its nodes
+      --  which are registerd by the UWrap program processing.
+      --  There's currently no reason to keep a list of these for further
+      --  re-use or reclaim, so it's fine for now, but could be revisited
+      --  at a later stage.
+      Unit := new Analysis_Unit'(Get_From_File (Context, File));
 
-      if Has_Diagnostics (Unit) then
-         for D of Diagnostics (Unit) loop
+      if Has_Diagnostics (Unit.all) then
+         for D of Diagnostics (Unit.all) loop
             Ada.Text_IO.Put_Line (File & ":" & To_Pretty_String (D));
          end loop;
       end if;
 
-      Analyze_Unit (Unit);
-      Analyzed_Deferred;
+      Analyze_Unit (Unit.all);
    end Analyze_File;
 
    ------------------
@@ -72,10 +87,8 @@ package body Wrapping.Input.Kit is
    ------------------
 
    procedure Analyze_Unit (Unit : Analysis_Unit) is
-      Root_Entity : W_Node;
    begin
-      Root_Entity := W_Node (Get_Entity_For_Node (Unit.Root));
-      Analyse_Input (Root_Entity);
+      Analyse_Input (W_Node (Get_Entity_For_Node (Unit.Root)));
    end Analyze_Unit;
 
    -------------------
@@ -83,7 +96,9 @@ package body Wrapping.Input.Kit is
    -------------------
 
    procedure Create_Tokens (Node : W_Kit_Node) is
-      Token : Token_Reference;
+      Token        : Token_Reference;
+      W_Prev_Token : W_Kit_Node_Token;
+      W_Token      : W_Kit_Node_Token;
    begin
       if Node.Tokens.Length > 0 or else Node.Trivia_Tokens.Length > 0 then
          return;
@@ -91,28 +106,22 @@ package body Wrapping.Input.Kit is
 
       Token := First_Token (Node.Node.Unit);
 
-      declare
-         W_Prev_Token : W_Kit_Node_Token;
-         W_Token      : W_Kit_Node_Token;
-      begin
-         while Token /= No_Token loop
+      while Token /= No_Token loop
+         W_Token := new W_Kit_Node_Token_Type'(Node => Token, others => <>);
 
-            W_Token := new W_Kit_Node_Token_Type'(Node => Token, others => <>);
+         if W_Prev_Token /= null then
+            Add_Next (W_Prev_Token, W_Token);
+         end if;
 
-            if W_Prev_Token /= null then
-               Add_Next (W_Prev_Token, W_Token);
-            end if;
+         if Is_Trivia (Token) then
+            Node.Trivia_Tokens.Append (W_Token);
+         else
+            Node.Tokens.Append (W_Token);
+         end if;
 
-            if Is_Trivia (Token) then
-               Node.Trivia_Tokens.Append (W_Token);
-            else
-               Node.Tokens.Append (W_Token);
-            end if;
-
-            W_Prev_Token := W_Token;
-            Token        := Next (Token);
-         end loop;
-      end;
+         W_Prev_Token := W_Token;
+         Token        := Next (Token);
+      end loop;
    end Create_Tokens;
 
    --------
@@ -321,9 +330,13 @@ package body Wrapping.Input.Kit is
       else
          New_Entity :=
            new W_Kit_Node_Type'
-             (Node          => Node, Tokens => new W_Kit_Node_Vectors.Vector,
-              Trivia_Tokens => new W_Kit_Node_Vectors.Vector, others => <>);
+             (Node          => Node,
+              Tokens        => new W_Kit_Node_Vectors.Vector,
+              Trivia_Tokens => new W_Kit_Node_Vectors.Vector,
+              others        => <>);
+
          Global_Node_Registry.Insert (Node, New_Entity);
+
          return New_Entity;
       end if;
    end Get_Entity_For_Node;
