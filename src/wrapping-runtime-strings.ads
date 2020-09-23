@@ -63,19 +63,13 @@ package Wrapping.Runtime.Strings is
    --  This is the global buffer holding temporary text as it's being written
    --  by various expresions.
 
-   procedure Evaluate_String
-     (Expr : T_Expr;
-      On_Group : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expr : T_Expr) := null) with
-       Post => W_Stack_Size = W_Stack_Size'Old + 1
-         and Expr.Kind = Template_Str;
+   function Evaluate_String (Expr : T_Expr) return Buffer_Slice with
+       Pre => Expr.Kind = Template_Str,
+       Post => W_Stack_Size = W_Stack_Size'Old;
    --  This procedure is the entry point to string evaluation. It will evaluate
    --  various parts of the strings, process indentation, run expression
-   --  evaluation, etc. The result is a W_String value that contains the
-   --  result of the evaluation. If On_Group or On_Expressions are provided,
-   --  then instead of evaluating the group or expression, the callback will
-   --  be called. This is useful in particular to identify which symbols this
-   --  strings relies on.
+   --  evaluation, etc. The result is stored in the String buffer value that
+   --  contains the result of the evaluation.
 
    function Write_String (Text : Text_Type) return Buffer_Slice;
    --  Writes the given string to the main text buffer, and return the slice

@@ -31,11 +31,7 @@ package body Wrapping.Runtime.Strings is
    -- Evaluate_String --
    ---------------------
 
-   procedure Evaluate_String
-     (Expr : T_Expr;
-      On_Group : access procedure (Index : Integer; Value : W_Object) := null;
-      On_Expression : access procedure (Expr : T_Expr) := null)
-   is
+   function Evaluate_String (Expr : T_Expr) return Buffer_Slice is
 
       procedure On_Error
         (Message : Text_Type; Filename : String; Loc : Source_Location);
@@ -63,7 +59,6 @@ package body Wrapping.Runtime.Strings is
       Push_Frame_Context_No_Match;
       Top_Context.Is_Root_Selection := True;
 
-      Push_Buffer_Cursor;
       Prev_Error     := Error_Callback;
 
       --  The error callback needs to be set here because the string may
@@ -89,16 +84,13 @@ package body Wrapping.Runtime.Strings is
                Slice.Last := Write_String (To_Text (Str.Value)).Last;
 
             when Expr_Kind =>
-               if On_Expression /= null then
-                  On_Expression.all (Str.Expr);
-               else
-                  Evaluate_Expression (Str.Expr);
-                  Slice.Last := Pop_Object.Write_String.Last;
-                  --  TODO: we systematically pop an object here. There's
-                  --  an optimization where we could detect that the expression
-                  --  is already a string, and just use the value pushed on
-                  --  the buffer instead.
-               end if;
+               Evaluate_Expression (Str.Expr);
+               Slice.Last := Pop_Object.Write_String.Last;
+               --  TODO: we systematically pop an object here. There's
+               --  an optimization where we could detect that the expression
+               --  is already a string, and just use the value pushed on
+               --  the buffer instead.
+
             when Group_Kind =>
                declare
                   Position : Integer := Str.Group_Number;
@@ -119,27 +111,18 @@ package body Wrapping.Runtime.Strings is
                         Integer'Wide_Wide_Image (Str.Group_Number));
                   end if;
 
-                  if On_Group /= null then
-                     On_Group.all (Str.Group_Number, Value);
-                  else
-                     Slice.Last := Resolve_Indentation.Last;
-                     Slice.Last := Value.Write_String.Last;
-                  end if;
+                  Slice.Last := Resolve_Indentation.Last;
+                  Slice.Last := Value.Write_String.Last;
                end;
          end case;
 
          Pop_Frame_Context;
       end loop;
 
-      Push_Object
-        (W_Object'
-           (new W_String_Type'
-                (Value => To_Unbounded_Text
-                     (Buffer.Str (Slice.First.Offset .. Slice.Last.Offset)))));
-
       Error_Callback := Prev_Error;
-      Pop_Buffer_Cursor;
       Pop_Frame_Context;
+
+      return Slice;
    end Evaluate_String;
 
    ------------------

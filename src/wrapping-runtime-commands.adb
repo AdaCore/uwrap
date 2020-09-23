@@ -166,7 +166,7 @@ package body Wrapping.Runtime.Commands is
             Error ("expected template reference");
          end if;
 
-         It.Forbidden_Template_Names.Include
+         It.Forbidden_Wrapper_Types.Include
            (T_Template (W_Static_Entity (Result).An_Entity).Full_Name);
 
          --  TODO: remove the template if it's already been created in the
@@ -188,7 +188,7 @@ package body Wrapping.Runtime.Commands is
             Self_Weave := True;
          elsif Template_Clause.Call.Reference.all in T_Template_Type'Class then
             A_Template_Instance :=
-              It.Get_Template_Instance
+              It.Get_Wrapper
                 (T_Template (Template_Clause.Call.Reference));
 
             if Template_Clause.Kind = Walk_Kind then
@@ -199,7 +199,7 @@ package body Wrapping.Runtime.Commands is
               (Template_Clause.Kind = Weave_Kind
                or else A_Template_Instance = null
                or else A_Template_Instance.Is_Wrapping = False)
-              and then not It.Forbidden_Template_Names.Contains
+              and then not It.Forbidden_Wrapper_Types.Contains
                 (Template_Clause.Call.Reference.Full_Name)
             then
                if A_Template_Instance = null then

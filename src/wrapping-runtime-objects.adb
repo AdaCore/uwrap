@@ -36,8 +36,6 @@ package body Wrapping.Runtime.Objects is
      (Node.all in W_Template_Instance_Type'Class
       and then W_Template_Instance (Node).Origin /= null);
 
-   procedure Run_Deferred_Expr (Deferred_Expr : W_Deferred_Expr_Type);
-
    function Has_Allocator (Node : Template_Node'Class) return Boolean;
 
    procedure Call_Tmp
@@ -664,7 +662,7 @@ package body Wrapping.Runtime.Objects is
    overriding function Write_String
      (Object : W_Regexp_Type) return Buffer_Slice is
    begin
-      return Object.Value.Write_String;
+      return Write_String (To_Text (Object.Value));
    end Write_String;
 
    ------------------
@@ -914,10 +912,13 @@ package body Wrapping.Runtime.Objects is
    overriding function Write_String
      (Object : W_Deferred_Expr_Type) return Buffer_Slice
    is
+      Result : Buffer_Slice;
    begin
-      Run_Deferred_Expr (Object);
+      Push_Frame (Object.A_Closure);
+      Result := Evaluate_Expression (Object.Expr).Write_String;
+      Pop_Frame;
 
-      return Pop_Object.Write_String;
+      return Result;
    end Write_String;
 
    ---------------
@@ -988,7 +989,7 @@ package body Wrapping.Runtime.Objects is
 
          Wrapped := new W_Hollow_Node_Type;
          Add_Wrapping_Child (W_Template_Instance (Parent).Origin, Wrapped);
-         Wrapped.Templates_Ordered.Append (W_Template_Instance (Child));
+         Wrapped.Wrappers_Ordered.Append (W_Template_Instance (Child));
          W_Template_Instance (Child).Origin := W_Node (Wrapped);
       else
          Add_Child (Parent, Child);
@@ -1000,8 +1001,9 @@ package body Wrapping.Runtime.Objects is
    ------------------------------
 
    function Create_Template_Instance
-     (An_Entity : access W_Node_Type'Class; A_Template : T_Template;
-      Register  : Boolean) return W_Template_Instance
+     (An_Entity  : access W_Node_Type'Class;
+      A_Template : T_Template;
+      Register   : Boolean) return W_Template_Instance
    is
       New_Template   : W_Template_Instance;
       Template_Class : W_Template_Instance;
@@ -1015,11 +1017,11 @@ package body Wrapping.Runtime.Objects is
          New_Template.Origin := W_Node (An_Entity);
 
          if Register then
-            An_Entity.Templates_By_Name.Insert
+            An_Entity.Wrappers_By_Name.Insert
               (A_Template.Name_Node.Text, New_Template);
-            An_Entity.Templates_By_Full_Id.Insert
+            An_Entity.Wrappers_By_Full_Id.Insert
               (A_Template.Full_Name, New_Template);
-            An_Entity.Templates_Ordered.Append (New_Template);
+            An_Entity.Wrappers_Ordered.Append (New_Template);
          end if;
       end if;
 
@@ -1053,35 +1055,35 @@ package body Wrapping.Runtime.Objects is
    -- Get_Template_Instance --
    ---------------------------
 
-   function Get_Template_Instance
+   function Get_Wrapper
      (An_Entity : access W_Node_Type'Class; Name : Text_Type)
       return W_Template_Instance
    is
    begin
-      if An_Entity.Templates_By_Name.Contains (Name) then
-         return An_Entity.Templates_By_Name.Element (Name);
+      if An_Entity.Wrappers_By_Name.Contains (Name) then
+         return An_Entity.Wrappers_By_Name.Element (Name);
       else
          return null;
       end if;
-   end Get_Template_Instance;
+   end Get_Wrapper;
 
    ---------------------------
    -- Get_Template_Instance --
    ---------------------------
 
-   function Get_Template_Instance
+   function Get_Wrapper
      (An_Entity : access W_Node_Type'Class; A_Template : T_Template)
       return W_Template_Instance
    is
    begin
       --  TODO: These calls to full name may be very costly, it'd be better to
       --  cache the full name in the object
-      if An_Entity.Templates_By_Full_Id.Contains (A_Template.Full_Name) then
-         return An_Entity.Templates_By_Full_Id.Element (A_Template.Full_Name);
+      if An_Entity.Wrappers_By_Full_Id.Contains (A_Template.Full_Name) then
+         return An_Entity.Wrappers_By_Full_Id.Element (A_Template.Full_Name);
       else
          return null;
       end if;
-   end Get_Template_Instance;
+   end Get_Wrapper;
 
    ----------------
    -- Push_Value --
@@ -1093,8 +1095,8 @@ package body Wrapping.Runtime.Objects is
       A_Call       : Call_Access := null;
       Is_Generator : Boolean     := False;
    begin
-      if An_Entity.Templates_By_Name.Contains (Name) then
-         Push_Object (An_Entity.Templates_By_Name.Element (Name));
+      if An_Entity.Wrappers_By_Name.Contains (Name) then
+         Push_Object (An_Entity.Wrappers_By_Name.Element (Name));
 
          return True;
       elsif Name = "parent" then
@@ -1301,7 +1303,7 @@ package body Wrapping.Runtime.Objects is
 
          return Traverse_Wrapper (An_Entity, Next);
       elsif A_Mode = Wrapper then
-         for T of An_Entity.Templates_Ordered loop
+         for T of An_Entity.Wrappers_Ordered loop
             W_Node_Type'Class (T.all).Pre_Visit;
 
             case Visit_Wrapper (T) is
@@ -1487,7 +1489,7 @@ package body Wrapping.Runtime.Objects is
       begin
          if Is_Wrapping (Prev) then
             Wrapped := Create_Hollow_Next (W_Template_Instance (Prev).Origin);
-            Wrapped.Templates_Ordered.Append (W_Template_Instance (New_Node));
+            Wrapped.Wrappers_Ordered.Append (W_Template_Instance (New_Node));
             New_Node.Origin := W_Node (Wrapped);
          else
             --  TODO: What if parent is null?
@@ -1699,7 +1701,7 @@ package body Wrapping.Runtime.Objects is
          Result := Match_False;
 
          if E.all in W_Node_Type'Class then
-            if W_Node (E).Templates_Ordered.Length = 0 then
+            if W_Node (E).Wrappers_Ordered.Length = 0 then
                --  When there's no template for a given node, we consider this
                --  note to be non-existent from the template browsing point
                --  of view. As a result, anchored browsing should be allowed
@@ -1711,7 +1713,7 @@ package body Wrapping.Runtime.Objects is
                Push_Frame_Context;
                Top_Context.Is_First_Matching_Wrapper := True;
 
-               for T of W_Node (E).Templates_Ordered loop
+               for T of W_Node (E).Wrappers_Ordered loop
                   Last_Decision := Visitor (T, Current_Result);
 
                   if Current_Result /= Match_False
@@ -1823,19 +1825,5 @@ package body Wrapping.Runtime.Objects is
       Deferred_Expr.A_Closure := Capture_Closure (Expr.Deferred_Closure);
       Deferred_Expr.Expr      := Expr.Deferred_Expr;
    end Capture_Deferred_Environment;
-
-   -----------------------
-   -- Run_Deferred_Expr --
-   -----------------------
-
-   procedure Run_Deferred_Expr (Deferred_Expr : W_Deferred_Expr_Type) is
-      Result : W_Object;
-   begin
-      Push_Frame (Deferred_Expr.A_Closure);
-
-      Result := Evaluate_Expression (Deferred_Expr.Expr);
-      Pop_Frame;
-      Push_Object (Result);
-   end Run_Deferred_Expr;
 
 end Wrapping.Runtime.Objects;

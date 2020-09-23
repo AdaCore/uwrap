@@ -85,9 +85,6 @@ package Wrapping.Runtime.Objects is
    type W_Static_Entity_Type;
    type W_Static_Entity is access all W_Static_Entity_Type'Class;
 
-   type W_Expression_Type;
-   type W_Expression is access all W_Expression_Type'Class;
-
    type W_Deferred_Expr_Type;
    type W_Deferred_Expr is access all W_Deferred_Expr_Type'Class;
 
@@ -282,11 +279,13 @@ package Wrapping.Runtime.Objects is
    --  Transforms a Unbounded_Text_Type to a newly allocated W_String
 
    type W_Regexp_Type is new W_Text_Expression_Type with record
-      Value : W_Object;
+      Value : Unbounded_Text_Type;
    end record;
+   --  Holds a regular expression
 
    overriding function Write_String
      (Object : W_Regexp_Type) return Buffer_Slice;
+   --  Writes the content of the regular expression in the buffer
 
    type W_Text_Conversion_Type is new W_Text_Expression_Type with record
       An_Object : W_Object;
@@ -297,32 +296,49 @@ package Wrapping.Runtime.Objects is
 
    overriding function Write_String
      (Object : W_Text_Conversion_Type) return Buffer_Slice;
+   --  Calls Write_String on the contained object
 
    type Call_Access is access procedure
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  This type references an instrinsinc call between an object and its
+   --  parameters
 
    type W_Intrinsic_Function_Type is new W_Object_Type with record
       Prefix    : W_Object;
+      --  The object on which the intrinsic function will be call
+
       Call      : Call_Access;
+      --  Callback to call
+
       Generator : Boolean := False;
+      --  Wether this function is a generator (responsible to call yield
+      --  callbacks) or a single value function (which will not call yield).
    end record;
+   --  Models an intrinsic call and the object to call it on
 
    overriding procedure Push_Call_Result
      (An_Entity : access W_Intrinsic_Function_Type;
       Params    : T_Arg_Vectors.Vector);
+   --  Pushes a frame and calls the callback on the prefix previously stored
 
    overriding function Is_Generator
      (An_Entity : access W_Intrinsic_Function_Type) return Boolean
    is (An_Entity.Generator);
+   --  See parent documentation
 
    procedure Push_Intrinsic_Function (Prefix : W_Object; A_Call : Call_Access);
+   --  Instantiate a new W_Instrinsic_Function object for the prefix and the
+   --  call in parameter, push that to the stack.
 
    type W_Function_Type is new W_Object_Type with record
       A_Function : T_Function;
    end record;
+   --  Models a user-defined function
 
    overriding procedure Push_Call_Result
      (An_Entity : access W_Function_Type; Params : T_Arg_Vectors.Vector);
+   --  Pushes a frame and evaluate the function referenced by this object on
+   --  the given parameter.
 
    overriding function Is_Generator
      (An_Entity : access W_Function_Type) return Boolean
@@ -333,20 +349,24 @@ package Wrapping.Runtime.Objects is
    type W_Static_Entity_Type is new W_Object_Type with record
       An_Entity : T_Entity;
    end record;
+   --  References a static entity, for example a module prefix in a module
+   --  expression.
 
    overriding function Push_Value
      (An_Entity : access W_Static_Entity_Type; Name : Text_Type)
       return Boolean;
+   --  If this semantic entity is a scope, e.g. a module, pushes the child that
+   --  correspinds to the name in parameter
 
    overriding procedure Push_Call_Result
      (An_Entity : access W_Static_Entity_Type; Params : T_Arg_Vectors.Vector);
+   --  Checks the static entity against the first parameter. If successful,
+   --  pushes the implicit it
 
    overriding procedure Generate_Values
      (Object : access W_Static_Entity_Type; Expr : T_Expr);
-
-   type W_Expression_Type is new W_Object_Type with record
-      Expression : Template_Node;
-   end record;
+   --  Generates values for each template of the given static expression type
+   --  that has been created, none if the static expression is not a template.
 
    type W_Deferred_Expr_Type is new W_Object_Type with record
       A_Closure : Closure;
@@ -358,23 +378,48 @@ package Wrapping.Runtime.Objects is
 
    overriding function Write_String
      (Object : W_Deferred_Expr_Type) return Buffer_Slice;
+   --  Restores the closure in a new frame, evaluates the stored expression and
+   --  converts it to string.
 
    procedure Capture_Deferred_Environment
      (Deferred_Expr : W_Deferred_Expr; Expr : T_Expr);
+   --  Captures the deferred environment related to this expression.
 
    type W_Node_Type is new W_Object_Type with record
       Parent, Next, Prev : W_Node;
+      --  References the parent, prev and next node in the tree where this node
+      --  belongs to
 
       Children_Ordered : W_Node_Vectors.Vector;
+      --  Children of the current node in the order they were created.
+
       Children_Indexed : W_Node_Maps.Map;
+      --  Same as before, but indexed by name
 
-      Templates_By_Name    : W_Template_Instance_Maps.Map;
-      Templates_By_Full_Id : W_Template_Instance_Maps.Map;
-      Templates_Ordered    : W_Template_Instance_Vectors.Vector;
+      Wrappers_By_Name    : W_Template_Instance_Maps.Map;
+      --  Register wrappers by they short name (without module prefix).
+      --  TODO: this creates sitations where an entity can't be wrapped by
+      --  two different wrappers of the same name in two different modules.
+      --  While in practice this is a rare and non-advisable behavior, we
+      --  may need to clarify the semantic and allow it in specific
+      --  circumstances.
 
-      Forbidden_Template_Names : Text_Sets.Set;
+      Wrappers_By_Full_Id : W_Template_Instance_Maps.Map;
+      --  Same as before, but wrappers are registered by they full id, with all
+      --  modules as prefix.
+
+      Wrappers_Ordered    : W_Template_Instance_Vectors.Vector;
+      --  Same as before, but wrappers are registered in the order they were
+      --  created
+
+      Forbidden_Wrapper_Types : Text_Sets.Set;
+      --  List of wrapper types (template) listed by they full id that can't
+      --  be wrapping this entity. Typically wrapped by a null clause, e.g.:
+      --     wrap null (some_name);
 
       Tmp_Counter : Integer := 0;
+      --  When creating temporary names, this counter is incremented when
+      --  needed and used in the actual temporary id to ensure uniqueness.
 
       Visited_Stack : Integer_Vector.Vector;
       --  When the entity enters a vistor, the id of that visitor get stacked.
@@ -382,13 +427,23 @@ package Wrapping.Runtime.Objects is
       --  visitor invocation only once. Since the invocations are ordered,
       --  ids not in used anymore can be popped, keeping this list small.
    end record;
+   --  W_Nodes are at the core of the processing. They compose tree structures
+   --  that can map either an input tree or instantiated objects, and are
+   --  derived in various types that implement specific capabilites. In
+   --  particular, input languages have all their own derivation of node.
 
    procedure Add_Child (Parent, Child : access W_Node_Type'Class);
+   --  Connects Parent and Child with a "child" relationship. Child is
+   --  nameless.
 
    procedure Add_Child
      (Parent, Child : access W_Node_Type'Class; Name : Text_Type);
+   --  Connects Parent and Child with a "child" relationship and register
+   --  this child with a given name
 
    procedure Add_Next (Cur, Next : access W_Node_Type'Class);
+   --  Connects Cur and Next with a "next" relationship. If Cur has a parent,
+   --  then the parent of Cur will also be the parent of Next.
 
    procedure Add_Wrapping_Child (Parent, Child : access W_Node_Type'Class);
    --  Similar to Add_Child, but if the Parent is a wrapping entity, will
@@ -396,17 +451,17 @@ package Wrapping.Runtime.Objects is
    --  as a wrapper of this node instead of creating a direct link between
    --  parent and Child.
 
-   function Create_Template_Instance
-     (An_Entity : access W_Node_Type'Class; A_Template : T_Template;
-      Register  : Boolean) return W_Template_Instance;
-
-   function Get_Template_Instance
+   function Get_Wrapper
      (An_Entity : access W_Node_Type'Class; Name : Text_Type)
       return W_Template_Instance;
+   --  If An_Entity is wrapped by a wrapper of the given short name, returns
+   --  the instance, otherwise null.
 
-   function Get_Template_Instance
+   function Get_Wrapper
      (An_Entity : access W_Node_Type'Class; A_Template : T_Template)
       return W_Template_Instance;
+   --  If An_Entity is wrapped by a wrapper of the given type, returns
+   --  the instance, otherwise null.
 
    overriding function Push_Value
      (An_Entity : access W_Node_Type; Name : Text_Type) return Boolean;
@@ -473,6 +528,11 @@ package Wrapping.Runtime.Objects is
       Is_Evaluated : Boolean := False;
       --  This is true after the first time the template has been evaluated.
    end record;
+
+   function Create_Template_Instance
+     (An_Entity  : access W_Node_Type'Class;
+      A_Template : T_Template;
+      Register   : Boolean) return W_Template_Instance;
 
    overriding function Push_Value
      (An_Entity : access W_Template_Instance_Type; Name : Text_Type)

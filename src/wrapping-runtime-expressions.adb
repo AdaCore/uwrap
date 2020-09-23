@@ -259,16 +259,36 @@ package body Wrapping.Runtime.Expressions is
             Push_Object (W_Object'(new W_Integer_Type'(Value => Expr.Number)));
 
          when Template_Str =>
-            Push_Frame_Context_No_Outer;
-            Evaluate_String (Expr);
-            Pop_Frame_Context;
+            declare
+               Slice : Buffer_Slice;
+            begin
+               Push_Frame_Context_No_Outer;
+               Push_Buffer_Cursor;
+               Slice := Evaluate_String (Expr);
 
-            if Expr.Str_Kind = String_Regexp then
-               --  If we wanted a regexp, pop the object on the stack and
-               --  replace is with a regexp wrapper.
-               Push_Object
-                 (W_Object'(new W_Regexp_Type'(Value => Pop_Object)));
-            end if;
+               if Expr.Str_Kind = String_Regexp then
+                  --  If we wanted a regexp, pop the object on the stack and
+                  --  replace is with a regexp wrapper.
+                  Push_Object
+                    (W_Object'
+                       (new W_Regexp_Type'
+                            (Value => To_Unbounded_Text
+                                 (Buffer.Str
+                                    (Slice.First.Offset
+                                     .. Slice.Last.Offset)))));
+               else
+                  Push_Object
+                    (W_Object'
+                       (new W_String_Type'
+                            (Value => To_Unbounded_Text
+                                 (Buffer.Str
+                                    (Slice.First.Offset
+                                     .. Slice.Last.Offset)))));
+               end if;
+
+               Pop_Buffer_Cursor;
+               Pop_Frame_Context;
+            end;
 
          when Template_Call_Expr =>
             Push_Frame_Context_No_Pick;
