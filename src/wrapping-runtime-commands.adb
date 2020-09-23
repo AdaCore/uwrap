@@ -193,8 +193,8 @@ package body Wrapping.Runtime.Commands is
 
             if Template_Clause.Kind = Walk_Kind then
                A_Template_Instance :=
-                 It.Create_Template_Instance
-                   (T_Template (Template_Clause.Call.Reference), False);
+                 Create_Template_Instance
+                   (T_Template (Template_Clause.Call.Reference), It, False);
             elsif
               (Template_Clause.Kind = Weave_Kind
                or else A_Template_Instance = null
@@ -204,8 +204,8 @@ package body Wrapping.Runtime.Commands is
             then
                if A_Template_Instance = null then
                   A_Template_Instance :=
-                    It.Create_Template_Instance
-                      (T_Template (Template_Clause.Call.Reference), True);
+                    Create_Template_Instance
+                      (T_Template (Template_Clause.Call.Reference), It, True);
                end if;
 
                if Template_Clause.Kind = Wrap_Kind then

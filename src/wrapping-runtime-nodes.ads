@@ -135,34 +135,63 @@ package Wrapping.Runtime.Nodes is
 
    overriding function Push_Value
      (An_Entity : access W_Node_Type; Name : Text_Type) return Boolean;
+   --  Pushes intrinsic functions if they correspond to the name.
 
    overriding procedure Push_Call_Result
      (An_Entity : access W_Node_Type; Params : T_Arg_Vectors.Vector);
+   --  Pushes the result of the match between the entity and the first
+   --  expression.
 
    overriding function Match_With_Top_Object
      (An_Entity : access W_Node_Type) return Boolean;
+   --  Matches the node with the top object.
 
    procedure Pre_Visit (An_Entity : access W_Node_Type) is null;
+   --  Some nodes may not compute all of their data upon creation, for example
+   --  children may be computed lazyly. This call is made prior to visiting
+   --  a node structure, for example a traversal, so that nodes that make lazy
+   --  computations can compute what's needed.
 
    overriding function Traverse
-     (An_Entity  : access W_Node_Type; A_Mode : Traverse_Mode;
-      Include_It : Boolean; Final_Result : out W_Object;
-      Visitor    : access function
+     (An_Entity    : access W_Node_Type;
+      A_Mode       : Traverse_Mode;
+      Include_Self : Boolean;
+      Final_Result : out W_Object;
+      Visitor      : access function
         (E : access W_Object_Type'Class; Result : out W_Object)
       return Visit_Action)
       return Visit_Action;
+   --  Traverse the current node. See parent for full documentation
 
    overriding procedure Push_Traverse_Result
-     (An_Entity        : access W_Node_Type; A_Mode : Traverse_Mode;
+     (An_Entity        : access W_Node_Type;
+      A_Mode           : Traverse_Mode;
       Match_Expression : T_Expr);
+   --  Push the traverse result to the stack, and perform operations related
+   --  to dynamic allocation of nodes outside of wrapping:
+   --    * if the initial traverse didn't find a match, it may be the case
+   --      that we're on a boolean expression that accepts or require an
+   --      allocation as a side effect, e.g.:
+   --         match a or new (some_type ())
+   --      in that case, the Match_Expression will be evaluated first without
+   --      allowing allocations, then a second time with allocations enabled.
+   --   * on certain modes, allocation do create links between the node under
+   --     traveral and the new node, e.g.:
+   --        child (new (some_type ()))
+   --     will create a child link between the new object and the current one.
+   --     this call will take care of creating that link.
+   --   * When allocating new nodes on a tree wrapping another tree, will
+   --     create hollow nodes to the original tree to link with a wrapping mode
+   --     to the current one.
 
    overriding
    function Write_String
      (An_Entity : W_Node_Type) return Buffer_Slice is (Get_Empty_Slice);
-
-   procedure Print (An_Entity : W_Node_Type; Indent : Text_Type := "");
+   --  See parent documentation.
 
    function Language (An_Entity : W_Node_Type) return Text_Type is ("");
+   --  Provides a name for the language that this node represents. Retreived
+   --  from the language intrinsic field.
 
    type W_Template_Instance_Type is new W_Node_Type with record
       Defining_Entity : T_Entity;
@@ -198,30 +227,51 @@ package Wrapping.Runtime.Nodes is
       Is_Evaluated : Boolean := False;
       --  This is true after the first time the template has been evaluated.
    end record;
+   --  Template instances are a specific kind of node that represent the
+   --  instantiation of a user defined template. It could be created either
+   --  through a wrap / weave clause, or a new () allocator.
 
    function Create_Template_Instance
-     (An_Entity  : access W_Node_Type'Class;
-      A_Template : T_Template;
+     (A_Template : T_Template;
+      Wrapping   : access W_Node_Type'Class;
       Register   : Boolean) return W_Template_Instance;
+   --  Create a template instance after the template type in parameter. If
+   --  Wrapping is not null, the template instance will be linked to the
+   --  wrapping node through a wrapping / origin relationship. If register
+   --  is true, the new template instance will also be added to the various
+   --  templates lists, in particular the deferred analyis and the list
+   --  of templates for this template type.
 
    overriding function Push_Value
      (An_Entity : access W_Template_Instance_Type; Name : Text_Type)
       return Boolean;
+   --  Pushes intrinsics or specific variables values for this template
+   --  instance.
 
    overriding function Match_With_Top_Object
      (An_Entity : access W_Template_Instance_Type) return Boolean;
+   --  Matches the top object with the current template - in particular if the
+   --  top object is a static reference to a template type.
 
    overriding function Traverse
      (An_Entity  : access W_Template_Instance_Type; A_Mode : Traverse_Mode;
-      Include_It : Boolean; Final_Result : out W_Object;
+      Include_Self : Boolean; Final_Result : out W_Object;
       Visitor    : access function
         (E : access W_Object_Type'Class; Result : out W_Object)
       return Visit_Action)
       return Visit_Action;
+   --  When created outside of a wrapping relationship, template instances
+   --  iteration behaves the same as other nodes. However, when they are
+   --  wrapping another node (ie they have an origin), the wrapping
+   --  relationship between wrapped nodes are derived for those of their
+   --  origin. So for example, if A is parent of B, and if w_A1 and w_A2 wrap
+   --  A, w_B1 and w_B2 wraps B, w_A1 and w_A2 are both parents of w_B1 and
+   --  w_B2.
 
    overriding function Language
      (An_Entity : W_Template_Instance_Type) return Text_Type is
      ("template");
+   --  See parent documentation
 
    type W_Hollow_Node_Type is new W_Template_Instance_Type with record
       null;
@@ -247,5 +297,6 @@ package Wrapping.Runtime.Nodes is
 
    overriding function Language
      (An_Entity : W_Hollow_Node_Type) return Text_Type is ("hollow");
+   --  See parent documentation
 
 end Wrapping.Runtime.Nodes;

@@ -168,8 +168,8 @@ package body Wrapping.Runtime.Nodes is
    ------------------------------
 
    function Create_Template_Instance
-     (An_Entity  : access W_Node_Type'Class;
-      A_Template : T_Template;
+     (A_Template : T_Template;
+      Wrapping   : access W_Node_Type'Class;
       Register   : Boolean) return W_Template_Instance
    is
       New_Template   : W_Template_Instance;
@@ -180,15 +180,15 @@ package body Wrapping.Runtime.Nodes is
       New_Template                 := new W_Template_Instance_Type;
       New_Template.Defining_Entity := T_Entity (A_Template);
 
-      if An_Entity /= null then
-         New_Template.Origin := W_Node (An_Entity);
+      if Wrapping /= null then
+         New_Template.Origin := W_Node (Wrapping);
 
          if Register then
-            An_Entity.Wrappers_By_Name.Insert
+            Wrapping.Wrappers_By_Name.Insert
               (A_Template.Name_Node.Text, New_Template);
-            An_Entity.Wrappers_By_Full_Id.Insert
+            Wrapping.Wrappers_By_Full_Id.Insert
               (A_Template.Full_Name, New_Template);
-            An_Entity.Wrappers_Ordered.Append (New_Template);
+            Wrapping.Wrappers_Ordered.Append (New_Template);
          end if;
       end if;
 
@@ -262,11 +262,7 @@ package body Wrapping.Runtime.Nodes is
       A_Call       : Call_Access := null;
       Is_Generator : Boolean     := False;
    begin
-      if An_Entity.Wrappers_By_Name.Contains (Name) then
-         Push_Object (An_Entity.Wrappers_By_Name.Element (Name));
-
-         return True;
-      elsif Name = "parent" then
+      if Name = "parent" then
          A_Call       := Call_Browse_Parent'Access;
          Is_Generator := True;
       elsif Name = "child" then
@@ -315,9 +311,6 @@ package body Wrapping.Runtime.Nodes is
      (An_Entity : access W_Node_Type; Params : T_Arg_Vectors.Vector)
    is
    begin
-      --  TODO: this code is probably the generic call result code, not
-      --  specific to
-      --   node type.
       if Params.Length = 0 then
          Push_Match_True (An_Entity);
       elsif Params.Length = 1 then
@@ -341,6 +334,8 @@ package body Wrapping.Runtime.Nodes is
       --  By default, nodes only consider ref as being "is" matches, and calls
       --  as being "has" matches. So pass through calls before looking.
 
+      --  TODO: Review this, maybe this call is general to all objects and not
+      --  only nodes
       if Top_Context.Match_Mode = Match_Call_Default then
          return True;
       end if;
@@ -365,9 +360,11 @@ package body Wrapping.Runtime.Nodes is
    --------------
 
    function Traverse
-     (An_Entity  : access W_Node_Type; A_Mode : Traverse_Mode;
-      Include_It : Boolean; Final_Result : out W_Object;
-      Visitor    : access function
+     (An_Entity    : access W_Node_Type;
+      A_Mode       : Traverse_Mode;
+      Include_Self : Boolean;
+      Final_Result : out W_Object;
+      Visitor      : access function
         (E : access W_Object_Type'Class; Result : out W_Object)
       return Visit_Action)
       return Visit_Action
@@ -433,7 +430,7 @@ package body Wrapping.Runtime.Nodes is
 
       W_Node_Type'Class (An_Entity.all).Pre_Visit;
 
-      if Include_It then
+      if Include_Self then
          W_Node_Type'Class (An_Entity.all).Pre_Visit;
 
          case Visit_Wrapper (An_Entity) is
@@ -614,7 +611,8 @@ package body Wrapping.Runtime.Nodes is
    --------------------------
 
    procedure Push_Traverse_Result
-     (An_Entity        : access W_Node_Type; A_Mode : Traverse_Mode;
+     (An_Entity        : access W_Node_Type;
+      A_Mode           : Traverse_Mode;
       Match_Expression : T_Expr)
    is
 
@@ -751,21 +749,6 @@ package body Wrapping.Runtime.Nodes is
       end if;
    end Push_Traverse_Result;
 
-   -----------
-   -- Print --
-   -----------
-
-   procedure Print (An_Entity : W_Node_Type; Indent : Text_Type := "") is
-   begin
-      Push_Buffer_Cursor;
-      Put_Line (Indent & Copy_String (An_Entity.Write_String));
-      Pop_Buffer_Cursor;
-
-      for E of An_Entity.Children_Ordered loop
-         Print (E.all, Indent & "-");
-      end loop;
-   end Print;
-
    ----------------
    -- Push_Value --
    ----------------
@@ -813,8 +796,8 @@ package body Wrapping.Runtime.Nodes is
       --  "is" mode
 
       if Other_Entity.all in W_Static_Entity_Type'Class then
-         if Top_Context.Match_Mode in Match_Call_Default |
-         Match_Ref_Default                                   | Match_Is
+         if Top_Context.Match_Mode in
+           Match_Call_Default | Match_Ref_Default | Match_Is
          then
             if not Instance_Of
               (T_Template (An_Entity.Defining_Entity),
@@ -843,7 +826,7 @@ package body Wrapping.Runtime.Nodes is
 
    overriding function Traverse
      (An_Entity  : access W_Template_Instance_Type; A_Mode : Traverse_Mode;
-      Include_It : Boolean; Final_Result : out W_Object;
+      Include_Self : Boolean; Final_Result : out W_Object;
       Visitor    : access function
         (E : access W_Object_Type'Class; Result : out W_Object)
       return Visit_Action)
@@ -914,7 +897,7 @@ package body Wrapping.Runtime.Nodes is
       if An_Entity.Origin = null then
          Last_Decision :=
            W_Node_Type (An_Entity.all).Traverse
-           (A_Mode, Include_It, Result, Visitor);
+           (A_Mode, Include_Self, Result, Visitor);
       else
          Last_Decision :=
            An_Entity.Origin.Traverse

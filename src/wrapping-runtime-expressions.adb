@@ -1320,7 +1320,7 @@ package body Wrapping.Runtime.Expressions is
          Push_Error_Location (New_Tree.Node);
          New_Node :=
            Create_Template_Instance
-             (null, T_Template (New_Tree.Call.Reference), True);
+             (T_Template (New_Tree.Call.Reference), null, True);
 
          if Captured /= "" then
             Include_Symbol (Captured, W_Object (New_Node));

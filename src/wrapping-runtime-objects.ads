@@ -367,30 +367,43 @@ package Wrapping.Runtime.Objects is
    type W_Regexpr_Result_Type is new W_Object_Type with record
       Result : W_Vector;
    end record;
+   --  Models the result of a regular expression, which is a series of nodes
+   --  that were captured by this expression. By default, all primitives
+   --  of this types behave as if it were a reference to the last element,
+   --  except for generation that generate values for all elements.
 
    overriding procedure Generate_Values
      (Object : access W_Regexpr_Result_Type; Expr : T_Expr);
+   --  Generate values for all elements in the regexpr
 
-   function As_Singleton (Object : W_Regexpr_Result_Type) return W_Object is
+   function As_Singleton
+     (Object : W_Regexpr_Result_Type'Class) return W_Object
+   is
      (if Object.Result.A_Vector.Length >= 1 then
         Object.Result.A_Vector.Last_Element
       else Match_False);
+   --  Returns the value of the regexpr as if it were a singleton, which is
+   --  processing its last element.
 
    function Push_Value
      (An_Entity : access W_Regexpr_Result_Type; Name : Text_Type)
       return Boolean is
      (An_Entity.As_Singleton.Push_Value (Name));
+   --  Calls Push_Value on the last element of the result.
 
    overriding procedure Push_Call_Result
      (An_Entity : access W_Regexpr_Result_Type; Params : T_Arg_Vectors.Vector);
+   --  Calls Push_Call_Result on the last element of the result.
 
    overriding function Is_Generator
      (An_Entity : access W_Regexpr_Result_Type) return Boolean
    is (An_Entity.As_Singleton.Is_Generator);
+   --  Calls Is_Generator on the last element of the result.
 
    function Match_With_Top_Object
      (An_Entity : access W_Regexpr_Result_Type) return Boolean is
      (An_Entity.As_Singleton.Match_With_Top_Object);
+   --  Calls Match_With_Top_Object on the last element of the result.
 
    overriding function Traverse
      (An_Entity  : access W_Regexpr_Result_Type; A_Mode : Traverse_Mode;
@@ -399,13 +412,16 @@ package Wrapping.Runtime.Objects is
         (E : access W_Object_Type'Class; Result : out W_Object)
          return Visit_Action)
       return Visit_Action;
+   --  Calls Traverse on the last element of the result.
 
    overriding procedure Push_Traverse_Result
      (An_Entity        : access W_Regexpr_Result_Type; A_Mode : Traverse_Mode;
       Match_Expression : T_Expr);
+   --  Calls Push_Traverse_Result on the last element of the result.
 
    overriding function Write_String
      (Object : W_Regexpr_Result_Type) return Buffer_Slice is
      (Object.As_Singleton.Write_String);
+   --  Calls Write_String on the last element of the result.\
 
 end Wrapping.Runtime.Objects;
