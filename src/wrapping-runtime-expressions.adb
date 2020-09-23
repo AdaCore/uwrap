@@ -28,6 +28,7 @@ with Wrapping.Runtime.Commands;   use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Matching;   use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
 with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
+with Wrapping.Runtime.Nodes;      use Wrapping.Runtime.Nodes;
 with Wrapping.Runtime.Functions;  use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Parameters; use Wrapping.Runtime.Parameters;
 

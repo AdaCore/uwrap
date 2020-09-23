@@ -27,6 +27,7 @@ with Langkit_Support.Slocs;       use Langkit_Support.Slocs;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
+with Wrapping.Runtime.Nodes;      use Wrapping.Runtime.Nodes;
 with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
 
 generic

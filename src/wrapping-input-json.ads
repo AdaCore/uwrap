@@ -22,6 +22,7 @@ with Ada.Containers.Indefinite_Ordered_Maps;
 with GNATCOLL.JSON; use GNATCOLL.JSON;
 
 with Wrapping.Runtime.Objects;   use Wrapping.Runtime.Objects;
+with Wrapping.Runtime.Nodes;     use Wrapping.Runtime.Nodes;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 
 package Wrapping.Input.JSON is
