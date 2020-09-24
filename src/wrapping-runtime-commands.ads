@@ -17,17 +17,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Containers;         use Ada.Containers;
-with Ada.Containers.Vectors;
-
-with Libtemplatelang;
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
-
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
-with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
 with Wrapping.Runtime.Nodes;      use Wrapping.Runtime.Nodes;
-with Wrapping.Utils;              use Wrapping.Utils;
 
 package Wrapping.Runtime.Commands is
 

@@ -20,11 +20,8 @@
 --  This package implements a tree structure for JSON nodes based on the
 --  GNATColl implementation.
 
-with Ada.Containers.Indefinite_Ordered_Maps;
-
 with GNATCOLL.JSON; use GNATCOLL.JSON;
 
-with Wrapping.Runtime.Objects;   use Wrapping.Runtime.Objects;
 with Wrapping.Runtime.Nodes;     use Wrapping.Runtime.Nodes;
 with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 

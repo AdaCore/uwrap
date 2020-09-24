@@ -17,23 +17,16 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Containers;        use Ada.Containers;
-with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
+with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 
-with Libtemplatelang.Common;     use Libtemplatelang.Common;
-
-with Wrapping.Runtime.Structure;   use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Commands;    use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
-with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 with Wrapping.Runtime.Closures;    use Wrapping.Runtime.Closures;
 with Wrapping.Runtime.Parameters;  use Wrapping.Runtime.Parameters;
 with Wrapping.Runtime.Nodes;       use Wrapping.Runtime.Nodes;
 
 package body Wrapping.Runtime.Objects is
-
-   function Has_Allocator (Node : Template_Node'Class) return Boolean;
 
    procedure Call_Insert
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
@@ -46,35 +39,6 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Get
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-   -------------------
-   -- Has_Allocator --
-   -------------------
-
-   function Has_Allocator (Node : Template_Node'Class) return Boolean is
-
-      function Visit (Node : Template_Node'Class) return Visit_Status;
-
-      Found : Boolean := False;
-
-      -----------
-      -- Visit --
-      -----------
-
-      function Visit (Node : Template_Node'Class) return Visit_Status is
-      begin
-         if Node.Kind = Template_New_Expr then
-            Found := True;
-            return Stop;
-         else
-            return Into;
-         end if;
-      end Visit;
-   begin
-      Node.Traverse (Visit'Access);
-
-      return Found;
-   end Has_Allocator;
 
    -----------------
    -- Call_Insert --
@@ -626,7 +590,6 @@ package body Wrapping.Runtime.Objects is
       procedure Result_Callback;
 
       Calling_Frame : Data_Frame;
-      Called_Frame  : Data_Frame;
       Temp_Symbols  : W_Object_Maps.Map;
 
       ------------------------
@@ -636,11 +599,10 @@ package body Wrapping.Runtime.Objects is
       procedure Evaluate_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr)
       is
-         Computed_Name : Text_Type :=
+         Computed_Name : constant Text_Type :=
            (if Name = "" then
               An_Entity.A_Function.Arguments_Ordered.Element (Position)
-                .Name_Node
-                .Text
+                .Name_Node.Text
             else Name);
       begin
          Temp_Symbols.Insert (Computed_Name, Evaluate_Expression (Value));
@@ -678,14 +640,13 @@ package body Wrapping.Runtime.Objects is
          end if;
       end Result_Callback;
 
-      Prev_It : W_Object := Get_Implicit_It;
+      Prev_It : constant W_Object := Get_Implicit_It;
    begin
       Process_Parameters (Params, Evaluate_Parameter'Access);
 
       Calling_Frame := Top_Frame;
 
       Push_Frame (An_Entity.A_Function);
-      Called_Frame := Top_Frame;
 
       Push_Implicit_It (Prev_It);
       Top_Frame.Symbols.Move (Temp_Symbols);
@@ -744,7 +705,6 @@ package body Wrapping.Runtime.Objects is
      (An_Entity : access W_Static_Entity_Type; Params : T_Arg_Vectors.Vector)
    is
       It_Object : W_Object;
-      Prefix    : W_Template_Instance;
       Result    : W_Object;
    begin
       --  Matching an static entity reference means two things:
@@ -762,8 +722,6 @@ package body Wrapping.Runtime.Objects is
          Push_Match_False;
          return;
       end if;
-
-      Prefix := W_Template_Instance (It_Object);
 
       --  If we're of the right type, then push the implicit It so that the
       --  stack starts with an implicit entity at the top, and check the

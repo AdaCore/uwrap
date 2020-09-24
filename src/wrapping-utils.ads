@@ -22,8 +22,6 @@ with Ada.Containers.Vectors;
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Indefinite_Ordered_Sets;
 
-with Langkit_Support.Text; use Langkit_Support.Text;
-
 package Wrapping.Utils is
 
    package Text_Maps is new Ada.Containers.Indefinite_Ordered_Maps
@@ -41,12 +39,6 @@ package Wrapping.Utils is
 
    package Text_Vectors is new Ada.Containers.Indefinite_Vectors
      (Positive, Text_Type);
-
-   function Reindent
-     (New_Indent : Integer; Text : Text_Type; Indent_First_Line : Boolean)
-      return Text_Type;
-   --  Remove as many spaces in front of each lines as possible while keeping
-   --  the current indentation, then append the number of spaces in parameter.
 
    function Suffix (Text : Text_Type) return Text_Type;
    --  Returns the suffix of a dotted name, or the input if no dot.

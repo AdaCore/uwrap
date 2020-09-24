@@ -20,7 +20,6 @@
 --  This package implements a generic version of an input tree for any langkit
 --  generated library.
 
-with Ada.Containers.Indefinite_Hashed_Maps;
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Vectors;
 
@@ -29,7 +28,6 @@ with Langkit_Support.Slocs;       use Langkit_Support.Slocs;
 
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
-with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
 with Wrapping.Runtime.Nodes;      use Wrapping.Runtime.Nodes;
 with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
 
@@ -58,7 +56,6 @@ generic
    type Token_Index is range <>;
 
    None : Any_Node_Data_Reference;
-   No_Kit_Node : Kit_Node;
    Default_Grammar_Rule : Grammar_Rule;
    Default_Charset : String;
    No_Unit_Provider_Reference : Unit_Provider_Reference;
@@ -124,9 +121,6 @@ generic
    with function Token_End
      (Node : Kit_Node'Class) return Token_Reference is <>;
    with function Next
-     (Token : Token_Reference; Exclude_Trivia : Boolean := False)
-      return Token_Reference is <>;
-   with function Previous
      (Token : Token_Reference; Exclude_Trivia : Boolean := False)
       return Token_Reference is <>;
    with function Data (Token : Token_Reference) return Token_Data_Type is <>;
@@ -261,5 +255,20 @@ package Wrapping.Input.Kit is
      (An_Entity : W_Kit_Node_Token_Type) return Text_Type is
      (Language_Name & "_token");
    --  See parent documentation
+
+   -------------------
+   -- W_Source_Node --
+   -------------------
+
+   type W_Source_Node_Type;
+   type W_Source_Node is access all W_Source_Node_Type'Class;
+
+   type W_Source_Node_Type is new W_Object_Type with record
+      A_Node : Kit_Node;
+   end record;
+
+   overriding function Write_String
+     (Object : W_Source_Node_Type) return Buffer_Slice is
+     (Write_String (Object.A_Node.Text));
 
 end Wrapping.Input.Kit;

@@ -17,6 +17,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Containers;                  use Ada.Containers;
 with Ada.Tags;                        use Ada.Tags;
 with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 
@@ -31,6 +32,7 @@ with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
 with Wrapping.Runtime.Nodes;      use Wrapping.Runtime.Nodes;
 with Wrapping.Runtime.Functions;  use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Parameters; use Wrapping.Runtime.Parameters;
+with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
 
 package body Wrapping.Runtime.Expressions is
 
@@ -62,8 +64,6 @@ package body Wrapping.Runtime.Expressions is
    procedure Handle_Arithmetic_Operator (Expr : T_Expr) with
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
-   procedure Handle_Global_Identifier (Name : Text_Type);
-
    procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector) with
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
 
@@ -92,7 +92,7 @@ package body Wrapping.Runtime.Expressions is
       case Expr.Kind is
          when Template_Match_Capture =>
             declare
-               Captured_Name : Text_Type :=
+               Captured_Name : constant Text_Type :=
                  Expr.Node.As_Match_Capture.F_Captured.Text;
                Previous_Value : W_Object;
             begin
@@ -227,7 +227,7 @@ package body Wrapping.Runtime.Expressions is
             Push_Frame_Context_No_Pick;
 
             declare
-               Right : W_Object :=
+               Right : constant W_Object :=
                  Evaluate_Expression (Expr.Unary_Right).Dereference;
             begin
                if Expr.Node.As_Unary_Expr.F_Op.Kind = Template_Operator_Not
@@ -306,7 +306,8 @@ package body Wrapping.Runtime.Expressions is
 
          when Template_Defer_Expr =>
             declare
-               Deferred_Expr : W_Deferred_Expr := new W_Deferred_Expr_Type;
+               Deferred_Expr : constant W_Deferred_Expr :=
+                 new W_Deferred_Expr_Type;
             begin
                Capture_Deferred_Environment (Deferred_Expr, Expr);
                Push_Object (Deferred_Expr);
@@ -427,9 +428,6 @@ package body Wrapping.Runtime.Expressions is
          return True;
       elsif Name = "to_lower" then
          Push_Intrinsic_Function (null, Call_To_Lower'Access);
-         return True;
-      elsif Name = "reindent" then
-         Push_Intrinsic_Function (null, Call_Reindent'Access);
          return True;
       elsif Name = "buffer_line" then
          Push_Object
@@ -570,23 +568,12 @@ package body Wrapping.Runtime.Expressions is
       end case;
    end Execute_Expr_Outer_Action;
 
-   ------------------------------
-   -- Handle_Global_Identifier --
-   ------------------------------
-
-   procedure Handle_Global_Identifier (Name : Text_Type) is
-   begin
-      if not Push_Global_Identifier (Name) then
-         Error ("can't find global reference to '" & Name & "'");
-      end if;
-   end Handle_Global_Identifier;
-
    -----------------------
    -- Handle_Identifier --
    -----------------------
 
    procedure Handle_Identifier (Node : Template_Node'Class) is
-      Name          : Text_Type := Node.Text;
+      Name          : constant Text_Type := Node.Text;
       Prefix_Entity : W_Object;
    begin
       --  We're resolving a reference to an entity
@@ -683,7 +670,7 @@ package body Wrapping.Runtime.Expressions is
 
       procedure Handle_Template_Call_Recursive (A_Template : T_Template);
 
-      A_Template_Instance : W_Template_Instance :=
+      A_Template_Instance : constant W_Template_Instance :=
         W_Template_Instance (Instance);
 
       ---------------------
@@ -693,6 +680,7 @@ package body Wrapping.Runtime.Expressions is
       procedure Store_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr)
       is
+         pragma Unreferenced (Position);
       begin
          if Name = "" then
             Top_Frame.Template_Parameters_Position.Append (Value);
@@ -959,7 +947,7 @@ package body Wrapping.Runtime.Expressions is
 
       procedure Yield_Callback;
 
-      Fold_Expr : T_Expr := Selector.Selector_Right;
+      Fold_Expr : constant T_Expr := Selector.Selector_Right;
 
       Is_First : Boolean := True;
 
@@ -1052,10 +1040,7 @@ package body Wrapping.Runtime.Expressions is
 
       procedure Generator (Expr : T_Expr);
 
-      procedure Object_Generator
-        (Node : access W_Object_Type'Class; Expr : T_Expr);
-
-      Filtered_Expr   : T_Expr := Selector.Selector_Right.Filter_Expr;
+      Filtered_Expr   : constant T_Expr := Selector.Selector_Right.Filter_Expr;
       Prefix_Function : T_Expr;
 
       Object_Mode : Boolean;
@@ -1070,7 +1055,8 @@ package body Wrapping.Runtime.Expressions is
 
          procedure Yield_Callback;
 
-         Original_Yield : Yield_Callback_Type := Top_Context.Yield_Callback;
+         Original_Yield : constant Yield_Callback_Type :=
+           Top_Context.Yield_Callback;
 
          --------------------
          -- Yield_Callback --
@@ -1117,17 +1103,6 @@ package body Wrapping.Runtime.Expressions is
 
          Pop_Frame_Context;
       end Generator;
-
-      ----------------------
-      -- Object_Generator --
-      ----------------------
-
-      procedure Object_Generator
-        (Node : access W_Object_Type'Class; Expr : T_Expr)
-      is
-      begin
-         Top_Object.Generate_Values (Expr);
-      end Object_Generator;
 
    begin
       if Top_Context.Match_Mode /= Match_None then
@@ -1209,7 +1184,7 @@ package body Wrapping.Runtime.Expressions is
 
       procedure Yield_Callback;
 
-      Initial_Context : Frame_Context := Top_Context;
+      Initial_Context : constant Frame_Context := Top_Context;
 
       --------------------
       -- Yield_Callback --
@@ -1304,15 +1279,15 @@ package body Wrapping.Runtime.Expressions is
          return W_Template_Instance
       is
          New_Node : W_Template_Instance;
-         Captured : Text_Type := To_Text (New_Tree.Call.Captured_Name);
+         Captured : constant Text_Type :=
+           To_Text (New_Tree.Call.Captured_Name);
 
          --  TODO: Is this necessary?
          Dummy_Action : Visit_Action;
       begin
          Push_Error_Location (New_Tree.Node);
          New_Node :=
-           Create_Template_Instance
-             (T_Template (New_Tree.Call.Reference), null, True);
+           Create_Template_Instance (New_Tree.Call.Reference, null, True);
 
          if Captured /= "" then
             Include_Symbol (Captured, W_Object (New_Node));
@@ -1386,7 +1361,8 @@ package body Wrapping.Runtime.Expressions is
       Left, Right     : W_Object;
       Left_I, Right_I : Integer;
       Result          : W_Object;
-      Kind : Template_Node_Kind_Type := Expr.Node.As_Binary_Expr.F_Op.Kind;
+      Kind : constant Template_Node_Kind_Type :=
+        Expr.Node.As_Binary_Expr.F_Op.Kind;
    begin
       Top_Context.Match_Mode := Match_Has;
 

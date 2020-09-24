@@ -17,20 +17,16 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Containers.Vectors;
-with Ada.Strings.Wide_Wide_Fixed;       use Ada.Strings.Wide_Wide_Fixed;
 with Ada.Text_IO;                       use Ada.Text_IO;
 with Ada.Wide_Wide_Text_IO;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
-with Ada.Containers;                    use Ada.Containers;
 
 with Langkit_Support;             use Langkit_Support;
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 with Libtemplatelang.Common;      use Libtemplatelang.Common;
 
 with Wrapping.Utils;       use Wrapping.Utils;
-with Langkit_Support.Text; use Langkit_Support.Text;
 
 package body Wrapping.Semantic.Analysis is
 
@@ -38,10 +34,6 @@ package body Wrapping.Semantic.Analysis is
 
    procedure Push_Entity
      (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class);
-
-   procedure Push_Named_Entity
-     (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class;
-      Name      : Text_Type);
 
    procedure Push_Named_Entity
      (An_Entity : access T_Named_Entity_Type'Class; Node : Template_Node'Class;
@@ -79,8 +71,6 @@ package body Wrapping.Semantic.Analysis is
    procedure Analyze_String (Node : Template_Node'Class; Result : T_Expr);
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String);
-
-   procedure Pop_Lexical_Scope_Entity;
 
    Context : constant Analysis_Context := Create_Context;
 
@@ -121,6 +111,7 @@ package body Wrapping.Semantic.Analysis is
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String) is
       File_Module : Structure.T_Module;
+      pragma Unreferenced (File_Module);
    begin
       Entity_Stack.Append (T_Entity (Root));
       File_Module := Build_Module (Unit.Root, To_Text (Name));
@@ -162,22 +153,6 @@ package body Wrapping.Semantic.Analysis is
    -----------------------
 
    procedure Push_Named_Entity
-     (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class;
-      Name      : Text_Type)
-   is
-   begin
-      Push_Error_Location (Node);
-      Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity), Name);
-
-      An_Entity.Node := Template_Node (Node);
-      Entity_Stack.Append (T_Entity (An_Entity));
-   end Push_Named_Entity;
-
-   -----------------------
-   -- Push_Named_Entity --
-   -----------------------
-
-   procedure Push_Named_Entity
      (An_Entity : access T_Named_Entity_Type'Class; Node : Template_Node'Class;
       Name_Node : Template_Node'Class)
    is
@@ -199,15 +174,6 @@ package body Wrapping.Semantic.Analysis is
       Pop_Error_Location;
    end Pop_Entity;
 
-   ------------------------------
-   -- Pop_Lexical_Scope_Entity --
-   ------------------------------
-
-   procedure Pop_Lexical_Scope_Entity is
-   begin
-      Pop_Entity;
-   end Pop_Lexical_Scope_Entity;
-
    ------------------
    -- Build_Module --
    ------------------
@@ -215,7 +181,7 @@ package body Wrapping.Semantic.Analysis is
    function Build_Module
      (Node : Template_Node; Module_Name : Text_Type) return T_Module
    is
-      A_Module    : T_Module := new T_Module_Type;
+      A_Module    : constant T_Module := new T_Module_Type;
       A_Namespace : T_Namespace;
 
       Dummy_Command  : T_Command;
@@ -276,7 +242,7 @@ package body Wrapping.Semantic.Analysis is
 
    function Build_Template (Node : Template_Node) return Structure.T_Template
    is
-      A_Template : T_Template := new T_Template_Type;
+      A_Template : constant T_Template := new T_Template_Type;
    begin
       Push_Named_Entity (A_Template, Node, Node.As_Template.F_Name);
 
@@ -296,7 +262,7 @@ package body Wrapping.Semantic.Analysis is
    function Build_Command_Sequence
      (Node : Command_Sequence'Class) return T_Command_Sequence
    is
-      Sequence : T_Command_Sequence := new T_Command_Sequence_Type;
+      Sequence : constant T_Command_Sequence := new T_Command_Sequence_Type;
    begin
       Push_Entity (Sequence, Node);
 
@@ -317,7 +283,7 @@ package body Wrapping.Semantic.Analysis is
    function Build_Command_Sequence_Element
      (Node : Command_Sequence_Element'Class) return T_Command_Sequence_Element
    is
-      Sequence_Element : T_Command_Sequence_Element :=
+      Sequence_Element : constant T_Command_Sequence_Element :=
         new T_Command_Sequence_Element_Type;
    begin
       Push_Entity (Sequence_Element, Node);
@@ -373,7 +339,7 @@ package body Wrapping.Semantic.Analysis is
    function Build_Template_Call
      (Node : Template_Call'Class) return T_Template_Call
    is
-      A_Template_Call : T_Template_Call := new T_Template_Call_Type;
+      A_Template_Call : constant T_Template_Call := new T_Template_Call_Type;
    begin
       Push_Entity (A_Template_Call, Node);
 
@@ -399,7 +365,7 @@ package body Wrapping.Semantic.Analysis is
 
       function Visit (Node : Template_Node'Class) return Visit_Status;
 
-      A_Command : T_Command := new T_Command_Type;
+      A_Command : constant T_Command := new T_Command_Type;
 
       -----------
       -- Visit --
@@ -506,13 +472,13 @@ package body Wrapping.Semantic.Analysis is
    --------------------
 
    function Build_Function (Node : Template_Node) return T_Function is
-      A_Function : T_Function := new T_Function_Type;
+      A_Function : constant T_Function := new T_Function_Type;
    begin
       Push_Named_Entity (A_Function, Node, Node.As_Function_Node.F_Name);
 
       for A of Node.As_Function_Node.F_Args loop
          declare
-            A_Var : T_Var := new T_Var_Type;
+            A_Var : constant T_Var := new T_Var_Type;
          begin
             Push_Named_Entity (A_Var, A, A);
 
@@ -537,8 +503,8 @@ package body Wrapping.Semantic.Analysis is
    --------------------
 
    function Build_Variable (Node : Var'Class) return T_Var is
-      A_Var : Structure.T_Var := new T_Var_Type;
-      Typ   : Text_Type       := Node.F_Typ.Text;
+      A_Var : constant Structure.T_Var := new T_Var_Type;
+      Typ   : constant Text_Type       := Node.F_Typ.Text;
    begin
       Push_Named_Entity (A_Var, Node, Node.As_Var.F_Name);
 
@@ -763,7 +729,7 @@ package body Wrapping.Semantic.Analysis is
    ---------------
 
    function Build_Arg (Node : Template_Node'Class) return T_Arg is
-      Arg : T_Arg := new T_Arg_Type;
+      Arg : constant T_Arg := new T_Arg_Type;
    begin
       Push_Entity (Arg, Node);
 
@@ -799,6 +765,7 @@ package body Wrapping.Semantic.Analysis is
       procedure On_Error
         (Message : Text_Type; Filename : String; Loc : Source_Location)
       is
+         pragma Unreferenced (Loc, Filename);
       begin
          Push_Error_Location
            (Node.Unit.Get_Filename,
@@ -940,7 +907,7 @@ package body Wrapping.Semantic.Analysis is
                   Expression_Unit_Number := Expression_Unit_Number + 1;
 
                   declare
-                     Expression_Unit : Analysis_Unit :=
+                     Expression_Unit : constant Analysis_Unit :=
                        Get_From_Buffer
                          (Context  => Context,
                           Filename =>
@@ -997,7 +964,7 @@ package body Wrapping.Semantic.Analysis is
                end if;
 
                declare
-                  Group_Value : Natural :=
+                  Group_Value : constant Natural :=
                     Natural'Wide_Wide_Value (Str (Current .. Next_Index));
                begin
                   Result.Str.Append
@@ -1063,7 +1030,7 @@ package body Wrapping.Semantic.Analysis is
          for S of Result.Str loop
             if S.Kind = Str_Kind then
                declare
-                  Str : Text_Type := To_Text (S.Value);
+                  Str : constant Text_Type := To_Text (S.Value);
                begin
                   if Is_Start_Of_Line
                     and then Str'Length >= Indentation_To_Ignore
@@ -1102,8 +1069,8 @@ package body Wrapping.Semantic.Analysis is
 
    function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree
    is
-      New_Tree : T_Create_Tree        := new T_Create_Tree_Type;
-      Tree     : Create_Template_Tree := Node.As_Create_Template_Tree;
+      New_Tree : constant T_Create_Tree        := new T_Create_Tree_Type;
+      Tree     : constant Create_Template_Tree := Node.As_Create_Template_Tree;
    begin
       Push_Entity (New_Tree, Node);
 

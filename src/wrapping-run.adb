@@ -18,15 +18,12 @@
 ------------------------------------------------------------------------------
 
 with Ada.Text_IO; use Ada.Text_IO;
-with Ada.Wide_Wide_Text_IO;
 with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
 with GNATCOLL.OS.Constants; use GNATCOLL.OS.Constants;
 with GNATCOLL.Utils;        use GNATCOLL.Utils;
-
-with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 
 with Libtestlang.Analysis;
 with Libtestlang.Common;
@@ -41,7 +38,6 @@ with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Wrapping.Runtime.Commands;  use Wrapping.Runtime.Commands;
 with Wrapping.Input.Kit;
 with Wrapping.Input.JSON;        use Wrapping.Input.JSON;
-with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Strings;   use Wrapping.Runtime.Strings;
 
 package body Wrapping.Run is
@@ -71,7 +67,6 @@ package body Wrapping.Run is
          Token_Index                =>
             Libtestlang.Common.Token_Data_Handlers.Token_Index,
          None                       => Libtestlang.Common.None,
-         No_Kit_Node                => Libtestlang.Analysis.No_Test_Node,
          Default_Grammar_Rule       => Libtestlang.Common.Default_Grammar_Rule,
          Default_Charset            => Libtestlang.Common.Default_Charset,
          No_Unit_Provider_Reference =>
@@ -116,7 +111,6 @@ package body Wrapping.Run is
          Token_Index                =>
             Libadalang.Common.Token_Data_Handlers.Token_Index,
          None                       => Libadalang.Common.None,
-         No_Kit_Node                => Libadalang.Analysis.No_Ada_Node,
          Default_Grammar_Rule       => Libadalang.Common.Default_Grammar_Rule,
          Default_Charset            => Libadalang.Common.Default_Charset,
          No_Unit_Provider_Reference =>
@@ -143,6 +137,7 @@ package body Wrapping.Run is
      (Context : Libadalang.Helpers.App_Context;
       Jobs    : Libadalang.Helpers.App_Job_Context_Array)
    is
+      pragma Unreferenced (Context);
    begin
       --  Initialize main buffer
       --  TODO: Size should be parametrizable.
@@ -162,7 +157,7 @@ package body Wrapping.Run is
          procedure Analyze_Directory
            (Base_Module_Name : String; Dir_Path : String);
 
-         Input_Directories : Args.Input_Directories.Result_Array :=
+         Input_Directories : constant Args.Input_Directories.Result_Array :=
            Args.Input_Directories.Get;
 
          -----------------------
@@ -171,12 +166,13 @@ package body Wrapping.Run is
 
          procedure Analyze_Directory
            (Base_Module_Name : String; Dir_Path : String)
+
          is
             Dir      : Dir_Type;
             File     : String (1 .. 2_048);
             Name_Len : Integer;
 
-            Container_Module : String :=
+            Container_Module : constant String :=
               (if Base_Module_Name /= "" then Base_Module_Name & "." else "");
          begin
             Open (Dir, Dir_Path);
@@ -187,13 +183,13 @@ package body Wrapping.Run is
                exit when Name_Len = 0;
 
                declare
-                  Full_Path : String :=
+                  Full_Path : constant String :=
                     Dir_Path & File (File'First .. Name_Len);
                begin
                   if File_Extension (File (File'First .. Name_Len)) = ".wrp"
                   then
                      declare
-                        Module_Name : String :=
+                        Module_Name : constant String :=
                           Container_Module &
                           Base_Name (File (File'First .. Name_Len), ".wrp");
                      begin
@@ -240,7 +236,7 @@ package body Wrapping.Run is
       --  Step 2, run the template on the selected languages
 
       declare
-         Language : String := To_String (Args.Input_Language.Get);
+         Language : constant String := To_String (Args.Input_Language.Get);
       begin
          if Language = "ada" then
             for Job_Context of Jobs loop

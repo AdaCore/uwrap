@@ -21,7 +21,6 @@ with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
 with Ada.Containers;              use Ada.Containers;
 
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
-with Wrapping.Utils;             use Wrapping.Utils;
 
 package body Wrapping.Semantic.Structure is
 
@@ -103,7 +102,7 @@ package body Wrapping.Semantic.Structure is
          end if;
       else
          declare
-            Parent_Text : Text_Type := An_Entity.Parent.Full_Name;
+            Parent_Text : constant Text_Type := An_Entity.Parent.Full_Name;
          begin
             if Parent_Text = "" then
                if An_Entity.Name_Node.Is_Null then
@@ -125,7 +124,7 @@ package body Wrapping.Semantic.Structure is
    function Resolve_Module_By_Name (Full_Name : Text_Type) return T_Module is
       Result      : T_Entity;
       A_Namespace : T_Namespace;
-      A_Suffix    : Text_Type := Suffix (Full_Name);
+      A_Suffix    : constant Text_Type := Suffix (Full_Name);
    begin
       A_Namespace := Get_Namespace_Prefix_For_Module (Full_Name);
 
@@ -150,7 +149,7 @@ package body Wrapping.Semantic.Structure is
          return To_Text (An_Entity.Name);
       else
          declare
-            Parent_Name : Text_Type := An_Entity.Parent.Full_Name;
+            Parent_Name : constant Text_Type := An_Entity.Parent.Full_Name;
          begin
             if Parent_Name = "" then
                return To_Text (An_Entity.Name);
@@ -200,7 +199,7 @@ package body Wrapping.Semantic.Structure is
             return Current;
          else
             declare
-               Section : Text_Type := Full_Name (First .. Dot - 1);
+               Section : constant Text_Type := Full_Name (First .. Dot - 1);
             begin
 
                if Current.Children_Indexed.Contains (Section) then
@@ -376,7 +375,7 @@ package body Wrapping.Semantic.Structure is
    overriding procedure Resolve_References
      (An_Entity : access T_Template_Call_Type)
    is
-      Name : Text_Type :=
+      Name : constant Text_Type :=
         (if An_Entity.Node.As_Template_Call.F_Name.Is_Null then ""
          else An_Entity.Node.As_Template_Call.F_Name.Text);
    begin
@@ -433,7 +432,7 @@ package body Wrapping.Semantic.Structure is
 
          if C.Kind = Template_Import then
             declare
-               Imported : Structure.T_Module :=
+               Imported : constant Structure.T_Module :=
                  Resolve_Module_By_Name (C.As_Import.F_Name.Text);
             begin
                if Imported = null then
@@ -543,7 +542,7 @@ package body Wrapping.Semantic.Structure is
 
             when Template_Match_Capture =>
                declare
-                  Name : Text_Type :=
+                  Name : constant Text_Type :=
                     Expr.Node.As_Match_Capture.F_Captured.Text;
                begin
                   --  If the name isn't already identified as a local name,

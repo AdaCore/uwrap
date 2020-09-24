@@ -19,21 +19,13 @@
 
 with System;                          use System;
 
-with Ada.Containers;                    use Ada.Containers;
 with Ada.Strings.Wide_Wide_Unbounded;   use Ada.Strings.Wide_Wide_Unbounded;
-with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Tags;                          use Ada.Tags;
 with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
-with Ada.Wide_Wide_Text_IO;             use Ada.Wide_Wide_Text_IO;
 with Ada.Unchecked_Conversion;
 
-with Libtemplatelang.Common;     use Libtemplatelang.Common;
 with Libtemplatelang.Analysis;   use Libtemplatelang.Analysis;
 
-with Wrapping.Semantic.Structure;  use Wrapping.Semantic.Structure;
-with Wrapping.Semantic.Analysis;   use Wrapping.Semantic.Analysis;
-with Wrapping.Runtime.Commands;    use Wrapping.Runtime.Commands;
-with Wrapping.Runtime.Functions;   use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Objects;     use Wrapping.Runtime.Objects;
 with Wrapping.Runtime.Nodes;       use Wrapping.Runtime.Nodes;
 with Wrapping.Runtime.Strings;     use Wrapping.Runtime.Strings;
@@ -42,8 +34,6 @@ with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
 
 package body Wrapping.Runtime.Structure is
-
-   Root_Language_Entities : W_Node_Maps.Map;
 
    ----------------
    -- Lt_Wrapper --
@@ -305,6 +295,16 @@ package body Wrapping.Runtime.Structure is
       return Natural (Top_Frame.Data_Stack.Length);
    end W_Stack_Size;
 
+   ----------------
+   -- Push_Value --
+   ----------------
+
+   function Push_Value
+     (An_Entity : access W_Object_Type; Name : Text_Type) return Boolean is
+   begin
+      return False;
+   end Push_Value;
+
    ----------------------
    -- Push_Call_Result --
    ----------------------
@@ -336,7 +336,7 @@ package body Wrapping.Runtime.Structure is
    function Match_With_Top_Object
      (An_Entity : access W_Object_Type) return Boolean
    is
-      Other_Entity : W_Object := Top_Object.Dereference;
+      Other_Entity : constant W_Object := Top_Object.Dereference;
       Matched      : Boolean;
       Result       : Boolean := False;
    begin
@@ -348,8 +348,8 @@ package body Wrapping.Runtime.Structure is
          Push_Buffer_Cursor;
 
          declare
-            L : Buffer_Slice := Other_Entity.Write_String;
-            R : Buffer_Slice :=
+            L : constant Buffer_Slice := Other_Entity.Write_String;
+            R : constant Buffer_Slice :=
               W_Object_Type'Class (An_Entity.all).Write_String;
          begin
             Matched :=
@@ -370,8 +370,8 @@ package body Wrapping.Runtime.Structure is
          Push_Buffer_Cursor;
 
          declare
-            L : Buffer_Slice := Other_Entity.Write_String;
-            R : Buffer_Slice :=
+            L : constant Buffer_Slice := Other_Entity.Write_String;
+            R : constant Buffer_Slice :=
               W_Object_Type'Class (An_Entity.all).Write_String;
          begin
             if Buffer.Str (L.First.Offset .. L.Last.Offset) /=
@@ -404,8 +404,8 @@ package body Wrapping.Runtime.Structure is
      (Left : access W_Object_Type; Right : access W_Object_Type'Class)
       return Boolean
    is
-      Left_Tag  : Tag := W_Object (Left).all'Tag;
-      Right_Tag : Tag := Right.all'Tag;
+      Left_Tag  : constant Tag := W_Object (Left).all'Tag;
+      Right_Tag : constant Tag := Right.all'Tag;
 
       function To_Address is new Ada.Unchecked_Conversion
         (Tag, System.Address);
@@ -442,7 +442,7 @@ package body Wrapping.Runtime.Structure is
       procedure Allocate_Variable (Var : T_Var);
 
       Result : W_Template_Instance;
-      Name   : Text_Type := An_Entity.Full_Name;
+      Name   : constant Text_Type := An_Entity.Full_Name;
 
       -----------------------
       -- Allocate_Variable --

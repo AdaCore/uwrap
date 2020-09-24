@@ -23,9 +23,6 @@ with Ada.Strings.Unbounded;      use Ada.Strings.Unbounded;
 with Ada.Wide_Wide_Text_IO;      use Ada.Wide_Wide_Text_IO;
 with Ada.Strings;                use Ada.Strings;
 with Ada.Strings.Fixed;          use Ada.Strings.Fixed;
-with Ada.Characters.Conversions; use Ada.Characters.Conversions;
-
-with Langkit_Support.Slocs; use Langkit_Support.Slocs;
 
 package body Wrapping is
 
@@ -55,16 +52,12 @@ package body Wrapping is
       end if;
    end Get_Sloc_Str;
 
-   Error_Message : Unbounded_Text_Type;
-
    -----------
    -- Error --
    -----------
 
    procedure Error (Message : Text_Type) is
    begin
-      Error_Message := To_Unbounded_Text (Message);
-
       if Error_Callback /= null then
          Error_Callback.all
            (Message, To_String (Error_Stack.Last_Element.Filename),

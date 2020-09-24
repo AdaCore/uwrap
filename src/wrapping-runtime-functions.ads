@@ -21,10 +21,7 @@
 --  language. These functions are aimed at being stacked with the object
 --  W_Function_Instrinsic.
 
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
-
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
-with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 
 package Wrapping.Runtime.Functions is
@@ -44,10 +41,6 @@ package Wrapping.Runtime.Functions is
    procedure Call_To_Lower
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
    --  Takes one string parameter and returns its lowercase version
-
-   procedure Call_Reindent
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-   --  Performs a reindentation on the one string parameter
 
    procedure Call_Max_Col
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);

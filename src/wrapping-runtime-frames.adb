@@ -21,8 +21,6 @@ with Ada.Strings;                 use Ada.Strings;
 with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
 with Ada.Containers;              use Ada.Containers;
 
-with Wrapping.Utils;            use Wrapping.Utils;
-with Wrapping.Runtime.Commands; use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Objects;  use Wrapping.Runtime.Objects;
 
 package body Wrapping.Runtime.Frames is
@@ -76,8 +74,6 @@ package body Wrapping.Runtime.Frames is
    function Get_Module
      (A_Frame : Data_Frame_Type) return T_Module
    is
-      use Semantic.Structure;
-
       Scope : T_Entity := A_Frame.Lexical_Scope;
    begin
       while Scope /= null and then Scope.all not in T_Module_Type'Class loop
@@ -150,7 +146,7 @@ package body Wrapping.Runtime.Frames is
          Counter := Counter + 1;
 
          declare
-            Tmp : Text_Type :=
+            Tmp : constant Text_Type :=
               "Temp_" & (if Name /= "" then Name & "_" else "") &
               Trim (Integer'Wide_Wide_Image (Counter), Both);
          begin
@@ -200,11 +196,10 @@ package body Wrapping.Runtime.Frames is
    ---------------------
 
    function Top_Is_Implicit return Boolean is
-      Top : W_Object := Top_Object;
    begin
       return
-        Top.all in W_Reference_Type'Class
-        and then W_Reference (Top).Is_Implicit;
+        Top_Object.all in W_Reference_Type'Class
+        and then W_Reference (Top_Object).Is_Implicit;
    end Top_Is_Implicit;
 
    ------------------------
@@ -279,7 +274,7 @@ package body Wrapping.Runtime.Frames is
    ------------------------
 
    procedure Push_Frame_Context (Context : Frame_Context_Type) is
-      Parent : Frame_Context := Top_Context;
+      Parent : constant Frame_Context := Top_Context;
    begin
       Top_Frame.Top_Context := new Frame_Context_Type'(Context);
       Top_Context.Parent_Context := Parent;
@@ -337,7 +332,7 @@ package body Wrapping.Runtime.Frames is
    ----------------
 
    procedure Push_Frame (Lexical_Scope : access T_Entity_Type'Class) is
-      New_Frame : Data_Frame := new Data_Frame_Type;
+      New_Frame : constant Data_Frame := new Data_Frame_Type;
    begin
       New_Frame.Lexical_Scope := T_Entity (Lexical_Scope);
       New_Frame.Top_Context   := new Frame_Context_Type;

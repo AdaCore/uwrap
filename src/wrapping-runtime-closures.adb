@@ -28,7 +28,7 @@ package body Wrapping.Runtime.Closures is
    ---------------------
 
    function Capture_Closure (Names : Text_Sets.Set) return Closure is
-      A_Closure : Closure := new Closure_Type;
+      A_Closure : constant Closure := new Closure_Type;
    begin
       Push_Frame_Context;
       Top_Context.Is_Root_Selection := True;

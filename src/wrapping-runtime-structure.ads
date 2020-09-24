@@ -21,15 +21,9 @@
 --  processing.
 
 with Ada.Containers;                  use Ada.Containers;
-with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 with Ada.Containers.Indefinite_Ordered_Maps;
-with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Containers.Ordered_Sets;
 with Ada.Containers.Vectors;
-
-with Langkit_Support.Text; use Langkit_Support.Text;
-
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Utils;              use Wrapping.Utils;
@@ -54,10 +48,8 @@ package Wrapping.Runtime.Structure is
    use W_Object_Vectors;
    package W_Object_Sets is new Ada.Containers.Ordered_Sets
      (W_Object, Lt_Wrapper, Eq_Wrapper);
-   use W_Object_Sets;
    package W_Object_Any_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (W_Object, W_Object, Lt_Wrapper, Eq_Wrapper);
-   use W_Object_Any_Maps;
 
    type Text_Buffer_Cursor;
 
@@ -78,8 +70,7 @@ package Wrapping.Runtime.Structure is
    --  Returns the current stack of W_Object in the current frame.
 
    function Push_Value
-     (An_Entity : access W_Object_Type; Name : Text_Type) return Boolean is
-     (False) with
+     (An_Entity : access W_Object_Type; Name : Text_Type) return Boolean with
       Post'Class => W_Stack_Size'Old =
        (if Push_Value'Result then W_Stack_Size - 1 else W_Stack_Size);
    --  Looks in the current object members for a given name. If found, the

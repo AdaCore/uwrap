@@ -22,7 +22,7 @@ project UWrap is
       case Build_Mode is
          when "dev" =>
             for Default_Switches ("Ada") use
-              ("-g", "-O0", "-gnata", "-gnatw.T", "-gnatyg");
+              ("-g", "-O0", "-gnata", "-gnatwa.T", "-gnatyg");
 
          when "prod" =>
             --  Debug information is useful even with optimization for

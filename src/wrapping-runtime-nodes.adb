@@ -17,18 +17,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Containers;        use Ada.Containers;
-with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
-
-with Libtemplatelang.Common;     use Libtemplatelang.Common;
-
-with Wrapping.Runtime.Structure;   use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Commands;    use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
 with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
-with Wrapping.Runtime.Closures;    use Wrapping.Runtime.Closures;
-with Wrapping.Runtime.Parameters;  use Wrapping.Runtime.Parameters;
 
 package body Wrapping.Runtime.Nodes is
 
@@ -157,7 +149,7 @@ package body Wrapping.Runtime.Nodes is
          Wrapped := new W_Hollow_Node_Type;
          Add_Wrapping_Child (W_Template_Instance (Parent).Origin, Wrapped);
          Wrapped.Wrappers_Ordered.Append (W_Template_Instance (Child));
-         W_Template_Instance (Child).Origin := W_Node (Wrapped);
+         W_Template_Instance (Child).Origin := Wrapped;
       else
          Add_Child (Parent, Child);
       end if;
@@ -329,7 +321,7 @@ package body Wrapping.Runtime.Nodes is
    function Match_With_Top_Object
      (An_Entity : access W_Node_Type) return Boolean
    is
-      Other_Entity : W_Object := Top_Object.Dereference;
+      Other_Entity : constant W_Object := Top_Object.Dereference;
    begin
       --  By default, nodes only consider ref as being "is" matches, and calls
       --  as being "has" matches. So pass through calls before looking.
@@ -516,7 +508,7 @@ package body Wrapping.Runtime.Nodes is
       if A_Mode = Child_Breadth then
          loop
             for C of Current_Children_List loop
-               W_Node_Type'Class (C.all).Pre_Visit;
+               C.Pre_Visit;
 
                Decision := Visit_Wrapper (C);
 
@@ -549,7 +541,7 @@ package body Wrapping.Runtime.Nodes is
          end loop;
       else
          while Current /= null loop
-            W_Node_Type'Class (Current.all).Pre_Visit;
+            Current.Pre_Visit;
 
             Decision := Visit_Wrapper (Current);
 
@@ -620,8 +612,12 @@ package body Wrapping.Runtime.Nodes is
         (E : access W_Object_Type'Class; Result : out W_Object)
          return Visit_Action;
 
+      pragma Warnings (Off);
+      --  For later use. Pragma Unreferenced doesn't work here as the procedure
+      --  is referened by itself.
       function Create_Hollow_Next
         (Prev : access W_Node_Type'Class) return W_Hollow_Node;
+      pragma Warnings (On);
 
       procedure Allocate (E : access W_Object_Type'Class);
 
@@ -650,7 +646,7 @@ package body Wrapping.Runtime.Nodes is
         (Prev : access W_Node_Type'Class) return W_Hollow_Node
       is
          Wrapped  : W_Hollow_Node;
-         New_Node : W_Hollow_Node := new W_Hollow_Node_Type;
+         New_Node : constant W_Hollow_Node := new W_Hollow_Node_Type;
       begin
          if Is_Wrapping (Prev) then
             Wrapped := Create_Hollow_Next (W_Template_Instance (Prev).Origin);
@@ -757,7 +753,6 @@ package body Wrapping.Runtime.Nodes is
      (An_Entity : access W_Template_Instance_Type; Name : Text_Type)
       return Boolean
    is
-      use Wrapping.Semantic.Structure;
    begin
       if W_Node_Type (An_Entity.all).Push_Value (Name) then
          return True;
@@ -790,7 +785,7 @@ package body Wrapping.Runtime.Nodes is
    overriding function Match_With_Top_Object
      (An_Entity : access W_Template_Instance_Type) return Boolean
    is
-      Other_Entity : W_Object := Top_Object.Dereference;
+      Other_Entity : constant W_Object := Top_Object.Dereference;
    begin
       --  Special treatment for static entities, that are always checked in
       --  "is" mode

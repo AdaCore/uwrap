@@ -17,17 +17,15 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Strings.UTF_Encoding.Wide_Wide_Strings;
 use Ada.Strings.UTF_Encoding.Wide_Wide_Strings;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
-with Ada.Wide_Wide_Text_IO;    use Ada.Wide_Wide_Text_IO;
-with Ada.Strings.UTF_Encoding; use Ada.Strings.UTF_Encoding;
+with Ada.Strings.UTF_Encoding;          use Ada.Strings.UTF_Encoding;
 
-with GNATCOLL.Strings_Impl; use GNATCOLL.Strings_Impl;
 with GNATCOLL.Mmap;         use GNATCOLL.Mmap;
 
 with Wrapping.Runtime.Commands; use Wrapping.Runtime.Commands;
+with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
 with Wrapping.Runtime.Strings;  use Wrapping.Runtime.Strings;
 with Wrapping.Runtime.Frames;   use Wrapping.Runtime.Frames;
 
@@ -48,19 +46,20 @@ package body Wrapping.Input.JSON is
       if Name = "name" then
          Push_Object
            (W_Object'
-              (new W_String_Type'(Value => An_Entity.Name, others => <>)));
+              (new W_String_Type'(Value => An_Entity.Name)));
 
          return True;
       elsif Name = "kind" then
          declare
-            Kind : Wide_Wide_String := An_Entity.Node.Kind'Wide_Wide_Image;
-            Kind_Text : Wide_Wide_String :=
+            Kind : constant Text_Type :=
+              An_Entity.Node.Kind'Wide_Wide_Image;
+            Kind_Text : constant Text_Type :=
               To_Lower (Kind (Kind'First + 5 .. Kind'Last - 5));
          begin
             Push_Object
               (W_Object'
                  (new W_String_Type'
-                    (Value => To_Unbounded_Text (Kind_Text), others => <>)));
+                    (Value => To_Unbounded_Text (Kind_Text))));
          end;
 
          return True;
@@ -76,7 +75,7 @@ package body Wrapping.Input.JSON is
                Push_Object
                  (W_Object'
                     (new W_Integer_Type'
-                       (Value => An_Entity.Node.Get, others => <>)));
+                       (Value => An_Entity.Node.Get)));
 
             when JSON_Float_Type =>
                Error ("unimplemented");
@@ -140,7 +139,7 @@ package body Wrapping.Input.JSON is
       ----------------------
 
       procedure Iterate_On_Value (Name : UTF8_String; Value : JSON_Value) is
-         Parent : W_JSON_Node := Current_Node;
+         Parent : constant W_JSON_Node := Current_Node;
       begin
          Current_Node      := new W_JSON_Node_Type;
          Current_Node.Node := Value;
@@ -158,18 +157,21 @@ package body Wrapping.Input.JSON is
          Current_Node := Parent;
       end Iterate_On_Value;
 
+      Region : Mapped_Region;
+
    begin
       File := Open_Read (Filename);
-      Read (File);
-      Str := Data (File);
+      Region := Read (File);
+      Str := Data (Region);
 
-      Root := Read (Str.all (1 .. Last (File)), Filename);
+      Root := Read (Str.all (1 .. Last (Region)));
 
       Current_Node.Node := Root;
       Root_Node         := Current_Node;
 
       Map_JSON_Object (Root, Iterate_On_Value'Access);
 
+      Free (Region);
       Close (File);
 
       Analyse_Input (W_Node (Root_Node));

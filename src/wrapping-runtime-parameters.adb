@@ -21,7 +21,6 @@ with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Wrapping.Runtime.Frames;    use Wrapping.Runtime.Frames;
-with Wrapping.Runtime.Commands;  use Wrapping.Runtime.Commands;
 
 package body Wrapping.Runtime.Parameters is
 
@@ -62,7 +61,7 @@ package body Wrapping.Runtime.Parameters is
             In_Named_Section := True;
 
             declare
-               Name  : Text_Type :=
+               Name  : constant Text_Type :=
                  (if Param.Name_Node.Is_Null then ""
                   else Param.Name_Node.Text);
                Found : Boolean   := False;

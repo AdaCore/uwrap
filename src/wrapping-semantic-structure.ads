@@ -23,9 +23,6 @@
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Vectors;
 
-with Langkit_Support.Text;  use Langkit_Support.Text;
-with Langkit_Support.Slocs; use Langkit_Support.Slocs;
-
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 with Libtemplatelang.Common;   use Libtemplatelang.Common;
 
@@ -48,19 +45,15 @@ package Wrapping.Semantic.Structure is
    type T_Named_Entity is access all T_Named_Entity_Type'Class;
    package T_Named_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Named_Entity);
-   use T_Named_Entity_Maps;
    package T_Named_Entity_Vectors is new Ada.Containers.Vectors
      (Positive, T_Named_Entity);
-   use T_Named_Entity_Vectors;
 
    type T_Namespace_Type;
    type T_Namespace is access all T_Namespace_Type'Class;
    package T_Namespace_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Namespace);
-   use T_Namespace_Maps;
    package T_Namespace_Vectors is new Ada.Containers.Vectors
      (Positive, T_Namespace);
-   use T_Namespace_Vectors;
 
    type T_Module_Type;
    type T_Module is access all T_Module_Type'Class;
@@ -68,7 +61,6 @@ package Wrapping.Semantic.Structure is
      (Text_Type, T_Module);
    use T_Module_Maps;
    package T_Module_Vectors is new Ada.Containers.Vectors (Positive, T_Module);
-   use T_Module_Vectors;
 
    type T_Template_Type;
    type T_Template is access all T_Template_Type'Class;
@@ -91,14 +83,12 @@ package Wrapping.Semantic.Structure is
    type T_Command_Sequence is access all T_Command_Sequence_Type'Class;
    package Command_Sequence_Vectors is new Ada.Containers.Vectors
      (Positive, T_Command_Sequence);
-   use Command_Sequence_Vectors;
 
    type T_Command_Sequence_Element_Type;
    type T_Command_Sequence_Element is
      access all T_Command_Sequence_Element_Type'Class;
    package Command_Sequence_Element_Vectors is new Ada.Containers.Vectors
      (Positive, T_Command_Sequence_Element);
-   use Command_Sequence_Element_Vectors;
 
    type T_Template_Call_Type;
    type T_Template_Call is access all T_Template_Call_Type'Class;
@@ -107,7 +97,6 @@ package Wrapping.Semantic.Structure is
    type T_Template_Section is access all T_Template_Section_Type'Class;
    package T_Template_Section_Vectors is new Ada.Containers.Vectors
      (Positive, T_Template_Section);
-   use T_Template_Section_Vectors;
 
    type T_Command_Type;
    type T_Command is access all T_Command_Type'Class;
@@ -119,18 +108,14 @@ package Wrapping.Semantic.Structure is
    type T_Function is access all T_Function_Type'Class;
    package T_Function_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Function);
-   use T_Function_Maps;
    package T_Function_Vectors is new Ada.Containers.Vectors
      (Positive, T_Function);
-   use T_Function_Vectors;
 
    type T_Expr_Type (Kind : Template_Node_Kind_Type);
    type T_Expr is access all T_Expr_Type'Class;
    package T_Expr_Vectors is new Ada.Containers.Vectors (Positive, T_Expr);
-   use T_Expr_Vectors;
    package T_Expr_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Expr);
-   use T_Expr_Maps;
 
    type T_Arg_Type;
    type T_Arg is access all T_Arg_Type'Class;

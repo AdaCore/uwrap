@@ -18,18 +18,15 @@
 ------------------------------------------------------------------------------
 
 with Ada.Directories;
-with Ada.Wide_Wide_Text_IO;             use Ada.Wide_Wide_Text_IO;
-with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
-with Ada.Containers.Vectors;            use Ada.Containers;
-with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Text_IO;
 with Ada.Containers;                    use Ada.Containers;
+with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
+with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 
-with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
-with Wrapping.Utils;              use Wrapping.Utils;
-with Wrapping.Runtime.Commands;   use Wrapping.Runtime.Commands;
-with Wrapping.Runtime.Matching;   use Wrapping.Runtime.Matching;
-with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
+with Wrapping.Runtime.Commands; use Wrapping.Runtime.Commands;
+with Wrapping.Runtime.Matching; use Wrapping.Runtime.Matching;
+with Wrapping.Runtime.Frames;   use Wrapping.Runtime.Frames;
+with Wrapping.Runtime.Objects;  use Wrapping.Runtime.Objects;
 
 package body Wrapping.Input.Kit is
 
@@ -46,24 +43,13 @@ package body Wrapping.Input.Kit is
 
    function Eval_Property (Node : Kit_Node; Name : Text_Type) return W_Object;
 
-   type W_Source_Node_Type;
-   type W_Source_Node is access all W_Source_Node_Type'Class;
-
-   type W_Source_Node_Type is new W_Object_Type with record
-      A_Node : Kit_Node;
-   end record;
-
-   overriding function Write_String
-     (Object : W_Source_Node_Type) return Buffer_Slice is
-     (Write_String (Object.A_Node.Text));
-
    ------------------
    -- Analyze_File --
    ------------------
 
    procedure Analyze_File (File : String) is
       Unit    : access Analysis_Unit;
-      Context : Analysis_Context := Create_Context;
+      Context : constant Analysis_Context := Create_Context;
    begin
       --  This is a kludge to create a unit without deleting it at the end
       --  of the scope and allowing further processing to be done on its nodes
@@ -71,7 +57,9 @@ package body Wrapping.Input.Kit is
       --  There's currently no reason to keep a list of these for further
       --  re-use or reclaim, so it's fine for now, but could be revisited
       --  at a later stage.
+      pragma Warnings (Off);
       Unit := new Analysis_Unit'(Get_From_File (Context, File));
+      pragma Warnings (On);
 
       if Has_Diagnostics (Unit.all) then
          for D of Diagnostics (Unit.all) loop
@@ -136,8 +124,8 @@ package body Wrapping.Input.Kit is
          return False;
       else
          declare
-            R_Left  : Source_Location_Range := Sloc_Range (Left);
-            R_Right : Source_Location_Range := Sloc_Range (Right);
+            R_Left  : constant Source_Location_Range := Sloc_Range (Left);
+            R_Right : constant Source_Location_Range := Sloc_Range (Right);
          begin
             if R_Left.Start_Line < R_Right.Start_Line then
                return True;
@@ -157,9 +145,9 @@ package body Wrapping.Input.Kit is
                return False;
             else
                declare
-                  Left_Name : String :=
+                  Left_Name : constant String :=
                     Ada.Directories.Simple_Name (Get_Filename (Unit (Left)));
-                  Right_Name : String :=
+                  Right_Name : constant String :=
                     Ada.Directories.Simple_Name (Get_Filename (Unit (Right)));
                begin
                   return Left_Name < Right_Name;
@@ -187,7 +175,7 @@ package body Wrapping.Input.Kit is
    is
       procedure Generator (Expr : T_Expr);
 
-      Prefix     : W_Kit_Node := W_Kit_Node (Object);
+      Prefix     : constant W_Kit_Node := W_Kit_Node (Object);
       Match_Expr : T_Expr;
 
       Analyzed_First : Boolean := False;
@@ -237,7 +225,7 @@ package body Wrapping.Input.Kit is
       Create_Tokens (Prefix);
 
       declare
-         Ref         : Token_Reference := Token_Start (Prefix.Node);
+         Ref         : constant Token_Reference := Token_Start (Prefix.Node);
          First_Token : W_Kit_Node_Token;
       begin
          if Ref = No_Token then
@@ -295,7 +283,7 @@ package body Wrapping.Input.Kit is
       if Name'Length > 2 and then Name (Name'First .. Name'First + 1) = "f_"
       then
          declare
-            F_Name : Text_Type :=
+            F_Name : constant Text_Type :=
               To_Lower (Name (Name'First + 2 .. Name'Last));
          begin
             Field_Node :=
@@ -352,7 +340,7 @@ package body Wrapping.Input.Kit is
       if Name'Length > 2 and then Name (Name'First .. Name'First + 1) = "p_"
       then
          declare
-            P_Name : Text_Type :=
+            P_Name : constant Text_Type :=
               To_Lower (Name (Name'First + 2 .. Name'Last));
          begin
             Property_Node :=
@@ -360,7 +348,7 @@ package body Wrapping.Input.Kit is
 
             if Property_Node /= None then
                return new W_Property_Type'
-                 (Property_Node => Property_Node, others => <>);
+                 (Property_Node => Property_Node);
             end if;
          end;
       end if;
@@ -487,7 +475,7 @@ package body Wrapping.Input.Kit is
       Result : Value_Type;
       Values : Value_Array
         (1 .. Property_Argument_Types (An_Entity.Property_Node)'Last);
-      Node : W_Kit_Node := W_Kit_Node (Top_Object.Dereference);
+      Node : constant W_Kit_Node := W_Kit_Node (Top_Object.Dereference);
    begin
       if Params.Length > 0 then
          Error ("parameters not currently supported in property calls");
@@ -513,7 +501,7 @@ package body Wrapping.Input.Kit is
          if As_Boolean (Result) then
             --  TODO: We should probably have a proper true boolean
             --  here instead.
-            Push_Object (new W_Integer_Type'(Value => 1));
+            Push_Object (W_Object'(new W_Integer_Type'(Value => 1)));
          else
             Push_Match_False;
          end if;
@@ -581,7 +569,7 @@ package body Wrapping.Input.Kit is
       end if;
 
       declare
-         Full_Kind : Wide_Wide_String :=
+         Full_Kind : constant Wide_Wide_String :=
            Kind (Data (An_Entity.Node))'Wide_Wide_Image;
          Actual_Kind : Wide_Wide_String :=
            To_Lower (Full_Kind (Full_Kind'First + 4 .. Full_Kind'Last));

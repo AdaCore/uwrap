@@ -17,33 +17,22 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Unchecked_Deallocation;
-with Ada.Wide_Wide_Text_IO;           use Ada.Wide_Wide_Text_IO;
-with Ada.Containers;                  use Ada.Containers;
-with Ada.Characters.Conversions;      use Ada.Characters.Conversions;
-with Ada.Strings.Unbounded;           use Ada.Strings.Unbounded;
-with Ada.Strings.Wide_Wide_Fixed;     use Ada.Strings.Wide_Wide_Fixed;
-with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
-with Ada.Strings;                     use Ada.Strings;
-with Ada.Tags;                        use Ada.Tags;
-with GNAT.Regpat;                     use GNAT.Regpat;
-with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
+with Ada.Containers.Vectors;
+with Ada.Wide_Wide_Text_IO;             use Ada.Wide_Wide_Text_IO;
+with Ada.Containers;                    use Ada.Containers;
+with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
+with Ada.Strings;                       use Ada.Strings;
+with Ada.Strings.Wide_Wide_Unbounded;   use Ada.Strings.Wide_Wide_Unbounded;
 
-with Langkit_Support.Diagnostics;
-with Langkit_Support.Text; use Langkit_Support.Text;
-
-with Libtemplatelang.Common; use Libtemplatelang.Common;
-
-with Wrapping.Regex;               use Wrapping.Regex;
 with Wrapping.Semantic.Analysis;   use Wrapping.Semantic.Analysis;
-with Wrapping.Semantic.Structure;  use Wrapping.Semantic.Structure;
 with Wrapping.Utils;               use Wrapping.Utils;
-with Wrapping.Runtime.Functions;   use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Strings;     use Wrapping.Runtime.Strings;
 with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Closures;    use Wrapping.Runtime.Closures;
+with Wrapping.Runtime.Commands;    use Wrapping.Runtime.Commands;
+with Wrapping.Runtime.Objects;     use Wrapping.Runtime.Objects;
 
 package body Wrapping.Runtime.Commands is
 
@@ -62,12 +51,6 @@ package body Wrapping.Runtime.Commands is
    end record;
    --  This type record the necessary data to store and re-launch a defered
    --  command.
-
-   Visitor_Counter : Integer := 0;
-   --  This is the counter of visitor. Every time a visitor is started
-   --  (including the main one), it is to be incremented. This provdes a unique
-   --  id to each visit execution, which later allows to check that a language
-   --  entity isn't visited twice by the same visitor invokation.
 
    Current_Visitor_Id : Integer := 0;
    --  The Id for the current visitor, updated when entering a vistor
@@ -89,8 +72,6 @@ package body Wrapping.Runtime.Commands is
      (E : access W_Object_Type'Class; Result : out W_Object)
       return Wrapping.Semantic.Structure.Visit_Action;
 
-   procedure Push_Error_Location (An_Entity : access T_Entity_Type'Class);
-
    procedure Pop_Error_Location;
 
    procedure Apply_Template_Action
@@ -103,16 +84,6 @@ package body Wrapping.Runtime.Commands is
    procedure Uninstall_Command_Context;
 
    function Handle_Defered_Command (Command : Deferred_Command) return Boolean;
-
-   -------------------------
-   -- Push_Error_Location --
-   -------------------------
-
-   procedure Push_Error_Location (An_Entity : access T_Entity_Type'Class) is
-   begin
-      Push_Error_Location
-        (An_Entity.Unit.Get_Filename, Start_Sloc (An_Entity.Sloc));
-   end Push_Error_Location;
 
    ------------------------
    -- Pop_Error_Location --
@@ -131,7 +102,6 @@ package body Wrapping.Runtime.Commands is
      (It : W_Node; Template_Clause : T_Template_Section)
    is
       A_Template_Instance : W_Template_Instance;
-      Self_Weave          : Boolean := False;
       Result              : W_Object;
 
       --  TODO: is this still necessary?
@@ -184,17 +154,14 @@ package body Wrapping.Runtime.Commands is
             else
                Error ("only template instances can be self weaved");
             end if;
-
-            Self_Weave := True;
          elsif Template_Clause.Call.Reference.all in T_Template_Type'Class then
             A_Template_Instance :=
-              It.Get_Wrapper
-                (T_Template (Template_Clause.Call.Reference));
+              It.Get_Wrapper (Template_Clause.Call.Reference);
 
             if Template_Clause.Kind = Walk_Kind then
                A_Template_Instance :=
                  Create_Template_Instance
-                   (T_Template (Template_Clause.Call.Reference), It, False);
+                   (Template_Clause.Call.Reference, It, False);
             elsif
               (Template_Clause.Kind = Weave_Kind
                or else A_Template_Instance = null
@@ -205,7 +172,7 @@ package body Wrapping.Runtime.Commands is
                if A_Template_Instance = null then
                   A_Template_Instance :=
                     Create_Template_Instance
-                      (T_Template (Template_Clause.Call.Reference), It, True);
+                      (Template_Clause.Call.Reference, It, True);
                end if;
 
                if Template_Clause.Kind = Wrap_Kind then
@@ -219,7 +186,7 @@ package body Wrapping.Runtime.Commands is
          end if;
 
          if A_Template_Instance /= null then
-            if Template_Clause.Call.Captured_Name /= "" then
+            if not (Template_Clause.Call.Captured_Name = "") then
                Include_Symbol
                  (To_Text (Template_Clause.Call.Captured_Name),
                   W_Object (A_Template_Instance));
@@ -301,7 +268,8 @@ package body Wrapping.Runtime.Commands is
 
       if Command.Defer then
          declare
-            New_Command : Deferred_Command := new Deferred_Command_Type;
+            New_Command : constant Deferred_Command :=
+              new Deferred_Command_Type;
          begin
             New_Command.Command   := Command;
             New_Command.A_Closure :=
@@ -381,7 +349,7 @@ package body Wrapping.Runtime.Commands is
    ------------------------------
 
    procedure Handle_Command_Post_Pick (Command : T_Command) is
-      Top : W_Object := Top_Object.Dereference;
+      Top : constant W_Object := Top_Object.Dereference;
       It  : W_Node;
    begin
       if Top_Frame.Interrupt_Program then
@@ -458,8 +426,8 @@ package body Wrapping.Runtime.Commands is
 
    procedure Handle_Command_Sequence (Sequence : T_Command_Sequence_Element) is
       Seq           : T_Command_Sequence_Element := Sequence;
-      Calling_Frame : Data_Frame                 := Parent_Frame;
-      Called_Frame  : Data_Frame                 := Top_Frame;
+      Calling_Frame : constant Data_Frame        := Parent_Frame;
+      Called_Frame  : constant Data_Frame        := Top_Frame;
       New_Ref       : W_Reference;
    begin
       while Seq /= null loop
@@ -471,7 +439,7 @@ package body Wrapping.Runtime.Commands is
 
          for A_Var of Seq.Vars loop
             declare
-               Name : Text_Type := A_Var.Name_Node.Text;
+               Name : constant Text_Type := A_Var.Name_Node.Text;
             begin
                New_Ref := new W_Reference_Type;
 
@@ -511,7 +479,7 @@ package body Wrapping.Runtime.Commands is
 
          for A_Var of Seq.Vars loop
             declare
-               Name : Text_Type := A_Var.Name_Node.Text;
+               Name : constant Text_Type := A_Var.Name_Node.Text;
             begin
                New_Ref := W_Reference (Get_Local_Symbol (Name));
 
@@ -540,7 +508,7 @@ package body Wrapping.Runtime.Commands is
 
             for A_Var of Seq.Vars loop
                declare
-                  Name : Text_Type := A_Var.Name_Node.Text;
+                  Name : constant Text_Type := A_Var.Name_Node.Text;
                begin
                   New_Ref := W_Reference (Called_Frame.Symbols.Element (Name));
 
@@ -637,7 +605,6 @@ package body Wrapping.Runtime.Commands is
      (E : access W_Object_Type'Class; Result : out W_Object)
       return Visit_Action
    is
-      A_Visit_Action : Visit_Action         := Into;
       N              : W_Node;
       Visit_Result   : aliased Visit_Action := Unknown;
    begin

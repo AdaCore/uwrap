@@ -20,8 +20,6 @@
 with Ada.Wide_Wide_Text_IO;             use Ada.Wide_Wide_Text_IO;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 
-with Wrapping.Runtime.Commands;    use Wrapping.Runtime.Commands;
-with Wrapping.Runtime.Objects;     use Wrapping.Runtime.Objects;
 with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 
@@ -43,6 +41,7 @@ package body Wrapping.Runtime.Strings is
       procedure On_Error
         (Message : Text_Type; Filename : String; Loc : Source_Location)
       is
+         pragma Unreferenced (Filename, Loc);
       begin
          Push_Error_Location
            (Expr.Node.Unit.Get_Filename, Start_Sloc (Expr.Node.Sloc_Range));
@@ -193,7 +192,7 @@ package body Wrapping.Runtime.Strings is
    -----------------------
 
    procedure Pop_Buffer_Cursor is
-      Max_Column : Integer := Buffer.Cursor.Max_Column;
+      Max_Column : constant Integer := Buffer.Cursor.Max_Column;
    begin
       Buffer.Cursor := Buffer.Cursor_Stack.Last_Element;
       Buffer.Cursor_Stack.Delete_Last;

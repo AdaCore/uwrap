@@ -18,19 +18,14 @@
 ------------------------------------------------------------------------------
 
 with Ada.Containers.Indefinite_Ordered_Maps;
-with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Containers.Vectors;
 with Ada.Containers;                  use Ada.Containers;
-with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
-
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 
 with Wrapping.Utils;              use Wrapping.Utils;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
 with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
-with Wrapping.Runtime.Matching;   use Wrapping.Runtime.Matching;
 
 package Wrapping.Runtime.Nodes is
 

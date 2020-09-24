@@ -22,14 +22,9 @@
 --  by W_ to be able to easily distinguish them from other types.
 
 with Ada.Containers.Indefinite_Ordered_Maps;
-with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Containers.Vectors;
 with Ada.Containers;                  use Ada.Containers;
-with Ada.Strings.Wide_Wide_Unbounded; use Ada.Strings.Wide_Wide_Unbounded;
 
-with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
-
-with Wrapping.Utils;              use Wrapping.Utils;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
@@ -44,13 +39,11 @@ package Wrapping.Runtime.Objects is
    use W_Reference_Maps;
    package W_Reference_Vectors is new Ada.Containers.Vectors
      (Positive, W_Reference);
-   use W_Reference_Vectors;
 
    type W_Vector_Type;
    type W_Vector is access all W_Vector_Type'Class;
    package W_Vector_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, W_Vector);
-   use W_Vector_Maps;
 
    type W_Set_Type;
    type W_Set is access all W_Set_Type;
@@ -65,7 +58,6 @@ package Wrapping.Runtime.Objects is
    type W_Text_Expression is access all W_Text_Expression_Type'Class;
    package W_Text_Expression_Vectors is new Ada.Containers.Vectors
      (Positive, W_Text_Expression);
-   use W_Text_Expression_Vectors;
 
    type W_String_Type;
    type W_String is access all W_String_Type'Class;

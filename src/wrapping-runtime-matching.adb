@@ -18,12 +18,10 @@
 ------------------------------------------------------------------------------
 
 with Ada.Characters.Conversions; use Ada.Characters.Conversions;
-with Ada.Containers;             use Ada.Containers;
 
 with Libtemplatelang.Common; use Libtemplatelang.Common;
 
 with Wrapping.Regex;               use Wrapping.Regex;
-with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 with Wrapping.Runtime.Objects;     use Wrapping.Runtime.Objects;
 
@@ -103,8 +101,9 @@ package body Wrapping.Runtime.Matching is
    -----------
 
    function Match (Pattern, Text : Text_Type) return Boolean is
-      Text_Str : String    := To_String (Text);
-      Matches  : Match_Obj := Match (Compile (To_String (Pattern)), Text_Str);
+      Text_Str : constant String    := To_String (Text);
+      Matches  : constant Match_Obj :=
+        Match (Compile (To_String (Pattern)), Text_Str);
    begin
       if Wrapping.Regex.No_Match (Matches) then
          return False;
@@ -112,12 +111,13 @@ package body Wrapping.Runtime.Matching is
 
       for I in 1 .. Matches.Matches.Element'Last loop
          declare
-            Matched_Text : Text_Type :=
+            Matched_Text : constant Text_Type :=
               To_Text
                 (Text_Str
                    (Matches.Matches.Element (I).First ..
                         Matches.Matches.Element (I).Last));
-            Name : Text_Type := To_Text (Get_Capture_Name (Matches, I));
+            Name : constant Text_Type :=
+              To_Text (Get_Capture_Name (Matches, I));
          begin
             Top_Frame.Group_Sections.Last_Element.Groups.Append
               (W_Object (To_W_String (Matched_Text)));
@@ -223,7 +223,7 @@ package body Wrapping.Runtime.Matching is
    function Get_Right_Expression_Matcher
      (Allocated_Next_Matcher : Regexpr_Matcher) return Regexpr_Matcher
    is
-      Matcher : Regexpr_Matcher := Top_Context.Regexpr;
+      Matcher : constant Regexpr_Matcher := Top_Context.Regexpr;
       Expr    : T_Expr;
    begin
       if Matcher = null then
@@ -253,7 +253,7 @@ package body Wrapping.Runtime.Matching is
 
    procedure Handle_Regexpr_Next_Value is
       Expr         : T_Expr;
-      Matcher      : Regexpr_Matcher := Top_Context.Regexpr;
+      Matcher      : constant Regexpr_Matcher := Top_Context.Regexpr;
       Next_Matcher : aliased Regexpr_Matcher_Type;
    begin
       if Top_Context.Regexpr = null then
@@ -347,18 +347,14 @@ package body Wrapping.Runtime.Matching is
       --  to analyze. It will control the overall iteration, stop it upon
       --  having found a result unless we're in a generator mode.
 
-      Captured_Variable     : aliased Capture_Result_Type;
-      Sub_Matcher           : aliased Regexpr_Matcher_Type;
-      Next_Matcher          : aliased Regexpr_Matcher_Type;
-      Root_Capture_Callback : Boolean         := False;
-      Matcher               : Regexpr_Matcher := Top_Context.Regexpr;
+      Matcher : constant Regexpr_Matcher := Top_Context.Regexpr;
 
       -----------------------
       -- Control_Iteration --
       -----------------------
 
       procedure Control_Iteration is
-         Matcher : Regexpr_Matcher := Top_Context.Regexpr;
+         Matcher : constant Regexpr_Matcher := Top_Context.Regexpr;
       begin
          if Top_Object /= Match_False then
             if Matcher.Overall_Yield_Callback /= null then
@@ -369,8 +365,11 @@ package body Wrapping.Runtime.Matching is
          end if;
       end Control_Iteration;
 
-      Expr   : T_Expr   := Matcher.Current_Expr;
-      Object : W_Object := Top_Object;
+      Captured_Variable     : aliased Capture_Result_Type;
+      Sub_Matcher           : aliased Regexpr_Matcher_Type;
+      Next_Matcher          : aliased Regexpr_Matcher_Type;
+      Root_Capture_Callback : Boolean         := False;
+      Expr                  : constant T_Expr := Matcher.Current_Expr;
 
    begin
       if Top_Context.Regexpr = null then
@@ -423,7 +422,7 @@ package body Wrapping.Runtime.Matching is
                Matcher.Capturing        := Captured_Variable'Unchecked_Access;
                Top_Frame.Symbols.Include
                  (Expr.Node.As_Reg_Expr.F_Captured.Text,
-                  W_Object (Captured_Variable.Object));
+                  Captured_Variable.Object);
             end if;
 
             Push_Frame_Context;

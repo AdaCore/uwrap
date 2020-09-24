@@ -18,18 +18,15 @@
 ------------------------------------------------------------------------------
 
 with Ada.Containers;                    use Ada.Containers;
-with Ada.Wide_Wide_Text_IO;             use Ada.Wide_Wide_Text_IO;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 with Ada.Strings.Wide_Wide_Unbounded;   use Ada.Strings.Wide_Wide_Unbounded;
-with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
 
 with Wrapping.Utils;               use Wrapping.Utils;
-with Wrapping.Runtime.Commands;    use Wrapping.Runtime.Commands;
 with Wrapping.Runtime.Strings;     use Wrapping.Runtime.Strings;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 with Wrapping.Runtime.Frames;      use Wrapping.Runtime.Frames;
-with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Parameters;  use Wrapping.Runtime.Parameters;
+with Wrapping.Runtime.Objects;     use Wrapping.Runtime.Objects;
 
 package body Wrapping.Runtime.Functions is
 
@@ -37,25 +34,27 @@ package body Wrapping.Runtime.Functions is
    -- Call_Normalize_Ada_Name --
    -----------------------------
 
-   P_Normalize_Ada_Name : Parameter_Profile :=
+   P_Normalize_Ada_Name : constant Parameter_Profile :=
      (1 => Make_Parameter ("str", False));
 
    procedure Call_Normalize_Ada_Name
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
+      pragma Unreferenced (Object);
+
       New_Name : Unbounded_Text_Type;
       Prev_Up  : Boolean := False;
       Prev_Sep : Boolean := False;
 
-      Actuals : Actual_Expressions :=
+      Actuals : constant Actual_Expressions :=
         Process_Parameters (P_Normalize_Ada_Name, Params);
    begin
       Push_Buffer_Cursor;
 
       declare
-         Slice : Buffer_Slice :=
+         Slice : constant Buffer_Slice :=
            Evaluate_Expression (Actuals (1)).Write_String;
-         Name : Text_Type := Copy_String (Slice);
+         Name : constant Text_Type := Copy_String (Slice);
          C : Integer := Name'First;
       begin
          while C <= Name'Last loop
@@ -96,25 +95,27 @@ package body Wrapping.Runtime.Functions is
    -- Call_Replace_Text --
    -----------------------
 
-   P_Replace_Text : Parameter_Profile :=
+   P_Replace_Text : constant Parameter_Profile :=
      (Make_Parameter ("source", False), Make_Parameter ("pattern", False),
       Make_Parameter ("replace", False));
 
    procedure Call_Replace_Text
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
+      pragma Unreferenced (Object);
+
       Result  : W_Object;
-      Actuals : Actual_Expressions :=
+      Actuals : constant Actual_Expressions :=
         Process_Parameters (P_Replace_Text, Params);
    begin
       Push_Buffer_Cursor;
 
       declare
-         Source_Slice : Buffer_Slice :=
+         Source_Slice : constant Buffer_Slice :=
            Evaluate_Expression (Actuals (1)).Write_String;
-         Pattern_Slice : Buffer_Slice :=
+         Pattern_Slice : constant Buffer_Slice :=
            Evaluate_Expression (Actuals (2)).Write_String;
-         Replace_Slice : Buffer_Slice :=
+         Replace_Slice : constant Buffer_Slice :=
            Evaluate_Expression (Actuals (3)).Write_String;
       begin
          Result :=
@@ -138,14 +139,18 @@ package body Wrapping.Runtime.Functions is
    -- Call_To_Lower --
    -------------------
 
-   P_To_Lower : Parameter_Profile := (1 => Make_Parameter ("str", False));
+   P_To_Lower : constant Parameter_Profile :=
+     (1 => Make_Parameter ("str", False));
 
    procedure Call_To_Lower
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
+      pragma Unreferenced (Object);
+
       Result : W_Object;
 
-      Actuals : Actual_Expressions := Process_Parameters (P_To_Lower, Params);
+      Actuals : constant Actual_Expressions :=
+        Process_Parameters (P_To_Lower, Params);
       Slice : Buffer_Slice;
    begin
       Push_Buffer_Cursor;
@@ -160,56 +165,22 @@ package body Wrapping.Runtime.Functions is
       Push_Object (Result);
    end Call_To_Lower;
 
-   -------------------
-   -- Call_Reindent --
-   -------------------
-
-   P_Unindent : Parameter_Profile :=
-     (Make_Parameter ("ident", False), Make_Parameter ("str", False));
-
-   procedure Call_Reindent
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
-   is
-      Result : W_Object;
-
-      Actuals     : Actual_Expressions :=
-        Process_Parameters (P_Unindent, Params);
-      Indentation : W_Object;
-      Slice : Buffer_Slice;
-   begin
-      Indentation := Evaluate_Expression (Actuals (1)).Dereference;
-
-      if Indentation.all not in W_Integer_Type'Class then
-         Error ("expected integer object");
-      end if;
-
-      Push_Buffer_Cursor;
-      Slice := Evaluate_Expression (Actuals (2)).Write_String;
-      Pop_Buffer_Cursor;
-
-      Result :=
-        W_Object
-          (To_W_String
-             (Reindent
-                (W_Integer (Indentation).Value,
-                 Buffer.Str (Slice.First.Offset .. Slice.Last.Offset),
-                 True)));
-      Push_Object (Result);
-   end Call_Reindent;
-
    ------------------
    -- Call_Max_Col --
    ------------------
 
-   P_Max_Col : Parameter_Profile :=
+   P_Max_Col : constant Parameter_Profile :=
      (1 => Make_Parameter ("str", False));
 
    procedure Call_Max_Col
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
+      pragma Unreferenced (Object);
+
       Result  : W_Object;
-      Actuals : Actual_Expressions := Process_Parameters (P_Max_Col, Params);
-      Obj     : W_Object := Evaluate_Expression (Actuals (1));
+      Actuals : constant Actual_Expressions :=
+        Process_Parameters (P_Max_Col, Params);
+      Obj     : constant W_Object := Evaluate_Expression (Actuals (1));
       Dummy   : Buffer_Slice;
    begin
       Push_Buffer_Cursor;
@@ -228,6 +199,8 @@ package body Wrapping.Runtime.Functions is
    procedure Call_Convert_To_Text
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
+      pragma Unreferenced (Object);
+
       Slice : Buffer_Slice;
    begin
       if Params.Length = 1 then
