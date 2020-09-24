@@ -49,8 +49,11 @@ package Wrapping.Utils is
    --  the current indentation, then append the number of spaces in parameter.
 
    function Suffix (Text : Text_Type) return Text_Type;
+   --  Returns the suffix of a dotted name, or the input if no dot.
 
    function Replace_String
      (Source, Pattern, Replace : Text_Type) return Text_Type;
+   --  Replace the in the Source parameter the Pattern interpreted as a regular
+   --  expression by the text in Replace.
 
 end Wrapping.Utils;

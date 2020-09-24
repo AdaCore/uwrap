@@ -17,25 +17,26 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Containers.Indefinite_Vectors;
-
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 
 package Wrapping.Semantic.Analysis is
 
-   Root : Semantic.Structure.T_Namespace :=
-     new Semantic.Structure.T_Namespace_Type;
-
-   package String_Vectors is new Ada.Containers.Indefinite_Vectors
-     (Positive, String);
-   Files : String_Vectors.Vector;
+   Root : constant T_Namespace := new T_Namespace_Type;
+   --  This is the root of the entire UWrap program. All entities, starting
+   --  with all loaded files, are children of this object.
 
    procedure Load_Module (Path : String; Name : String);
+   --  Loads the module located under the given path. The name is the dotted
+   --  name of this module.
 
    procedure Analyze;
+   --  Once all modules have been loaded, analyze their contents and build the
+   --  remaining information to make the program ready to run.
 
    procedure Push_Error_Location (Node : Template_Node'Class);
+   --  Push an error location after a Node. See functions declared in the
+   --  package Wrapping for more details on error management.
 
 end Wrapping.Semantic.Analysis;

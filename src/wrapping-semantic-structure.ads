@@ -17,6 +17,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+--  This package contains the types necessary to describe a UWrap program
+--  together with the primitives associated to those types.
+
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Vectors;
 
@@ -29,7 +32,6 @@ with Libtemplatelang.Common;   use Libtemplatelang.Common;
 with Wrapping.Utils; use Wrapping.Utils;
 
 package Wrapping.Semantic.Structure is
-   --  The purpose is to create the "program" of the wrapping.
 
    type Visit_Action is (Over, Into, Into_Override_Anchor, Stop, Unknown);
    type Visit_Action_Ptr is access all Visit_Action;
@@ -141,40 +143,64 @@ package Wrapping.Semantic.Structure is
 
    type T_Entity_Type is tagged record
       Node : Template_Node;
+      --  Template node that corresponds to this entity
+
       Unit : Analysis_Unit;
+      --  Unit in which this template node is declared.
+
       Sloc : Source_Location_Range;
+      --  Source location at which this template node is declared
 
       Parent, Next, Prev : T_Entity;
+      --  Parent, Next and Prev nodes created around this entity
 
       Children_Ordered : T_Entity_Vectors.Vector;
+      --  Children of this entity, in the order they were created
+
       Children_Indexed : T_Entity_Maps.Map;
+      --  Children of this entity ordered by name - excluding children that are
+      --  not associated with a name
    end record;
+   --  This type is refering to a node coming from the UWrap programming
+   --  language. It's used to post process the output of the parser and create
+   --  additional data and analysis necessary to represent a full UWrap
+   --  program. For example, it will hold name resolution or pre-computed
+   --  results. Not all nodes from the UWrap language lead to T_Entities, only
+   --  those that are ultimately necessary to run the prorgam and require ahead
+   --  of time analysis. Some T_Entities may also be created as an expansion of
+   --  the input program without a correspionding template node.
 
    procedure Add_Child (Parent, Child : access T_Entity_Type'Class);
+   --  Connect a child to a parent
 
    procedure Add_Child
      (Parent, Child : access T_Entity_Type'Class;
       Name_Node     : Template_Node'Class);
+   --  Connect a named child to a parent retreiving the name from a node
 
    procedure Add_Child
      (Parent, Child : access T_Entity_Type'Class; Name : Text_Type);
+   --  Connect a named child to a parent retreiving the name from text
 
    function Full_Name (An_Entity : T_Entity_Type) return Text_Type;
-
-   function Find_Visible_Entity
-     (An_Entity : T_Entity_Type'Class; Name : Text_Type) return T_Entity;
-
-   function Get_Component
-     (An_Entity : T_Entity_Type; Name : Text_Type) return T_Entity is
-     (null);
+   --  Return the full name of the entity in parameter, prefixed by the
+   --  module names and other named lexical scopes.
 
    procedure Resolve_References (An_Entity : access T_Entity_Type);
+   --  If this entity requires reference resolution, e.g. name resolution,
+   --  computes it here. This requires that the whole structure of T_Entity has
+   --  been created before. Also calls Resolve_References on children.
 
    type T_Named_Entity_Type is new T_Entity_Type with record
       Name_Node : Template_Node;
    end record;
+   --  Base type for named entities whose name is coming from a node.
+   --  TODO: we're using the node as a way to avoid storing a whole string,
+   --  should be using a symbol instead.
 
-   function Full_Name (An_Entity : T_Named_Entity_Type) return Text_Type;
+   overriding function Full_Name
+     (An_Entity : T_Named_Entity_Type) return Text_Type;
+   --  See parent documentation
 
    type T_Namespace_Type is new T_Entity_Type with record
       null;
@@ -196,9 +222,6 @@ package Wrapping.Semantic.Structure is
 
    overriding function Full_Name (An_Entity : T_Module_Type) return Text_Type;
 
-   function Get_Component
-     (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity;
-
    overriding procedure Resolve_References (An_Entity : access T_Module_Type);
 
    type T_Template_Type is new T_Named_Entity_Type with record
@@ -207,9 +230,6 @@ package Wrapping.Semantic.Structure is
    end record;
 
    function Instance_Of (Child, Parent : T_Template) return Boolean;
-
-   function Get_Component
-     (A_Template : T_Template_Type; Name : Text_Type) return T_Entity;
 
    function Get_Namespace_Prefix
      (Full_Name : Text_Type; Create_If_Null : Boolean := False)

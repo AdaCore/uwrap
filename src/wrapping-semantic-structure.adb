@@ -87,28 +87,13 @@ package body Wrapping.Semantic.Structure is
       end if;
    end Full_Name;
 
-   -------------------------
-   -- Find_Visible_Entity --
-   -------------------------
-
-   function Find_Visible_Entity
-     (An_Entity : T_Entity_Type'Class; Name : Text_Type) return T_Entity
-   is
-   begin
-      if An_Entity.Children_Indexed.Contains (Name) then
-         return An_Entity.Children_Indexed.Element (Name);
-      elsif An_Entity.Parent /= null then
-         return Find_Visible_Entity (An_Entity.Parent.all, Name);
-      else
-         return null;
-      end if;
-   end Find_Visible_Entity;
-
    ---------------
    -- Full_Name --
    ---------------
 
-   function Full_Name (An_Entity : T_Named_Entity_Type) return Text_Type is
+   overriding function Full_Name
+     (An_Entity : T_Named_Entity_Type) return Text_Type
+   is
    begin
       if An_Entity.Parent = null then
          if An_Entity.Name_Node.Is_Null then
@@ -176,17 +161,6 @@ package body Wrapping.Semantic.Structure is
       end if;
    end Full_Name;
 
-   -------------------
-   -- Get_Component --
-   -------------------
-
-   function Get_Component
-     (An_Entity : T_Module_Type; Name : Text_Type) return T_Entity
-   is
-   begin
-      return An_Entity.Children_Indexed (Name);
-   end Get_Component;
-
    -----------------
    -- Instance_Of --
    -----------------
@@ -203,23 +177,6 @@ package body Wrapping.Semantic.Structure is
          return Instance_Of (Child.Extends, Parent);
       end if;
    end Instance_Of;
-
-   -------------------
-   -- Get_Component --
-   -------------------
-
-   function Get_Component
-     (A_Template : T_Template_Type; Name : Text_Type) return T_Entity
-   is
-   begin
-      if A_Template.Children_Indexed.Contains (Name) then
-         return A_Template.Children_Indexed.Element (Name);
-      elsif A_Template.Extends = null then
-         return null;
-      else
-         return A_Template.Extends.Get_Component (Name);
-      end if;
-   end Get_Component;
 
    --------------------------
    -- Get_Namespace_Prefix --

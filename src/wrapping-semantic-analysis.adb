@@ -97,7 +97,9 @@ package body Wrapping.Semantic.Analysis is
          for D of Libtemplatelang.Analysis.Diagnostics (Unit) loop
             Put_Line (Path & ": " & To_Pretty_String (D));
          end loop;
+
          Put_Line ("Errors during syntactic analysis.");
+
          return;
       end if;
 

@@ -94,9 +94,9 @@ package body Wrapping.Runtime.Parameters is
       return Result;
    end Process_Parameters;
 
-   ----------------------------
-   -- Handle_Call_Parameters --
-   ----------------------------
+   ------------------------
+   -- Process_Parameters --
+   ------------------------
 
    procedure Process_Parameters
      (Args               : T_Arg_Vectors.Vector;
