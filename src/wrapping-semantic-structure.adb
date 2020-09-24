@@ -31,7 +31,7 @@ package body Wrapping.Semantic.Structure is
      (Current_Scope : T_Entity; Name : Selector) return T_Entity;
 
    function Get_Template_By_Name
-     (Current_Scope : T_Entity; Name : Selector) return T_Entity;
+     (Current_Scope : T_Entity; Name : Selector) return T_Template;
 
    ---------------
    -- Add_Child --
@@ -122,12 +122,12 @@ package body Wrapping.Semantic.Structure is
    -- Resolve_Module_By_Name --
    ----------------------------
 
-   function Resolve_Module_By_Name (Name : Text_Type) return T_Module is
+   function Resolve_Module_By_Name (Full_Name : Text_Type) return T_Module is
       Result      : T_Entity;
       A_Namespace : T_Namespace;
-      A_Suffix    : Text_Type := Suffix (Name);
+      A_Suffix    : Text_Type := Suffix (Full_Name);
    begin
-      A_Namespace := Get_Namespace_Prefix (Name);
+      A_Namespace := Get_Namespace_Prefix_For_Module (Full_Name);
 
       if A_Namespace.Children_Indexed.Contains (A_Suffix) then
          Result := A_Namespace.Children_Indexed.Element (A_Suffix);
@@ -182,7 +182,7 @@ package body Wrapping.Semantic.Structure is
    -- Get_Namespace_Prefix --
    --------------------------
 
-   function Get_Namespace_Prefix
+   function Get_Namespace_Prefix_For_Module
      (Full_Name : Text_Type; Create_If_Null : Boolean := False)
       return T_Namespace
    is
@@ -223,7 +223,7 @@ package body Wrapping.Semantic.Structure is
 
          First := Dot + 1;
       end loop;
-   end Get_Namespace_Prefix;
+   end Get_Namespace_Prefix_For_Module;
 
    -------------------------------
    -- Get_Static_Entity_By_Name --
@@ -307,7 +307,7 @@ package body Wrapping.Semantic.Structure is
    --------------------------
 
    function Get_Template_By_Name
-     (Current_Scope : T_Entity; Name : Selector) return T_Entity
+     (Current_Scope : T_Entity; Name : Selector) return T_Template
    is
       An_Entity : T_Entity;
    begin
@@ -318,10 +318,10 @@ package body Wrapping.Semantic.Structure is
       end if;
 
       if An_Entity.all not in T_Template_Type'Class then
-         Error ("expected visitor or template name");
+         Error ("expected template name");
       end if;
 
-      return An_Entity;
+      return T_Template (An_Entity);
    end Get_Template_By_Name;
 
    ------------------------
@@ -416,22 +416,6 @@ package body Wrapping.Semantic.Structure is
    begin
       if An_Entity.Defer then
          Compute_Closure (T_Entity (An_Entity), An_Entity.Deferred_Closure);
-      end if;
-
-      if An_Entity.Template_Section /= null then
-         case An_Entity.Template_Section.Node.As_Template_Section.F_Actions
-           .Kind
-         is
-            when Template_Traverse_Into =>
-               An_Entity.Template_Section.A_Visit_Action := Into;
-
-            when Template_Traverse_Over =>
-               An_Entity.Template_Section.A_Visit_Action := Over;
-
-            when others =>
-               null;
-
-         end case;
       end if;
 
       T_Entity_Type (An_Entity.all).Resolve_References;

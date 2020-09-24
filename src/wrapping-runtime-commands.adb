@@ -178,7 +178,7 @@ package body Wrapping.Runtime.Commands is
             if Template_Clause.Kind /= Weave_Kind then
                Error
                  ("self wrap not allowed, either weave or"
-                  & " provide a template or visitor name");
+                  & " provide a template name");
             elsif It.all in W_Template_Instance_Type'Class then
                A_Template_Instance := W_Template_Instance (It);
             else

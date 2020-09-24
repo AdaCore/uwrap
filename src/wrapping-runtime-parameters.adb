@@ -58,11 +58,13 @@ package body Wrapping.Runtime.Parameters is
       for Actual_Index in 1 .. Arg.Length loop
          Param := Arg.Element (Integer (Actual_Index));
 
-         if Param.Name /= "" then
+         if not Param.Name_Node.Is_Null then
             In_Named_Section := True;
 
             declare
-               Name  : Text_Type := To_Text (Param.Name);
+               Name  : Text_Type :=
+                 (if Param.Name_Node.Is_Null then ""
+                  else Param.Name_Node.Text);
                Found : Boolean   := False;
             begin
                for I in Profile'Range loop
@@ -113,7 +115,7 @@ package body Wrapping.Runtime.Parameters is
       for Param of Args loop
          Push_Error_Location (Param.Node);
 
-         if Param.Name /= "" then
+         if not Param.Name_Node.Is_Null then
             In_Named_Section := True;
             Evaluate_Parameter
               (Param.Name_Node.Text, Parameter_Index, Param.Expr);

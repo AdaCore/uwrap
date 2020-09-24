@@ -223,7 +223,7 @@ package body Wrapping.Semantic.Analysis is
 
       Program_Node : Template_Node;
    begin
-      A_Namespace := Get_Namespace_Prefix (Module_Name, True);
+      A_Namespace := Get_Namespace_Prefix_For_Module (Module_Name, True);
 
       --  The module needs to be stacked manually, as it's not a child of the
       --  currently stacked entity (the root node) but of the namespace.
@@ -436,10 +436,24 @@ package body Wrapping.Semantic.Analysis is
 
             when Template_Wrap_Section | Template_Weave_Section |
               Template_Walk_Section =>
+
                if Node.Kind = Template_Wrap_Section then
                   A_Command.Template_Section :=
                     new T_Template_Section_Type'
                       (Kind => Wrap_Kind, others => <>);
+
+                  case Node.As_Template_Section.F_Actions.Kind is
+                     when Template_Traverse_Into =>
+                        A_Command.Template_Section.A_Visit_Action := Into;
+
+                     when Template_Traverse_Over =>
+                        A_Command.Template_Section.A_Visit_Action := Over;
+
+                     when others =>
+                        null;
+
+                  end case;
+
                elsif Node.Kind = Template_Weave_Section then
                   A_Command.Template_Section :=
                     new T_Template_Section_Type'
@@ -662,10 +676,10 @@ package body Wrapping.Semantic.Analysis is
             Analyze_String (Node, Expr);
 
          when Template_Call_Expr =>
-            Expr.Called := Build_Expr (Node.As_Call_Expr.F_Called);
+            Expr.Call_Called := Build_Expr (Node.As_Call_Expr.F_Called);
 
             for A of Node.As_Call_Expr.F_Args loop
-               Expr.Args.Append (Build_Arg (A));
+               Expr.Call_Args.Append (Build_Arg (A));
             end loop;
 
          when Template_Defer_Expr =>
@@ -673,7 +687,7 @@ package body Wrapping.Semantic.Analysis is
 
          when Template_New_Expr =>
             Expr.Has_New := True;
-            Expr.Tree    := Build_Create_Tree (Node.As_New_Expr.F_Tree);
+            Expr.New_Tree    := Build_Create_Tree (Node.As_New_Expr.F_Tree);
 
          when Template_At_Ref =>
             null;
@@ -683,9 +697,9 @@ package body Wrapping.Semantic.Analysis is
               Build_Expr (Node.As_Qualified_Match.F_Rhs);
 
          when Template_Fold_Expr =>
-            Expr.Default   := Build_Expr (Node.As_Fold_Expr.F_Default);
-            Expr.Combine   := Build_Expr (Node.As_Fold_Expr.F_Combine);
-            Expr.Separator := Build_Expr (Node.As_Fold_Expr.F_Separator);
+            Expr.Fold_Default   := Build_Expr (Node.As_Fold_Expr.F_Default);
+            Expr.Fold_Combine   := Build_Expr (Node.As_Fold_Expr.F_Combine);
+            Expr.Fold_Separator := Build_Expr (Node.As_Fold_Expr.F_Separator);
 
          when Template_All_Expr =>
             Expr.All_Match := Build_Expr (Node.As_All_Expr.F_Expression);
@@ -702,19 +716,19 @@ package body Wrapping.Semantic.Analysis is
               Build_Expr (Node.As_Reg_Expr_Quantifier.F_Expr);
 
             if not Node.As_Reg_Expr_Quantifier.F_Min.Is_Null then
-               Expr.Min :=
+               Expr.Quantifier_Min :=
                  Integer'Wide_Wide_Value
                    (Node.As_Reg_Expr_Quantifier.F_Min.Text);
             else
-               Expr.Min := 0;
+               Expr.Quantifier_Min := 0;
             end if;
 
             if not Node.As_Reg_Expr_Quantifier.F_Max.Is_Null then
-               Expr.Max :=
+               Expr.Quantifier_Max :=
                  Integer'Wide_Wide_Value
                    (Node.As_Reg_Expr_Quantifier.F_Max.Text);
             else
-               Expr.Max := 0;
+               Expr.Quantifier_Max := 0;
             end if;
 
          when Template_Match_Expr =>
@@ -754,11 +768,6 @@ package body Wrapping.Semantic.Analysis is
       Push_Entity (Arg, Node);
 
       Arg.Name_Node := Node.As_Argument.F_Name;
-
-      if not Node.As_Argument.F_Name.Is_Null then
-         Arg.Name := To_Unbounded_Text (Node.As_Argument.F_Name.Text);
-      end if;
-
       Arg.Expr := Build_Expr (Node.As_Argument.F_Value);
 
       Pop_Entity;
@@ -820,7 +829,7 @@ package body Wrapping.Semantic.Analysis is
       --  c
 
       Found_Characters_On_Line : Boolean := False;
-      Line_Number              : Integer := 1;
+      Line, Column             : Integer := 1;
       Is_Start_Of_Line         : Boolean := False;
    begin
       Str_First := Str'First;
@@ -865,7 +874,7 @@ package body Wrapping.Semantic.Analysis is
 
       if Result.Str_Kind = String_Raw then
          Result.Str.Append
-           ((Str_Kind, 0, 0, Left_Spaces,
+           ((Str_Kind, Line, Column, Left_Spaces,
             To_Unbounded_Text (Str (Str_First .. Str_Last))));
 
          return;
@@ -886,7 +895,7 @@ package body Wrapping.Semantic.Analysis is
             --  Create one entry per line of text. This will help analyzing
             --  empty lines later on.
 
-            if Line_Number = 1 and then not Found_Characters_On_Line
+            if Line = 1 and then not Found_Characters_On_Line
               and then Result.Str_Kind = String_Indent
             then
                --  Do not add the initial empty line when dealing with string
@@ -894,11 +903,12 @@ package body Wrapping.Semantic.Analysis is
                null;
             else
                Result.Str.Append
-                 ((Str_Kind, 0, 0, Left_Spaces,
+                 ((Str_Kind, Line, Column, Left_Spaces,
                    To_Unbounded_Text (Str (Next_Index .. Current))));
             end if;
 
-            Line_Number              := Line_Number + 1;
+            Line                     := Line + 1;
+            Column                   := 1;
             Current                  := Current + 1;
             Next_Index               := Current;
             Found_Characters_On_Line := False;
@@ -906,14 +916,16 @@ package body Wrapping.Semantic.Analysis is
          elsif Str (Current) = '\' then
             if Current /= Str'First then
                Result.Str.Append
-                 ((Str_Kind, 0, 0, Left_Spaces,
+                 ((Str_Kind, Line, Column, Left_Spaces,
                       To_Unbounded_Text (Str (Next_Index .. Current - 1))));
             end if;
 
             Current := Current + 1;
+            Column := Column + 1;
 
             if Str (Current) = 'e' then
                Current := Current + 1;
+               Column := Column + 1;
 
                if Str (Current) = '<' then
                   Next_Index := Current;
@@ -947,24 +959,29 @@ package body Wrapping.Semantic.Analysis is
                      end if;
 
                      Result.Str.Append
-                       ((Expr_Kind, 0, 0, Left_Spaces,
+                       ((Expr_Kind, Line, Column, Left_Spaces,
                         Build_Expr (Expression_Unit.Root)));
                   end;
 
                   Current    := Next_Index + 1;
+                  Column     := Column + 1;
                   Next_Index := Current;
                else
                   Result.Str.Append
-                    ((Str_Kind, 0, 0, Left_Spaces,
+                    ((Str_Kind, Line, Column, Left_Spaces,
                       To_Unbounded_Text (Str (Current - 1 .. Current))));
+
                   Next_Index := Current;
                   Current    := Current + 1;
+                  Column     := Column + 1;
                end if;
             elsif Str (Current) = 'n' then
                Result.Str.Append
-                 ((Str_Kind, 0, 0, Left_Spaces,
+                 ((Str_Kind, Line, Column, Left_Spaces,
                    To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
+
                Current    := Current + 1;
+               Column     := Column + 1;
                Next_Index := Current;
             elsif Str (Current) in '0' .. '9' then
                Next_Index := Current;
@@ -984,19 +1001,24 @@ package body Wrapping.Semantic.Analysis is
                     Natural'Wide_Wide_Value (Str (Current .. Next_Index));
                begin
                   Result.Str.Append
-                    ((Group_Kind, 0, 0, Left_Spaces, Group_Value));
+                    ((Group_Kind, Line, Column, Left_Spaces, Group_Value));
                end;
 
                Current    := Next_Index + 1;
+               Column     := Column + 1;
                Next_Index := Current;
             elsif Str (Current) = '\' then
                Result.Str.Append
-                 ((Str_Kind, 0, 0, Left_Spaces, To_Unbounded_Text ("\")));
+                 ((Str_Kind, Line, Column, Left_Spaces,
+                  To_Unbounded_Text ("\")));
+
                Next_Index := Current + 1;
                Current    := Current + 1;
+               Column     := Column + 1;
             else
                Next_Index := Current;
                Current    := Current + 1;
+               Column     := Column + 1;
             end if;
 
             if not Found_Characters_On_Line
@@ -1020,6 +1042,7 @@ package body Wrapping.Semantic.Analysis is
             end if;
 
             Current := Current + 1;
+            Column := Column + 1;
          end if;
       end loop;
 
@@ -1027,7 +1050,7 @@ package body Wrapping.Semantic.Analysis is
          --  Add the end of the text to the result
 
          Result.Str.Append
-           ((Str_Kind, 0, 0, Left_Spaces,
+           ((Str_Kind, Line, Column, Left_Spaces,
              To_Unbounded_Text (Str (Next_Index .. Str_Last))));
       end if;
 

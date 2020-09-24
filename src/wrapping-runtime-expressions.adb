@@ -316,7 +316,7 @@ package body Wrapping.Runtime.Expressions is
 
          when Template_New_Expr =>
             if Top_Context.Allocate_Callback /= null then
-               Handle_New (Expr.Tree);
+               Handle_New (Expr.New_Tree);
             else
                Push_Match_False;
             end if;
@@ -822,7 +822,7 @@ package body Wrapping.Runtime.Expressions is
 
       Top_Context.Outer_Expr_Action := Action_Match;
 
-      Called := Evaluate_Expression (Expr.Called).Dereference;
+      Called := Evaluate_Expression (Expr.Call_Called).Dereference;
 
       Pop_Frame_Context;
 
@@ -837,7 +837,7 @@ package body Wrapping.Runtime.Expressions is
             Error ("call not matching context");
          end if;
       else
-         Called.Push_Call_Result (Expr.Args);
+         Called.Push_Call_Result (Expr.Call_Args);
 
          if not Called.Is_Generator then
             --  If the called subprogram is a generator, then it will have
@@ -973,17 +973,17 @@ package body Wrapping.Runtime.Expressions is
       begin
          if Is_First then
             Is_First := False;
-         elsif Fold_Expr.Separator /= null then
+         elsif Fold_Expr.Fold_Separator /= null then
             Push_Frame_Context_Parameter;
             Top_Context.Left_Value := Current_Expression;
-            Evaluate_Expression (Fold_Expr.Separator);
+            Evaluate_Expression (Fold_Expr.Fold_Separator);
             Current_Expression := Pop_Object;
             Pop_Frame_Context;
          end if;
 
          Push_Frame_Context;
          Top_Context.Left_Value := Current_Expression;
-         Evaluate_Expression (Fold_Expr.Combine);
+         Evaluate_Expression (Fold_Expr.Fold_Combine);
          Current_Expression := Top_Object;
          Pop_Frame_Context;
       end Yield_Callback;
@@ -995,7 +995,7 @@ package body Wrapping.Runtime.Expressions is
 
       Push_Frame_Context_Parameter;
       Push_Implicit_It (Get_Implicit_It);
-      Current_Expression := Evaluate_Expression (Fold_Expr.Default);
+      Current_Expression := Evaluate_Expression (Fold_Expr.Fold_Default);
 
       --  If the name captured is not null, provide its value here. This allows
       --  two equivalent stypes for fold:

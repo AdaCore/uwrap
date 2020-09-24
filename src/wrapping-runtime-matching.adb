@@ -283,7 +283,7 @@ package body Wrapping.Runtime.Matching is
           Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind =
           Template_Operator_Few
         and then Top_Context.Regexpr.Quantifiers_Hit >=
-          Expr.Reg_Expr_Left.Min
+          Expr.Reg_Expr_Left.Quantifier_Min
       then
          --  We are on a 'few' quantifier and we hit the minimum required
          --  matches. Try to skip it and only execute the right edge.
@@ -321,7 +321,8 @@ package body Wrapping.Runtime.Matching is
         and then
           Expr.Reg_Expr_Left.Node.As_Reg_Expr_Quantifier.F_Quantifier.Kind =
           Template_Operator_Many
-        and then Top_Context.Regexpr.Quantifiers_Hit >= Expr.Reg_Expr_Left.Min
+        and then Top_Context.Regexpr.Quantifiers_Hit >=
+          Expr.Reg_Expr_Left.Quantifier_Min
       then
          Push_Frame_Context;
 
@@ -397,8 +398,9 @@ package body Wrapping.Runtime.Matching is
          Push_Match_True (Top_Object);
       elsif Expr.Kind = Template_Reg_Expr then
          if Expr.Reg_Expr_Left.Kind = Template_Reg_Expr_Quantifier
-           and then Expr.Reg_Expr_Left.Max > 0
-           and then Matcher.Quantifiers_Hit >= Expr.Reg_Expr_Left.Max
+           and then Expr.Reg_Expr_Left.Quantifier_Max > 0
+           and then Matcher.Quantifiers_Hit >=
+             Expr.Reg_Expr_Left.Quantifier_Max
          then
             --  If we hit the max, executing the quantifier is always false.
             --  Stack false and leave the caller to call right expression.
