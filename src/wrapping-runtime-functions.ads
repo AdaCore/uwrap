@@ -17,6 +17,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+--  This package implements some of the intrinsic functions provided by the
+--  language. These functions are aimed at being stacked with the object
+--  W_Function_Instrinsic.
+
 with Libtemplatelang.Analysis; use Libtemplatelang.Analysis;
 
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
@@ -27,23 +31,31 @@ package Wrapping.Runtime.Functions is
 
    procedure Call_Normalize_Ada_Name
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Takes the first parameter as an id in an arbitrary naming convention,
+   --  and make it follow the Ada naming style as much as possible.
 
    procedure Call_Replace_Text
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Takes three parameters, source, pattern and replace by. Replaces all
+   --  occurences of the regular expression pattern in source by replace by.
+   --  TODO: It would be useful to differenciate strings and regexpr in
+   --  the pattern param
 
    procedure Call_To_Lower
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Takes one string parameter and returns its lowercase version
 
    procedure Call_Reindent
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Performs a reindentation on the one string parameter
 
    procedure Call_Max_Col
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Takes one parameters which is an expression. Returns the maximum column
+   --  number that occured during this expression evaluation.
 
    procedure Call_Convert_To_Text
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
-
-   procedure Call_Convert_To_String
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Convert the parameter to its text version.
 
 end Wrapping.Runtime.Functions;

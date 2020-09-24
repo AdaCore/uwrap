@@ -419,14 +419,6 @@ package body Wrapping.Runtime.Expressions is
          Push_Intrinsic_Function (null, Call_Convert_To_Text'Access);
 
          return True;
-      elsif Name = "string" then
-         --  We're on an object to string conversion. Set the text object. When
-         --  running the call, the actual text value will be computed and put
-         --  in the object.
-
-         Push_Intrinsic_Function (null, Call_Convert_To_String'Access);
-
-         return True;
       elsif Name = "normalize_ada_name" then
          Push_Intrinsic_Function (null, Call_Normalize_Ada_Name'Access);
          return True;
@@ -760,13 +752,13 @@ package body Wrapping.Runtime.Expressions is
       Visit_Result : aliased Visit_Action := Unknown;
    begin
       if A_Template_Instance.Is_Evaluated then
-         Handle_Call_Parameters (Args, Update_Parameter'Access);
+         Process_Parameters (Args, Update_Parameter'Access);
 
          return Into;
       else
          A_Template_Instance.Is_Evaluated := True;
 
-         Handle_Call_Parameters (Args, Store_Parameter'Access);
+         Process_Parameters (Args, Store_Parameter'Access);
 
          Push_Frame (A_Template_Instance.Defining_Entity);
          Push_Implicit_It (A_Template_Instance);

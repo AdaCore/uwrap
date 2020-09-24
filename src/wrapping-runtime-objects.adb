@@ -585,17 +585,6 @@ package body Wrapping.Runtime.Objects is
       return Write_String (To_Text (Object.Value));
    end Write_String;
 
-   ------------------
-   -- Write_String --
-   ------------------
-
-   overriding function Write_String
-     (Object : W_Text_Conversion_Type) return Buffer_Slice
-   is
-   begin
-      return Object.An_Object.Write_String;
-   end Write_String;
-
    -----------------------------
    -- Push_Intrinsic_Function --
    -----------------------------
@@ -691,7 +680,7 @@ package body Wrapping.Runtime.Objects is
 
       Prev_It : W_Object := Get_Implicit_It;
    begin
-      Handle_Call_Parameters (Params, Evaluate_Parameter'Access);
+      Process_Parameters (Params, Evaluate_Parameter'Access);
 
       Calling_Frame := Top_Frame;
 
@@ -834,12 +823,41 @@ package body Wrapping.Runtime.Objects is
    is
       Result : Buffer_Slice;
    begin
+      --  Evaluate the deferred expression and its string conversion in the
+      --  context of the closure.
+
       Push_Frame (Object.A_Closure);
       Result := Evaluate_Expression (Object.Expr).Write_String;
       Pop_Frame;
 
       return Result;
    end Write_String;
+
+   ----------------------
+   -- Push_Call_Result --
+   ----------------------
+
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Deferred_Expr_Type;
+      Params    : T_Arg_Vectors.Vector)
+   is
+      Result : W_Object;
+   begin
+      --  Evaluate the deferred expression in the context of the closure. The
+      --  Actual params to this defer expression evaluation has to be done
+      --  in the calling context. E.g in:
+      --     d (v);
+      --  d begin a deferred expression, while d needs to be evaluated in the
+      --  closure, v refers to entities outside of the closure, in the inital
+      --  context.
+
+      Push_Frame (An_Entity.A_Closure);
+      Evaluate_Expression (An_Entity.Expr);
+      Result := Top_Object;
+      Pop_Frame;
+
+      Result.Push_Call_Result (Params);
+   end Push_Call_Result;
 
    ---------------------
    -- Generate_Values --

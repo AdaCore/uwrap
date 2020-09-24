@@ -44,9 +44,9 @@ package body Wrapping.Runtime.Parameters is
 
    function Process_Parameters
      (Profile : Parameter_Profile; Arg : T_Arg_Vectors.Vector)
-      return Actuals_Type
+      return Actual_Expressions
    is
-      Result : Actuals_Type (Profile'Range) := (others => null);
+      Result : Actual_Expressions (Profile'Range) := (others => null);
 
       Parameter_Index  : Integer;
       In_Named_Section : Boolean := False;
@@ -98,7 +98,7 @@ package body Wrapping.Runtime.Parameters is
    -- Handle_Call_Parameters --
    ----------------------------
 
-   procedure Handle_Call_Parameters
+   procedure Process_Parameters
      (Args               : T_Arg_Vectors.Vector;
       Evaluate_Parameter : access procedure
         (Name : Text_Type; Position : Integer; Value : T_Expr))
@@ -130,6 +130,6 @@ package body Wrapping.Runtime.Parameters is
       end loop;
 
       Pop_Frame_Context;
-   end Handle_Call_Parameters;
+   end Process_Parameters;
 
 end Wrapping.Runtime.Parameters;

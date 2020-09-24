@@ -58,20 +58,6 @@ package body Wrapping.Runtime.Matching is
       Push_Object (Match_False);
    end Push_Match_False;
 
-   ---------------------------
-   -- Evaluate_Match_Result --
-   ---------------------------
-
-   function Evaluate_Match
-     (Matching_Expression : T_Expr;
-      Object : W_Object := Top_Object) return Boolean
-   is
-   begin
-      Push_Match_Result (Matching_Expression, Object);
-
-      return Pop_Object /= Match_False;
-   end Evaluate_Match;
-
    -----------------------
    -- Push_Match_Result --
    -----------------------
@@ -97,6 +83,20 @@ package body Wrapping.Runtime.Matching is
          Pop_Frame_Context;
       end if;
    end Push_Match_Result;
+
+   ---------------------------
+   -- Evaluate_Match_Result --
+   ---------------------------
+
+   function Evaluate_Match
+     (Matching_Expression : T_Expr;
+      Object : W_Object := Top_Object) return Boolean
+   is
+   begin
+      Push_Match_Result (Matching_Expression, Object);
+
+      return Pop_Object /= Match_False;
+   end Evaluate_Match;
 
    -----------
    -- Match --

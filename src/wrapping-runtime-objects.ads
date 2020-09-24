@@ -73,9 +73,6 @@ package Wrapping.Runtime.Objects is
    type W_Regexp_Type;
    type W_Regexp is access all W_Regexp_Type'Class;
 
-   type W_Text_Conversion_Type;
-   type W_Text_Conversion is access all W_Text_Conversion_Type'Class;
-
    type W_Intrinsic_Function_Type;
    type W_Intrinsic_Function is access all W_Intrinsic_Function_Type'Class;
 
@@ -266,17 +263,6 @@ package Wrapping.Runtime.Objects is
      (Object : W_Regexp_Type) return Buffer_Slice;
    --  Writes the content of the regular expression in the buffer
 
-   type W_Text_Conversion_Type is new W_Text_Expression_Type with record
-      An_Object : W_Object;
-   end record;
-   --  This type is used to model an object that needs to converts a sub-object
-   --  into string. This is useful to differenciate sitations where a piece of
-   --  data has to be interpreted as a reference or as a text.
-
-   overriding function Write_String
-     (Object : W_Text_Conversion_Type) return Buffer_Slice;
-   --  Calls Write_String on the contained object
-
    type Call_Access is access procedure
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
    --  This type references an instrinsinc call between an object and its
@@ -359,6 +345,11 @@ package Wrapping.Runtime.Objects is
      (Object : W_Deferred_Expr_Type) return Buffer_Slice;
    --  Restores the closure in a new frame, evaluates the stored expression and
    --  converts it to string.
+
+   overriding procedure Push_Call_Result
+     (An_Entity : access W_Deferred_Expr_Type; Params : T_Arg_Vectors.Vector);
+   --  Resolves the deferred expression and calls the Push_Call_Result of the
+   --  pushed object
 
    procedure Capture_Deferred_Environment
      (Deferred_Expr : W_Deferred_Expr; Expr : T_Expr);

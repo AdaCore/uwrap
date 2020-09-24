@@ -23,5 +23,8 @@ with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 package Wrapping.Runtime.Closures is
 
    function Capture_Closure (Names : Text_Sets.Set) return Closure;
+   --  Looks at the Top_Frame and captures all required data to reload it for
+   --  a later run, including implicit it, captured groups, local lexical scope
+   --  and symbols corresponding to the names listed in parameters.
 
 end Wrapping.Runtime.Closures;

@@ -25,21 +25,33 @@ package Wrapping.Runtime.Parameters is
       Name        : Unbounded_Text_Type;
       Is_Optional : Boolean;
    end record;
+   --  Models a parameter used for e.g. functions calls
 
    type Parameter_Profile is array (Positive range <>) of Parameter;
+   --  Models a profile for a function
 
-   type Actuals_Type is array (Positive range <>) of T_Expr;
+   type Actual_Expressions is array (Positive range <>) of T_Expr;
+   --  Returns the expressions used to value a call
 
    function Make_Parameter
      (Name : Text_Type; Is_Optional : Boolean) return Parameter;
+   --  Creates a parameter object
 
    function Process_Parameters
      (Profile : Parameter_Profile; Arg : T_Arg_Vectors.Vector)
-      return Actuals_Type;
+      return Actual_Expressions;
+   --  Process the parameters according to a profile and a set of actual
+   --  arguments. The resulting actual expression as as many expressions as
+   --  for the profile, with null for optional parameters not valuated.
+   --  Parameters in Arg have to be provided first as positional, then as
+   --  named convention - not respecting this order will lead to an error.
 
-   procedure Handle_Call_Parameters
+   procedure Process_Parameters
      (Args               : T_Arg_Vectors.Vector;
       Evaluate_Parameter : access procedure
         (Name : Text_Type; Position : Integer; Value : T_Expr));
+   --  Takes the argument one by one, ensuring that they are provided first
+   --  as positional then as named notation. This is useful when there's no
+   --  formal profile, for example with templates
 
 end Wrapping.Runtime.Parameters;

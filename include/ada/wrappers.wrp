@@ -25,7 +25,7 @@ template w_Unit extends w_Ada do
 end;
 
 template w_NamedEntity extends w_Ada do
-  var name: text => text (defer (child (w_DefiningName ()).name)); #TODO: Do we really need text conversion here?
+  var name: text => defer (child (w_DefiningName ()).name);
   var original_name: text => (match (origin (v: p_fully_qualified_name ())) pick v else pick "");
 end;
 
@@ -458,7 +458,7 @@ template wrappers_post_process pick origin do
          post_call_decl   => defer (@ & p.post_call_decl),
          post_call_stmt   => defer (@ & p.post_call_stmt),
          return_stmt      => defer (@ & p.return_stmt),
-         result_type_expr => defer ((match text (p.result_type_expr, "_") pick @ else pick p.result_type_expr))
+         result_type_expr => defer ((match text (p.result_type_expr).filter ("_") pick @ else pick p.result_type_expr))         
       );
    end;
 
@@ -489,7 +489,7 @@ template wrappers_post_process pick origin do
          post_call_decl   => defer (@ & p.post_call_decl),
          post_call_stmt   => defer (@ & p.post_call_stmt),
          return_stmt      => defer (@ & p.return_stmt),
-         result_type_expr => defer ((match text (p.result_type_expr, "_") pick @ else pick p.result_type_expr))
+         result_type_expr => defer ((match text (p.result_type_expr).filter ("_") pick @ else pick p.result_type_expr))
       );
    end;
 

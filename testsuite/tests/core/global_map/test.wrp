@@ -9,7 +9,7 @@ end;
 
 match Entity (x"A(?<a>.+)") do
    match not test.entity_map.filter ("\e<a>") do
-      pick test weave (entity_map => @.insert (string ("\e<a>"), new (w_Entity (name => "[\e<a>]"))));
+      pick test weave (entity_map => @.insert (text ("\e<a>"), new (w_Entity (name => "[\e<a>]"))));
       pick test wrap my_out (defer (@ & "RESULT: " & acc: test.entity_map.filter (v: true).fold ("", acc & v.name & " ")));
    end;
 end;

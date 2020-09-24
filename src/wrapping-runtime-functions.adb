@@ -47,7 +47,7 @@ package body Wrapping.Runtime.Functions is
       Prev_Up  : Boolean := False;
       Prev_Sep : Boolean := False;
 
-      Actuals : Actuals_Type :=
+      Actuals : Actual_Expressions :=
         Process_Parameters (P_Normalize_Ada_Name, Params);
    begin
       Push_Buffer_Cursor;
@@ -104,7 +104,8 @@ package body Wrapping.Runtime.Functions is
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       Result  : W_Object;
-      Actuals : Actuals_Type := Process_Parameters (P_Replace_Text, Params);
+      Actuals : Actual_Expressions :=
+        Process_Parameters (P_Replace_Text, Params);
    begin
       Push_Buffer_Cursor;
 
@@ -144,7 +145,7 @@ package body Wrapping.Runtime.Functions is
    is
       Result : W_Object;
 
-      Actuals : Actuals_Type := Process_Parameters (P_To_Lower, Params);
+      Actuals : Actual_Expressions := Process_Parameters (P_To_Lower, Params);
       Slice : Buffer_Slice;
    begin
       Push_Buffer_Cursor;
@@ -171,7 +172,8 @@ package body Wrapping.Runtime.Functions is
    is
       Result : W_Object;
 
-      Actuals     : Actuals_Type := Process_Parameters (P_Unindent, Params);
+      Actuals     : Actual_Expressions :=
+        Process_Parameters (P_Unindent, Params);
       Indentation : W_Object;
       Slice : Buffer_Slice;
    begin
@@ -206,7 +208,7 @@ package body Wrapping.Runtime.Functions is
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
       Result  : W_Object;
-      Actuals : Actuals_Type := Process_Parameters (P_Max_Col, Params);
+      Actuals : Actual_Expressions := Process_Parameters (P_Max_Col, Params);
       Obj     : W_Object := Evaluate_Expression (Actuals (1));
       Dummy   : Buffer_Slice;
    begin
@@ -226,56 +228,21 @@ package body Wrapping.Runtime.Functions is
    procedure Call_Convert_To_Text
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
    is
-   begin
-      if Params.Length in 1 .. 2 then
-         Push_Frame_Context_Parameter;
-
-         Push_Object
-           (W_Object'
-              (new W_Text_Conversion_Type'
-                 (An_Object =>
-                    Evaluate_Expression (Params.Element (1).Expr))));
-
-         Pop_Frame_Context;
-
-         if Params.Length = 2 then
-            Push_Match_Result (Params.Element (2).Expr);
-            Pop_Underneath_Top;
-         end if;
-      else
-         Error ("conversion takes up to 2 arguments");
-      end if;
-   end Call_Convert_To_Text;
-
-   ----------------------------
-   -- Call_Convert_To_String --
-   ----------------------------
-
-   procedure Call_Convert_To_String
-     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
-   is
       Slice : Buffer_Slice;
    begin
-      if Params.Length in 1 .. 2 then
+      if Params.Length = 1 then
          Push_Frame_Context_Parameter;
          Push_Buffer_Cursor;
-         Slice :=
-           Evaluate_Expression
-             (Params.Element (1).Expr).Write_String;
+         Slice := Evaluate_Expression (Params.Element (1).Expr).Write_String;
          Pop_Buffer_Cursor;
+         Pop_Frame_Context;
 
          Push_Object
            (To_W_String
-              (Buffer.Str
-                   (Slice.First.Offset .. Slice.Last.Offset)));
-
-         if Params.Length = 2 then
-            Push_Match_Result (Params.Element (2).Expr);
-            Pop_Underneath_Top;
-         end if;
+              (Buffer.Str (Slice.First.Offset .. Slice.Last.Offset)));
       else
-         Error ("conversion takes up to 2 arguments");
+         Error ("conversion takes 1 argument");
       end if;
-   end Call_Convert_To_String;
+   end Call_Convert_To_Text;
 
 end Wrapping.Runtime.Functions;
