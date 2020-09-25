@@ -1,10 +1,8 @@
 MyEntity: E7, template SubEntity: SubE7
 MyEntity: E7
+SubEntity: SubE7
 MyEntity: E6, template SubEntity: SubE6
 MyEntity: E6
-SubEntity: E2, parent Entity: A
-SubEntity: E2
-SubEntity: SubE7
 SubEntity: SubE6
 MyEntity: E5, template SubEntity: SubE5
 MyEntity: E5
@@ -15,5 +13,7 @@ SubEntity: SubE4
 MyEntity: E3, template SubEntity: SubE3
 MyEntity: E3
 SubEntity: SubE3
+SubEntity: E2, parent Entity: A
+SubEntity: E2
 MyEntity: E1
 

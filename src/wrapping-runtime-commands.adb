@@ -52,11 +52,6 @@ package body Wrapping.Runtime.Commands is
    --  This type record the necessary data to store and re-launch a defered
    --  command.
 
-   Current_Visitor_Id : Integer := 0;
-   --  The Id for the current visitor, updated when entering a vistor
-   --  invokation. Note that the main iteration is always id 0. TODO:
-   --  maybe this should be frame information?
-
    Deferred_Commands : Deferred_Command_Vectors.Vector;
    --  The list of commands deferred to the next iteration
 
@@ -484,11 +479,8 @@ package body Wrapping.Runtime.Commands is
                Name : constant Text_Type := A_Var.Name_Node.Text;
             begin
                --  Variables stored in templates are modeled through
-               --- references, so that code can refer to one value and get
-               --  updated when the field is updated.
-
-               --  TODO: Do we really need that with defer expressions
-               --  all over?
+               --- references, so that we can keep the right order even when
+               --  they are modified.
 
                New_Ref := new W_Reference_Type;
 
@@ -648,12 +640,21 @@ package body Wrapping.Runtime.Commands is
    begin
       Push_Frame (Lexical_Scope);
 
+      --  Within a lexical scope, applies all commands in reverse order. Also
+      --  processes child namespaces and modules
+
       for Wrapping_Entity of reverse Lexical_Scope.Children_Ordered loop
          if Wrapping_Entity.all in T_Command_Type then
+            --  We should be on a module when executing root commands
+            pragma Assert (Lexical_Scope.all in T_Module_Type);
+
             Handle_Command (T_Command (Wrapping_Entity), It);
          elsif Wrapping_Entity.all in T_Module_Type'Class
            or else Wrapping_Entity.all in T_Namespace_Type'Class
          then
+            --  Only namespaces should contain modules and sub namespaces
+            pragma Assert (Lexical_Scope.all in T_Namespace_Type);
+
             Apply_Wrapping_Program (It, Wrapping_Entity);
          end if;
       end loop;
@@ -678,51 +679,20 @@ package body Wrapping.Runtime.Commands is
    is
       Visit_Result   : aliased Visit_Action := Unknown;
    begin
+      --  Pushes a new frame, apply the main program and return the decision]
+      --  taken by the processing, Into by default.
+
       Push_Frame (Wrapping.Semantic.Analysis.Root);
       Top_Context.Visit_Decision := Visit_Result'Unchecked_Access;
 
-      --  Check if this entity has already been analyzed through this visitor
-      --  invocation.
+      Apply_Wrapping_Program (Node, Wrapping.Semantic.Analysis.Root);
 
-      --  First, pop any id in the entity that may be greater than the current
-      --  one. If they are greater and we're on a lower one, it means that they
-      --  are over.
+      Pop_Frame;
 
-      if Node.all not in W_Node_Type'Class then
-         Error ("expected node type");
-      end if;
-
-      while Node.Visited_Stack.Length > 0
-        and then Node.Visited_Stack.Last_Element > Current_Visitor_Id
-      loop
-         Node.Visited_Stack.Delete_Last;
-      end loop;
-
-      if Node.Visited_Stack.Length > 0
-        and then Node.Visited_Stack.Last_Element = Current_Visitor_Id
-      then
-         --  If the last id in the stack is the current one, they we've already
-         --  visited this entity. We already also made the decisions on sub
-         --  entities. Stop the iteration.
-
-         Pop_Frame;
-         return Over;
+      if Visit_Result = Unknown then
+         return Into;
       else
-         --  Otherwise, stack this visitor Id and visit. We need not to remove
-         --  this id at the end, as to make sure that potential iterations on
-         --  this visit don't cover this node again
-
-         Node.Visited_Stack.Append (Current_Visitor_Id);
-
-         Apply_Wrapping_Program (Node, Wrapping.Semantic.Analysis.Root);
-
-         Pop_Frame;
-
-         if Visit_Result = Unknown then
-            return Into;
-         else
-            return Visit_Result;
-         end if;
+         return Visit_Result;
       end if;
    end Run_Main_Program;
 
@@ -735,6 +705,7 @@ package body Wrapping.Runtime.Commands is
       function Visitor
         (E : access W_Object_Type'Class; Result : out W_Object)
          return Visit_Action;
+      --  Processes a node in the input tree.
 
       -------------
       -- Visitor --
@@ -745,22 +716,34 @@ package body Wrapping.Runtime.Commands is
          return Visit_Action
       is
       begin
+         --  We're not making any use of result, just initalizes to null
+         --  to have a proper value.
+
          Result := null;
-         return Run_Main_Program (W_Node (E));
+
+         --  If the entity in parameter is a template instance, it's not
+         --  supposed to be analyzed as part of the input analysis. It has
+         --  been created and linked through an allocator on a parent node,
+         --  is registered in "Template_To_Traverse" and should be traversed
+         --  in the next iteration.
+
+         if E.all in W_Template_Instance_Type then
+            return Over;
+         else
+            return Run_Main_Program (W_Node (E));
+         end if;
       end Visitor;
 
       Dummy_Action    : Visit_Action;
-      Traverse_Result : W_Object;
+      Dummy_Result : W_Object;
 
    begin
-      --  Set the visitor id - we're on the main iteration, id is 0.
-
-      Current_Visitor_Id := 0;
+      --  Pushes the global frame and run the program. There's no iteration
+      --  outer of this call, so dismiss the result of the iteration
 
       Push_Frame (Wrapping.Semantic.Analysis.Root);
       Dummy_Action :=
-        Root_Entity.Traverse
-          (Child_Depth, True, Traverse_Result, Visitor'Access);
+        Root_Entity.Traverse (Child_Depth, True, Dummy_Result, Visitor'Access);
       Pop_Frame;
    end Analyse_Input;
 
@@ -772,11 +755,16 @@ package body Wrapping.Runtime.Commands is
       A_Template_Instance : W_Template_Instance;
       A_Visit_Action      : Visit_Action;
 
-      Files         : W_Template_Instance_Vectors.Vector;
-      Output        : W_Template_Instance_Vectors.Vector;
-      File_Template : T_Template;
-      Out_Template  : T_Template;
+      Files             : W_Template_Instance_Vectors.Vector;
+      Output            : W_Template_Instance_Vectors.Vector;
+      File_Template     : T_Template;
+      Out_Template      : T_Template;
+      Next_It_Templates : W_Template_Instance_Vectors.Vector;
+      Next_It_Commands  : Deferred_Command_Vectors.Vector;
    begin
+      --  Retreives the standard file and out objects in order to process
+      --  output
+
       File_Template :=
         T_Template
           (Resolve_Module_By_Name ("standard").Children_Indexed.Element
@@ -787,70 +775,72 @@ package body Wrapping.Runtime.Commands is
           (Resolve_Module_By_Name ("standard").Children_Indexed.Element
              ("out"));
 
+      --  Iterates as long as there's either a template instance or a deferred
+      --  command to run
+
       while Templates_To_Traverse.Length > 0
         or else Deferred_Commands.Length > 0
       loop
-         declare
-            Next_Iteration : W_Template_Instance_Vectors.Vector;
-         begin
-            Next_Iteration.Move (Templates_To_Traverse);
-            Templates_To_Traverse.Clear;
+         --  Move lists of objects to analyse into local lists and clear the
+         --  initial ones in order to be able to receive new objects.
 
-            --  Reset the visitor id - we're on the main iteration, id is 0.
+         Next_It_Templates.Move (Templates_To_Traverse);
+         Next_It_Commands.Move (Deferred_Commands);
 
-            for Created_Template of Next_Iteration loop
-               A_Template_Instance := W_Template_Instance (Created_Template);
+         --  Analyzed all defered commands that are valid and reschedule those
+         --  that are not.
 
-               if Instance_Of
-                   (T_Template (A_Template_Instance.Defining_Entity),
-                    File_Template)
-               then
-                  Files.Append (A_Template_Instance);
-               elsif Instance_Of
-                   (T_Template (A_Template_Instance.Defining_Entity),
-                    Out_Template)
-               then
-                  Output.Append (A_Template_Instance);
-               end if;
-            end loop;
+         for D of Next_It_Commands loop
+            if not Run_Defered_Command (D) then
+               Deferred_Commands.Append (D);
+            end if;
+         end loop;
 
-            --  Analyzed all defered commands that are valid
+         --  Store I/O templates for final processing after everything is done.
 
-            declare
-               Next_Deferred : Deferred_Command_Vectors.Vector;
-            begin
-               for D of Deferred_Commands loop
-                  if not Run_Defered_Command (D) then
-                     Next_Deferred.Append (D);
-                  end if;
-               end loop;
+         for Created_Template of Next_It_Templates loop
+            A_Template_Instance := W_Template_Instance (Created_Template);
 
-               --  TODO: This is incorrect, additional deferred commands may
-               --  have been created above and will be ignored here.
-               Deferred_Commands.Move (Next_Deferred);
-            end;
+            if Instance_Of
+              (T_Template (A_Template_Instance.Defining_Entity), File_Template)
+            then
+               Files.Append (A_Template_Instance);
+            elsif Instance_Of
+              (T_Template (A_Template_Instance.Defining_Entity), Out_Template)
+            then
+               Output.Append (A_Template_Instance);
+            end if;
+         end loop;
 
-            Current_Visitor_Id := 0;
+         --  Analyze newly created templates.
 
-            for T of Next_Iteration loop
-               --  The newly created wrappers need to be analyzed in order of
-               --  creation. So we're not using the traverse function anymore,
-               --  but instead just go through the list.
+         for T of Next_It_Templates loop
+            --  The newly created wrappers need to be analyzed in order of
+            --  creation. So we're not using a traverse function anymore,
+            --  but instead just go through the list.
 
-               A_Visit_Action := Run_Main_Program (W_Node (T));
-               exit when A_Visit_Action = Stop;
-            end loop;
-         end;
+            A_Visit_Action := Run_Main_Program (W_Node (T));
+
+            exit when A_Visit_Action = Stop;
+         end loop;
 
          exit when A_Visit_Action = Stop;
       end loop;
 
+      --  At this stage, we're processing I/O. We may need to track created
+      --  lines and columns on the buffer, so enable full update.
+
       Buffer.Full_Cursor_Update := True;
+
+      --  Post-process all out templates previously recorded
 
       for T of Output loop
          declare
             Content_Object : W_Object;
          begin
+            --  Pushes a frame to support retreival of values and possible
+            --  deferred expressions computation
+
             Push_Frame (Wrapping.Semantic.Analysis.Root);
 
             if not T.Push_Value ("content") then
@@ -877,12 +867,17 @@ package body Wrapping.Runtime.Commands is
          end;
       end loop;
 
+      --  Post-process all files templates previously recorded
+
       for T of Files loop
          declare
             Path_Object    : W_Object;
             Content_Object : W_Object;
             Output_File    : File_Type;
          begin
+            --  Pushes a frame to support retreival of values and possible
+            --  deferred expressions computation
+
             Push_Frame (Wrapping.Semantic.Analysis.Root);
 
             if not T.Push_Value ("path") then

@@ -85,12 +85,6 @@ package Wrapping.Runtime.Nodes is
       Tmp_Counter : Integer := 0;
       --  When creating temporary names, this counter is incremented when
       --  needed and used in the actual temporary id to ensure uniqueness.
-
-      Visited_Stack : Integer_Vector.Vector;
-      --  When the entity enters a vistor, the id of that visitor get stacked.
-      --  This allows to track wether a given entity has been visited by a
-      --  visitor invocation only once. Since the invocations are ordered,
-      --  ids not in used anymore can be popped, keeping this list small.
    end record;
    --  W_Nodes are at the core of the processing. They compose tree structures
    --  that can map either an input tree or instantiated objects, and are
