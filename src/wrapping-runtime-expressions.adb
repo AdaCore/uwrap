@@ -36,54 +36,78 @@ with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
 
 package body Wrapping.Runtime.Expressions is
 
-   procedure Handle_Identifier (Node : Template_Node'Class) with
+   procedure Handle_Identifier (Name : Text_Type) with
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Stacks the W_Object that corresponds to the name in parameter at the
+   --  current position in the program and frame.
 
    procedure Handle_Call (Expr : T_Expr) with
+     Pre  => Expr.Kind = Template_Call_Expr,
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Stacks the result of the call.
 
    procedure Handle_Fold
      (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector) with
+     Pre  => Selector.Selector_Right.Kind = Template_Fold_Expr,
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Executes the fold expression on its prefix and computes the afterwards
+   --  if any.
 
    procedure Handle_Filter
      (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector) with
+     Pre  => Selector.Selector_Right.Kind = Template_Filter_Expr,
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Executes the filter expression on its prefix and computes the afterwards
+   --  if any.
 
    procedure Handle_New (Create_Tree : T_Create_Tree) with
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Creates the nodes described by this Create_Tree object.
 
    procedure Handle_All
      (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector) with
+     Pre  => Selector.Selector_Right.Kind = Template_All_Expr,
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Will call the suffix for all values generated from the suffix, or will
+   --  also execute the post pick action if any.
 
    procedure Handle_Selector
      (Expr : T_Expr; Suffix : in out T_Expr_Vectors.Vector) with
+     Pre  => Expr.Kind = Template_Selector,
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Will process the selector in parameter and push the selectd value on
+   --  the stack.
 
    procedure Handle_Arithmetic_Operator (Expr : T_Expr) with
+     Pre  => Expr.Kind = Template_Binary_Expr,
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Handle the aritmetic operation in parameter on the last two objects
+   --  on the stack.
 
    procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector) with
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
+   --  Selectors work by stacking entities in a Suffix variable as they're
+   --  going from last in the list to first. Once hitting first, they have
+   --  a vector of expression that represent each part. This function will
+   --  then process each part from first to last.
 
    -------------------------
    -- Evaluate_Expression --
    -------------------------
 
    procedure Evaluate_Expression (Expr : T_Expr) is
+      Run_Outer_Action : Boolean := True;
       --  Some expression need to run the outer action. For example:
       --    match a
       --  a needs to match with It. Other do not. For example in:
-      --     match has'a
-      --  we need to not match (has'a) expression. Similarly, in :
+      --     match has (a)
+      --  we need to not match (has (a)) expression. Similarly, in :
       --     match a or b
       --  we need to match individually a and b, but not the expression (a or
       --  b), otherwise it wouldn't be possible to write something like:
-      --     match has'a or has'b
+      --     match has (a) or has (b)
       --  (has would discusonnect the outer match, but the overall expression
       --  would match again).
-      Run_Outer_Action : Boolean := True;
 
       Do_Pop_Frame_Context : Boolean := False;
    begin
@@ -99,24 +123,36 @@ package body Wrapping.Runtime.Expressions is
                --  This expression captures the result of the underlying
                --  expression and lets its value pass through.
 
-               --  First, save any previous name capture for restoration, and
-               --  store the new one.
-
                Push_Frame_Context;
+
+               --  We need to save the name capture as some expressions need
+               --  to maintain its value while being computed. E.g. in:
+               --     c: child ()
+               --  the value of c as currently computed is available in child.
+
                Top_Context.Name_Captured := To_Unbounded_Text (Captured_Name);
+
+               --  Save any previous name capture for restoration, and store
+               --  the new one.
 
                if Get_Local_Symbol (Captured_Name) /= null then
                   Previous_Value := Get_Local_Symbol (Captured_Name);
                end if;
 
+               --  Evaluate the capture expression and push the result on the
+               --  stack. In all cases, the result of this sub-expression will
+               --  be the result of the result of the capture expression.
+
                Evaluate_Expression (Expr.Match_Capture_Expr);
 
                if Top_Object /= Match_False then
+                  --  If we got something, stores the result in the symbol
+
                   Include_Symbol (Captured_Name, Top_Object);
                else
-                  --  For early reference, that name may have already been
-                  --  captured. If we eneded up not having a match, it needs
-                  --  to be removed, or replaced by the previous value.
+                  --  If we didn't get anything, restore the previous value if
+                  --  any, or delete the symbol from the frame in case it has
+                  --  been pushed as an early reference
 
                   if Previous_Value /= null then
                      Include_Symbol (Captured_Name, Previous_Value);
@@ -126,6 +162,15 @@ package body Wrapping.Runtime.Expressions is
                end if;
 
                Pop_Frame_Context;
+
+               --  The outer action is performed by the expression below a
+               --  match capture, not by the capture itself, as the expression
+               --  may itself make different decisions as to how to run that
+               --  outer action, e.g. in:
+               --     match x: (a or b)
+               --  a and b expression need to run the outer action to decide
+               --  wether they match or not.
+
                Run_Outer_Action := False;
             end;
 
@@ -133,6 +178,12 @@ package body Wrapping.Runtime.Expressions is
             declare
                Suffix : T_Expr_Vectors.Vector;
             begin
+               --  At the begining of a selector analysis, sets the suffix as
+               --  an empty vector. Handle_Selector will then be responsible to
+               --  call itself recursively and fill this suffix when needed,
+               --  before eventually executing it. See implementation of
+               --  Handle_Selector for more details
+
                Handle_Selector (Expr, Suffix);
             end;
 
@@ -140,6 +191,13 @@ package body Wrapping.Runtime.Expressions is
             --  Handle_Selector, when evaluating the right operand. At this
             --  stage, we may also not be in the right match mode anymore
             --  (e.g we don't know if we match a reference or a call result).
+            --  This is also how we avoid dupliquated picked values, e.g. in
+            --     pick x.child ()
+            --  or
+            --     pick x.child ().all ()
+            --  The pick action is driven by the selected expression (e.g.
+            --  respectively child () and all ()), not by the selector.
+
             Run_Outer_Action := False;
 
          when Template_Binary_Expr =>
@@ -253,7 +311,7 @@ package body Wrapping.Runtime.Expressions is
 
          when Template_Token_Identifier | Template_Identifier =>
             Push_Frame_Context_No_Outer;
-            Handle_Identifier (Expr.Node);
+            Handle_Identifier (Expr.Node.Text);
             Pop_Frame_Context;
 
          when Template_Number =>
@@ -572,8 +630,7 @@ package body Wrapping.Runtime.Expressions is
    -- Handle_Identifier --
    -----------------------
 
-   procedure Handle_Identifier (Node : Template_Node'Class) is
-      Name          : constant Text_Type := Node.Text;
+   procedure Handle_Identifier (Name : Text_Type) is
       Prefix_Entity : W_Object;
    begin
       --  We're resolving a reference to an entity
@@ -582,7 +639,7 @@ package body Wrapping.Runtime.Expressions is
          --  If we're on the implicit entity, then first check if there's
          --  some more global identifier overriding it.
 
-         if Push_Global_Identifier (Node.Text) then
+         if Push_Global_Identifier (Name) then
 
             return;
          end if;
@@ -600,7 +657,7 @@ package body Wrapping.Runtime.Expressions is
             Push_Match_False;
             return;
          else
-            Error ("'" & Node.Text & "' not found");
+            Error ("'" & Name & "' not found");
          end if;
       else
          --  We're on an explicit name. Push the result.
@@ -980,7 +1037,7 @@ package body Wrapping.Runtime.Expressions is
       --  or
       --     child ().fold (x: "", x: (x & something))
       --  which is consistent with the overall way capture works.
-      if Top_Context.Name_Captured /= "" then
+      if not (Top_Context.Name_Captured = "") then
          Include_Symbol
            (To_Text (Top_Context.Name_Captured), Current_Expression);
       end if;
@@ -1199,37 +1256,38 @@ package body Wrapping.Runtime.Expressions is
 
          --  Restore the context at this point of the call. This is important
          --  in particular if there was an expansion happening there, e.g.
-         --  a.all().b.all().
+         --  a.all().b.all() and to have outer actions set.
+
          Push_Frame_Context (Initial_Context.all);
 
          --  We still however need to keep control to the same visit iteration
+
          Top_Context.Visit_Decision := Visit_Decision;
 
          if Suffix.Length > 0 then
             --  If there's a suffix, then compute it to get the value of the
-            --  expansion. The outer action has to be a match check here.
-            --  If it's a post pick execute, this is only to be called on
-            --  the returning value.
+            --  expression.
 
-            Push_Frame_Context;
-            Top_Context.Outer_Expr_Action := Action_Match;
             Compute_Selector_Suffix (Suffix);
-            Pop_Frame_Context;
          else
             --  Otherwise, the value is the just the last stacked object.
-            --  Dereference it to remove the potential "It" attribute
+            --  Dereference it to remove the potential "it" attribute
+            --  TODO: this is a bit of a kludgy way to handle "it".
+
             Push_Object (Top_Object.Dereference);
-         end if;
 
-         --  .all () may itself be in an expression such as .all().fold(). In
-         --  this case an expand action is set and needs to be executed.
-         Call_Yield (Initial_Context.Yield_Callback);
+            if Top_Context.Yield_Callback /= null then
+               --  We have reached a point that requires generation of a value,
+               --  e.g  as .all().fold() (in these cases, the suffix fold ()
+               --  would not have passed to all).
 
-         if Initial_Context.Outer_Expr_Action /= Action_None then
-            --  Execute the outer action once per run of the suffix, which may
-            --  be a Outer_Expression_Pick call.
+               Call_Yield (Top_Context.Yield_Callback);
+            elsif Top_Context.Outer_Expr_Action = Action_Post_Pick_Exec then
+               --  We're on an expression like pick <expression>.all ().
+               --  Execute the pick callback.
 
-            Execute_Expr_Outer_Action;
+               Execute_Expr_Outer_Action;
+            end if;
          end if;
 
          Pop_Frame_Context;
@@ -1239,6 +1297,12 @@ package body Wrapping.Runtime.Expressions is
       Push_Frame_Context_No_Match;
 
       Top_Context.Yield_Callback := Yield_Callback'Unrestricted_Access;
+
+      --  TODO: consider cases where the selector left does not generate
+      --  values, e.g.
+      --     it.all()
+      --  where it is not a generator. We would miss the case where there's
+      --  a yield callback to call.
 
       Evaluate_Expression (Selector.Selector_Left);
 
