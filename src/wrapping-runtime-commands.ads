@@ -83,8 +83,11 @@ package Wrapping.Runtime.Commands is
    procedure Handle_Command_Sequence
      (Sequence : T_Command_Sequence_Element) with
      Post => W_Stack_Size = W_Stack_Size'Old;
-   --  Handles a sequence of commands, assuming that the outer frame has been
-   --  set, in particular with the It object and other necessary data.
+   --  Handles a sequence of commands starting at a given point, assuming that
+   --  the outer frame has been set, in particular with the It object and other
+   --  necessary data. If the next element is linked by a "then", it will be
+   --  processed after the current one and iteratively up until hitting an
+   --  "elsmatch", "else" or the end of the sequence.
 
    procedure Apply_Wrapping_Program
      (It : W_Node; Lexical_Scope : access T_Entity_Type'Class) with

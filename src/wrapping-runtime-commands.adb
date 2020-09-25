@@ -175,6 +175,7 @@ package body Wrapping.Runtime.Commands is
             else
                --  Weave and wrap need to consider possible pre-existing
                --  instance
+
                A_Template_Instance :=
                  It.Get_Wrapper (Template_Section.Call.Reference);
 
@@ -233,12 +234,13 @@ package body Wrapping.Runtime.Commands is
       --  The command is the enclosing scope for all of its clauses. It will in
       --  particular receive the matching groups and the temporary values that
       --  can be used consistently in the various clauses
+
       Push_Frame (Command);
       Push_Implicit_It (It);
 
       Handle_Command_In_Current_Frame (Command);
 
-      Pop_Object; -- Pop It.
+      Pop_Object;
       Pop_Frame;
    end Handle_Command;
 
@@ -272,9 +274,8 @@ package body Wrapping.Runtime.Commands is
 
    procedure Handle_Command_In_Current_Frame (Command : T_Command) is
    begin
-      if Top_Frame.Interrupt_Program then
-         return;
-      end if;
+      --  If this is a deferred command, capture the closure and schedule it.
+      --  Otherwise, install the context and run the command.
 
       if Command.Defer then
          declare
@@ -300,23 +301,34 @@ package body Wrapping.Runtime.Commands is
 
    procedure Handle_Command_Post_Defer (Command : T_Command) is
    begin
+      --  Evaluate the match expression (which will be null if there's no
+      --  match section) then either runs the rest of the command or look
+      --  for else alteratives.
+
       if Evaluate_Match (Command.Match_Expression) then
          --  This command matched, evaluate pick if needed or go directly
          --  to the post pick section if there's none.
 
          if Command.Pick_Expression /= null then
-            --  When evaluating a pick expression, the wrapping program will
-            --  be evaluated by the outer epxression callback. This caters
+            --  When evaluating a pick expression, the rest of the command
+            --  will be evaluated by the outer action. This handles
             --  in particular for cases where more than one object is being
-            --  retreived.
+            --  retreived and that action is done in the yeild callback.
 
+            Push_Frame_Context;
             Top_Context.Outer_Expr_Action := Action_Post_Pick_Exec;
 
             Evaluate_Expression (Command.Pick_Expression);
+
+            --  Throw away the result of the pick expression, it was taken
+            --  care of as part of the post pick action.
             Pop_Object;
 
-            Top_Context.Outer_Expr_Action := Action_Match;
+            Pop_Frame_Context;
          else
+            --  If there's no pick, we're already on the right "it" object and
+            --  cand execute directly the post pick part of the command.
+
             Handle_Command_Post_Pick (Command);
          end if;
       else
@@ -342,8 +354,15 @@ package body Wrapping.Runtime.Commands is
 
                   exit when Else_Section = null;
 
+                  --  We found the begining of an else section. Evaluate its
+                  --  match expression (it will be null if just an else and
+                  --  not an elsmatch). If it works, then handle the command
+                  --  sequence starting at this point, up until the next else
+                  --  or the end of the sequence, then exit.
+
                   if Evaluate_Match (Else_Section.Match_Expression) then
                      Handle_Command_Sequence (Else_Section);
+
                      exit;
                   end if;
 
@@ -362,9 +381,9 @@ package body Wrapping.Runtime.Commands is
       Top : constant W_Object := Top_Object.Dereference;
       It  : W_Node;
    begin
-      if Top_Frame.Interrupt_Program then
-         return;
-      end if;
+      --  Start by processing the top of the stack to retreive the expected
+      --  implicit "it" object, and possibly interrupt the processing if
+      --  false or not one of the acceptable forms.
 
       if Top = Match_False then
          return;
@@ -380,24 +399,31 @@ package body Wrapping.Runtime.Commands is
       Push_Implicit_It (It);
 
       if Command.Command_Sequence /= null then
+         --  If there's a command sequence of the form do .. end, handle
+         --  from the first element until an else, elsmatch or end is hit.
+
          Handle_Command_Sequence (Command.Command_Sequence.First_Element);
       elsif Command.Template_Section /= null then
-         if Command.Template_Section.A_Visit_Action /= Unknown then
-            --  TODO: consider differences between weave and wrap here
-            --  TODO: This doesn't consider different visits, each should have
-            --  its own decision
+         --  If we're on a template section (wrap / weave / walk), process its
+         --  various forms.
 
-            if Top_Context.Visit_Decision /= null then
-               if Top_Context.Visit_Decision.all = Unknown then
-                  Top_Context.Visit_Decision.all :=
-                    Command.Template_Section.A_Visit_Action;
-               end if;
+         if Command.Template_Section.A_Visit_Action /= Unknown then
+            --  We're on a wrap <some decision> section. Update the visit
+            --  decision.
+
+            --  We should always be in the context of an iteration at this
+            --  point, and there should always be the possibilty to alter
+            --  the traversal.
+
+            pragma Assert (Top_Context.Visit_Decision /= null);
+
+            if Top_Context.Visit_Decision.all = Unknown then
+               Top_Context.Visit_Decision.all :=
+                 Command.Template_Section.A_Visit_Action;
             end if;
-         elsif Command.Template_Section.Call.Reference /= null
-           or else Command.Template_Section.Call.Args.Length /= 0
-         then
-            --  There is an explicit template call. Pass this on either the
-            --  current template or the whole tree
+         else
+            --  We're either creating or updating a template. Process the
+            --  requested action.
 
             Apply_Template_Section (Command.Template_Section);
          end if;
@@ -442,6 +468,10 @@ package body Wrapping.Runtime.Commands is
       Called_Frame  : constant Data_Frame        := Top_Frame;
       New_Ref       : W_Reference;
    begin
+      --  Command sequences are implemented as a list of section separated by
+      --  "then", "else" or "elsematch". Process iteratively all element from
+      --  the current one up until hitting one that is not linked as a "then".
+
       while Seq /= null loop
          --  First, create variables for this scope. This need to be done
          --  before any expression evaluation, as initialization and parameter
@@ -453,6 +483,13 @@ package body Wrapping.Runtime.Commands is
             declare
                Name : constant Text_Type := A_Var.Name_Node.Text;
             begin
+               --  Variables stored in templates are modeled through
+               --- references, so that code can refer to one value and get
+               --  updated when the field is updated.
+
+               --  TODO: Do we really need that with defer expressions
+               --  all over?
+
                New_Ref := new W_Reference_Type;
 
                case A_Var.Kind is
@@ -469,6 +506,10 @@ package body Wrapping.Runtime.Commands is
                      New_Ref.Value := new W_Vector_Type;
 
                   when Object_Kind =>
+                     --  TODO: it's strange to use Match_False as a default
+                     --  here (but it seems to have functional consequences in
+                     --  some of the tests). Consider a W_Object_Type instead.
+
                      New_Ref.Value := Match_False;
 
                   when others =>
@@ -487,7 +528,8 @@ package body Wrapping.Runtime.Commands is
             end;
          end loop;
 
-         --  Second, call initializations
+         --  Second, call initializations in the context of the current
+         --  template instance.
 
          for A_Var of Seq.Vars loop
             declare
@@ -500,11 +542,12 @@ package body Wrapping.Runtime.Commands is
                   Top_Context.Left_Value        := New_Ref.Value;
                   Top_Context.Is_Root_Selection := True;
 
-                  Evaluate_Expression (A_Var.Init_Expr);
+                  --  TODO: we should have some type checking here, accepting
+                  --  either a W_Defer or a value that matches the expected
+                  --  type
+                  New_Ref.Value := Evaluate_Expression (A_Var.Init_Expr);
 
                   Pop_Frame_Context;
-
-                  New_Ref.Value := Pop_Object;
                end if;
             end;
          end loop;
@@ -512,17 +555,35 @@ package body Wrapping.Runtime.Commands is
          --  Third, call parameter expressions. This needs to be done in the
          --  context of the calling frame, which is temporarily restored for
          --  this purpose. Calling frame may be null here, e.g. in the case
-         --  of a defered command. In this case, there's no way to modify the
-         --  value of the variable.
+         --  of a defered command. This means in particular that parameters
+         --  passed to a template cannot value the variable of a deferred
+         --  command, e.g. in:
+         --
+         --     template X do
+         --        defer do
+         --           var Y : Integer;
+         --        end;
+         --     end;
+         --
+         --     wrap X (0); # error
 
          if Calling_Frame /= null then
+            --  Pushes the calling frame back to the top.
+
             Push_Frame (Calling_Frame);
+
+            --  Looks at all the variables just created an initializes, and
+            --  see if there's a parameter expression to apply.
 
             for A_Var of Seq.Vars loop
                declare
                   Name : constant Text_Type := A_Var.Name_Node.Text;
                begin
                   New_Ref := W_Reference (Called_Frame.Symbols.Element (Name));
+
+                  --  If there's at least a by-position parameter left to use,
+                  --  or if there's a by-name parameter of the correct name,
+                  --  use it to evaluate the current variable
 
                   if Calling_Frame.Template_Parameters_Position.Length > 0
                     or else Calling_Frame.Template_Parameters_Names.Contains
