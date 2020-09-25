@@ -158,7 +158,6 @@ package body Wrapping.Runtime.Matching is
       Generator : Generator_Callback_Type)
    is
       Result_Variable : aliased Capture_Result_Type;
-      Dummy_Generation_Control : aliased Visit_Action;
    begin
       Push_Implicit_It (Root);
 
@@ -201,8 +200,7 @@ package body Wrapping.Runtime.Matching is
          --  Upon processing, the regular expression engine modifies the
          --  visit decision outcome. Make sure it doesn't modify it for the
          --  above iteration in case there's no generation.
-         Top_Context.Visit_Decision :=
-           Dummy_Generation_Control'Unchecked_Access;
+         Top_Context.Visit_Decision := null;
 
          Handle_Regexpr_Next_Value;
          Pop_Underneath_Top;
@@ -357,10 +355,12 @@ package body Wrapping.Runtime.Matching is
          Matcher : constant Regexpr_Matcher := Top_Context.Regexpr;
       begin
          if Top_Object /= Match_False then
-            if Matcher.Overall_Yield_Callback /= null then
-               Top_Context.Visit_Decision.all := Into;
-            else
-               Top_Context.Visit_Decision.all := Stop;
+            if Top_Context.Visit_Decision /= null then
+               if Matcher.Overall_Yield_Callback /= null then
+                  Top_Context.Visit_Decision.all := Into;
+               else
+                  Top_Context.Visit_Decision.all := Stop;
+               end if;
             end if;
          end if;
       end Control_Iteration;

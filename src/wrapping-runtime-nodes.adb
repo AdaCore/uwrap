@@ -682,7 +682,7 @@ package body Wrapping.Runtime.Nodes is
       Result : W_Object;
    begin
       Push_Frame_Context;
-      Top_Context.Allocate_Callback := null;
+      Top_Context.Do_Allocate := False;
 
       Found :=
         W_Node_Type'Class (An_Entity.all).Traverse
@@ -702,6 +702,7 @@ package body Wrapping.Runtime.Nodes is
             Error ("allocators are not allowed in folding browsing functions");
          end if;
 
+         Top_Context.Do_Allocate := True;
          Top_Context.Allocate_Callback := Allocate'Unrestricted_Access;
 
          Found :=

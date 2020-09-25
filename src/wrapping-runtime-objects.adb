@@ -615,6 +615,7 @@ package body Wrapping.Runtime.Objects is
       ---------------------
 
       procedure Result_Callback is
+         Visit_Decision : Visit_Action;
       begin
          --  When reaching a value to be picked on a function f, either:
          --  (1) the caller is not iterating over generated values, in which
@@ -631,8 +632,12 @@ package body Wrapping.Runtime.Objects is
             Top_Frame.Interrupt_Program := True;
          else
             Push_Frame (Calling_Frame);
-            Top_Context.Visit_Decision.all :=
-              Process_Generated_Value (Top_Object, null);
+
+            Visit_Decision := Process_Generated_Value (Top_Object, null);
+
+            if Top_Context.Visit_Decision /= null then
+               Top_Context.Visit_Decision.all := Visit_Decision;
+            end if;
 
             Last_Result := Pop_Object;
 

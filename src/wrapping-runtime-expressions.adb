@@ -316,7 +316,7 @@ package body Wrapping.Runtime.Expressions is
             end;
 
          when Template_New_Expr =>
-            if Top_Context.Allocate_Callback /= null then
+            if Top_Context.Do_Allocate then
                Handle_New (Expr.New_Tree);
             else
                Push_Match_False;
@@ -629,9 +629,8 @@ package body Wrapping.Runtime.Expressions is
    -- Handle_Template_Call --
    --------------------------
 
-   function Handle_Template_Call
+   procedure Handle_Template_Call
      (Instance : W_Object; Args : T_Arg_Vectors.Vector)
-      return Visit_Action
    is
       --  If not already evaluated, parameter evaluation for templates goes as
       --  follows: (1) actual expressions for parameters on a template call are
@@ -737,12 +736,9 @@ package body Wrapping.Runtime.Expressions is
          end if;
       end Handle_Template_Call_Recursive;
 
-      Visit_Result : aliased Visit_Action := Unknown;
    begin
       if A_Template_Instance.Is_Evaluated then
          Process_Parameters (Args, Update_Parameter'Access);
-
-         return Into;
       else
          A_Template_Instance.Is_Evaluated := True;
 
@@ -750,7 +746,6 @@ package body Wrapping.Runtime.Expressions is
 
          Push_Frame (A_Template_Instance.Defining_Entity);
          Push_Implicit_It (A_Template_Instance);
-         Top_Context.Visit_Decision := Visit_Result'Unchecked_Access;
          Top_Frame.Current_Template := W_Object (A_Template_Instance);
 
          if A_Template_Instance.Defining_Entity.Full_Name = "standard.root"
@@ -773,12 +768,6 @@ package body Wrapping.Runtime.Expressions is
 
          Pop_Object;
          Pop_Frame;
-
-         if Visit_Result = Unknown then
-            return Into;
-         else
-            return Visit_Result;
-         end if;
       end if;
    end Handle_Template_Call;
 
@@ -1281,9 +1270,6 @@ package body Wrapping.Runtime.Expressions is
          New_Node : W_Template_Instance;
          Captured : constant Text_Type :=
            To_Text (New_Tree.Call.Captured_Name);
-
-         --  TODO: Is this necessary?
-         Dummy_Action : Visit_Action;
       begin
          Push_Error_Location (New_Tree.Node);
          New_Node :=
@@ -1303,12 +1289,14 @@ package body Wrapping.Runtime.Expressions is
             --  for the form new (T() []), only the first one needs to be
             --  passed above.
 
-            Top_Context.Allocate_Callback.all (New_Node);
+            if Top_Context.Allocate_Callback /= null then
+               Top_Context.Allocate_Callback.all (New_Node);
+            end if;
          else
             Add_Wrapping_Child (Parent, New_Node);
          end if;
 
-         Dummy_Action := Handle_Template_Call
+         Handle_Template_Call
            (W_Object (New_Node), New_Tree.Call.Args);
          Pop_Error_Location;
 

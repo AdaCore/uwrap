@@ -180,6 +180,13 @@ package Wrapping.Runtime.Frames is
       --  directly, but instead through the Call_Yield subprogram which will
       --  set the correct frame context.
 
+      Do_Allocate : Boolean := False;
+      --  Allocations is not always allowed in expressions - in particular,
+      --  the semantic of boolean expressions is that they should always be
+      --  resolved without allocation if possible, and only allocate if
+      --  necessary. This flag allows to track wether allocation is allowed or
+      --  not.
+
       Allocate_Callback : Allocate_Callback_Type := null;
       --  Callback used to record objects allocated through the new ()
       --  function. This needs to be set in particular in browsing functions,

@@ -75,9 +75,8 @@ package Wrapping.Runtime.Expressions is
    --  Same as the procedure versions, but returns the result instead of
    --  pushing it to the stack.
 
-   function Handle_Template_Call
-     (Instance : W_Object; Args : T_Arg_Vectors.Vector)
-      return Visit_Action with
+   procedure Handle_Template_Call
+     (Instance : W_Object; Args : T_Arg_Vectors.Vector) with
      Post => W_Stack_Size = W_Stack_Size'Old;
    --  Given a template instance "Instance", computes the call with the
    --  arguments processed in parameters. This can be used in a walk / weave /

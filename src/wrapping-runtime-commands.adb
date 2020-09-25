@@ -58,8 +58,11 @@ package body Wrapping.Runtime.Commands is
    --  maybe this should be frame information?
 
    Deferred_Commands : Deferred_Command_Vectors.Vector;
+   --  The list of commands deferred to the next iteration
 
    Templates_To_Traverse : W_Template_Instance_Vectors.Vector;
+   --  The list of templates created by this iteration, on which the program
+   --  will be run durnign the next iteration.
 
    procedure Handle_Command_Post_Defer (Command : T_Command) with
      Post => W_Stack_Size = W_Stack_Size'Old;
@@ -68,53 +71,40 @@ package body Wrapping.Runtime.Commands is
    --  will be cleared afterwards (see Install_Command_Context /
    --  Uninstall_Command_Context).
 
-   function Analyze_Visitor
-     (E : access W_Object_Type'Class; Result : out W_Object)
-      return Wrapping.Semantic.Structure.Visit_Action;
+   function Run_Main_Program (Node : W_Node) return Visit_Action;
+   --  Runs the main program on the Node in parameter, returns any visit
+   --  decision that may have been taken.
 
-   procedure Pop_Error_Location;
-
-   procedure Apply_Template_Action
-     (It : W_Node; Template_Clause : T_Template_Section);
-
-   procedure Allocate_Detached (E : access W_Object_Type'Class);
+   procedure Apply_Template_Section (Template_Section : T_Template_Section);
+   --  Executes the template section (weave/wrap/walk) of a given command
 
    procedure Install_Command_Context (Command : T_Command);
+   --  Installs the context prior to running a command
 
    procedure Uninstall_Command_Context;
+   --  Installs the context prior to running a command
 
-   function Handle_Defered_Command (Command : Deferred_Command) return Boolean;
-
-   ------------------------
-   -- Pop_Error_Location --
-   ------------------------
-
-   procedure Pop_Error_Location is
-   begin
-      Wrapping.Pop_Error_Location;
-   end Pop_Error_Location;
+   function Run_Defered_Command (Command : Deferred_Command) return Boolean;
+   --  Evaluates the condition of a deferred command. If sucessful, runs that
+   --  command and returns true. Returns false otherwise.
 
    ---------------------------
    -- Apply_Template_Action --
    ---------------------------
 
-   procedure Apply_Template_Action
-     (It : W_Node; Template_Clause : T_Template_Section)
+   procedure Apply_Template_Section (Template_Section : T_Template_Section)
    is
+      It                  : constant W_Node := W_Node (Get_Implicit_It);
       A_Template_Instance : W_Template_Instance;
       Result              : W_Object;
-
-      --  TODO: is this still necessary?
-      Dummy_Action : Visit_Action;
    begin
-      Push_Error_Location (Template_Clause.Node);
-      Push_Implicit_It (It);
+      Push_Error_Location (Template_Section.Node);
 
-      if Template_Clause.Call.Is_Null then
+      if Template_Section.Call.Is_Null then
          --  We've set a null template - the objective is to prevent this
          --  entity to be wrapped by this template.
 
-         if Template_Clause.Call.Args.Length /= 1 then
+         if Template_Section.Call.Args.Length /= 1 then
             Error ("expected one argument to null");
          end if;
 
@@ -123,11 +113,17 @@ package body Wrapping.Runtime.Commands is
          --  There's nothing to check on the expression below. Deactivate the
          --  expression callback (otherwise, it may perform wrong calls, either
          --  to an unwanted check, or to the outer pick function.
+
          Top_Context.Outer_Expr_Action := Action_None;
 
-         Evaluate_Expression (Template_Clause.Call.Args.Element (1).Expr);
+         --  Retreives the template that needs to be forbidden
+
+         Evaluate_Expression (Template_Section.Call.Args.Element (1).Expr);
          Result := Pop_Object.Dereference;
+
          Pop_Frame_Context;
+
+         --  Checks that we indeed retreived a template
 
          if Result.all not in W_Static_Entity_Type'Class
            or else W_Static_Entity (Result).An_Entity.all not in
@@ -136,71 +132,97 @@ package body Wrapping.Runtime.Commands is
             Error ("expected template reference");
          end if;
 
-         It.Forbidden_Wrapper_Types.Include
-           (T_Template (W_Static_Entity (Result).An_Entity).Full_Name);
+         --  If the template was not previously instantiated, then forbids its
+         --  creation.
 
-         --  TODO: remove the template if it's already been created in the
-         --  context of a weave clause
+         declare
+            Name : constant Text_Type :=
+              T_Template (W_Static_Entity (Result).An_Entity).Full_Name;
+         begin
+            if not It.Wrappers_By_Full_Id.Contains (Name) then
+               It.Forbidden_Wrapper_Types.Include (Name);
+            end if;
+         end;
       else
-         if Template_Clause.Call.Reference = null then
+         --  We're on a wrap / weave / walk template section
+
+         if Template_Section.Call.Reference = null then
             --  No name to the call, that means that we're expecting to
-            --  self-weave the current template.
-            if Template_Clause.Kind /= Weave_Kind then
+            --  self-weave the current template. Check that the object is
+            --  a template instance (we can't self weave input nodes) and that
+            --  this is indeed a weave clause
+
+            if Template_Section.Kind /= Weave_Kind then
                Error
                  ("self wrap not allowed, either weave or"
                   & " provide a template name");
-            elsif It.all in W_Template_Instance_Type'Class then
-               A_Template_Instance := W_Template_Instance (It);
-            else
+            elsif It.all not in W_Template_Instance_Type'Class then
                Error ("only template instances can be self weaved");
-            end if;
-         elsif Template_Clause.Call.Reference.all in T_Template_Type'Class then
-            A_Template_Instance :=
-              It.Get_Wrapper (Template_Clause.Call.Reference);
-
-            if Template_Clause.Kind = Walk_Kind then
-               A_Template_Instance :=
-                 Create_Template_Instance
-                   (Template_Clause.Call.Reference, It, False);
-            elsif
-              (Template_Clause.Kind = Weave_Kind
-               or else A_Template_Instance = null
-               or else A_Template_Instance.Is_Wrapping = False)
-              and then not It.Forbidden_Wrapper_Types.Contains
-                (Template_Clause.Call.Reference.Full_Name)
-            then
-               if A_Template_Instance = null then
-                  A_Template_Instance :=
-                    Create_Template_Instance
-                      (Template_Clause.Call.Reference, It, True);
-               end if;
-
-               if Template_Clause.Kind = Wrap_Kind then
-                  A_Template_Instance.Is_Wrapping := True;
-               end if;
             else
-               A_Template_Instance := null;
+               A_Template_Instance := W_Template_Instance (It);
             end if;
          else
-            Error ("unexpected template call reference type");
+            --  We're operating with an actual template name. Create or
+            --  retreive the instance
+
+            if Template_Section.Kind = Walk_Kind then
+               --  Walk always create a new instance, but this instance
+               --  will not be stored.
+
+               A_Template_Instance :=
+                 Create_Template_Instance
+                   (Template_Section.Call.Reference, It, False);
+            else
+               --  Weave and wrap need to consider possible pre-existing
+               --  instance
+               A_Template_Instance :=
+                 It.Get_Wrapper (Template_Section.Call.Reference);
+
+               --  Create the template if null and not forbidden
+
+               if A_Template_Instance = null
+                 and then not It.Forbidden_Wrapper_Types.Contains
+                   (Template_Section.Call.Reference.Full_Name)
+               then
+                  A_Template_Instance :=
+                    Create_Template_Instance
+                      (Template_Section.Call.Reference, It, True);
+               end if;
+
+               --  If we have an instance and we're on a wrap clause, check
+               --  that this instance wasn't already processed in the context
+               --  of a wrap clause, and set the wrap flag to true in that case
+               --  to prevent further processing in cases of wrap clauses.
+
+               if A_Template_Instance /= null and then
+                 Template_Section.Kind = Wrap_Kind
+               then
+                  if A_Template_Instance.Is_Wrapping then
+                     A_Template_Instance := null;
+                  else
+                     A_Template_Instance.Is_Wrapping := True;
+                  end if;
+               end if;
+            end if;
          end if;
 
+         --  If we found an instance, store its reference to the captured name
+         --  of the clause if any, then process its call.
+
          if A_Template_Instance /= null then
-            if not (Template_Clause.Call.Captured_Name = "") then
+            if not (Template_Section.Call.Captured_Name = "") then
                Include_Symbol
-                 (To_Text (Template_Clause.Call.Captured_Name),
+                 (To_Text (Template_Section.Call.Captured_Name),
                   W_Object (A_Template_Instance));
             end if;
 
-            Dummy_Action :=
-              Handle_Template_Call
-                (W_Object (A_Template_Instance), Template_Clause.Call.Args);
+            Handle_Template_Call
+              (W_Object (A_Template_Instance), Template_Section.Call.Args);
          end if;
       end if;
 
-      Pop_Object;
       Pop_Error_Location;
-   end Apply_Template_Action;
+   end Apply_Template_Section;
 
    --------------------
    -- Handle_Command --
@@ -220,25 +242,13 @@ package body Wrapping.Runtime.Commands is
       Pop_Frame;
    end Handle_Command;
 
-   -----------------------
-   -- Allocate_Detached --
-   -----------------------
-
-   procedure Allocate_Detached (E : access W_Object_Type'Class) is
-   begin
-      --  when allocating an object outside of a browsing function, nothign
-      --  special to do
-      null;
-   end Allocate_Detached;
-
    -----------------------------
    -- Install_Command_Context --
    -----------------------------
 
    procedure Install_Command_Context (Command : T_Command) is
    begin
-      Top_Context.Allocate_Callback :=
-        Allocate_Detached'Unrestricted_Access;
+      Top_Context.Do_Allocate       := True;
       Top_Context.Outer_Expr_Action := Action_Match;
       Top_Context.Current_Command   := Command;
       Top_Context.Is_Root_Selection := True;
@@ -377,9 +387,11 @@ package body Wrapping.Runtime.Commands is
             --  TODO: This doesn't consider different visits, each should have
             --  its own decision
 
-            if Top_Context.Visit_Decision.all = Unknown then
-               Top_Context.Visit_Decision.all :=
-                 Command.Template_Section.A_Visit_Action;
+            if Top_Context.Visit_Decision /= null then
+               if Top_Context.Visit_Decision.all = Unknown then
+                  Top_Context.Visit_Decision.all :=
+                    Command.Template_Section.A_Visit_Action;
+               end if;
             end if;
          elsif Command.Template_Section.Call.Reference /= null
            or else Command.Template_Section.Call.Args.Length /= 0
@@ -387,7 +399,7 @@ package body Wrapping.Runtime.Commands is
             --  There is an explicit template call. Pass this on either the
             --  current template or the whole tree
 
-            Apply_Template_Action (It, Command.Template_Section);
+            Apply_Template_Section (Command.Template_Section);
          end if;
       end if;
 
@@ -398,7 +410,7 @@ package body Wrapping.Runtime.Commands is
    -- Handle_Defered_Command --
    ----------------------------
 
-   function Handle_Defered_Command (Command : Deferred_Command) return Boolean
+   function Run_Defered_Command (Command : Deferred_Command) return Boolean
    is
       Result : Boolean := False;
    begin
@@ -418,7 +430,7 @@ package body Wrapping.Runtime.Commands is
       Pop_Frame;
 
       return Result;
-   end Handle_Defered_Command;
+   end Run_Defered_Command;
 
    -----------------------------
    -- Handle_Command_Sequence --
@@ -601,17 +613,12 @@ package body Wrapping.Runtime.Commands is
    -- Analyze_Visitor --
    ---------------------
 
-   function Analyze_Visitor
-     (E : access W_Object_Type'Class; Result : out W_Object)
-      return Visit_Action
+   function Run_Main_Program (Node : W_Node) return Visit_Action
    is
-      N              : W_Node;
       Visit_Result   : aliased Visit_Action := Unknown;
    begin
       Push_Frame (Wrapping.Semantic.Analysis.Root);
       Top_Context.Visit_Decision := Visit_Result'Unchecked_Access;
-
-      Result := null;
 
       --  Check if this entity has already been analyzed through this visitor
       --  invocation.
@@ -620,20 +627,18 @@ package body Wrapping.Runtime.Commands is
       --  one. If they are greater and we're on a lower one, it means that they
       --  are over.
 
-      if E.all not in W_Node_Type'Class then
+      if Node.all not in W_Node_Type'Class then
          Error ("expected node type");
       end if;
 
-      N := W_Node (E);
-
-      while N.Visited_Stack.Length > 0
-        and then N.Visited_Stack.Last_Element > Current_Visitor_Id
+      while Node.Visited_Stack.Length > 0
+        and then Node.Visited_Stack.Last_Element > Current_Visitor_Id
       loop
-         N.Visited_Stack.Delete_Last;
+         Node.Visited_Stack.Delete_Last;
       end loop;
 
-      if N.Visited_Stack.Length > 0
-        and then N.Visited_Stack.Last_Element = Current_Visitor_Id
+      if Node.Visited_Stack.Length > 0
+        and then Node.Visited_Stack.Last_Element = Current_Visitor_Id
       then
          --  If the last id in the stack is the current one, they we've already
          --  visited this entity. We already also made the decisions on sub
@@ -646,9 +651,9 @@ package body Wrapping.Runtime.Commands is
          --  this id at the end, as to make sure that potential iterations on
          --  this visit don't cover this node again
 
-         N.Visited_Stack.Append (Current_Visitor_Id);
+         Node.Visited_Stack.Append (Current_Visitor_Id);
 
-         Apply_Wrapping_Program (N, Wrapping.Semantic.Analysis.Root);
+         Apply_Wrapping_Program (Node, Wrapping.Semantic.Analysis.Root);
 
          Pop_Frame;
 
@@ -658,15 +663,34 @@ package body Wrapping.Runtime.Commands is
             return Visit_Result;
          end if;
       end if;
-   end Analyze_Visitor;
+   end Run_Main_Program;
 
    -------------------
    -- Analyse_Input --
    -------------------
 
    procedure Analyse_Input (Root_Entity : W_Node) is
+
+      function Visitor
+        (E : access W_Object_Type'Class; Result : out W_Object)
+         return Visit_Action;
+
+      -------------
+      -- Visitor --
+      -------------
+
+      function Visitor
+        (E : access W_Object_Type'Class; Result : out W_Object)
+         return Visit_Action
+      is
+      begin
+         Result := null;
+         return Run_Main_Program (W_Node (E));
+      end Visitor;
+
       Dummy_Action    : Visit_Action;
       Traverse_Result : W_Object;
+
    begin
       --  Set the visitor id - we're on the main iteration, id is 0.
 
@@ -675,7 +699,7 @@ package body Wrapping.Runtime.Commands is
       Push_Frame (Wrapping.Semantic.Analysis.Root);
       Dummy_Action :=
         Root_Entity.Traverse
-          (Child_Depth, True, Traverse_Result, Analyze_Visitor'Access);
+          (Child_Depth, True, Traverse_Result, Visitor'Access);
       Pop_Frame;
    end Analyse_Input;
 
@@ -685,8 +709,7 @@ package body Wrapping.Runtime.Commands is
 
    procedure Analyzed_Deferred is
       A_Template_Instance : W_Template_Instance;
-      Dummy_Action        : Visit_Action;
-      Traverse_Result     : W_Object;
+      A_Visit_Action      : Visit_Action;
 
       Files         : W_Template_Instance_Vectors.Vector;
       Output        : W_Template_Instance_Vectors.Vector;
@@ -736,7 +759,7 @@ package body Wrapping.Runtime.Commands is
                Next_Deferred : Deferred_Command_Vectors.Vector;
             begin
                for D of Deferred_Commands loop
-                  if not Handle_Defered_Command (D) then
+                  if not Run_Defered_Command (D) then
                      Next_Deferred.Append (D);
                   end if;
                end loop;
@@ -753,9 +776,12 @@ package body Wrapping.Runtime.Commands is
                --  creation. So we're not using the traverse function anymore,
                --  but instead just go through the list.
 
-               Dummy_Action := Analyze_Visitor (T, Traverse_Result);
+               A_Visit_Action := Run_Main_Program (W_Node (T));
+               exit when A_Visit_Action = Stop;
             end loop;
          end;
+
+         exit when A_Visit_Action = Stop;
       end loop;
 
       Buffer.Full_Cursor_Update := True;
