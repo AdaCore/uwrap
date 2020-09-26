@@ -180,7 +180,7 @@ package Wrapping.Runtime.Frames is
       --  directly, but instead through the Call_Yield subprogram which will
       --  set the correct frame context.
 
-      Do_Allocate : Boolean := False;
+      Allow_Allocate : Boolean := False;
       --  Allocations is not always allowed in expressions - in particular,
       --  the semantic of boolean expressions is that they should always be
       --  resolved without allocation if possible, and only allocate if

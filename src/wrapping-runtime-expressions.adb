@@ -99,18 +99,16 @@ package body Wrapping.Runtime.Expressions is
       Run_Outer_Action : Boolean := True;
       --  Some expression need to run the outer action. For example:
       --    match a
-      --  a needs to match with It. Other do not. For example in:
-      --     match has (a)
-      --  we need to not match (has (a)) expression. Similarly, in :
+      --  a needs to match with It. Other do not. For example in :
       --     match a or b
       --  we need to match individually a and b, but not the expression (a or
-      --  b), otherwise it wouldn't be possible to write something like:
-      --     match has (a) or has (b)
-      --  (has would discusonnect the outer match, but the overall expression
-      --  would match again).
-
-      Do_Pop_Frame_Context : Boolean := False;
+      --  b)
+      --  TODO: we should really disconnect outer match and pick, as we don't
+      --  want to follow the same semantic for pick (in a or b, we only want
+      --  to pick the result. At this point, use Top_Object.Match_Mode instead
+      --  of this flag.
    begin
+      Push_Frame_Context;
       Push_Error_Location (Expr.Node);
 
       case Expr.Kind is
@@ -201,15 +199,17 @@ package body Wrapping.Runtime.Expressions is
             Run_Outer_Action := False;
 
          when Template_Binary_Expr =>
-            --  The convention for "and" and "or" binary operators is to push
-            --  to the stack the last object that matched, otherwise false.
-            --  This allows to capture that object later on, which can be
-            --  useful for example if that object is a newly allocated one.
-
             declare
                Left, Right : W_Object;
             begin
                case Expr.Node.As_Binary_Expr.F_Op.Kind is
+                  --  The convention for "and" and "or" binary operators is
+                  --  to push to the stack the last object that matched,
+                  --  otherwise false. This allows to capture that object later
+                  --  on, which can be useful for example if that object is a
+                  --  newly allocated one, e.g in
+                  --     a or new (some_name ())
+
                   when Template_Operator_And =>
                      Left := Evaluate_Expression (Expr.Binary_Left);
 
@@ -225,9 +225,16 @@ package body Wrapping.Runtime.Expressions is
                         Push_Match_False;
                      end if;
 
+                     --  Outer actions are resolved by the operands. E.g. in:
+                     --     it (a or b)
+                     --  a and b are matched agains it one after the other,
+                     --  but the result doesn't need to be.
+
                      Run_Outer_Action := False;
 
                   when Template_Operator_Or =>
+                     --  See And implementation
+
                      Left := Evaluate_Expression (Expr.Binary_Left);
 
                      if Left /= Match_False then
@@ -246,23 +253,29 @@ package body Wrapping.Runtime.Expressions is
 
                   when Template_Operator_Amp =>
                      declare
-                        Slice : Buffer_Slice := Get_Empty_Slice;
+                        Slice       : Buffer_Slice;
                      begin
+                        --  Concatenation evaluates both object, then write
+                        --  their string contents to the buffer one after the
+                        --  other - the resulting slice will effectively be
+                        --  the concatenation of the two results.
+
                         Push_Frame_Context_No_Outer;
+
                         Push_Buffer_Cursor;
-                        Slice.Last := Evaluate_Expression
-                          (Expr.Binary_Left).Write_String.Last;
+
+                        Slice := Evaluate_Expression
+                          (Expr.Binary_Left).Write_String;
                         Slice.Last := Evaluate_Expression
                           (Expr.Binary_Right).Write_String.Last;
+
                         Push_Object
-                          (W_Object'
-                             (new W_String_Type'
-                                  (Value  => To_Unbounded_Text
-                                       (Buffer.Str
-                                          (Slice.First.Offset
-                                           .. Slice.Last.Offset)))));
+                          (To_W_String
+                             (Buffer.Str
+                                  (Slice.First.Offset .. Slice.Last.Offset)));
 
                         Pop_Buffer_Cursor;
+
                         Pop_Frame_Context;
                      end;
                   when Template_Operator_Plus | Template_Operator_Minus |
@@ -291,6 +304,12 @@ package body Wrapping.Runtime.Expressions is
                if Expr.Node.As_Unary_Expr.F_Op.Kind = Template_Operator_Not
                then
                   if Right = Match_False then
+                     --  In the case of a "not" operator, stack the top object,
+                     --  so that something like:
+                     --     it (x: not something);
+                     --  will match the value in x that correspond to the
+                     --  entity that validated the expression.
+
                      Push_Match_True (Top_Object.Dereference);
                   else
                      Push_Match_False;
@@ -302,7 +321,12 @@ package body Wrapping.Runtime.Expressions is
 
          when Template_Literal =>
             if Expr.Node.Text = "true" then
-               Push_Match_True (Top_Object);
+               --  A "true" value automatically takes the value of the top
+               --  object so that the value of an expression can easily be
+               --  captured, as in:
+               --     a.b.child (x: true).c
+
+               Push_Match_True (Top_Object.Dereference);
             elsif Expr.Node.Text = "false" then
                Push_Match_False;
             else
@@ -328,6 +352,7 @@ package body Wrapping.Runtime.Expressions is
                if Expr.Str_Kind = String_Regexp then
                   --  If we wanted a regexp, pop the object on the stack and
                   --  replace is with a regexp wrapper.
+
                   Push_Object
                     (W_Object'
                        (new W_Regexp_Type'
@@ -336,13 +361,12 @@ package body Wrapping.Runtime.Expressions is
                                     (Slice.First.Offset
                                      .. Slice.Last.Offset)))));
                else
+                  --  Otherwise just push the string
+
                   Push_Object
-                    (W_Object'
-                       (new W_String_Type'
-                            (Value => To_Unbounded_Text
-                                 (Buffer.Str
-                                    (Slice.First.Offset
-                                     .. Slice.Last.Offset)))));
+                    (To_W_String
+                       (Buffer.Str
+                            (Slice.First.Offset .. Slice.Last.Offset)));
                end if;
 
                Pop_Buffer_Cursor;
@@ -354,9 +378,13 @@ package body Wrapping.Runtime.Expressions is
             Handle_Call (Expr);
             Pop_Frame_Context;
 
-            --  Prepare the matching context for the resulting value. As we're
-            --  on a call match, we can change the context without pushing /
-            --  popping (there's nothing else).
+            --  Prepare the matching context for matching the resulting value
+            --  If the match mode is the default ref, switch to default call. O
+            --  bjects usually don't compare their result with a call but just
+            --  check the fact that a call work, e.g. in:
+            --     it (child (x))
+            --  it will check that there's a child (x) as opposed to checking
+            --  that this child is equal to it.
 
             if Top_Context.Match_Mode = Match_Ref_Default then
                Top_Context.Match_Mode := Match_Call_Default;
@@ -367,22 +395,28 @@ package body Wrapping.Runtime.Expressions is
                Deferred_Expr : constant W_Deferred_Expr :=
                  new W_Deferred_Expr_Type;
             begin
+               --  If we're on a defered expression, just capture the
+               --  environment and push the expression.
+
                Capture_Deferred_Environment (Deferred_Expr, Expr);
                Push_Object (Deferred_Expr);
-
-               Pop_Error_Location;
             end;
 
          when Template_New_Expr =>
-            if Top_Context.Do_Allocate then
+            --  Expression that contain allocators are executed twice in
+            --  certain situations, for example when doing a tree traversal,
+            --  once to check if they can match without the need of the
+            --  allocator (e.g. if allocation fail) and one with the allocator
+            --  allowed. Only handle new in that second stage, push false
+            --  otherwise.
+
+            if Top_Context.Allow_Allocate then
                Handle_New (Expr.New_Tree);
             else
                Push_Match_False;
             end if;
 
-            Push_Frame_Context;
             Top_Context.Match_Mode := Match_Has;
-            Do_Pop_Frame_Context   := True;
 
          when Template_At_Ref =>
             if Top_Context.Left_Value = null then
@@ -414,7 +448,10 @@ package body Wrapping.Runtime.Expressions is
 
             Pop_Frame_Context;
 
-            Run_Outer_Action := False;
+            --  We already performed a match inside the qualifier. Don't
+            --  perform another one again here.
+
+            Top_Context.Match_Mode := Match_None;
 
          when Template_Match_Expr =>
             Push_Frame_Context_No_Pick;
@@ -440,11 +477,8 @@ package body Wrapping.Runtime.Expressions is
          Execute_Expr_Outer_Action;
       end if;
 
-      if Do_Pop_Frame_Context then
-         Pop_Frame_Context;
-      end if;
-
       Pop_Error_Location;
+      Pop_Frame_Context;
    end Evaluate_Expression;
 
    -------------------------
@@ -500,7 +534,8 @@ package body Wrapping.Runtime.Expressions is
          return True;
       end if;
 
-      --  Check in the dynamic symols in the frame
+      --  If we haven't found an intrinsic, check the dynamic symbols in the
+      --  frame. Warn in case of ambiguities
 
       Tentative_Symbol := Get_Local_Symbol (Name);
 
@@ -509,6 +544,10 @@ package body Wrapping.Runtime.Expressions is
       --  Check if the current module is the name we're looking for
 
       if To_Text (A_Module.Name) = Name then
+         if Tentative_Symbol /= null then
+            Error ("symbol name hiding module name");
+         end if;
+
          Push_Object
            (W_Object'
               (new W_Static_Entity_Type'(An_Entity => T_Entity (A_Module))));
@@ -577,6 +616,10 @@ package body Wrapping.Runtime.Expressions is
          end if;
       end if;
 
+      --  If we haven't found a symbol yet, then there's no global identifier,
+      --  return false to allow other search processing. Otherwise, push
+      --  the initial symbol and return true to signal success.
+
       if Tentative_Symbol = null then
          return False;
       else
@@ -636,22 +679,24 @@ package body Wrapping.Runtime.Expressions is
       --  We're resolving a reference to an entity
 
       if Top_Context.Is_Root_Selection then
-         --  If we're on the implicit entity, then first check if there's
-         --  some more global identifier overriding it.
+         --  If we're at the start of a selection (or not on a selection), we
+         --  may be refering to a global identifier.
 
          if Push_Global_Identifier (Name) then
 
             return;
          end if;
 
-         --  Retreive the entity from implicit It. If Implicit new exist,
-         --  we need to also attempt at retreiving its value. We'll return
-         --  either the entity coming from one of the two, or raise an error
-         --  if both contain such name.
+         --  If we're not refering to a global identifier, we may instead
+         --  be refering to a field or method of the implicit it.
 
          if Get_Implicit_It.Push_Value (Name) then
             return;
          end if;
+
+         --  If neither is found, either we're in a match process, so we just
+         --  push match false, or we're in a situation that does expect a value
+         --  and we need to signal an error.
 
          if Top_Context.Match_Mode /= Match_None then
             Push_Match_False;
@@ -660,7 +705,8 @@ package body Wrapping.Runtime.Expressions is
             Error ("'" & Name & "' not found");
          end if;
       else
-         --  We're on an explicit name. Push the result.
+         --  We're on a selection. Retreives the prefix and try to resolve
+         --  the suffix.
 
          Prefix_Entity := Top_Object.Dereference;
 
@@ -670,8 +716,13 @@ package body Wrapping.Runtime.Expressions is
 
          if Prefix_Entity.Push_Value (Name) then
             --  We found a component of the entity and it has been pushed
+
             return;
          else
+            --  If we can't find the suffix, either we're on a match case then
+            --  just stack match false, or we were expecting a value and thus
+            --  need to log an error.
+
             if Top_Context.Match_Mode /= Match_None then
                Push_Match_False;
                return;

@@ -116,8 +116,8 @@ template error_code_into_exception pick origin do
    var registry_name: object;
    var exception_name: object;
 
-   match (dnum: NumberDecl (child (n: DefiningName ()) and expr: f_expr)
-       or dobj: ObjectDecl ((child (n: DefiningName ())) and expr: f_default_expr))
+   match (dnum: NumberDecl (child (n: DefiningName ()) and expr: f_expr ())
+       or dobj: ObjectDecl ((child (n: DefiningName ())) and expr: f_default_expr ()))
    do
       match dnum ()
       wrap null (w_NumberDecl);
