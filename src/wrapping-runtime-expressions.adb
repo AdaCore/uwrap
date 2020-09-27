@@ -84,7 +84,8 @@ package body Wrapping.Runtime.Expressions is
    --  Handle the aritmetic operation in parameter on the last two objects
    --  on the stack.
 
-   procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector) with
+   procedure Compute_Selector_Chain (Chain : T_Expr_Vectors.Vector) with
+     Pre  => Chain.Length > 0,
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
    --  Selectors work by stacking entities in a Suffix variable as they're
    --  going from last in the list to first. Once hitting first, they have
@@ -771,11 +772,17 @@ package body Wrapping.Runtime.Expressions is
 
       procedure Store_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr);
+      --  Callback used for the initial creation of the template, storing
+      --  the parameter to the list to be evaluated later on when processing
+      --  the template.
 
       procedure Update_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr);
+      --  Callback used when updating an already created template, updating
+      --  values already created.
 
       procedure Handle_Template_Call_Recursive (A_Template : T_Template);
+      --  Recursively evaluate parents of a template.
 
       A_Template_Instance : constant W_Template_Instance :=
         W_Template_Instance (Instance);
@@ -789,6 +796,9 @@ package body Wrapping.Runtime.Expressions is
       is
          pragma Unreferenced (Position);
       begin
+         --  Stores the parameter expression in the top frame, for evaluation
+         --  later on when going through the template command.
+
          if Name = "" then
             Top_Frame.Template_Parameters_Position.Append (Value);
          else
@@ -805,6 +815,8 @@ package body Wrapping.Runtime.Expressions is
       is
          Ref : W_Reference;
       begin
+         --  Checks that the parameter provided does exist in the template
+
          if Name = "" then
             if Position > A_Template_Instance.Ordered_Variables.Last_Index then
                Error
@@ -821,10 +833,13 @@ package body Wrapping.Runtime.Expressions is
             Ref := A_Template_Instance.Indexed_Variables.Element (Name);
          end if;
 
+         --  Set the left value, which is the value contained by the reference
+         --  used for that variable. Then update the referenced value to the
+         --  result of the expression.
+
          Push_Frame_Context;
          Top_Context.Left_Value := Ref.Value;
-         Evaluate_Expression (Value);
-         Ref.Value := Pop_Object;
+         Ref.Value := Evaluate_Expression (Value);
 
          Pop_Frame_Context;
       end Update_Parameter;
@@ -835,6 +850,8 @@ package body Wrapping.Runtime.Expressions is
 
       procedure Handle_Template_Call_Recursive (A_Template : T_Template) is
       begin
+         --  First evaluates the parent template, then itself.
+
          if A_Template.Extends /= null then
             Handle_Template_Call_Recursive (A_Template.Extends);
          end if;
@@ -846,36 +863,65 @@ package body Wrapping.Runtime.Expressions is
 
    begin
       if A_Template_Instance.Is_Evaluated then
+         --  If the tempalte has already been evaluated, then update the
+         --  parameters
+
          Process_Parameters (Args, Update_Parameter'Access);
       else
+         --  If this template has not been evaluated yet, set the flag.
+
          A_Template_Instance.Is_Evaluated := True;
+
+         --  First, store all arguments in the top frame. They will be
+         --  evaluated later, as the template variables are created and
+         --  initialized by the Handle_Command_Sequence call.
 
          Process_Parameters (Args, Store_Parameter'Access);
 
-         Push_Frame (A_Template_Instance.Defining_Entity);
-         Push_Implicit_It (A_Template_Instance);
-         Top_Frame.Current_Template := W_Object (A_Template_Instance);
-
-         if A_Template_Instance.Defining_Entity.Full_Name = "standard.root"
+         if A_Template_Instance.Defining_Entity.Full_Name =
+           "standard.root"
          then
+            --  standard.root is the main program. It operates on the current
+            --  "it" at the point of the call, but does not lead to the
+            --  evaluation of an actual template call. This is a shortcut
+            --  allowing to directy the main processing, and should only be
+            --  used through a walk.
+            --  TODO: add a way to verify that this is always called through
+            --  walk
+
             Apply_Wrapping_Program
-              (A_Template_Instance.Origin, Wrapping.Semantic.Analysis.Root);
+              (W_Node (Get_Implicit_It),
+               Wrapping.Semantic.Analysis.Root);
          else
+            --  Template evaluation is done in its own frame, where the current
+            --  "it" object is switched to this new instance.
+
+            Push_Frame (A_Template_Instance.Defining_Entity);
+            Push_Implicit_It (A_Template_Instance);
+            Top_Frame.Current_Template := W_Object (A_Template_Instance);
+
+            --  This call will evaluate the template and its parents. It will
+            --  also create variables and evaluate parameters
+
             Handle_Template_Call_Recursive
               (T_Template (A_Template_Instance.Defining_Entity));
-         end if;
 
-         if Parent_Frame.Template_Parameters_Position.Length > 0 then
-            Error ("too many parameters");
-         elsif Parent_Frame.Template_Parameters_Names.Length > 0 then
-            Error
-              ("no parameter '" &
-               Parent_Frame.Template_Parameters_Names.First_Key &
-               "' found for template");
-         end if;
+            --  Check that all parameters have been used by the template call.
+            --  If not, the actual parameters do not correspond to the template
+            --  structure, raise an error.
 
-         Pop_Object;
-         Pop_Frame;
+            if Parent_Frame.Template_Parameters_Position.Length > 0 then
+               Error ("too many parameters");
+            elsif Parent_Frame.Template_Parameters_Names.Length > 0 then
+               Error
+                 ("no parameter '" &
+                    Parent_Frame.Template_Parameters_Names.First_Key &
+                    "' found for template");
+            end if;
+
+            Pop_Object;
+            Pop_Frame;
+         end if;
       end if;
    end Handle_Template_Call;
 
@@ -889,21 +935,24 @@ package body Wrapping.Runtime.Expressions is
       Push_Frame_Context;
 
       --  If we're matching, currently under the default ref mode, then move to
-      --  the default call mode.
+      --  the default call mode. If it were Match_Has or Match_Is, that would
+      --  mean that the user explicitely decided on the mode through an is ()
+      --  or has () qualifier, which we'd want to keep.
 
       if Top_Context.Match_Mode = Match_Ref_Default then
          Top_Context.Match_Mode := Match_Call_Default;
       end if;
 
-      --  When evaluating the name of the function, we need to verify that it
-      --  matches the current object. For example in:
+      --  Calls can be made on various W_ objects (most of them actually). In
+      --  some situations, even if an object is resolved, it should not be
+      --  allowed to be called in the current context. For example, one
+      --  may resolve a reference to a static entity, as in:
       --     match w_SomeTemplate ()
-      --  we may find a reference to w_SomeTemplate as a static entity, but it
-      --  may not match the current object (it in the example above). This will
-      --  be checked by the Outer_Expression_Match callback below. Note that
-      --  intrinsinc and custom functions will always match, so that e.g.
-      --     match to_lower (some_value)
-      --  will always go through.
+      --  But if the current "it" object isn't w_SomeTemplate, it should be
+      --  rejected. For that reason, we need to set the action to Action_Match.
+      --  Note that under Match_Call_Default, most call will be pass through
+      --  under match (to the opposite of the above). In particular functions
+      --  do not match against the outer object.
 
       Top_Context.Outer_Expr_Action := Action_Match;
 
@@ -911,23 +960,25 @@ package body Wrapping.Runtime.Expressions is
 
       Pop_Frame_Context;
 
-      --  If the called identifier didn't match, we either just push a match
-      --  false if we're in a matching section, or raise an error. Otherwise,
-      --  execute the call on the retreived function
-
       if Called = Match_False then
+         --  If the called identifier didn't match, we either just push a match
+         --  false if we're in a matching section, or raise an error.
+         --  Otherwise, execute the call on the retreived function
+
          if Top_Context.Match_Mode /= Match_None then
             Push_Match_False;
          else
             Error ("call not matching context");
          end if;
       else
+         --  Otherwise, call the object that was retreived.
+
          Called.Push_Call_Result (Expr.Call_Args);
 
          if not Called.Is_Generator then
             --  If the called subprogram is a generator, then it will have
             --  called the yeild callback upon value generation. Otherwise,
-            --  call yield on the one returned value.
+            --  call yield (if any) on the one returned value.
 
             Call_Yield;
          end if;
@@ -938,45 +989,38 @@ package body Wrapping.Runtime.Expressions is
    -- Compute_Selector_Suffix --
    -----------------------------
 
-   procedure Compute_Selector_Suffix (Suffix : T_Expr_Vectors.Vector) is
-      Terminal : T_Expr;
-
-      Has_Prev          : Boolean := False;
-      Suffix_Expression : T_Expr;
+   procedure Compute_Selector_Chain (Chain : T_Expr_Vectors.Vector) is
+      Has_Prev : Boolean := False;
    begin
-      if Suffix.Length = 0 then
-         Push_Match_False;
-         return;
-      end if;
-
-      Terminal := Suffix.Last_Element;
-
       --  The left part of a selector may have calls. In this case, these calls
       --  are unrelated to the value that is possibly being captured. E.g. in:
       --     a: b ().c
       --  b () value is not being captured in a. In order to respect that, the
       --  current captured name is removed when processing the left part of
-      --  the selector. Similarily, we only fold on the target of the fold.
-      --  For example, in:
-      --     child ().child ().fold ()
-      --  the first child is a selecing the first match, the second is folded.
-      --  Note that the left end of an expression is never matching with the
-      --  outer context, hence setting the match flag to none.
+      --  the selector.
+      --  Functions iterating over all generated values such as all () or
+      --  fold () cut the sequence so that they are never part of a suffix.
+      --  e.g:
+      --     a.b.c.fold ()
+      --  will create a chain:
+      --     a.b.c
+      --  Only c can yeild values to fold (). As a result, we're first
+      --  computing the n-1 expressions without a yeild callback and will
+      --  restore the initial context (and its potential yeild) on the last
+      --  element.
 
       Push_Frame_Context_No_Match;
       Top_Context.Name_Captured  := To_Unbounded_Text ("");
       Top_Context.Yield_Callback := null;
 
-      for I in Suffix.First_Index .. Suffix.Last_Index - 1 loop
-         Suffix_Expression := Suffix.Element (I);
-
-         Evaluate_Expression (Suffix_Expression);
+      for I in Chain.First_Index .. Chain.Last_Index - 1 loop
+         Evaluate_Expression (Chain.Element (I));
 
          if Has_Prev then
             Pop_Underneath_Top;
          end if;
 
-         Has_Prev                                := True;
+         Has_Prev                      := True;
          Top_Context.Is_Root_Selection := False;
       end loop;
 
@@ -990,14 +1034,18 @@ package body Wrapping.Runtime.Expressions is
       --  () need to be called with the frame context set by all which set in
       --  particular yiekd context to true.
 
-      Evaluate_Expression (Terminal);
+      Evaluate_Expression (Chain.Last_Element);
+
+      --  This call is supposed to only stack one element. Remove the second
+      --  to last if there was already a value stacked prior to the call to
+      --  Evaluate_Expression.
 
       if Has_Prev then
          Pop_Underneath_Top;
       end if;
 
       Pop_Frame_Context;
-   end Compute_Selector_Suffix;
+   end Compute_Selector_Chain;
 
    ---------------------
    -- Handle_Selector --
@@ -1026,13 +1074,21 @@ package body Wrapping.Runtime.Expressions is
       elsif Expr.Selector_Right.Kind in Template_Filter_Expr then
          Handle_Filter (Expr, Suffix);
       elsif Expr.Selector_Left.Kind in Template_Selector then
+         --  We're on a selector with a previous selector, e.g.:
+         --     a.b.c
+         --  Add c to the suffix, and handle the a.b selector.
+
          Suffix.Prepend (Expr.Selector_Right);
          Handle_Selector (Expr.Selector_Left, Suffix);
       else
+         --  We're on a selector with only two elements. Add them to the
+         --  suffix, which becomes at this stage the whole change. Then compute
+         --  the selector chain from start.
+
          Suffix.Prepend (Expr.Selector_Right);
          Suffix.Prepend (Expr.Selector_Left);
 
-         Compute_Selector_Suffix (Suffix);
+         Compute_Selector_Chain (Suffix);
       end if;
    end Handle_Selector;
 
@@ -1043,6 +1099,8 @@ package body Wrapping.Runtime.Expressions is
    procedure Handle_Fold (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector) is
 
       procedure Yield_Callback;
+      --  Called when a value from the prefix has been generated and computes
+      --  the result.
 
       Fold_Expr : constant T_Expr := Selector.Selector_Right;
 
@@ -1057,14 +1115,22 @@ package body Wrapping.Runtime.Expressions is
       procedure Yield_Callback is
       begin
          if Is_First then
+            --  If this is the first value generated, just switch the first
+            --  switch
+
             Is_First := False;
          elsif Fold_Expr.Fold_Separator /= null then
+            --  Otherwise, if there's an expression to execute to separate
+            --  two values, execute it.
+
             Push_Frame_Context_Parameter;
             Top_Context.Left_Value := Current_Expression;
-            Evaluate_Expression (Fold_Expr.Fold_Separator);
-            Current_Expression := Pop_Object;
+            Current_Expression :=
+              Evaluate_Expression (Fold_Expr.Fold_Separator);
             Pop_Frame_Context;
          end if;
+
+         --  Execute the combine expression in all cases.
 
          Push_Frame_Context;
          Top_Context.Left_Value := Current_Expression;
@@ -1074,12 +1140,9 @@ package body Wrapping.Runtime.Expressions is
       end Yield_Callback;
 
    begin
-      --  Inside the folded expression, we need to go back to a situation where
-      --  It is top of the stack, as name can refer to the implicit It. Re push
-      --  this value
+      --  Computes the default expression as a parameter
 
       Push_Frame_Context_Parameter;
-      Push_Implicit_It (Get_Implicit_It);
       Current_Expression := Evaluate_Expression (Fold_Expr.Fold_Default);
 
       --  If the name captured is not null, provide its value here. This allows
@@ -1088,13 +1151,25 @@ package body Wrapping.Runtime.Expressions is
       --  or
       --     child ().fold (x: "", x: (x & something))
       --  which is consistent with the overall way capture works.
+
       if not (Top_Context.Name_Captured = "") then
          Include_Symbol
            (To_Text (Top_Context.Name_Captured), Current_Expression);
       end if;
 
-      Pop_Object;
       Pop_Frame_Context;
+
+      --  Prepare the context for the prefix. The yield callback will be
+      --  resonsible to gather the values generated and to build the result.
+      --  We're not matching anything in the prefix, and aren't doing any
+      --  action with the outer expression. When entering in the selector,
+      --  we're as if we were a root selection, e.g. in
+      --     a.b.c.fold ()
+      --  a.b.c is a root selection. Evaluate expression will be able to
+      --  then split the above, or detect that we're actually on a unique
+      --  selector, e.g. in:
+      --     a.fold ()
+      --  and will indeed treat a as a root selection.
 
       Push_Frame_Context;
       Top_Context.Yield_Callback    := Yield_Callback'Unrestricted_Access;
@@ -1104,7 +1179,7 @@ package body Wrapping.Runtime.Expressions is
 
       Evaluate_Expression (Selector.Selector_Left);
 
-      --  The prefix will have pushed its own result which needs to be
+      --  Evaluate_Expression will have pushed its own result which needs to be
       --  disregarded at this stage. Push the fold result instead.
 
       Pop_Object;
@@ -1113,9 +1188,18 @@ package body Wrapping.Runtime.Expressions is
       Pop_Frame_Context;
 
       if Suffix.Length > 0 then
-         Compute_Selector_Suffix (Suffix);
+         --  There are more element to compute after fold, e.g. in
+         --     a.b.fold ().c
+         --  Compute the suffix that was previously set, and remove the result
+         --  of fold from the stack after that.
+
+         Compute_Selector_Chain (Suffix);
          Pop_Underneath_Top;
       elsif Top_Context.Outer_Expr_Action /= Action_None then
+         --  fold () is the last element of this selector chain. Process the
+         --  outer action if any, considering fold () as being matched as a
+         --  function.
+
          Push_Frame_Context;
 
          if Top_Context.Match_Mode = Match_Ref_Default then
@@ -1258,7 +1342,7 @@ package body Wrapping.Runtime.Expressions is
       Pop_Frame_Context;
 
       if Suffix.Length > 0 then
-         Compute_Selector_Suffix (Suffix);
+         Compute_Selector_Chain (Suffix);
          Pop_Underneath_Top;
       elsif Top_Context.Outer_Expr_Action /= Action_None then
          Push_Frame_Context;
@@ -1319,7 +1403,7 @@ package body Wrapping.Runtime.Expressions is
             --  If there's a suffix, then compute it to get the value of the
             --  expression.
 
-            Compute_Selector_Suffix (Suffix);
+            Compute_Selector_Chain (Suffix);
          else
             --  Otherwise, the value is the just the last stacked object.
             --  Dereference it to remove the potential "it" attribute
