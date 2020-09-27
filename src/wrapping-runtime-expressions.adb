@@ -1337,8 +1337,8 @@ package body Wrapping.Runtime.Expressions is
          when others =>
             --  We are in the case:
             --     X().filter ();
-            --  X() is the prefix function, the first object to generate from is
-            --  "it".
+            --  X() is the prefix function, the first object to generate from
+            --  is "it".
 
             Prefix_Function := Selector.Selector_Left;
             Push_Object (Top_Object);
@@ -1616,31 +1616,41 @@ package body Wrapping.Runtime.Expressions is
       Kind            : constant Template_Node_Kind_Type :=
         Expr.Node.As_Binary_Expr.F_Op.Kind;
    begin
-      Top_Context.Match_Mode := Match_Has;
+      --  When evaluating operands or arithmetic operators, e.g. in:
+      --     1 + 2
+      --  there's no outer match on 1 or 2
 
-      Left := Evaluate_Expression (Expr.Binary_Left);
+      Push_Frame_Context_No_Match;
 
-      if Left.Dereference.all not in W_Integer_Type'Class then
+      --  Computes the left and right operands. In case they're returned as
+      --  references, dereference the result to access to the actual object,
+      --  which is supposed to be an integer.
+
+      Left := Evaluate_Expression (Expr.Binary_Left).Dereference;
+
+      if Left.all not in W_Integer_Type'Class then
          Error
            ("Expected integer for left operand, found " &
-            Wide_Wide_Expanded_Name (Left.Dereference.all'Tag));
+            Wide_Wide_Expanded_Name (Left.all'Tag));
       else
-         Left_I := W_Integer (Left.Dereference).Value;
+         Left_I := W_Integer (Left).Value;
       end if;
 
-      Right := Evaluate_Expression (Expr.Binary_Right);
+      Right := Evaluate_Expression (Expr.Binary_Right).Dereference;
 
-      if Right.Dereference.all not in W_Integer_Type'Class then
+      if Right.all not in W_Integer_Type'Class then
          Error
            ("Expected integer for right operand, found " &
-            Wide_Wide_Expanded_Name (Left.Dereference.all'Tag));
+            Wide_Wide_Expanded_Name (Left.all'Tag));
       else
-         Right_I := W_Integer (Right.Dereference).Value;
+         Right_I := W_Integer (Right).Value;
       end if;
 
       case Kind is
          when Template_Operator_Plus | Template_Operator_Minus |
            Template_Operator_Multiply | Template_Operator_Divide =>
+
+            --  We're on an arithmetic operator. Push the result.
 
             Result :=
               new W_Integer_Type'
@@ -1655,6 +1665,10 @@ package body Wrapping.Runtime.Expressions is
          when Template_Operator_Eq | Template_Operator_Neq |
            Template_Operator_Gt | Template_Operator_Lt |
            Template_Operator_Gte | Template_Operator_Lte =>
+
+            --  We're on a comparison operator. Compare the two values and
+            --  either push the top object (the comparison in the context
+            --  of that object matched) or false.
 
             if
               (case Expr.Node.As_Binary_Expr.F_Op.Kind is
@@ -1677,6 +1691,7 @@ package body Wrapping.Runtime.Expressions is
       end case;
 
       Push_Object (Result);
+      Pop_Frame_Context;
    end Handle_Arithmetic_Operator;
 
 end Wrapping.Runtime.Expressions;
