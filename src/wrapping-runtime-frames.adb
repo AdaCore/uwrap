@@ -21,15 +21,23 @@ with Ada.Strings;                 use Ada.Strings;
 with Ada.Strings.Wide_Wide_Fixed; use Ada.Strings.Wide_Wide_Fixed;
 with Ada.Containers;              use Ada.Containers;
 
-with Wrapping.Runtime.Objects;  use Wrapping.Runtime.Objects;
+with Wrapping.Runtime.Objects; use Wrapping.Runtime.Objects;
+with Wrapping.Runtime.Nodes;   use Wrapping.Runtime.Nodes;
+with Wrapping.Utils;           use Wrapping.Utils;
 
 package body Wrapping.Runtime.Frames is
 
    Data_Frame_Stack : Data_Frame_Vectors.Vector;
+   --  Stores the frames as they're pushed and pop during the evaluation of
+   --  the program.
 
-   procedure Update_Object;
+   procedure Update_Top_Object;
+   --  Updates the global reference to the top object, called when an object is
+   --  pushed or popped.
 
-   procedure Update_Frames;
+   procedure Update_Top_And_Parent_Frames;
+   --  Updates the global references to top and parent frames, called when
+   --  a framed is pushed or popped.
 
    -----------------
    --  Call_Yield --
@@ -46,10 +54,17 @@ package body Wrapping.Runtime.Frames is
          --     child ().filter (condition)
          --  child will values to filter, calling the callback on the
          --  condition. That condition should not be yeilding.
+
          Top_Context.Yield_Callback := null;
 
          Callback.all;
+
+         --  A yield callback is supposed to push its result on the stack.
+         --  Call_Yield semantic is to replace the current top by the new one
+         --  coming from the callback, so pops the previous top.
+
          Pop_Underneath_Top;
+
          Pop_Frame_Context;
       end if;
    end Call_Yield;
@@ -76,6 +91,10 @@ package body Wrapping.Runtime.Frames is
    is
       Scope : T_Entity := A_Frame.Lexical_Scope;
    begin
+      --  Look for the current scope, which could be any lexical entity
+      --  containing other entities (e.g. a command, a template, a function...)
+      --  Look for the parent up until we reach the module.
+
       while Scope /= null and then Scope.all not in T_Module_Type'Class loop
          Scope := Scope.Parent;
       end loop;
@@ -83,16 +102,16 @@ package body Wrapping.Runtime.Frames is
       return T_Module (Scope);
    end Get_Module;
 
-   -------------------
-   -- Update_Object --
-   -------------------
+   -----------------------
+   -- Update_Top_Object --
+   -----------------------
 
-   procedure Update_Object is
+   procedure Update_Top_Object is
    begin
       if Top_Frame.Data_Stack.Length > 0 then
          Top_Object_Ref := Top_Frame.Data_Stack.Last_Element;
       end if;
-   end Update_Object;
+   end Update_Top_Object;
 
    -----------------
    -- Push_Object --
@@ -100,11 +119,14 @@ package body Wrapping.Runtime.Frames is
 
    procedure Push_Object (Object : access W_Object_Type'Class) is
    begin
+      --  We should never push a reference pointing to null. Check that it's
+      --  indeed the case.
+
       pragma Assert (if Object.all in W_Reference_Type'Class then
                         W_Reference (Object).Value /= null);
 
       Top_Frame.Data_Stack.Append (W_Object (Object));
-      Update_Object;
+      Update_Top_Object;
    end Push_Object;
 
    ----------------------
@@ -116,8 +138,9 @@ package body Wrapping.Runtime.Frames is
       Push_Object
         (W_Object'
            (new W_Reference_Type'
-              (Value  => W_Object (Object), Is_Implicit_It => True,
-               others => <>)));
+                (Value          => W_Object (Object),
+                 Is_Implicit_It => True,
+                 others         => <>)));
    end Push_Implicit_It;
 
    ---------------------------
@@ -138,20 +161,37 @@ package body Wrapping.Runtime.Frames is
    -- Push_Temporary_Name --
    -------------------------
 
-   procedure Push_Temporary_Name (Name : Text_Type; Counter : in out Integer)
+   procedure Push_Temporary_Name (Name : Text_Type; Object : W_Object)
    is
+      Node : constant W_Node := W_Node (Object);
+      Node_Map : Text_Maps_Access;
    begin
-      if Top_Frame.Temp_Names.Contains (Name) then
-         Push_Object (To_W_String (Top_Frame.Temp_Names.Element (Name)));
+      --  Checks if the frame already has temporaries for the object in
+      --  parameter. Either retreives the corresponding set of names or create
+      --  one
+
+      if Top_Frame.Temp_Names.Contains (Object) then
+         Node_Map := Top_Frame.Temp_Names.Element (Object);
       else
-         Counter := Counter + 1;
+         Node_Map := new Text_Maps.Map;
+         Top_Frame.Temp_Names.Insert (Object, Node_Map);
+      end if;
+
+      --  Check if the list of names already has a temporary for the name in
+      --  parameter. If yes, push it, if not, increment the tmp counter for
+      --  this object and push the temporary.
+
+      if Node_Map.Contains (Name) then
+         Push_Object (To_W_String (Node_Map.Element (Name)));
+      else
+         Node.Tmp_Counter := Node.Tmp_Counter + 1;
 
          declare
             Tmp : constant Text_Type :=
               "Temp_" & (if Name /= "" then Name & "_" else "") &
-              Trim (Integer'Wide_Wide_Image (Counter), Both);
+              Trim (Integer'Wide_Wide_Image (Node.Tmp_Counter), Both);
          begin
-            Top_Frame.Temp_Names.Insert (Name, Tmp);
+            Node_Map.Insert (Name, Tmp);
 
             Push_Object (To_W_String (Tmp));
          end;
@@ -165,7 +205,7 @@ package body Wrapping.Runtime.Frames is
    procedure Pop_Object is
    begin
       Top_Frame.Data_Stack.Delete_Last;
-      Update_Object;
+      Update_Top_Object;
    end Pop_Object;
 
    ------------------------
@@ -175,7 +215,7 @@ package body Wrapping.Runtime.Frames is
    procedure Pop_Underneath_Top is
    begin
       Top_Frame.Data_Stack.Delete (Integer (Top_Frame.Data_Stack.Length) - 1);
-      Update_Object;
+      Update_Top_Object;
    end Pop_Underneath_Top;
 
    ----------------
@@ -187,21 +227,10 @@ package body Wrapping.Runtime.Frames is
    begin
       Result := Top_Frame.Data_Stack.Last_Element;
       Pop_Object;
-      Update_Object;
+      Update_Top_Object;
 
       return Result;
    end Pop_Object;
-
-   ---------------------
-   -- Top_Is_Implicit --
-   ---------------------
-
-   function Top_Is_Implicit return Boolean is
-   begin
-      return
-        Top_Object.all in W_Reference_Type'Class
-        and then W_Reference (Top_Object).Is_Implicit;
-   end Top_Is_Implicit;
 
    ------------------------
    -- Push_Frame_Context --
@@ -218,6 +247,10 @@ package body Wrapping.Runtime.Frames is
 
    procedure Push_Frame_Context_Parameter is
    begin
+      --  When pushing a context with a regular parameter, we're not supposed
+      --  to match its result with anything, and the expression as a whole
+      --  is a root selection (ie it has no prefix).
+
       Push_Frame_Context_No_Match;
       Top_Context.Is_Root_Selection := True;
    end Push_Frame_Context_Parameter;
@@ -228,6 +261,12 @@ package body Wrapping.Runtime.Frames is
 
    procedure Push_Frame_Context_Parameter_With_Match (Object : W_Object) is
    begin
+      --  When pushing a context with a parameter to be matched, we need
+      --  to set the mode as the default match for a reference (it will be
+      --  changed by the expression if needed), set the action to be a match
+      --  against the object in parameter. The expression is a root expression
+      --  (it has no prefix).
+
       Push_Frame_Context;
       Top_Context.Is_Root_Selection := True;
       Top_Context.Match_Mode        := Match_Ref_Default;
@@ -241,6 +280,11 @@ package body Wrapping.Runtime.Frames is
 
    procedure Push_Frame_Context_No_Outer is
    begin
+      --  Remove all data used for the outer actions (the result callback,
+      --  expr action and outer object). Match_Mode is ketp unchanged, as it's
+      --  also used to control wether a reference not found is an error or if
+      --  it just signals a expression not matching.
+
       Push_Frame_Context;
       Top_Context.Function_Result_Callback := null;
       Top_Context.Outer_Expr_Action        := Action_None;
@@ -253,6 +297,9 @@ package body Wrapping.Runtime.Frames is
 
    procedure Push_Frame_Context_No_Match is
    begin
+      --  Sets a frame context as not being matching - there's no outer action,
+      --  no match mode and no match object.
+
       Push_Frame_Context;
       Top_Context.Match_Mode        := Match_None;
       Top_Context.Outer_Expr_Action := Action_None;
@@ -265,6 +312,9 @@ package body Wrapping.Runtime.Frames is
 
    procedure Push_Frame_Context_No_Pick is
    begin
+      --  Set a frame with no pick action, that is to say no call to function
+      --  after processing and no outer pick action.
+
       Push_Frame_Context;
       Top_Context.Function_Result_Callback := null;
       Top_Context.Outer_Expr_Action        := Action_None;
@@ -308,11 +358,11 @@ package body Wrapping.Runtime.Frames is
       Top_Frame.Group_Sections.Delete_Last;
    end Pop_Match_Groups_Section;
 
-   -------------------
-   -- Update_Frames --
-   -------------------
+   ----------------------------------
+   -- Update_Top_And_Parent_Frames --
+   ----------------------------------
 
-   procedure Update_Frames is
+   procedure Update_Top_And_Parent_Frames is
    begin
       if Data_Frame_Stack.Length > 0 then
          Top_Frame_Ref := Data_Frame_Stack.Last_Element;
@@ -326,7 +376,7 @@ package body Wrapping.Runtime.Frames is
       else
          Parent_Frame_Ref := null;
       end if;
-   end Update_Frames;
+   end Update_Top_And_Parent_Frames;
 
    ----------------
    -- Push_Frame --
@@ -339,17 +389,27 @@ package body Wrapping.Runtime.Frames is
       New_Frame.Top_Context   := new Frame_Context_Type;
 
       if Parent_Frame /= null then
-         New_Frame.Top_Context.Allocate_Callback
-           := Top_Context.Allocate_Callback;
+         --  If there's a parent frame, some context data needs to be passed
+         --  to the child:
+
+         --  the link to the visit decision variable, as in:
+         --     wrap A_Template ()
+         --  the frame within A_Template can decide to change the iteration
+         --  that leads to the wrap command
          New_Frame.Top_Context.Visit_Decision := Top_Context.Visit_Decision;
-         New_Frame.Top_Context.Yield_Callback := Top_Context.Yield_Callback;
+
+         --  The indentation, as indentation of a child frame starts at the
+         --  identation level of its parent (so that so functions and template
+         --  can create their own indented section contributing to the global
+         --  output).
          New_Frame.Top_Context.Indent := Top_Context.Indent;
       end if;
 
-      New_Frame.Temp_Names := new Text_Maps.Map;
+      --  Each new frame create a new temporary names registry
+      New_Frame.Temp_Names := new Tmp_Maps.Map;
 
       Data_Frame_Stack.Append (New_Frame);
-      Update_Frames;
+      Update_Top_And_Parent_Frames;
    end Push_Frame;
 
    ----------------
@@ -359,7 +419,7 @@ package body Wrapping.Runtime.Frames is
    procedure Push_Frame (Frame : Data_Frame) is
    begin
       Data_Frame_Stack.Append (Frame);
-      Update_Frames;
+      Update_Top_And_Parent_Frames;
    end Push_Frame;
 
    ----------------
@@ -367,18 +427,21 @@ package body Wrapping.Runtime.Frames is
    ----------------
 
    procedure Push_Frame (A_Closure : Closure) is
-      Copy_Symbols : W_Object_Maps.Map;
    begin
+      --  First, push a frame on the captured lexical scope
       Push_Frame (A_Closure.Lexical_Scope);
 
-      Copy_Symbols := A_Closure.Captured_Symbols.Copy;
-      Top_Frame.Symbols.Move (Copy_Symbols);
+      --  Copy symbols from the closure to the new symbol tree
+      Top_Frame.Symbols := A_Closure.Captured_Symbols.Copy;
+
+      --  All closure share the same temporary names
       Top_Frame.Temp_Names := A_Closure.Temp_Names;
+
+      --  Retreives the left value at the point of capture
       Top_Context.Left_Value := A_Closure.Left_Value;
 
-      if A_Closure.Implicit_It /= null then
-         Push_Implicit_It (A_Closure.Implicit_It);
-      end if;
+      --  Retreives the implicit it value at the point of capture
+      Push_Implicit_It (A_Closure.Implicit_It);
    end Push_Frame;
 
    ---------------
@@ -388,7 +451,7 @@ package body Wrapping.Runtime.Frames is
    procedure Pop_Frame is
    begin
       Data_Frame_Stack.Delete_Last;
-      Update_Frames;
+      Update_Top_And_Parent_Frames;
    end Pop_Frame;
 
    ---------------------
@@ -397,6 +460,9 @@ package body Wrapping.Runtime.Frames is
 
    function Get_Implicit_It return W_Object is
    begin
+      --  The implicit it is model as a reference to an object, with the
+      --  flag Is_Implicit_It set to True.
+
       for I in reverse
         Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index
       loop

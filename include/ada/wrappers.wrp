@@ -281,7 +281,7 @@ template build_subprogram pick origin do
          subp_kind => "function",
          call_decl => defer ("""\e<it.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n"""),
          post_call_decl => defer (i"""
-            \e<it.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
+            \e<sb.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
             with Address => \e<it.tmp ("result_orig")>'Address, Import;\n"""),
          call_stmt => "null;", 
          return_stmt => defer ("""return \e<sb.tmp ("result_wrapped")>;"""));

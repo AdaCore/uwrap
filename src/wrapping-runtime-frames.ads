@@ -19,7 +19,6 @@
 
 with Ada.Containers.Vectors;
 
-with Wrapping.Utils;              use Wrapping.Utils;
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
 
@@ -145,7 +144,7 @@ package Wrapping.Runtime.Frames is
       --  Lexical scope that lead to the creation of this frame, could be the
       --  root object for the global frame, a template or a function.
 
-      Temp_Names : Text_Maps_Access;
+      Temp_Names : Tmp_Map_Access;
       --  Temporary names generated for this frame, with their string
       --  association.
 
@@ -446,9 +445,19 @@ package Wrapping.Runtime.Frames is
    --  the allocated callback will recognized the entity as having being
    --  allocated and will set it as a child of the current it object.
 
-   procedure Push_Temporary_Name (Name : Text_Type; Counter : in out Integer);
-   --  Push the temporary of the given name on the stack. If one needs to be
-   --  created, counter will be used to append to the name and be incremented.
+   procedure Push_Temporary_Name (Name : Text_Type; Object : W_Object);
+   --  Push the temporary of the given name on the stack as a W_String. A
+   --  temporary name is defined by:
+   --    - a frame
+   --    - a node
+   --    - a name
+   --  in a given frame for a given name and node, the temporary name will
+   --  always be the same. If the frame, the node or the name are different,
+   --  it will be unique. This uniqueness is guaranteed by the node counter,
+   --  incremented every time a new name is created for that node and used
+   --  in the temporary name.
+   --  TODO: This is not enough to guarantee uniqueness! Two objects may have
+   --  the same name and same counter for the same frame. To be fixed.
 
    procedure Pop_Object;
    --  Pops the last object pushed to the stack.
@@ -458,10 +467,6 @@ package Wrapping.Runtime.Frames is
 
    function Pop_Object return W_Object;
    --  Pops the last object pushed on the stack and returns it.
-
-   function Top_Is_Implicit return Boolean;
-   --  Return True if the top object on the frame is an implicitely stacked
-   --  object
 
    function Get_Implicit_It return W_Object;
    --  Returns last pushed implicit it for the frame in parameter

@@ -928,7 +928,7 @@ package body Wrapping.Runtime.Nodes is
       Slice : Buffer_Slice;
    begin
       if Params.Length = 0 then
-         Push_Temporary_Name ("", W_Node (Object).Tmp_Counter);
+         Push_Temporary_Name ("", W_Object (Object));
       elsif Params.Length = 1 then
          Evaluate_Expression (Params.Element (1).Expr);
          Push_Buffer_Cursor;
@@ -936,7 +936,7 @@ package body Wrapping.Runtime.Nodes is
          Slice := Pop_Object.Write_String;
          Push_Temporary_Name
            (Buffer.Str (Slice.First.Offset .. Slice.Last.Offset),
-            W_Node (Object).Tmp_Counter);
+            Object.Dereference);
          Pop_Buffer_Cursor;
       else
          Error ("tmp only accepts one argument");

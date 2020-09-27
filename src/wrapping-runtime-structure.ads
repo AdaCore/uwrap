@@ -22,6 +22,7 @@
 
 with Ada.Containers;                  use Ada.Containers;
 with Ada.Containers.Indefinite_Ordered_Maps;
+with Ada.Containers.Ordered_Maps;
 with Ada.Containers.Ordered_Sets;
 with Ada.Containers.Vectors;
 
@@ -222,6 +223,11 @@ package Wrapping.Runtime.Structure is
    --  This function returns the runtime object that corresponds to this
    --  static object.
 
+   package Tmp_Maps is new Ada.Containers.Ordered_Maps
+     (W_Object, Text_Maps_Access, Lt_Wrapper);
+
+   type Tmp_Map_Access is access Tmp_Maps.Map;
+
    type Closure_Type is record
       Captured_Symbols : W_Object_Maps.Map;
       --  The symbols captured by this closure.
@@ -232,7 +238,7 @@ package Wrapping.Runtime.Structure is
       Lexical_Scope    : T_Entity;
       --  A reference to the lexical scope active at the point of capture.
 
-      Temp_Names       : Text_Maps_Access;
+      Temp_Names       : Tmp_Map_Access;
       --  The list of temporary names generated at the point of capture.
 
       Left_Value       : W_Object;
