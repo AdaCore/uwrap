@@ -104,7 +104,8 @@ package Wrapping.Runtime.Nodes is
    --  Connects Cur and Next with a "next" relationship. If Cur has a parent,
    --  then the parent of Cur will also be the parent of Next.
 
-   procedure Add_Wrapping_Child (Parent, Child : access W_Node_Type'Class);
+   procedure Add_Child_With_Wrapping
+     (Parent, Child : access W_Node_Type'Class);
    --  Similar to Add_Child, but if the Parent is a wrapping entity, will
    --  create hollow nodes as a child to the origin of the parent and set Child
    --  as a wrapper of this node instead of creating a direct link between

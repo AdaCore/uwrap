@@ -129,8 +129,9 @@ package body Wrapping.Runtime.Frames is
       Push_Object
         (W_Object'
            (new W_Reference_Type'
-              (Value  => W_Object (Object), Is_Allocated => True,
-               others => <>)));
+                (Value        => W_Object (Object),
+                 Is_Allocated => True,
+                 others       => <>)));
    end Push_Allocated_Entity;
 
    -------------------------

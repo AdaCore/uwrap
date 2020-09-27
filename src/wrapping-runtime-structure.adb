@@ -96,6 +96,10 @@ package body Wrapping.Runtime.Structure is
 
       Visit_Decision : aliased Visit_Action := Unknown;
 
+      Real_Generated : W_Object := W_Object (Generated);
+      --  The actual generated value will be the one passed in parameter unless
+      --  there's an allocation.
+
       -----------------------------
       -- Evaluate_Yield_Function --
       -----------------------------
@@ -108,7 +112,7 @@ package body Wrapping.Runtime.Structure is
          --  as opposed to:
          --    x.all().something().
          if Top_Context.Yield_Callback = null then
-            Push_Object (Generated);
+            Push_Object (Real_Generated);
 
             return;
          end if;
@@ -126,8 +130,8 @@ package body Wrapping.Runtime.Structure is
 
          --  Then evaluate that folding expression
 
-         Push_Implicit_It (Generated);
-         Push_Object (Generated);
+         Push_Implicit_It (Real_Generated);
+         Push_Object (Real_Generated);
          Call_Yield;
          Pop_Underneath_Top;
 
@@ -157,7 +161,7 @@ package body Wrapping.Runtime.Structure is
          if Top_Context.Outer_Expr_Action /= Action_None then
             Push_Frame_Context;
             Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
-            Push_Implicit_It (Generated);
+            Push_Implicit_It (Real_Generated);
 
             Execute_Expr_Outer_Action;
 
@@ -174,7 +178,7 @@ package body Wrapping.Runtime.Structure is
                return Visit_Decision;
             end if;
          else
-            Push_Object (W_Object (Generated));
+            Push_Object (Real_Generated);
 
             return Stop;
          end if;
@@ -186,25 +190,25 @@ package body Wrapping.Runtime.Structure is
       --  However, we cannot create a sub frame as whatever we match needs
       --  to find its way to the command frame (otherwise any extracted group
       --  would be deleted upon frame popped).
-      Push_Implicit_It (Generated);
+      Push_Implicit_It (Real_Generated);
 
       --  If there's a name capture above this expression, its value needs to
       --  be available in the underlying match expression. We only capture the
       --  entity outside of folding context. When folding, the result of the
       --  folding expression will actually be what needs to be captured.
 
-      if Top_Context.Name_Captured /= ""
+      if not (Top_Context.Name_Captured = "")
         and then Top_Context.Yield_Callback = null
       then
          Include_Symbol
-           (To_Text (Top_Context.Name_Captured), W_Object (Generated));
+           (To_Text (Top_Context.Name_Captured), Real_Generated);
       end if;
 
       --  Prior to evaluating the expression, we need to remove potential
       --  name capture, as it would override the one we are capturing in
       --  this browsing iteration.
 
-      Push_Frame_Context_Parameter_With_Match (W_Object (Generated));
+      Push_Frame_Context_Parameter_With_Match (Real_Generated);
       Top_Context.Name_Captured  := To_Unbounded_Text ("");
       Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
       Top_Context.Yield_Callback := null;
@@ -225,36 +229,25 @@ package body Wrapping.Runtime.Structure is
             --  is a new entity, this means that this new entity is actually
             --  the result of the browse, not the one searched.
 
-            Push_Object (Expression_Result);
+            Real_Generated := Expression_Result;
+         end if;
 
-            --  Note that it is illegal to call a fold function with an
-            --  allocator in the fold expression (we would never know when to
-            --  stop allocating). This case is supposed to have being taken
-            --  care of earlier but raise an error here just in case.
+         if Top_Context.Yield_Callback /= null then
+            Push_Yield_Result;
 
-            if Top_Context.Yield_Callback /= null then
-               Error ("allocation in yield browsing functions is illegal");
+            --  The result of the expansion can be calls to wrap functions,
+            --  and one of this wrap function may be a visit decision. If
+            --  that's the case, take it into account and reset the flag.
+
+            if Visit_Decision = Unknown then
+               return Into;
+            else
+               return Visit_Decision;
             end if;
+         else
+            Push_Object (Real_Generated);
 
             return Stop;
-         else
-            if Top_Context.Yield_Callback /= null then
-               Push_Yield_Result;
-
-               --  The result of the expansion can be calls to wrap functions,
-               --  and one of this wrap function may be a visit decision. If
-               --  that's the case, take it into account and reset the flag.
-
-               if Visit_Decision = Unknown then
-                  return Into;
-               else
-                  return Visit_Decision;
-               end if;
-            else
-               Push_Object (Generated);
-
-               return Stop;
-            end if;
          end if;
       else
          Push_Match_False;

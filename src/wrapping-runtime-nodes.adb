@@ -134,11 +134,13 @@ package body Wrapping.Runtime.Nodes is
       end if;
    end Add_Next;
 
-   ------------------------
-   -- Add_Wrapping_Child --
-   ------------------------
+   -----------------------------
+   -- Add_Child_With_Wrapping --
+   -----------------------------
 
-   procedure Add_Wrapping_Child (Parent, Child : access W_Node_Type'Class) is
+   procedure Add_Child_With_Wrapping
+     (Parent, Child : access W_Node_Type'Class)
+   is
       Wrapped : W_Node;
    begin
       if Is_Wrapping (Parent) then
@@ -147,13 +149,14 @@ package body Wrapping.Runtime.Nodes is
          --  on the origin tree.
 
          Wrapped := new W_Hollow_Node_Type;
-         Add_Wrapping_Child (W_Template_Instance (Parent).Origin, Wrapped);
+         Add_Child_With_Wrapping
+           (W_Template_Instance (Parent).Origin, Wrapped);
          Wrapped.Wrappers_Ordered.Append (W_Template_Instance (Child));
          W_Template_Instance (Child).Origin := Wrapped;
       else
          Add_Child (Parent, Child);
       end if;
-   end Add_Wrapping_Child;
+   end Add_Child_With_Wrapping;
 
    ------------------------------
    -- Create_Template_Instance --
@@ -674,7 +677,7 @@ package body Wrapping.Runtime.Nodes is
 
          case A_Mode is
             when Child_Depth | Child_Breadth =>
-               Add_Wrapping_Child (An_Entity, W_Node_Type (E.all)'Access);
+               Add_Child_With_Wrapping (An_Entity, W_Node_Type (E.all)'Access);
 
             when others =>
                Error ("allocation not implemented on the enclosing function");

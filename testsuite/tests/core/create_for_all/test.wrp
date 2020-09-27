@@ -1,0 +1,9 @@
+template w_New do
+   var orig : object;
+end;
+
+match f_name ("A")
+pick child (new (w_New (it))).all ();
+
+match w_New (orig (Entity ()))
+weave standard.out ("CREATED FOR " & orig.f_name & "\n");

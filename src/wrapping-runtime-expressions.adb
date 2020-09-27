@@ -1220,6 +1220,9 @@ package body Wrapping.Runtime.Expressions is
    is
 
       procedure Generator (Expr : T_Expr);
+      --  Filter will use a regular expression that needs a function to
+      --  generate new values. This procedure will generate new values using
+      --  the right end of the selector.
 
       Filtered_Expr   : constant T_Expr := Selector.Selector_Right.Filter_Expr;
       Prefix_Function : T_Expr;
@@ -1235,6 +1238,12 @@ package body Wrapping.Runtime.Expressions is
       procedure Generator (Expr : T_Expr) is
 
          procedure Yield_Callback;
+         --  This callback will either call the original yeild (in the case
+         --  where filter is itself in a situation where all values are
+         --  iterated upon, e.g.
+         --     a.filter ().all ()
+         --  or it will interrupt the current iteration - there's only one
+         --  value that we need.
 
          Original_Yield : constant Yield_Callback_Type :=
            Top_Context.Yield_Callback;
@@ -1271,6 +1280,7 @@ package body Wrapping.Runtime.Expressions is
          --  We may be called from an anchored context. However, this anchor
          --  should not be passed to the prefix, to which we're just getting
          --  values one by one.
+
          Top_Context.Regexpr_Anchored := False;
 
          if Object_Mode then
@@ -1287,10 +1297,15 @@ package body Wrapping.Runtime.Expressions is
 
    begin
       if Top_Context.Match_Mode /= Match_None then
-         --  If we enter the filter in any match mode, then we're running a
-         --  match operation. The Match_Has filter will be tolerant to prefixes
-         --  that don't exist and stack a Match_False instead of an error in
-         --  these cases.
+         --  The question is when entering something like:
+         --     a.filter ()
+         --  What to do if a doesn't exit? If we enter the filter in any match
+         --  mode, then we're running a match operation, e.g.:
+         --     match a.filter ().
+         --  The Match_Has filter will be tolerant to prefixes that don't exist
+         --  and stack a Match_False instead of an error in these cases.
+         --  Otherwise we keep Match_Node and will generate an error if the
+         --  prefix can't be found.
 
          Match_Mode := Match_Has;
       end if;
@@ -1302,19 +1317,29 @@ package body Wrapping.Runtime.Expressions is
 
       --  A filter expression is about calling the directly prefixing function
       --  several times to find a matching pattern. First identify the inital
-      --  value of It and the expression on which the filter is done. In the
+      --  value of "it" and the expression on which the filter is done. In the
       --  case:
       --     X ().filter ()
-      --  It is current It, X is the function. In the case:
+      --  It is current "it", X is the function. In the case:
       --     A.B.X ().filter ()
       --  X is still the function, but A.B needs to be computed to retreive It.
 
       case Selector.Selector_Left.Kind is
          when Template_Selector =>
+            --  We are in the case:
+            --     A.X().filter ()
+            --  Computes A to find the first object to generate from.
+            --  X () is the prefix function.
+
             Prefix_Function := Selector.Selector_Left.Selector_Right;
             Evaluate_Expression (Selector.Selector_Left.Selector_Left);
 
          when others =>
+            --  We are in the case:
+            --     X().filter ();
+            --  X() is the prefix function, the first object to generate from is
+            --  "it".
+
             Prefix_Function := Selector.Selector_Left;
             Push_Object (Top_Object);
 
@@ -1324,14 +1349,19 @@ package body Wrapping.Runtime.Expressions is
       --  the regexp analysis
 
       if Prefix_Function.Kind = Template_Identifier then
-         --  This is an identifier. Call the generator for the object
+         --  This is an identifier. Retreives its value. The Generator ()
+         --  callback will be able to use it as a generator.
 
          Evaluate_Expression (Prefix_Function);
          Pop_Underneath_Top;
          Object_Mode := True;
       else
+         --  The prefix is not an object, we're going to use Prefix_Function.
+
          Object_Mode := False;
       end if;
+
+      --  Launch the evaluation
 
       Evaluate_Generator_Regexp
         (Root      => Top_Object,
@@ -1342,9 +1372,15 @@ package body Wrapping.Runtime.Expressions is
       Pop_Frame_Context;
 
       if Suffix.Length > 0 then
+         --  If there is more to analyze, e.g. in:
+         --     a.b.filter ().c
+         --  Computes the suffix.
+
          Compute_Selector_Chain (Suffix);
          Pop_Underneath_Top;
       elsif Top_Context.Outer_Expr_Action /= Action_None then
+         --  Otherwise, run the outer action and finish
+
          Push_Frame_Context;
 
          if Top_Context.Match_Mode = Match_Ref_Default then
@@ -1364,6 +1400,7 @@ package body Wrapping.Runtime.Expressions is
    procedure Handle_All (Selector : T_Expr; Suffix : T_Expr_Vectors.Vector) is
 
       procedure Yield_Callback;
+      --  Callback called by the prefix when generating values
 
       Initial_Context : constant Frame_Context := Top_Context;
 
@@ -1395,7 +1432,8 @@ package body Wrapping.Runtime.Expressions is
 
          Push_Frame_Context (Initial_Context.all);
 
-         --  We still however need to keep control to the same visit iteration
+         --  We still however need to keep control to the current visit
+         --  iteration
 
          Top_Context.Visit_Decision := Visit_Decision;
 
@@ -1453,10 +1491,13 @@ package body Wrapping.Runtime.Expressions is
       function Handle_Create_Template
         (New_Tree : T_Create_Tree; Parent : W_Template_Instance)
          return W_Template_Instance;
+      --  Creates a new template instance
 
       function Handle_Create_Tree
         (A_Tree : T_Create_Tree; Parent : W_Template_Instance)
          return W_Template_Instance;
+      --  Recursively calls Handle_Create_Template on all the tree designated
+      --  by A_Tree.
 
       ----------------------------
       -- Handle_Create_Template --
@@ -1471,8 +1512,15 @@ package body Wrapping.Runtime.Expressions is
            To_Text (New_Tree.Call.Captured_Name);
       begin
          Push_Error_Location (New_Tree.Node);
+
+         --  Creates a new template instance to be registered for the next
+         --  round of iteration, but does not wrap any other tree
+
          New_Node :=
            Create_Template_Instance (New_Tree.Call.Reference, null, True);
+
+         --  If that node has a captured named ahead of it, store it before
+         --  the call so that it can be referenced by the parameters
 
          if Captured /= "" then
             Include_Symbol (Captured, W_Object (New_Node));
@@ -1480,23 +1528,30 @@ package body Wrapping.Runtime.Expressions is
 
          if Parent = null then
             --  If this is the root of the creation, then we need to signal
-            --  this outside. This is needed in particular for constructions
-            --  like: child (new (T ())) or child (new ([T(), T()])) where
-            --  the root entities need to be connected to the children of
+            --  this outside by calling the allocate callback. This is needed
+            --  for constructions like:
+            --     child (new (T ())) or child (new ({T(), T()}))
+            --  where the root entities need to be connected to the children of
             --  the parent entity.
 
-            --  for the form new (T() []), only the first one needs to be
+            --  for the form new (T()), only the first one needs to be
             --  passed above.
 
             if Top_Context.Allocate_Callback /= null then
                Top_Context.Allocate_Callback.all (New_Node);
             end if;
          else
-            Add_Wrapping_Child (Parent, New_Node);
+            --  If we're not on the root, then we know we're creating a child
+            --  of the previous layer. Add child with wrapping awareness, in
+            --  case the parent is a wrapper.
+
+            Add_Child_With_Wrapping (Parent, New_Node);
          end if;
 
-         Handle_Template_Call
-           (W_Object (New_Node), New_Tree.Call.Args);
+         --  Once the new template is created and added to the overall
+         --  structure, run the call with its parameters.
+
+         Handle_Template_Call (W_Object (New_Node), New_Tree.Call.Args);
          Pop_Error_Location;
 
          return New_Node;
@@ -1514,6 +1569,13 @@ package body Wrapping.Runtime.Expressions is
          Dummy     : W_Template_Instance;
       begin
          if A_Tree.Call /= null then
+            --  We're on the case:
+            --     new (Some_Template ());
+            --  or
+            --     new (Some_Template () {A (), B ()});
+            --  Create the template for Some_Template, then recursively create
+            --  the children if needed, dismissing their values.
+
             Main_Node := Handle_Create_Template (A_Tree, Parent);
 
             for C of A_Tree.Subtree loop
@@ -1522,9 +1584,12 @@ package body Wrapping.Runtime.Expressions is
 
             return Main_Node;
          else
-            --  In the case of new ([T(), T()], every first level will need
-            --  to be passed to the above level, and the last one will be the
-            --  result of the operator.
+            --  We are on the case
+            --     new ({T(), T()})
+            --  In other worlds, we're creating more than one node at the top
+            --  level of the tree. There's no node to be created for that
+            --  level, recursively call each sub-tree and return the last one
+            --  created.
 
             for C of A_Tree.Subtree loop
                Main_Node := Handle_Create_Tree (C, Parent);
@@ -1548,7 +1613,7 @@ package body Wrapping.Runtime.Expressions is
       Left, Right     : W_Object;
       Left_I, Right_I : Integer;
       Result          : W_Object;
-      Kind : constant Template_Node_Kind_Type :=
+      Kind            : constant Template_Node_Kind_Type :=
         Expr.Node.As_Binary_Expr.F_Op.Kind;
    begin
       Top_Context.Match_Mode := Match_Has;
