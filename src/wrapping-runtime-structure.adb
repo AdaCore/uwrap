@@ -88,7 +88,7 @@ package body Wrapping.Runtime.Structure is
 
    function Process_Generated_Value
      (Generated        : access W_Object_Type'Class;
-      Match_Expression : T_Expr) return Visit_Action
+      Match_Expression : T_Expr := null) return Visit_Action
    is
 
       procedure Push_Yield_Result with
@@ -111,6 +111,7 @@ package body Wrapping.Runtime.Structure is
          --    x.all ()
          --  as opposed to:
          --    x.all().something().
+
          if Top_Context.Yield_Callback = null then
             Push_Object (Real_Generated);
 
@@ -120,15 +121,14 @@ package body Wrapping.Runtime.Structure is
          --  When evaluating a yield callback in a browsing call, we need to
          --  first deactivate yield in the expression itself. We also we need
          --  to remove potential name capture, as it would override the one we
-         --  are capturing in this browsing iteration. TODO: quite the opposite
-         --  if we do fold (i : inti, i: acc);
+         --  are capturing in this browsing iteration.
 
          Push_Frame_Context_Parameter;
          Top_Context.Name_Captured     := To_Unbounded_Text ("");
          Top_Context.Outer_Expr_Action := Action_Match;
          Top_Context.Visit_Decision    := Visit_Decision'Unchecked_Access;
 
-         --  Then evaluate that folding expression
+         --  Then call yield
 
          Push_Implicit_It (Real_Generated);
          Push_Object (Real_Generated);
@@ -168,6 +168,9 @@ package body Wrapping.Runtime.Structure is
             Pop_Object;
             Pop_Frame_Context;
          end if;
+
+         --  If there's a yeild callback, call it, otherwise push the object
+         --  on the stack.
 
          if Top_Context.Yield_Callback /= null then
             Push_Yield_Result;
@@ -250,6 +253,8 @@ package body Wrapping.Runtime.Structure is
             return Stop;
          end if;
       else
+         --  We ddn't match anything. Push false and carry the generation.
+
          Push_Match_False;
 
          return Into;
@@ -336,8 +341,14 @@ package body Wrapping.Runtime.Structure is
       Push_Frame_Context;
 
       if Other_Entity = Match_False then
+         --  If we're already on a Match_False, there's nothing to do. We're
+         --  already not matching.
+
          Result := True;
       elsif Other_Entity.all in W_Regexp_Type'Class then
+         --  If we're matching against a regular expression, retreive the
+         --  string of that expression and the entity, and run the matcher.
+
          Push_Buffer_Cursor;
 
          declare
@@ -351,6 +362,9 @@ package body Wrapping.Runtime.Structure is
                  Buffer.Str (R.First.Offset .. R.Last.Offset));
          end;
 
+         --  If we didn't match, replace the top object by false, otherwise
+         --  keep it as-is.
+
          if not Matched then
             Pop_Object;
             Push_Match_False;
@@ -360,6 +374,9 @@ package body Wrapping.Runtime.Structure is
 
          Result := True;
       elsif Other_Entity.all in W_Text_Expression_Type'Class then
+         --  If we're matching against any kind of text other than regular
+         --  expression, do a simple textual comparison.
+
          Push_Buffer_Cursor;
 
          declare
@@ -403,10 +420,13 @@ package body Wrapping.Runtime.Structure is
       function To_Address is new Ada.Unchecked_Conversion
         (Tag, System.Address);
    begin
-      if Left_Tag = Right_Tag then
-         return Left.all'Address < Right.all'Address;
-      else
+      --  First compare tags of the object, and if they're the same, resolve
+      --  to the address.
+
+      if Left_Tag /= Right_Tag then
          return To_Address (Left_Tag) < To_Address (Right_Tag);
+      else
+         return Left.all'Address < Right.all'Address;
       end if;
    end Lt;
 
@@ -433,6 +453,7 @@ package body Wrapping.Runtime.Structure is
    is
 
       procedure Allocate_Variable (Var : T_Var);
+      --  Allocate a variable contained in the static entity in parameter
 
       Result : W_Template_Instance;
       Name   : constant Text_Type := An_Entity.Full_Name;
@@ -464,8 +485,15 @@ package body Wrapping.Runtime.Structure is
 
    begin
       if Object_For_Entity_Registry.Contains (Name) then
+         --  This object has already been created, just return it.
+
          return Object_For_Entity_Registry.Element (Name);
       else
+         --  We don't have the object yet. The static entity could be either
+         --     - a module, in which case we're creating its global variables,
+         --     - a template, in which case we're creating its reference
+         --       registry.
+
          Result                 := new W_Template_Instance_Type;
          Result.Defining_Entity := T_Entity (An_Entity);
 

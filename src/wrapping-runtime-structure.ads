@@ -169,7 +169,7 @@ package Wrapping.Runtime.Structure is
 
    function Process_Generated_Value
      (Generated        : access W_Object_Type'Class;
-      Match_Expression : T_Expr) return Visit_Action with
+      Match_Expression : T_Expr := null) return Visit_Action with
      Post => W_Stack_Size = W_Stack_Size'Old + 1;
    --  Process an entity that has been generated a new entity. If
    --  Match_Expession is not null, then the entity will be matched against the
@@ -182,6 +182,8 @@ package Wrapping.Runtime.Structure is
    --  variable, so that in expressions like:
    --     x: child (<some expression>)
    --  x can be accessible in <some expression>.
+   --  TODO: There may be more places where this call can help simplifying
+   --  code, in places where we have Call_Yield called direclty.
 
    function Write_String (Object : W_Object_Type) return Buffer_Slice;
    --  This function resolves a runtime object into the String value, and

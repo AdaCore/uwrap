@@ -651,7 +651,7 @@ package body Wrapping.Runtime.Objects is
          else
             Push_Frame (Calling_Frame);
 
-            Visit_Decision := Process_Generated_Value (Prev_Top, null);
+            Visit_Decision := Process_Generated_Value (Prev_Top);
 
             if Top_Context.Visit_Decision /= null then
                Top_Context.Visit_Decision.all := Visit_Decision;

@@ -58,7 +58,11 @@ package body Wrapping.Runtime.Parameters is
          Param := Arg.Element (Integer (Actual_Index));
 
          if not Param.Name_Node.Is_Null then
+            --  If this is a named parameter, start the name section
+
             In_Named_Section := True;
+
+            --  Retreives the parameter for this name
 
             declare
                Name  : constant Text_Type :=
@@ -71,6 +75,7 @@ package body Wrapping.Runtime.Parameters is
                      Parameter_Index := I;
                      Formal          := Profile (Parameter_Index);
                      Found           := True;
+
                      exit;
                   end if;
                end loop;
@@ -80,6 +85,9 @@ package body Wrapping.Runtime.Parameters is
                end if;
             end;
          else
+            --  If we're still in the positon section, retreive the parameter
+            --  by index.
+
             if In_Named_Section then
                Error ("can't have positional arguments after named ones");
             end if;
@@ -115,10 +123,16 @@ package body Wrapping.Runtime.Parameters is
          Push_Error_Location (Param.Node);
 
          if not Param.Name_Node.Is_Null then
+            --  If this is a named parameter, start the name section and
+            --  evaluate the parameter
+
             In_Named_Section := True;
             Evaluate_Parameter
               (Param.Name_Node.Text, Parameter_Index, Param.Expr);
          else
+            --  Otherwise, check that we have not started the name section yet
+            --  before evaluating the parameter
+
             if In_Named_Section then
                Error ("can't have positional arguments after named ones");
             end if;

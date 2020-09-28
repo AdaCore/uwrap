@@ -33,6 +33,13 @@ package body Wrapping.Runtime.Strings is
 
       procedure On_Error
         (Message : Text_Type; Filename : String; Loc : Source_Location);
+      --  Callback used to override the default error location when entering
+      --  a string.
+      --  TOTO: This is still a relatively weak way to retreive slocs for
+      --  errors in strings, essentially sets the sloc at the begining of
+      --  the strings, and disregards the fact that string expressions may
+      --  call other functions which would have proper sloc. Lost of room
+      --  for improvement.
 
       --------------
       -- On_Error --
@@ -58,7 +65,7 @@ package body Wrapping.Runtime.Strings is
       Push_Frame_Context_No_Match;
       Top_Context.Is_Root_Selection := True;
 
-      Prev_Error     := Error_Callback;
+      Prev_Error := Error_Callback;
 
       --  The error callback needs to be set here because the string may
       --  contain expressions which will be parsed and analyzed.
@@ -79,22 +86,37 @@ package body Wrapping.Runtime.Strings is
 
          case Str.Kind is
             when Str_Kind =>
+               --  We're on a simple string. Add its contents to the
+               --  main buffer.
+
                Slice.Last := Resolve_Indentation.Last;
                Slice.Last := Write_String (To_Text (Str.Value)).Last;
 
             when Expr_Kind =>
-               Evaluate_Expression (Str.Expr);
-               Slice.Last := Pop_Object.Write_String.Last;
+               --  We're on an expression. Evaluates its value and write
+               --  the result in the main buffer.
+
+               Slice.Last := Resolve_Indentation.Last;
+               Slice.Last := Evaluate_Expression (Str.Expr).Write_String.Last;
                --  TODO: we systematically pop an object here. There's
                --  an optimization where we could detect that the expression
                --  is already a string, and just use the value pushed on
                --  the buffer instead.
 
             when Group_Kind =>
+               --  We're on a group refernence. Look for that group in the
+               --  current frame and push its value.
+
                declare
                   Position : Integer := Str.Group_Number;
                   Value    : W_Object;
                begin
+                  --  Go through the various group sections. E.g. in:
+                  --     match x"(.*)" do
+                  --        match x"(a.*c)" do
+                  --  There are two section stacked one after the other. \1
+                  --  refers to (.*) and \2 refers to x"(a.*c)"
+
                   for C of Top_Frame.Group_Sections loop
                      if Integer (C.Groups.Length) < Position then
                         Position := Position - Integer (C.Groups.Length);
@@ -132,14 +154,23 @@ package body Wrapping.Runtime.Strings is
    is
       Result : Buffer_Slice;
    begin
-      Result := (Buffer.Cursor, Buffer.Cursor);
+      --  Set the results starting on the current cursor, and ending after
+      --  the text being inserted.
 
+      Result := (Buffer.Cursor, Buffer.Cursor);
       Result.Last.Offset := Buffer.Cursor.Offset + Text'Length - 1;
+
+      --  Adds the text to the global buffer
 
       Buffer.Str (Buffer.Cursor.Offset .. Result.Last.Offset) := Text;
 
+      --  Update the global buffer cursor
+
       Buffer.Cursor := Result.Last;
       Buffer.Cursor.Offset := Buffer.Cursor.Offset + 1;
+
+      --  If we need to update cursor line / column, scan through the text
+      --  content to increment and update necessary variables.
 
       if Buffer.Full_Cursor_Update then
          for C of Text loop
@@ -170,6 +201,9 @@ package body Wrapping.Runtime.Strings is
    function Get_Empty_Slice return Buffer_Slice is
       Result : Buffer_Slice := (Buffer.Cursor, Buffer.Cursor);
    begin
+      --  An empty slice is set to start on the current buffer custor but with
+      --  an tempty length.
+
       Result.Last.Offset := Result.First.Offset - 1;
       Result.Last.Line := Result.First.Line - 1;
       Result.Last.Line_Offset := Result.First.Line_Offset - 1;
@@ -198,6 +232,10 @@ package body Wrapping.Runtime.Strings is
       Buffer.Cursor_Stack.Delete_Last;
 
       if Max_Column > Buffer.Cursor.Max_Column then
+         --  When popping a buffer cursor, we still want to track the maximum
+         --  column encountered so far. Update the parent cursor if the
+         --  new section of text found a larger value.
+
          Buffer.Cursor.Max_Column := Max_Column;
       end if;
    end Pop_Buffer_Cursor;
@@ -239,8 +277,12 @@ package body Wrapping.Runtime.Strings is
       if Buffer.Cursor.Offset > 1
         and then Is_Line_Terminator (Buffer.Str (Buffer.Cursor.Offset - 1))
       then
+         --  If we're on a begining of a line, provide identiation.
+
          return Indent;
       else
+         --  We're not on a beginign of a line, no identation.
+
          return Get_Empty_Slice;
       end if;
    end Resolve_Indentation;
