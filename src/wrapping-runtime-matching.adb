@@ -159,6 +159,7 @@ package body Wrapping.Runtime.Matching is
    is
       Result_Variable : aliased Capture_Result_Type;
    begin
+      Push_Frame_Context;
       Push_Implicit_It (Root);
 
       --  There is no regexpr, just one expression. Compute it and return.
@@ -168,6 +169,7 @@ package body Wrapping.Runtime.Matching is
       then
          Generator (Expr);
          Pop_Underneath_Top;
+         Pop_Frame_Context;
 
          return;
       end if;
@@ -212,6 +214,8 @@ package body Wrapping.Runtime.Matching is
             Push_Object (Result_Variable.Object);
          end if;
       end;
+
+      Pop_Frame_Context;
    end Evaluate_Generator_Regexp;
 
    ----------------------------------

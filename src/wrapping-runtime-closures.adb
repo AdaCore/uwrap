@@ -43,16 +43,6 @@ package body Wrapping.Runtime.Closures is
                --  also confused name resolution as we would have a symbol and
                --  a statically solvable name.
                Pop_Object;
-            elsif Top_Object.all in W_Reference_Type'Class
-              and then W_Reference (Top_Object).Is_Implicit_It
-            then
-               --  We don't want to carry the It property over to the deferred
-               --  call, so remove it.
-
-               A_Closure.Captured_Symbols.Insert
-                 (Name,
-                  new W_Reference_Type'
-                    (Value => W_Reference (Pop_Object).Value, others => <>));
             else
                A_Closure.Captured_Symbols.Insert (Name, Pop_Object);
             end if;
@@ -63,6 +53,8 @@ package body Wrapping.Runtime.Closures is
       A_Closure.Lexical_Scope := Top_Frame.Lexical_Scope;
       A_Closure.Temp_Names    := Top_Frame.Temp_Names;
       A_Closure.Left_Value    := Top_Context.Left_Value;
+
+      Pop_Frame_Context;
 
       return A_Closure;
    end Capture_Closure;

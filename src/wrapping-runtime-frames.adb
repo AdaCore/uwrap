@@ -108,7 +108,7 @@ package body Wrapping.Runtime.Frames is
 
    procedure Update_Top_Object is
    begin
-      if Top_Frame.Data_Stack.Length > 0 then
+      if Top_Frame /= null and then Top_Frame.Data_Stack.Length > 0 then
          Top_Object_Ref := Top_Frame.Data_Stack.Last_Element;
       end if;
    end Update_Top_Object;
@@ -135,12 +135,8 @@ package body Wrapping.Runtime.Frames is
 
    procedure Push_Implicit_It (Object : access W_Object_Type'Class) is
    begin
-      Push_Object
-        (W_Object'
-           (new W_Reference_Type'
-                (Value          => W_Object (Object),
-                 Is_Implicit_It => True,
-                 others         => <>)));
+      Top_Context.It_Value := W_Object (Object);
+      Push_Object (Top_Context.It_Value);
    end Push_Implicit_It;
 
    ---------------------------
@@ -153,8 +149,7 @@ package body Wrapping.Runtime.Frames is
         (W_Object'
            (new W_Reference_Type'
                 (Value        => W_Object (Object),
-                 Is_Allocated => True,
-                 others       => <>)));
+                 Is_Allocated => True)));
    end Push_Allocated_Entity;
 
    -------------------------
@@ -376,6 +371,8 @@ package body Wrapping.Runtime.Frames is
       else
          Parent_Frame_Ref := null;
       end if;
+
+      Update_Top_Object;
    end Update_Top_And_Parent_Frames;
 
    ----------------
@@ -403,6 +400,8 @@ package body Wrapping.Runtime.Frames is
          --  can create their own indented section contributing to the global
          --  output).
          New_Frame.Top_Context.Indent := Top_Context.Indent;
+
+         New_Frame.Top_Context.It_Value := Top_Context.It_Value;
       end if;
 
       --  Each new frame create a new temporary names registry
@@ -460,21 +459,7 @@ package body Wrapping.Runtime.Frames is
 
    function Get_Implicit_It return W_Object is
    begin
-      --  The implicit it is model as a reference to an object, with the
-      --  flag Is_Implicit_It set to True.
-
-      for I in reverse
-        Top_Frame.Data_Stack.First_Index .. Top_Frame.Data_Stack.Last_Index
-      loop
-         if Top_Frame.Data_Stack.Element (I).all in W_Reference_Type'Class
-           and then
-             W_Reference (Top_Frame.Data_Stack.Element (I)).Is_Implicit_It
-         then
-            return W_Reference (Top_Frame.Data_Stack.Element (I)).Value;
-         end if;
-      end loop;
-
-      return null;
+      return Top_Context.It_Value;
    end Get_Implicit_It;
 
 end Wrapping.Runtime.Frames;

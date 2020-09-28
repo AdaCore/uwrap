@@ -309,9 +309,11 @@ package body Wrapping.Runtime.Nodes is
       if Params.Length = 0 then
          Push_Match_True (An_Entity);
       elsif Params.Length = 1 then
+         Push_Frame_Context;
          Push_Implicit_It (W_Object (An_Entity));
          Push_Match_Result (Params.Element (1).Expr, W_Object (An_Entity));
          Pop_Underneath_Top;
+         Pop_Frame_Context;
       else
          Error ("comparing with a node requires one parameter");
       end if;

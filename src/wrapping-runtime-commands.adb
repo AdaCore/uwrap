@@ -391,6 +391,7 @@ package body Wrapping.Runtime.Commands is
          Error ("can't pick selected object");
       end if;
 
+      Push_Frame_Context;
       Push_Implicit_It (It);
 
       if Command.Command_Sequence /= null then
@@ -425,6 +426,7 @@ package body Wrapping.Runtime.Commands is
       end if;
 
       Pop_Object;
+      Pop_Frame_Context;
    end Handle_Command_Post_Pick;
 
    ----------------------------

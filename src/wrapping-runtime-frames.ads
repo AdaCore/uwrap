@@ -226,6 +226,9 @@ package Wrapping.Runtime.Frames is
       --  When hitting a capture expression, the name is being stored here so
       --  that the capturing expression can update its value.
 
+      It_Value : W_Object;
+      --  Reference to the current iterated value, accessible by "it".
+
       Left_Value : W_Object;
       --  When set, this identifies the value at the left of the expression.
       --  For example, in A (V => @ & "something"), @ is the left value

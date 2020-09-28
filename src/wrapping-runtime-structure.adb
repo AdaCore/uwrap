@@ -184,14 +184,6 @@ package body Wrapping.Runtime.Structure is
          end if;
       end if;
 
-      --  There is a subtetly in the browsing functions. The It reference
-      --  within these calls isn't the entity currently analyzed anymore
-      --  but directly the entity that is being evaluated under these calls.
-      --  However, we cannot create a sub frame as whatever we match needs
-      --  to find its way to the command frame (otherwise any extracted group
-      --  would be deleted upon frame popped).
-      Push_Implicit_It (Real_Generated);
-
       --  If there's a name capture above this expression, its value needs to
       --  be available in the underlying match expression. We only capture the
       --  entity outside of folding context. When folding, the result of the
@@ -212,6 +204,14 @@ package body Wrapping.Runtime.Structure is
       Top_Context.Name_Captured  := To_Unbounded_Text ("");
       Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
       Top_Context.Yield_Callback := null;
+
+      --  There is a subtetly in the browsing functions. The It reference
+      --  within these calls isn't the entity currently analyzed anymore
+      --  but directly the entity that is being evaluated under these calls.
+      --  However, we cannot create a sub frame as whatever we match needs
+      --  to find its way to the command frame (otherwise any extracted group
+      --  would be deleted upon frame popped).
+      Push_Implicit_It (Real_Generated);
 
       Evaluate_Expression (Match_Expression);
 

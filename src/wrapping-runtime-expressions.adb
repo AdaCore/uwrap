@@ -32,7 +32,6 @@ with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
 with Wrapping.Runtime.Nodes;      use Wrapping.Runtime.Nodes;
 with Wrapping.Runtime.Functions;  use Wrapping.Runtime.Functions;
 with Wrapping.Runtime.Parameters; use Wrapping.Runtime.Parameters;
-with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
 
 package body Wrapping.Runtime.Expressions is
 
@@ -1254,9 +1253,11 @@ package body Wrapping.Runtime.Expressions is
 
          procedure Yield_Callback is
          begin
+            Push_Frame_Context;
             Push_Implicit_It (Top_Object);
             Push_Match_Result (Expr);
             Pop_Underneath_Top;
+            Pop_Frame_Context;
 
             if Top_Object /= Match_False then
                if Original_Yield /= null then
@@ -1265,7 +1266,7 @@ package body Wrapping.Runtime.Expressions is
                   Call_Yield (Original_Yield);
                else
                   --  We're just looking for the first matching value,
-                  --  interrupt the current iteration
+                  --  interrupt any current function
 
                   Parent_Frame.Interrupt_Program := True;
                end if;

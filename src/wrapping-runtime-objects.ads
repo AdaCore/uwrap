@@ -84,9 +84,6 @@ package Wrapping.Runtime.Objects is
       Value : W_Object;
       --  The object pointed by this reference
 
-      Is_Implicit_It : Boolean := False;
-      --  Is this reference an implicit iterator?
-
       Is_Allocated : Boolean := False;
       --  When entities are created in the expressions through the new
       --  function, this flag is set to true, so that the entity can be
@@ -126,10 +123,6 @@ package Wrapping.Runtime.Objects is
    overriding procedure Push_Traverse_Result
      (An_Entity        : access W_Reference_Type; A_Mode : Traverse_Mode;
       Match_Expression : T_Expr);
-   --  Pass through to the Value primitive.
-
-   function Is_Implicit (Object : W_Reference_Type) return Boolean is
-     (Object.Is_Implicit_It);
    --  Pass through to the Value primitive.
 
    overriding function Dereference

@@ -616,6 +616,7 @@ package body Wrapping.Runtime.Objects is
 
       procedure Result_Callback is
          Visit_Decision : Visit_Action;
+         Prev_Top : constant W_Object := Top_Object;
       begin
          --  When reaching a value to be picked on a function f, either:
          --  (1) the caller is not iterating over generated values, in which
@@ -633,14 +634,14 @@ package body Wrapping.Runtime.Objects is
          else
             Push_Frame (Calling_Frame);
 
-            Visit_Decision := Process_Generated_Value (Top_Object, null);
+            Visit_Decision := Process_Generated_Value (Prev_Top, null);
+            Last_Result := Top_Object;
 
             if Top_Context.Visit_Decision /= null then
                Top_Context.Visit_Decision.all := Visit_Decision;
             end if;
 
-            Last_Result := Pop_Object;
-
+            Pop_Object;
             Pop_Frame;
          end if;
       end Result_Callback;
@@ -736,10 +737,12 @@ package body Wrapping.Runtime.Objects is
          Push_Match_True (It_Object);
          return;
       elsif Params.Length = 1 then
+         --  Push_Frame_Context;
          Push_Implicit_It (It_Object);
          Evaluate_Expression (Params.Element (1).Expr);
          Result := Pop_Object;
          Pop_Object;
+         --  Pop_Frame_Context;
 
          if Result /= Match_False then
             --  If the result is good, then the result of this match is the

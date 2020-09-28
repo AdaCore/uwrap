@@ -19,11 +19,13 @@
 
 with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
+with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
 
 package Wrapping.Runtime.Expressions is
 
    procedure Evaluate_Expression (Expr : T_Expr) with
-     Post => W_Stack_Size = W_Stack_Size'Old + 1;
+     Post => W_Stack_Size = W_Stack_Size'Old + 1
+     and Top_Context = Top_Context'Old;
    --  This procedure is the entry point of the evaluation of an expression. It
    --  will keep the current value on the stack, and add the result as the
    --  top object. The status of the current context influences significantely
