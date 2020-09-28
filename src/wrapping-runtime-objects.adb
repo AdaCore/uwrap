@@ -635,13 +635,12 @@ package body Wrapping.Runtime.Objects is
             Push_Frame (Calling_Frame);
 
             Visit_Decision := Process_Generated_Value (Prev_Top, null);
-            Last_Result := Top_Object;
 
             if Top_Context.Visit_Decision /= null then
                Top_Context.Visit_Decision.all := Visit_Decision;
             end if;
 
-            Pop_Object;
+            Last_Result := Pop_Object;
             Pop_Frame;
          end if;
       end Result_Callback;
