@@ -400,8 +400,6 @@ package body Wrapping.Runtime.Frames is
          --  can create their own indented section contributing to the global
          --  output).
          New_Frame.Top_Context.Indent := Top_Context.Indent;
-
-         New_Frame.Top_Context.It_Value := Top_Context.It_Value;
       end if;
 
       --  Each new frame create a new temporary names registry
