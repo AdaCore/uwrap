@@ -27,14 +27,20 @@ package body Wrapping.Runtime.Nodes is
    function Is_Wrapping (Node : access W_Node_Type'Class) return Boolean is
      (Node.all in W_Template_Instance_Type'Class
       and then W_Template_Instance (Node).Origin /= null);
+   --  Returns true if this node is wrapping another node - that is if it has
+   --  an origin.
 
    procedure Call_Tmp
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Call the "tmp" intrinsic function, calling Push_Temporary_Name on the
+   --  Object in parameter with the string as the first param.
 
    generic
       A_Mode : Traverse_Mode;
    procedure Call_Gen_Browse
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Generic procedure able to call traverse function on the mode given
+   --  in generic formal parameter.
 
    ---------------------
    -- Call_Gen_Browse --
@@ -45,6 +51,8 @@ package body Wrapping.Runtime.Nodes is
    is
 
       procedure Generator (Expr : T_Expr);
+      --  Used to generate a new value to be analyzed through the matching
+      --  expression.
 
       ---------------
       -- Generator --
@@ -68,17 +76,22 @@ package body Wrapping.Runtime.Nodes is
    end Call_Gen_Browse;
 
    procedure Call_Browse_Parent is new Call_Gen_Browse (Parent);
+   --  Calls intrinsic "parent" function
 
    procedure Call_Browse_Child is new Call_Gen_Browse (Child_Breadth);
+   --  Calls intrinsic "child" function
 
    procedure Call_Browse_Next is new Call_Gen_Browse (Next);
+   --  Calls intrinsic "next" function
 
    procedure Call_Browse_Prev is new Call_Gen_Browse (Prev);
+   --  Calls intrinsic "prev" function
 
    procedure Call_Browse_Sibling is new Call_Gen_Browse (Sibling);
+   --  Calls intrinsic "sibling" function
 
-   procedure Call_Browse_Wrapper is new Call_Gen_Browse
-     (Wrapping.Runtime.Structure.Wrapper);
+   procedure Call_Browse_Wrapper is new Call_Gen_Browse (Wrapper);
+   --  Calls intrinsic "wrapper" function
 
    ---------------
    -- Add_Child --
@@ -89,6 +102,9 @@ package body Wrapping.Runtime.Nodes is
       Child.Parent := W_Node (Parent);
 
       if Parent.Children_Ordered.Length > 0 then
+         --  If there's already a child, links the old and new child as
+         --  siblings.
+
          Parent.Children_Ordered.Last_Element.Next := W_Node (Child);
          Child.Prev := Parent.Children_Ordered.Last_Element;
       end if;
@@ -115,17 +131,26 @@ package body Wrapping.Runtime.Nodes is
    procedure Add_Next (Cur, Next : access W_Node_Type'Class) is
       Found : Boolean := False with Ghost;
    begin
+      --  Links both objects as siblings
+
       Next.Next := Cur.Next;
       Next.Prev := W_Node (Cur);
       Cur.Next  := W_Node (Next);
+      Next.Parent := Cur.Parent;
+
+      --  If the Cur object has a parent, make sure that Next is also
+      --  registered as a child of this parent, inserted in the list of indexed
+      --  children right after Cur.
 
       if Cur.Parent /= null then
          for I in
-           Cur.Children_Ordered.First_Index .. Cur.Children_Ordered.Last_Index
+           Cur.Parent.Children_Ordered.First_Index ..
+             Cur.Parent.Children_Ordered.Last_Index
          loop
-            if Cur.Children_Ordered.Element (I) = Cur then
-               Cur.Children_Ordered.Insert (I + 1, W_Node (Next));
+            if Cur.Parent.Children_Ordered.Element (I) = Cur then
+               Cur.Parent.Children_Ordered.Insert (I + 1, W_Node (Next));
                Found := True;
+
                exit;
             end if;
          end loop;
@@ -146,7 +171,8 @@ package body Wrapping.Runtime.Nodes is
       if Is_Wrapping (Parent) then
          --  Template instances that are part of the wrapping tree are never
          --  added directly. Instead, they are wrapping a hollow node created
-         --  on the origin tree.
+         --  on the origin tree. This is necessary to allow seamless traversal
+         --  of nodes wether they're coming from a wrapping or a new clause.
 
          Wrapped := new W_Hollow_Node_Type;
          Add_Child_With_Wrapping
@@ -154,6 +180,8 @@ package body Wrapping.Runtime.Nodes is
          Wrapped.Wrappers_Ordered.Append (W_Template_Instance (Child));
          W_Template_Instance (Child).Origin := Wrapped;
       else
+         --  If the parent isn't wrapping, just add the child to its structure.
+
          Add_Child (Parent, Child);
       end if;
    end Add_Child_With_Wrapping;
@@ -176,6 +204,12 @@ package body Wrapping.Runtime.Nodes is
       New_Template.Defining_Entity := T_Entity (A_Template);
 
       if Wrapping /= null then
+         --  We're wrapping a node, e.g.:
+         --     pick it wrap sth ();
+         --  where it it the origin and sth the type of the new template.
+         --  Set the new template as having it as its origin, and it has having
+         --  this new node as its template.
+
          New_Template.Origin := W_Node (Wrapping);
 
          if Register then
@@ -187,13 +221,16 @@ package body Wrapping.Runtime.Nodes is
          end if;
       end if;
 
-      Current_Template := A_Template;
+      if Register then
+         --  If the new object needs to be registered, register it in its type
+         --  object registry as well as the one of all of its parents.
 
-      while Current_Template /= null loop
-         Template_Class :=
-           W_Template_Instance (Get_Object_For_Entity (A_Template));
+         Current_Template := A_Template;
 
-         if Register then
+         while Current_Template /= null loop
+            Template_Class :=
+              W_Template_Instance (Get_Object_For_Entity (A_Template));
+
             W_Vector
               (W_Reference
                  (Template_Class.Indexed_Variables.Element ("_registry"))
@@ -201,12 +238,12 @@ package body Wrapping.Runtime.Nodes is
               .A_Vector
                 .Append
                   (W_Object (New_Template));
-         end if;
 
-         Current_Template := Current_Template.Extends;
-      end loop;
+            Current_Template := Current_Template.Extends;
+         end loop;
 
-      if Register then
+         --  Also registerd the template instance for later iteration.
+
          Register_Template_Instance (New_Template);
       end if;
 
@@ -306,6 +343,11 @@ package body Wrapping.Runtime.Nodes is
      (An_Entity : access W_Node_Type; Params : T_Arg_Vectors.Vector)
    is
    begin
+      --  A node call, e.g.:
+      --     it (<some expression>)
+      --  is a match between a node and the expression given as first
+      --  parameter.
+
       if Params.Length = 0 then
          Push_Match_True (An_Entity);
       elsif Params.Length = 1 then
@@ -370,7 +412,7 @@ package body Wrapping.Runtime.Nodes is
         (Entity : access W_Object_Type'Class; A_Mode : Traverse_Mode)
          return Visit_Action;
       --  Wraps the default traverse function, capturing the result if not null
-      --  or false.
+      --  or false. This is used for child depth mode.
 
       function Visit_Wrapper
         (Entity : access W_Object_Type'Class) return Visit_Action;
@@ -390,15 +432,19 @@ package body Wrapping.Runtime.Nodes is
          return Visit_Action
       is
          Temp_Result : W_Object;
-         R           : Visit_Action;
+         Decision    : Visit_Action;
       begin
-         R := Entity.Traverse (A_Mode, False, Temp_Result, Visitor);
+         Decision := Entity.Traverse (A_Mode, False, Temp_Result, Visitor);
 
          if Temp_Result /= Match_False and then Temp_Result /= null then
+            --  If the traverse operation found a valid result, store it
+            --  as a candidate to be later returned by the overall traverse
+            --  function.
+
             Final_Result := Temp_Result;
          end if;
 
-         return R;
+         return Decision;
       end Traverse_Wrapper;
 
       -------------------
@@ -409,27 +455,36 @@ package body Wrapping.Runtime.Nodes is
         (Entity : access W_Object_Type'Class) return Visit_Action
       is
          Temp_Result : W_Object;
-         R           : Visit_Action;
+         Decision    : Visit_Action;
       begin
-         R := Visitor (Entity, Temp_Result);
+         Decision := Visitor (Entity, Temp_Result);
 
          if Temp_Result /= Match_False and then Temp_Result /= null then
+            --  If the visit operation found a valid result, store it
+            --  as a candidate to be later returned by the overall traverse
+            --  function.
+
             Final_Result := Temp_Result;
          end if;
 
-         return R;
+         return Decision;
       end Visit_Wrapper;
 
       Decision : Visit_Action := Unknown;
 
    begin
+      --  By default, if nothing is found, the final result is false.
+
       Final_Result := Match_False;
+
+      --  Allow the current node to create internal structure if needed.
 
       W_Node_Type'Class (An_Entity.all).Pre_Visit;
 
-      if Include_Self then
-         W_Node_Type'Class (An_Entity.all).Pre_Visit;
+      --  If the current node is to be included, visit it and interrupts the
+      --  traversal if needed.
 
+      if Include_Self then
          case Visit_Wrapper (An_Entity) is
             when Stop =>
                return Stop;
@@ -446,8 +501,11 @@ package body Wrapping.Runtime.Nodes is
       end if;
 
       if A_Mode = Sibling then
-         --  TODO: Rewrite sibling as a next starting from the first element.
-         --  the current version doesn't handle properly regular expressions
+         --  Sibling is implemented as a traversal of Prev, followed by a
+         --  traversal of next.
+
+         --  TODO: implement and test regexpr anchors
+
          case Traverse_Wrapper (An_Entity, Prev) is
             when Stop =>
                return Stop;
@@ -464,6 +522,10 @@ package body Wrapping.Runtime.Nodes is
 
          return Traverse_Wrapper (An_Entity, Next);
       elsif A_Mode = Wrapper then
+         --  For wrapper mode, visit all wrappers one by one.
+
+         --  TODO: implement and test regexpr anchors
+
          for T of An_Entity.Wrappers_Ordered loop
             W_Node_Type'Class (T.all).Pre_Visit;
 
@@ -485,6 +547,9 @@ package body Wrapping.Runtime.Nodes is
          return Into;
       end if;
 
+      --  At this point, subling and wrapper mode are handled. Handle other
+      --  case, by initialzing Current on the next value to analyze.
+
       case A_Mode is
          when Parent =>
             Current := An_Entity.Parent;
@@ -501,6 +566,9 @@ package body Wrapping.Runtime.Nodes is
             end if;
 
          when Child_Breadth =>
+            --  For Child_Breadth, we maintain at each level the list of the
+            --  children computed for the next level.
+
             for C of An_Entity.Children_Ordered loop
                Current_Children_List.Append (C);
             end loop;
@@ -512,6 +580,10 @@ package body Wrapping.Runtime.Nodes is
 
       if A_Mode = Child_Breadth then
          loop
+            --  Visit all children in the list.
+
+            --  TODO: implement and test regexpr anchors
+
             for C of Current_Children_List loop
                C.Pre_Visit;
 
@@ -525,6 +597,11 @@ package body Wrapping.Runtime.Nodes is
                      null;
 
                   when Into | Into_Override_Anchor =>
+                     --  If we decide to look into grandchildren, as we're
+                     --  doing a breadth analysis, store the new children to
+                     --  analyze, and finish the current interation prior to
+                     --  going to the next level.
+
                      if Decision = Into_Override_Anchor
                        or else not Top_Context.Regexpr_Anchored
                      then
@@ -540,13 +617,16 @@ package body Wrapping.Runtime.Nodes is
 
             exit when Next_Children_List.Length = 0;
 
-            Current_Children_List.Clear;
-            Current_Children_List.Assign (Next_Children_List);
-            Next_Children_List.Clear;
+            --  Swaps the list of children between the current one and the next
+            --  one.
+
+            Current_Children_List.Move (Next_Children_List);
          end loop;
       else
          while Current /= null loop
             Current.Pre_Visit;
+
+            --  Compute the decision on the current element
 
             Decision := Visit_Wrapper (Current);
 
@@ -559,26 +639,41 @@ package body Wrapping.Runtime.Nodes is
 
                when Into | Into_Override_Anchor =>
                   if A_Mode = Child_Depth then
-                     Decision := Traverse_Wrapper (Current, A_Mode);
+                     --  If we're not anchored, look at the children of this
+                     --  entity.
 
-                     case Decision is
-                        when Stop =>
-                           return Stop;
+                     if not Top_Context.Regexpr_Anchored
+                       or else Decision /= Into_Override_Anchor
+                     then
+                        Decision := Traverse_Wrapper (Current, A_Mode);
 
-                        when others =>
-                           null;
-                     end case;
+                        case Decision is
+                           when Stop =>
+                              return Stop;
+
+                           when others =>
+                              null;
+                        end case;
+                     end if;
                   end if;
 
                when Unknown =>
                   null;
             end case;
 
-            if Top_Context.Regexpr_Anchored
+            --  If we didn't stop, before looking for another value, check
+            --  the anchor. If it's set and we're not overriding that anchor,
+            --  then that means that we're not interested in values passed
+            --  that level. Stop traversal.
+
+            if A_Mode /= Child_Depth
+              and then Top_Context.Regexpr_Anchored
               and then Decision /= Into_Override_Anchor
             then
                return Stop;
             end if;
+
+            --  Move to the next  entry to analyze
 
             case A_Mode is
                when Parent =>
@@ -624,7 +719,9 @@ package body Wrapping.Runtime.Nodes is
         (Prev : access W_Node_Type'Class) return W_Hollow_Node;
       pragma Warnings (On);
 
-      procedure Allocate (E : access W_Object_Type'Class);
+      procedure Allocate_Callback (E : access W_Object_Type'Class);
+      --  Called when an allocation is done, will link it in the current node
+      --  structure.
 
       Visited : Boolean := False;
 
@@ -668,11 +765,11 @@ package body Wrapping.Runtime.Nodes is
          return New_Node;
       end Create_Hollow_Next;
 
-      --------------
-      -- Allocate --
-      --------------
+      -----------------------
+      -- Allocate_Callback --
+      -----------------------
 
-      procedure Allocate (E : access W_Object_Type'Class) is
+      procedure Allocate_Callback (E : access W_Object_Type'Class) is
       begin
          --  TODO: We need to be able to cancel allocation if the entire
          --  research happens to be false
@@ -684,7 +781,7 @@ package body Wrapping.Runtime.Nodes is
             when others =>
                Error ("allocation not implemented on the enclosing function");
          end case;
-      end Allocate;
+      end Allocate_Callback;
 
       Found  : Boolean;
       Result : W_Object;
@@ -713,7 +810,8 @@ package body Wrapping.Runtime.Nodes is
          --  that matches with it.
 
          Top_Context.Allow_Allocate := True;
-         Top_Context.Allocate_Callback := Allocate'Unrestricted_Access;
+         Top_Context.Allocate_Callback :=
+           Allocate_Callback'Unrestricted_Access;
          Visited := False;
 
          Found :=
@@ -739,18 +837,15 @@ package body Wrapping.Runtime.Nodes is
       end if;
 
       Pop_Frame_Context;
-      Push_Frame_Context;
-      Top_Context.Match_Mode := Match_Ref_Default;
 
-      if not Found
-        and then not
-          (Top_Context.Match_Mode /= Match_None
-           or else Top_Context.Yield_Callback /= null)
-      then
+      --  If we didn't find anything but expected to (i.e. the traversal is
+      --  done outside of a match context) then raise an exception.
+
+      if not Found and then Top_Context.Match_Mode /= Match_None then
          Error ("no result found for browsing function");
       end if;
 
-      Pop_Frame_Context;
+      --  If there's a result, push it, otherwise push false.
 
       if Result /= null then
          Push_Object (Result);
@@ -786,6 +881,7 @@ package body Wrapping.Runtime.Nodes is
          return True;
       elsif An_Entity.Indexed_Variables.Contains (Name) then
          Push_Object (An_Entity.Indexed_Variables.Element (Name));
+
          return True;
       end if;
 
@@ -802,7 +898,11 @@ package body Wrapping.Runtime.Nodes is
       Other_Entity : constant W_Object := Top_Object.Dereference;
    begin
       --  Special treatment for static entities, that are always checked in
-      --  "is" mode
+      --  "is" mode, that is in:
+      --     match it (w_Template);
+      --   we want to check that it corresponds to the template (as opposed
+      --   to checking that there's a static entity called w_Template in the
+      --   current context.
 
       if Other_Entity.all in W_Static_Entity_Type'Class then
          if Top_Context.Match_Mode in
@@ -845,6 +945,7 @@ package body Wrapping.Runtime.Nodes is
       function Template_Visitor
         (E : access W_Object_Type'Class; Result : out W_Object)
          return Visit_Action;
+      --  Wrapper to traverse the tree using the origin structure.
 
       ----------------------
       -- Template_Visitor --
@@ -863,17 +964,33 @@ package body Wrapping.Runtime.Nodes is
             if W_Node (E).Wrappers_Ordered.Length = 0 then
                --  When there's no template for a given node, we consider this
                --  note to be non-existent from the template browsing point
-               --  of view. As a result, anchored browsing should be allowed
-               --  to look at the next level of nodes as if it was directly
+               --  of view. As a result, we jump into even if there's an anchor
+               --  set to look at the next level of nodes as if it was directly
                --  adjacent.
 
                return Into_Override_Anchor;
             else
+               --  We found an entry in the origin node. Now look at its
+               --  wrappers and see if something matches
+
                Push_Frame_Context;
+
+               --  In regular expressions, we only need to iterated on one of
+               --  the wrappers to find its children. E.g. in:
+               --     pick it wrap A ();
+               --     pick it wrap B ();
+               --  it has two wrappers, A and B. However, the children of
+               --  A and the children of B are the same (they are the children
+               --  of the wrappers of the children of it). We avoid duplicate
+               --  iteration by setting this flag, which will be taken into
+               --  account by the matching code later on.
+
                Top_Context.Is_First_Matching_Wrapper := True;
 
-               for T of W_Node (E).Wrappers_Ordered loop
-                  Last_Decision := Visitor (T, Current_Result);
+               --  Runs the visitor on all wrappers of the current node.
+
+               for Wrapper of W_Node (E).Wrappers_Ordered loop
+                  Last_Decision := Visitor (Wrapper, Current_Result);
 
                   if Current_Result /= Match_False
                     and then Current_Result /= null
@@ -903,6 +1020,7 @@ package body Wrapping.Runtime.Nodes is
       --  input tree, in this case fallback to the normal traversal. Otherwise,
       --  use specialized traversing using the original tree as the backbone of
       --  the iteration.
+
       if An_Entity.Origin = null then
          Last_Decision :=
            W_Node_Type (An_Entity.all).Traverse
