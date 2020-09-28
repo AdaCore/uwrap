@@ -30,15 +30,19 @@ package body Wrapping.Runtime.Objects is
 
    procedure Call_Insert
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Calls intrinsinc "insert" function on relevant containers
 
    procedure Call_Include
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Calls intrinsinc "include" function on relevant containers
 
    procedure Call_Append
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Calls intrinsinc "append" function on relevant containers
 
    procedure Call_Get
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Calls intrinsinc "get" function on relevant containers
 
    -----------------
    -- Call_Insert --
@@ -245,25 +249,6 @@ package body Wrapping.Runtime.Objects is
       Object.Value.Generate_Values (Expr);
    end Generate_Values;
 
-   -----------------------
-   -- Is_Text_Container --
-   -----------------------
-
-   function Is_Text_Container (Container : W_Vector_Type) return Boolean is
-   begin
-      for I of Container.A_Vector loop
-         if I.all in W_Vector_Type'Class then
-            if not W_Vector (I).Is_Text_Container then
-               return False;
-            end if;
-         elsif I.all not in W_Text_Expression_Type'Class then
-            return False;
-         end if;
-      end loop;
-
-      return True;
-   end Is_Text_Container;
-
    ----------------
    -- Push_Value --
    ----------------
@@ -283,8 +268,10 @@ package body Wrapping.Runtime.Objects is
          Push_Object
            (W_Object'
               (new W_Intrinsic_Function_Type'
-                 (Prefix => W_Object (An_Entity), Call => Call,
-                  others => <>)));
+                   (Prefix => W_Object (An_Entity),
+                    Call => Call,
+                    others => <>)));
+
          return True;
       else
          return False;
@@ -298,6 +285,12 @@ package body Wrapping.Runtime.Objects is
    function Write_String (Object : W_Vector_Type) return Buffer_Slice is
       Result : Buffer_Slice := Get_Empty_Slice;
    begin
+      --  Iterates over all object of the vector. Result is initially an empty
+      --  slice with First positionned at the end of the buffer. Moving the
+      --  Last to the result of the successive Write_String calls adds the
+      --  results of these calls to the overall buffer one by one, effectively
+      --  concatenating them in that buffer.
+
       for T of Object.A_Vector loop
          if T /= null then
             Result.Last := T.Write_String.Last;
@@ -463,10 +456,18 @@ package body Wrapping.Runtime.Objects is
       L, R : Buffer_Slice;
    begin
       if Left = Right then
+         --  If left and right are pointing to the same object, they are
+         --  equal.
+
          return False;
       elsif Right.all not in W_String_Type'Class then
+         --  If right is not a string, then statically call parent Lt.
+
          return W_Text_Expression_Type (Left.all).Lt (Right);
       else
+         --  Otherwise write both strings in the global buffer and compare
+         --  them.
+
          Push_Buffer_Cursor;
          L := Left.Write_String;
          R := Right.Write_String;
@@ -488,10 +489,18 @@ package body Wrapping.Runtime.Objects is
       L, R : Buffer_Slice;
    begin
       if Left = Right then
+         --  If left and right are pointing to the same object, they are
+         --  equal.
+
          return True;
       elsif Right.all not in W_String_Type'Class then
+         --  If right is not a string, then statically call parent Lt.
+
          return W_Text_Expression_Type (Left.all).Eq (Right);
       else
+         --  Otherwise write both strings in the global buffer and compare
+         --  them.
+
          Push_Buffer_Cursor;
          L := Left.Write_String;
          R := Right.Write_String;
@@ -559,7 +568,9 @@ package body Wrapping.Runtime.Objects is
       Push_Object
         (W_Object'
            (new W_Intrinsic_Function_Type'
-                (Prefix => Prefix, Call => A_Call, others => <>)));
+                (Prefix => Prefix,
+                 Call => A_Call,
+                 others => <>)));
    end Push_Intrinsic_Function;
 
    ----------------------
@@ -586,10 +597,13 @@ package body Wrapping.Runtime.Objects is
 
       procedure Evaluate_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr);
+      --  Callback to evaluate a given parameter, adding its value to the
+      --  temporary symbols to be passed to the called frame.
 
       procedure Result_Callback;
+      --  Called when the function generates a result.
 
-      Calling_Frame : Data_Frame;
+      Calling_Frame : constant Data_Frame := Top_Frame;
       Temp_Symbols  : W_Object_Maps.Map;
 
       ------------------------
@@ -599,6 +613,9 @@ package body Wrapping.Runtime.Objects is
       procedure Evaluate_Parameter
         (Name : Text_Type; Position : Integer; Value : T_Expr)
       is
+         --  By convention, nameless parameters are retreived by position,
+         --  otherwise they're retreived by name.
+
          Computed_Name : constant Text_Type :=
            (if Name = "" then
               An_Entity.A_Function.Arguments_Ordered.Element (Position)
@@ -647,21 +664,43 @@ package body Wrapping.Runtime.Objects is
 
       Prev_It : constant W_Object := Get_Implicit_It;
    begin
+      --  Process the parameters that were passed to this function.
+
       Process_Parameters (Params, Evaluate_Parameter'Access);
 
-      Calling_Frame := Top_Frame;
+      --  Creates a new frame with the lexical scop of the function to call.
 
       Push_Frame (An_Entity.A_Function);
 
+      --  Pushes the it refernence and move parameters to the symbol table of
+      --  that new frame.
+
       Push_Implicit_It (Prev_It);
       Top_Frame.Symbols.Move (Temp_Symbols);
+
+      --  Sets the result callback for that function and removes the yeild
+      --  callback. If there was a yeild callback set, it will be restored
+      --  when retreiving a result and called there.
+
       Top_Context.Function_Result_Callback :=
         Result_Callback'Unrestricted_Access;
       Top_Context.Yield_Callback := null;
 
+      --  A function is a command sequence. Execute its first element.
+      --  TODO: we can have a generalized version of that and have function
+      --  as being commands, like templates. This will allow for shorter
+      --  function when performing simple actions.
+
       Handle_Command_Sequence (An_Entity.A_Function.Program.First_Element);
 
       Pop_Frame;
+
+      --  After execution, Last_Results contains the last result that was
+      --  executed if any.
+
+      --  TODO functions should probably not push false by default (e.g. when
+      --  called outside of a matching context) but raise an error if no
+      --  value was returned.
 
       if Last_Result /= null then
          Push_Object (Last_Result);
@@ -679,6 +718,9 @@ package body Wrapping.Runtime.Objects is
    is
       A_Semantic_Entity : T_Entity;
    begin
+      --  Looks if there's a child of this entity that is of the name in
+      --  parameter.
+
       if An_Entity.An_Entity.Children_Indexed.Contains (Name) then
          A_Semantic_Entity :=
            An_Entity.An_Entity.Children_Indexed.Element (Name);
@@ -691,6 +733,9 @@ package body Wrapping.Runtime.Objects is
             return
               Get_Object_For_Entity (An_Entity.An_Entity).Push_Value (Name);
          else
+            --  We found something else, e.g. a template. Push the static
+            --  reference
+
             Push_Object
               (W_Object'
                  (new W_Static_Entity_Type'(An_Entity => A_Semantic_Entity)));
@@ -710,7 +755,6 @@ package body Wrapping.Runtime.Objects is
      (An_Entity : access W_Static_Entity_Type; Params : T_Arg_Vectors.Vector)
    is
       It_Object : W_Object;
-      Result    : W_Object;
    begin
       --  Matching an static entity reference means two things:
       --    *  First, check that this entity reference exist in the context,
@@ -733,24 +777,26 @@ package body Wrapping.Runtime.Objects is
       --  result.
 
       if Params.Length = 0 then
+         --  If there's no parameter, there's nothing to match against. Push
+         --  true.
          Push_Match_True (It_Object);
          return;
       elsif Params.Length = 1 then
-         --  Push_Frame_Context;
-         Push_Implicit_It (It_Object);
-         Evaluate_Expression (Params.Element (1).Expr);
-         Result := Pop_Object;
-         Pop_Object;
-         --  Pop_Frame_Context;
+         --  Otherwise, compare with the it reference
 
-         if Result /= Match_False then
+         if Evaluate_Match (Params.Element (1).Expr, It_Object) then
             --  If the result is good, then the result of this match is the
             --  matched object.
 
             Push_Match_True (It_Object);
+
             return;
          else
+            --  The matching expression doesn't match the implicit it
+            --  reference, push false.
+
             Push_Match_False;
+
             return;
          end if;
       else
@@ -768,9 +814,15 @@ package body Wrapping.Runtime.Objects is
       A_Template : W_Template_Instance;
    begin
       if Object.An_Entity.all not in T_Template_Type'Class then
+         --  The only static entities that can generate values are templates
+         --  (they generate the list of instances of the corresponding types).
+
          Push_Match_False;
          return;
       end if;
+
+      --  We're on a template, retreive the W_ object that was created to
+      --  model that template, and generate values coming from the registry.
 
       A_Template :=
         W_Template_Instance (Get_Object_For_Entity (Object.An_Entity));

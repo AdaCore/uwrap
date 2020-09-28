@@ -150,10 +150,6 @@ package Wrapping.Runtime.Objects is
    end record;
    --  Holds a vector of runtime objects.
 
-   function Is_Text_Container (Container : W_Vector_Type) return Boolean;
-   --  Checks that this container only contains derivatives of
-   --  Runtime_Text_Expression_Type.
-
    overriding function Push_Value
      (An_Entity : access W_Vector_Type; Name : Text_Type) return Boolean;
    --  Pushes intrinsic functions for vector, or parent entities
