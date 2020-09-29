@@ -788,52 +788,28 @@ package body Wrapping.Runtime.Nodes is
    begin
       Push_Frame_Context;
 
-      --  When doing a traversal, e.g. in:
-      --     child (x or new (y ())
-      --  the expression "x or new (y ()) must first be evaluated against all
-      --  the nodes in the child to check if one match. Only if none match will
-      --  we look for one node that validates the expression while allowing
-      --  the new.
-
-      Top_Context.Allow_Allocate := False;
+      Top_Context.Allocate_Callback := Allocate_Callback'Unrestricted_Access;
+      Visited := False;
 
       Found :=
         W_Node_Type'Class (An_Entity.all).Traverse
         (A_Mode, False, Result, Visitor'Access) =
         Stop;
 
-      if not Found and then Match_Expression /= null
-        and then Match_Expression.Has_New
-      then
-         --  We could not find a matching node in the traversal. Now allow
-         --  allocate if there's a new and check if there's an expression
-         --  that matches with it.
+      if not Visited then
+         --  If not visited, there is a possibilty that this
+         --  can match without any object valid, and then create the
+         --  first element. For example, we could be in a sitation like:
+         --     child (new (something ())
+         --  In which case if there's no child, we nonetheless want to
+         --  create the child. We however want to prevent situations like:
+         --     child (x and new (something ())
+         --  Where if there's no child at all, x will never match because
+         --  there no element matching x in the first place, which is the
+         --  reason why we're visiting a dummy entity that will presumably
+         --  not match anything.
 
-         Top_Context.Allow_Allocate := True;
-         Top_Context.Allocate_Callback :=
-           Allocate_Callback'Unrestricted_Access;
-         Visited := False;
-
-         Found :=
-           W_Node_Type'Class (An_Entity.all).Traverse
-           (A_Mode, False, Result, Visitor'Access) =
-           Stop;
-
-         if not Visited then
-            --  If still not found, there is still a possibilty that this
-            --  can match without any object valid, and then create the
-            --  first element. For example, we could be in a sitation like:
-            --     child (new (something ())
-            --  In which case if there's no child, we nonetheless want to
-            --  create the child. We however want to prevent situations like:
-            --     child (x and new (something ())
-            --  Where if there's no child at all, x will never match because
-            --  there no element matching x in the first place, which is the
-            --  reason why we're visiting a dummy entity that will presumably
-            --  not match anything.
-
-            Found := Visitor (Match_False, Result) = Stop;
-         end if;
+         Found := Visitor (Match_False, Result) = Stop;
       end if;
 
       Pop_Frame_Context;

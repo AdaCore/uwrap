@@ -245,7 +245,6 @@ package body Wrapping.Runtime.Commands is
 
    procedure Install_Command_Context (Command : T_Command) is
    begin
-      Top_Context.Allow_Allocate    := True;
       Top_Context.Outer_Expr_Action := Action_Match;
       Top_Context.Current_Command   := Command;
       Top_Context.Is_Root_Selection := True;

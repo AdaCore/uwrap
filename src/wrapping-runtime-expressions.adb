@@ -403,18 +403,12 @@ package body Wrapping.Runtime.Expressions is
             end;
 
          when Template_New_Expr =>
-            --  Expression that contain allocators are executed twice in
-            --  certain situations, for example when doing a tree traversal,
-            --  once to check if they can match without the need of the
-            --  allocator (e.g. if allocation fail) and one with the allocator
-            --  allowed. Only handle new in that second stage, push false
-            --  otherwise.
+            Handle_New (Expr.New_Tree);
 
-            if Top_Context.Allow_Allocate then
-               Handle_New (Expr.New_Tree);
-            else
-               Push_Match_False;
-            end if;
+            --  New objects are always match in 'has' mode - as they're new,
+            --  it makes not sense to check their value against the outer
+            --  object, as it would be different by definition. So the
+            --  semantic is true if an object was created.
 
             Top_Context.Match_Mode := Match_Has;
 
