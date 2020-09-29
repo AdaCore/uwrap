@@ -24,55 +24,80 @@ with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
 
 with Langkit_Support;             use Langkit_Support;
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
-with Libtemplatelang.Common;      use Libtemplatelang.Common;
 
-with Wrapping.Utils;       use Wrapping.Utils;
+with Libtemplatelang.Common; use Libtemplatelang.Common;
+
+with Wrapping.Utils;  use Wrapping.Utils;
 
 package body Wrapping.Semantic.Analysis is
 
    Entity_Stack : T_Entity_Vectors.Vector;
+   --  Stores the entities as we're entering and leaving their scopes. This is
+   --  used in particular for easily find the parent.
+
+   Context : constant Analysis_Context := Create_Context;
+   --  Global context used to load all the uwrap files.
 
    procedure Push_Entity
      (An_Entity : access T_Entity_Type'Class; Node : Template_Node'Class);
+   --  Pushes an entity on the stack, link with the parent, and node fields and
+   --  pushes the corresponding error location
 
    procedure Push_Named_Entity
-     (An_Entity : access T_Named_Entity_Type'Class; Node : Template_Node'Class;
+     (An_Entity : access T_Named_Entity_Type'Class;
+      Node      : Template_Node'Class;
       Name_Node : Template_Node'Class);
+   --  Same as Push_Entity but also sets its name. Link with the parent will
+   --  also be done in the indexed child list.
 
    procedure Pop_Entity;
+   --  Pops an entity and the error location.
 
-   function Build_Template (Node : Template_Node) return T_Template;
+   function Build_Template (Node : Template'Class) return T_Template;
+   --  Builds a template T_ node from a parsed template node
 
    function Build_Module
-     (Node : Template_Node; Module_Name : Text_Type) return T_Module;
+     (Node : Module'Class; Module_Name : Text_Type) return T_Module;
+   --  Builds a module T_ node trom a parsed template node
 
-   function Build_Command (Node : Template_Node'Class) return T_Command;
+   function Build_Command (Node : Command'Class) return T_Command;
+   --  Builds a command T_ node trom a parsed template node
 
-   function Build_Function (Node : Template_Node) return T_Function;
+   function Build_Function (Node : Function_Node'Class) return T_Function;
+   --  Builds a function T_ node trom a parsed template node
 
    function Build_Variable (Node : Var'Class) return T_Var;
+   --  Builds a variable T_ node trom a parsed template node
 
    function Build_Expr (Node : Template_Node'Class) return T_Expr;
+   --  Builds an expression T_ node trom a parsed template node
 
-   function Build_Arg (Node : Template_Node'Class) return T_Arg;
+   function Build_Arg (Node : Argument'Class) return T_Arg;
+   --  Builds an argument T_ node trom a parsed template node
 
    function Build_Create_Tree
-     (Node : Template_Node'Class) return T_Create_Tree;
+     (Node : Create_Template_Tree'Class) return T_Create_Tree;
+   --  Builds an tree creation T_ node trom a parsed template node
 
    function Build_Command_Sequence
      (Node : Command_Sequence'Class) return T_Command_Sequence;
+   --  Builds an command sequence T_ node trom a parsed template node
 
    function Build_Command_Sequence_Element
      (Node : Command_Sequence_Element'Class) return T_Command_Sequence_Element;
+   --  Builds a command sequence element T_ node trom a parsed template node
 
    function Build_Template_Call
      (Node : Template_Call'Class) return T_Template_Call;
+   --  Builds template call T_ node trom a parsed template node
 
    procedure Analyze_String (Node : Template_Node'Class; Result : T_Expr);
+   --  Pre-analyze a string. In particular, cuts each line into each own
+   --  individual objects, build expressions, and create parts for group
+   --  references and pre-computes indentation constraints.
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String);
-
-   Context : constant Analysis_Context := Create_Context;
+   --  Loads a module of a given name from a libtemplatelang analysis unit.
 
    -----------------
    -- Load_Module --
@@ -110,11 +135,11 @@ package body Wrapping.Semantic.Analysis is
    -----------------
 
    procedure Load_Module (Unit : Analysis_Unit; Name : String) is
-      File_Module : Structure.T_Module;
+      File_Module : T_Module;
       pragma Unreferenced (File_Module);
    begin
       Entity_Stack.Append (T_Entity (Root));
-      File_Module := Build_Module (Unit.Root, To_Text (Name));
+      File_Module := Build_Module (Unit.Root.As_Module, To_Text (Name));
       Entity_Stack.Delete_Last;
    end Load_Module;
 
@@ -143,7 +168,6 @@ package body Wrapping.Semantic.Analysis is
    begin
       Push_Error_Location (Node);
       Add_Child (Entity_Stack.Last_Element, T_Entity (An_Entity));
-
       An_Entity.Node := Template_Node (Node);
       Entity_Stack.Append (T_Entity (An_Entity));
    end Push_Entity;
@@ -179,15 +203,13 @@ package body Wrapping.Semantic.Analysis is
    ------------------
 
    function Build_Module
-     (Node : Template_Node; Module_Name : Text_Type) return T_Module
+     (Node : Module'Class; Module_Name : Text_Type) return T_Module
    is
       A_Module    : constant T_Module := new T_Module_Type;
       A_Namespace : T_Namespace;
 
       Dummy_Command  : T_Command;
       Dummy_Function : T_Function;
-
-      Program_Node : Template_Node;
    begin
       A_Namespace := Get_Namespace_Prefix_For_Module (Module_Name, True);
 
@@ -195,34 +217,30 @@ package body Wrapping.Semantic.Analysis is
       --  currently stacked entity (the root node) but of the namespace.
       Add_Child (A_Namespace, A_Module, Suffix (Module_Name));
       A_Module.Name := To_Unbounded_Text (Suffix (Module_Name));
-      A_Module.Node := Node;
+      A_Module.Node := Template_Node (Node);
       Entity_Stack.Append (T_Entity (A_Module));
 
-      Program_Node := Template_Node (Node.As_Module.F_Program);
+      --  Iterate over the chldren of the module and create templates,
+      --  commands, global variables and functions.
 
-      for C of Program_Node.Children loop
+      for C of Node.F_Program.Children loop
          case C.Kind is
             when Template_Template =>
-               A_Module.Templates_Ordered.Append (Build_Template (C));
                A_Module.Templates_Indexed.Insert
-                 (C.As_Template.F_Name.Text,
-                  A_Module.Templates_Ordered.Last_Element);
+                 (C.As_Template.F_Name.Text, Build_Template (C.As_Template));
 
             when Template_Command =>
-               Dummy_Command := Build_Command (C);
+               Dummy_Command := Build_Command (C.As_Command);
 
             when Template_Var =>
                A_Module.Variables_Ordered.Append (Build_Variable (C.As_Var));
-               A_Module.Variables_Indexed.Insert
-                 (C.As_Var.F_Name.Text,
-                  A_Module.Variables_Ordered.Last_Element);
 
             when Template_Import | Template_Import_List =>
                null;
-               --  To be analyzed when resolving names
+               --  This will be analysed when resolving names.
 
             when Template_Function_Node =>
-               Dummy_Function := Build_Function (C);
+               Dummy_Function := Build_Function (C.As_Function_Node);
 
             when others =>
                Error
@@ -240,14 +258,14 @@ package body Wrapping.Semantic.Analysis is
    -- Build_Template --
    --------------------
 
-   function Build_Template (Node : Template_Node) return Structure.T_Template
+   function Build_Template (Node : Template'Class) return T_Template
    is
       A_Template : constant T_Template := new T_Template_Type;
    begin
-      Push_Named_Entity (A_Template, Node, Node.As_Template.F_Name);
+      Push_Named_Entity (A_Template, Node, Node.F_Name);
 
-      if not Node.As_Template.F_Command.Is_Null then
-         A_Template.Program := Build_Command (Node.As_Template.F_Command);
+      if not Node.F_Command.Is_Null then
+         A_Template.Program := Build_Command (Node.F_Command);
       end if;
 
       Pop_Entity;
@@ -288,8 +306,8 @@ package body Wrapping.Semantic.Analysis is
    begin
       Push_Entity (Sequence_Element, Node);
 
-      --  By default, sequence elements are not else. Can be switched to true
-      --  if created from an elsmatch or else.
+      --  By default, sequence elements are then-elements, not else-elements.
+      --  Can be switched to true if created from an elsmatch or else.
       Sequence_Element.Is_Else := False;
 
       for V of Node.F_Vars loop
@@ -361,9 +379,10 @@ package body Wrapping.Semantic.Analysis is
    -- Build_Command --
    -------------------
 
-   function Build_Command (Node : Template_Node'Class) return T_Command is
+   function Build_Command (Node : Command'Class) return T_Command is
 
       function Visit (Node : Template_Node'Class) return Visit_Status;
+      --  Retreives various sections of the command being parsed.
 
       A_Command : constant T_Command := new T_Command_Type;
 
@@ -384,21 +403,17 @@ package body Wrapping.Semantic.Analysis is
 
                Node.As_Defer_Section.F_Actions.Traverse (Visit'Access);
 
-               return Over;
             when Template_Match_Section =>
                A_Command.Match_Expression :=
                  Build_Expr (Node.As_Match_Section.F_Expression);
 
                Node.As_Match_Section.F_Actions.Traverse (Visit'Access);
 
-               return Over;
             when Template_Pick_Section =>
                A_Command.Pick_Expression :=
                  Build_Expr (Node.As_Pick_Section.F_Expression);
 
                Node.As_Pick_Section.F_Actions.Traverse (Visit'Access);
-
-               return Over;
 
             when Template_Wrap_Section | Template_Weave_Section |
               Template_Walk_Section =>
@@ -436,22 +451,19 @@ package body Wrapping.Semantic.Analysis is
 
                Pop_Entity;
 
-               return Over;
-
             when Template_Template_Call =>
                A_Command.Template_Section.Call :=
                  Build_Template_Call (Node.As_Template_Call);
-
-               return Over;
 
             when Template_Command_Sequence =>
                A_Command.Command_Sequence :=
                  Build_Command_Sequence (Node.As_Command_Sequence);
 
-               return Over;
             when others =>
                return Into;
          end case;
+
+         return Over;
       end Visit;
    begin
       A_Command.Defer := False;
@@ -471,12 +483,12 @@ package body Wrapping.Semantic.Analysis is
    -- Build_Function --
    --------------------
 
-   function Build_Function (Node : Template_Node) return T_Function is
+   function Build_Function (Node : Function_Node'Class) return T_Function is
       A_Function : constant T_Function := new T_Function_Type;
    begin
-      Push_Named_Entity (A_Function, Node, Node.As_Function_Node.F_Name);
+      Push_Named_Entity (A_Function, Node, Node.F_Name);
 
-      for A of Node.As_Function_Node.F_Args loop
+      for A of Node.F_Args loop
          declare
             A_Var : constant T_Var := new T_Var_Type;
          begin
@@ -491,7 +503,7 @@ package body Wrapping.Semantic.Analysis is
       end loop;
 
       A_Function.Program :=
-        Build_Command_Sequence (Node.As_Function_Node.F_Program);
+        Build_Command_Sequence (Node.F_Program);
 
       Pop_Entity;
 
@@ -652,8 +664,7 @@ package body Wrapping.Semantic.Analysis is
             Expr.Deferred_Expr := Build_Expr (Node.As_Defer_Expr.F_Expression);
 
          when Template_New_Expr =>
-            Expr.Has_New := True;
-            Expr.New_Tree    := Build_Create_Tree (Node.As_New_Expr.F_Tree);
+            Expr.New_Tree := Build_Create_Tree (Node.As_New_Expr.F_Tree);
 
          when Template_At_Ref =>
             null;
@@ -715,10 +726,6 @@ package body Wrapping.Semantic.Analysis is
 
       end case;
 
-      if Expr.Has_New and then Parent /= null then
-         Parent.Has_New := True;
-      end if;
-
       Pop_Entity;
 
       return Expr;
@@ -728,13 +735,13 @@ package body Wrapping.Semantic.Analysis is
    -- Build_Arg --
    ---------------
 
-   function Build_Arg (Node : Template_Node'Class) return T_Arg is
+   function Build_Arg (Node : Argument'Class) return T_Arg is
       Arg : constant T_Arg := new T_Arg_Type;
    begin
       Push_Entity (Arg, Node);
 
-      Arg.Name_Node := Node.As_Argument.F_Name;
-      Arg.Expr := Build_Expr (Node.As_Argument.F_Value);
+      Arg.Name_Node := Node.F_Name;
+      Arg.Expr := Build_Expr (Node.F_Value);
 
       Pop_Entity;
 
@@ -742,6 +749,10 @@ package body Wrapping.Semantic.Analysis is
    end Build_Arg;
 
    Expression_Unit_Number : Integer := 1;
+   --  This global variable is used to create expesssions in strings. Each will
+   --  have its own unique expression number. This is a bit of a kludgy
+   --  behavior, but doing otherwise is difficult with current langkit
+   --  capabilities.
 
    --------------------
    -- Analyze_String --
@@ -751,12 +762,13 @@ package body Wrapping.Semantic.Analysis is
 
       procedure On_Error
         (Message : Text_Type; Filename : String; Loc : Source_Location);
-
-      Str     : constant Text_Type        := Node.Text;
-      Context : constant Analysis_Context := Node.Unit.Context;
-
-      Next_Index : Integer;
-      Current    : Integer;
+      --  Callback used to override the default error location when entering
+      --  a string.
+      --  TOTO: This is still a relatively weak way to retreive slocs for
+      --  errors in strings, essentially sets the sloc at the begining of
+      --  the strings, and disregards the fact that string expressions may
+      --  call other functions which would have proper sloc. Lost of room
+      --  for improvement.
 
       --------------
       -- On_Error --
@@ -777,12 +789,21 @@ package body Wrapping.Semantic.Analysis is
          raise Wrapping_Error;
       end On_Error;
 
+      Str     : constant Text_Type        := Node.Text;
+      Context : constant Analysis_Context := Node.Unit.Context;
+
+      Start   : Integer;
+      --  Start is the index of the first character to add in the newly created
+      --  string. It moves as caracters gets added.
+
+      Current : Integer;
+
       Prev_Error : Error_Callback_Type;
 
-      Str_First, Str_Last      : Integer;
-      Left_Spaces              : Integer := 0;
+      Str_First, Str_Last   : Integer;
+      Left_Spaces           : Integer := 0;
 
-      Indentation_To_Ignore    : Integer := Integer'Last;
+      Indentation_To_Ignore : Integer := Integer'Last;
       --  Most of the times, the whole block of text will be indented. For
       --  example:
       --     a
@@ -806,6 +827,8 @@ package body Wrapping.Semantic.Analysis is
          return;
       end if;
 
+      --  First, check the string prefix if any.
+
       case Str (Str_First) is
          when 'i' =>
             Result.Str_Kind := String_Indent;
@@ -828,6 +851,9 @@ package body Wrapping.Semantic.Analysis is
 
       end case;
 
+      --  Set Str_First and String_Last depending on wether this is a single
+      --  line string or a multi line string.
+
       if Str_First + 3 in Str'Range
         and then Str (Str_First .. Str_First + 2) = """"""""
         and then Str_Last - 3 in Str'Range
@@ -839,6 +865,9 @@ package body Wrapping.Semantic.Analysis is
          Str_Last  := Str_Last - 1;
       end if;
 
+      --  If we're on a raw string, there's no analysis to do, just store the
+      --  string.
+
       if Result.Str_Kind = String_Raw then
          Result.Str.Append
            ((Str_Kind, Line, Column, Left_Spaces,
@@ -847,73 +876,92 @@ package body Wrapping.Semantic.Analysis is
          return;
       end if;
 
-      if Str (Str_First .. Str_Last) = "" then
+      --  If this string is empty, there's no more things to do. Return.
+
+      if Str_First > Str_Last then
          return;
       end if;
 
       Prev_Error     := Error_Callback;
       Error_Callback := On_Error'Unrestricted_Access;
 
-      Current    := Str_First;
-      Next_Index := Str_First;
+      Current := Str_First;
+      Start   := Str_First;
 
       while Current <= Str_Last loop
          if Is_Line_Terminator (Str (Current)) then
             --  Create one entry per line of text. This will help analyzing
             --  empty lines later on.
 
-            if Line = 1 and then not Found_Characters_On_Line
+            if Line = 1
+              and then not Found_Characters_On_Line
               and then Result.Str_Kind = String_Indent
             then
                --  Do not add the initial empty line when dealing with string
                --  indent
                null;
             else
+               --  Add all characters found from last insertion up until this
+               --  point
+
                Result.Str.Append
                  ((Str_Kind, Line, Column, Left_Spaces,
-                   To_Unbounded_Text (Str (Next_Index .. Current))));
+                   To_Unbounded_Text (Str (Start .. Current))));
             end if;
 
             Line                     := Line + 1;
             Column                   := 1;
             Current                  := Current + 1;
-            Next_Index               := Current;
+            Start                    := Current;
             Found_Characters_On_Line := False;
             Left_Spaces              := 0;
          elsif Str (Current) = '\' then
+            --  We're on a special character pattern.
+
             if Current /= Str'First then
+               --  Add all characters found from last insertion up until before
+               --  the escape character.
+
                Result.Str.Append
                  ((Str_Kind, Line, Column, Left_Spaces,
-                      To_Unbounded_Text (Str (Next_Index .. Current - 1))));
+                      To_Unbounded_Text (Str (Start .. Current - 1))));
             end if;
 
             Current := Current + 1;
-            Column := Column + 1;
+            Column  := Column + 1;
 
             if Str (Current) = 'e' then
+               --  We're inserting an expression. Ignore the e, and then
+               --  build the expression.
+
                Current := Current + 1;
-               Column := Column + 1;
+               Column  := Column + 1;
 
                if Str (Current) = '<' then
-                  Next_Index := Current;
+                  Start := Current;
 
                   --  TODO: There's an issue here, subexpression can't have
                   --  upper than because of the end symbol
-                  while Next_Index < Str_Last and then Str (Next_Index) /= '>'
+                  while Start < Str_Last and then Str (Start) /= '>'
                   loop
-                     Next_Index := Next_Index + 1;
+                     Start := Start + 1;
                   end loop;
+
+                  --  Increment the expression unit number.
 
                   Expression_Unit_Number := Expression_Unit_Number + 1;
 
                   declare
+                     --  Create a new analysis context unique to this
+                     --  expression.
+
                      Expression_Unit : constant Analysis_Unit :=
                        Get_From_Buffer
                          (Context  => Context,
                           Filename =>
                             "internal expression" & Expression_Unit_Number'Img,
                           Buffer =>
-                            To_String (Str (Current + 1 .. Next_Index - 1)),
+                            To_String (Str (Current + 1 .. Start - 1)),
                           Rule => Expression_Rule);
                   begin
                      if Has_Diagnostics (Expression_Unit) then
@@ -925,67 +973,86 @@ package body Wrapping.Semantic.Analysis is
                                 .Message));
                      end if;
 
+                     --  Build and add the expression to the string.
+
                      Result.Str.Append
                        ((Expr_Kind, Line, Column, Left_Spaces,
                         Build_Expr (Expression_Unit.Root)));
                   end;
 
-                  Current    := Next_Index + 1;
-                  Column     := Column + 1;
-                  Next_Index := Current;
+                  Current := Start + 1;
+                  Start   := Current;
+                  Column  := Column + 1;
                else
+                  --  We're not escaping an expression, but just \e. Add the
+                  --  'e' to the buffer.
+
                   Result.Str.Append
                     ((Str_Kind, Line, Column, Left_Spaces,
                       To_Unbounded_Text (Str (Current - 1 .. Current))));
 
-                  Next_Index := Current;
-                  Current    := Current + 1;
-                  Column     := Column + 1;
+                  Start   := Current;
+                  Current := Current + 1;
+                  Column  := Column + 1;
                end if;
             elsif Str (Current) = 'n' then
+               --  We're on \n. Add a new line to the buffer.
+
                Result.Str.Append
                  ((Str_Kind, Line, Column, Left_Spaces,
                    To_Unbounded_Text (To_Text (String'(1 => ASCII.LF)))));
 
-               Current    := Current + 1;
-               Column     := Column + 1;
-               Next_Index := Current;
+               Current := Current + 1;
+               Start   := Current;
+               Column  := Column + 1;
             elsif Str (Current) in '0' .. '9' then
-               Next_Index := Current;
+               --  We're on a number, e.g. \1. This refers to a group captured
+               --  before. retreive the number.
 
-               while Next_Index < Str_Last
-                 and then Str (Next_Index) in '0' .. '9'
+               Start := Current;
+
+               while Current < Str_Last
+                 and then Str (Current) in '0' .. '9'
                loop
-                  Next_Index := Next_Index + 1;
+                  Current := Current + 1;
                end loop;
 
-               if Str (Next_Index) not in '0' .. '9' then
-                  Next_Index := Next_Index - 1;
+               --  If we're still on a number, that means that this number is
+               --  actually at the end of the string and Next_Index went one
+               --  character too many.
+
+               if Str (Current) not in '0' .. '9' then
+                  Current := Current - 1;
                end if;
+
+               --  Create the group.
 
                declare
                   Group_Value : constant Natural :=
-                    Natural'Wide_Wide_Value (Str (Current .. Next_Index));
+                    Natural'Wide_Wide_Value (Str (Start .. Current));
                begin
                   Result.Str.Append
                     ((Group_Kind, Line, Column, Left_Spaces, Group_Value));
                end;
 
-               Current    := Next_Index + 1;
-               Column     := Column + 1;
-               Next_Index := Current;
+               Current := Current + 1;
+               Start   := Current;
+               Column  := Column + 1;
             elsif Str (Current) = '\' then
+               --  We're on \\. Add \.
+
                Result.Str.Append
                  ((Str_Kind, Line, Column, Left_Spaces,
                   To_Unbounded_Text ("\")));
 
-               Next_Index := Current + 1;
-               Current    := Current + 1;
-               Column     := Column + 1;
+               Current := Current + 1;
+               Start   := Current;
+               Column  := Column + 1;
             else
-               Next_Index := Current;
-               Current    := Current + 1;
-               Column     := Column + 1;
+               --  We're not on a special character.
+
+               Current := Current + 1;
+               Column  := Column + 1;
             end if;
 
             if not Found_Characters_On_Line
@@ -1013,12 +1080,12 @@ package body Wrapping.Semantic.Analysis is
          end if;
       end loop;
 
-      if Next_Index <= Str_Last then
+      if Start <= Str_Last then
          --  Add the end of the text to the result
 
          Result.Str.Append
            ((Str_Kind, Line, Column, Left_Spaces,
-             To_Unbounded_Text (Str (Next_Index .. Str_Last))));
+             To_Unbounded_Text (Str (Start .. Str_Last))));
       end if;
 
       if Result.Str_Kind = String_Indent then
@@ -1067,19 +1134,19 @@ package body Wrapping.Semantic.Analysis is
    -- Build_Create_Tree --
    -----------------------
 
-   function Build_Create_Tree (Node : Template_Node'Class) return T_Create_Tree
+   function Build_Create_Tree
+     (Node : Create_Template_Tree'Class) return T_Create_Tree
    is
       New_Tree : constant T_Create_Tree        := new T_Create_Tree_Type;
-      Tree     : constant Create_Template_Tree := Node.As_Create_Template_Tree;
    begin
       Push_Entity (New_Tree, Node);
 
-      for C of Tree.F_Tree.Children loop
+      for C of Node.F_Tree loop
          New_Tree.Subtree.Append (Build_Create_Tree (C));
       end loop;
 
-      if not Tree.F_Root.Is_Null then
-         New_Tree.Call := Build_Template_Call (Tree.F_Root);
+      if not Node.F_Root.Is_Null then
+         New_Tree.Call := Build_Template_Call (Node.F_Root);
       end if;
 
       Pop_Entity;

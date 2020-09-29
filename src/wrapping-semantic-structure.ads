@@ -69,7 +69,6 @@ package Wrapping.Semantic.Structure is
    use T_Template_Maps;
    package T_Template_Vectors is new Ada.Containers.Vectors
      (Positive, T_Template);
-   use T_Template_Vectors;
 
    type T_Var_Type;
    type T_Var is access all T_Var_Type'Class;
@@ -202,17 +201,11 @@ package Wrapping.Semantic.Structure is
       Name : Unbounded_Text_Type;
       --  The simple name of the module (without the prefixes)
 
-      Templates_Ordered : T_Template_Vectors.Vector;
-      --  Templates declared in this module, in order of appearance.
-
       Templates_Indexed : T_Template_Maps.Map;
       --  Templates declared in this module, by name
 
       Variables_Ordered : T_Var_Vectors.Vector;
       --  Global variables declared in this module, in order of appearance.
-
-      Variables_Indexed : T_Var_Maps.Map;
-      --  Global variables declared in this module, by name
 
       Imported_Modules : T_Module_Maps.Map;
       --  Module imported by import clauses
@@ -461,11 +454,6 @@ package Wrapping.Semantic.Structure is
    type T_Expr_Type
      (Kind : Template_Node_Kind_Type)
    is new T_Entity_Type with record
-      Has_New : Boolean := False;
-      --  This flag is set to true if there's an allocator new () somewhere
-      --  either on this expression section or below, as certain processes
-      --  forbig these kind of expressions.
-
       case Kind is
          when Template_Match_Capture =>
             Match_Capture_Expr : T_Expr;
