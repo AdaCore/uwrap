@@ -91,140 +91,57 @@ package body Wrapping.Runtime.Structure is
       Match_Expression : T_Expr := null) return Visit_Action
    is
 
-      procedure Push_Yield_Result with
-         Post => W_Stack_Size = W_Stack_Size'Old + 1;
-
       Visit_Decision : aliased Visit_Action := Unknown;
 
       Real_Generated : W_Object := W_Object (Generated);
       --  The actual generated value will be the one passed in parameter unless
       --  there's an allocation.
 
-      -----------------------------
-      -- Evaluate_Yield_Function --
-      -----------------------------
-
-      procedure Push_Yield_Result is
-      begin
-         --  In certain cases, there's no expression to be evaluated upon
-         --  yield. E.g.:
-         --    x.all ()
-         --  as opposed to:
-         --    x.all().something().
-
-         if Top_Context.Yield_Callback = null then
-            Push_Object (Real_Generated);
-
-            return;
-         end if;
-
-         --  When evaluating a yield callback in a browsing call, we need to
-         --  first deactivate yield in the expression itself. We also we need
-         --  to remove potential name capture, as it would override the one we
-         --  are capturing in this browsing iteration.
-
-         Push_Frame_Context_Parameter;
-         Top_Context.Name_Captured     := To_Unbounded_Text ("");
-         Top_Context.Outer_Expr_Action := Action_Match;
-         Top_Context.Visit_Decision    := Visit_Decision'Unchecked_Access;
-
-         --  Then call yield
-
-         Push_Implicit_It (Real_Generated);
-         Push_Object (Real_Generated);
-         Call_Yield;
-         Pop_Underneath_Top;
-
-         --  Pop frame context. This will in particular restore the name
-         --  catpure, which we're using as the accumulator.
-         Pop_Frame_Context;
-
-         --  If there's an name to store the result, store it there.
-
-         if Top_Context.Name_Captured /= "" then
-            Include_Symbol (To_Text (Top_Context.Name_Captured), Top_Object);
-         end if;
-      end Push_Yield_Result;
-
       Expression_Result : W_Object;
 
    begin
-      --  If the match expression is null, we're only looking for the presence
-      --  of a node, not its form. The result is always true.
+      --  First, process the match expression, or just run the outer action if
+      --  there's no expression to process.
 
-      if Match_Expression = null then
-         --  In the case of
-         --     pick child().all(),
-         --  child needs to be evaluated against the outer expression to be
-         --  captured by the possible wrap or weave command.
+      if Match_Expression /= null then
+         --  If there's a name capture above this expression, its value needs
+         --  to be available in the underlying match expression. We only
+         --  capture the entity outside of folding context. When folding, the
+         --  result of the folding expression will actually be what needs to be
+         --  captured.
 
-         if Top_Context.Outer_Expr_Action /= Action_None then
-            Push_Frame_Context;
-            Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
-            Push_Implicit_It (Real_Generated);
-
-            Execute_Expr_Outer_Action;
-
-            Pop_Object;
-            Pop_Frame_Context;
+         if not (Top_Context.Name_Captured = "")
+           and then Top_Context.Yield_Callback = null
+         then
+            Include_Symbol
+              (To_Text (Top_Context.Name_Captured), Real_Generated);
          end if;
 
-         --  If there's a yeild callback, call it, otherwise push the object
-         --  on the stack.
+         --  Prior to evaluating the expression, we need to remove potential
+         --  name capture, as it would override the one we are capturing in
+         --  this browsing iteration.
 
-         if Top_Context.Yield_Callback /= null then
-            Push_Yield_Result;
+         Push_Frame_Context_Parameter_With_Match (Real_Generated);
+         Top_Context.Name_Captured  := To_Unbounded_Text ("");
+         Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
+         Top_Context.Yield_Callback := null;
 
-            if Visit_Decision = Unknown then
-               return Into;
-            else
-               return Visit_Decision;
-            end if;
-         else
-            Push_Object (Real_Generated);
+         --  There is a subtetly in the browsing functions. The It reference
+         --  within these calls isn't the entity currently analyzed anymore
+         --  but directly the entity that is being evaluated under these calls.
+         --  However, we cannot create a sub frame as whatever we match needs
+         --  to find its way to the command frame (otherwise any extracted
+         --  group would be deleted upon frame popped).
+         Push_Implicit_It (Real_Generated);
 
-            return Stop;
-         end if;
-      end if;
+         Evaluate_Expression (Match_Expression);
 
-      --  If there's a name capture above this expression, its value needs to
-      --  be available in the underlying match expression. We only capture the
-      --  entity outside of folding context. When folding, the result of the
-      --  folding expression will actually be what needs to be captured.
+         Pop_Frame_Context;
 
-      if not (Top_Context.Name_Captured = "")
-        and then Top_Context.Yield_Callback = null
-      then
-         Include_Symbol
-           (To_Text (Top_Context.Name_Captured), Real_Generated);
-      end if;
+         Expression_Result := Pop_Object;
 
-      --  Prior to evaluating the expression, we need to remove potential
-      --  name capture, as it would override the one we are capturing in
-      --  this browsing iteration.
+         Pop_Object;
 
-      Push_Frame_Context_Parameter_With_Match (Real_Generated);
-      Top_Context.Name_Captured  := To_Unbounded_Text ("");
-      Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
-      Top_Context.Yield_Callback := null;
-
-      --  There is a subtetly in the browsing functions. The It reference
-      --  within these calls isn't the entity currently analyzed anymore
-      --  but directly the entity that is being evaluated under these calls.
-      --  However, we cannot create a sub frame as whatever we match needs
-      --  to find its way to the command frame (otherwise any extracted group
-      --  would be deleted upon frame popped).
-      Push_Implicit_It (Real_Generated);
-
-      Evaluate_Expression (Match_Expression);
-
-      Pop_Frame_Context;
-
-      Expression_Result := Pop_Object;
-
-      Pop_Object;
-
-      if Expression_Result /= Match_False then
          if Expression_Result.all in W_Reference_Type'Class
            and then W_Reference (Expression_Result).Is_Allocated
          then
@@ -234,31 +151,81 @@ package body Wrapping.Runtime.Structure is
 
             Real_Generated := Expression_Result;
          end if;
-
-         if Top_Context.Yield_Callback /= null then
-            Push_Yield_Result;
-
-            --  The result of the expansion can be calls to wrap functions,
-            --  and one of this wrap function may be a visit decision. If
-            --  that's the case, take it into account and reset the flag.
-
-            if Visit_Decision = Unknown then
-               return Into;
-            else
-               return Visit_Decision;
-            end if;
-         else
-            Push_Object (Real_Generated);
-
-            return Stop;
-         end if;
       else
-         --  We ddn't match anything. Push false and carry the generation.
+         --  There is no expression - we need to evaluate the outer callback
+         --  explicitely, to cover cases such as e.g.:
+         --     pick child().all(),
+         --  child needs to be evaluated against the outer expression to be
+         --  captured by the possible wrap or weave command.
+
+         if Top_Context.Outer_Expr_Action /= Action_None then
+            Push_Frame_Context;
+            Push_Implicit_It (Real_Generated);
+
+            Execute_Expr_Outer_Action;
+
+            Pop_Object;
+            Pop_Frame_Context;
+         end if;
+      end if;
+
+      --  Then process the generated value and control the rest of the
+      --  iteration.
+
+      if Expression_Result = Match_False then
+         --  The expression did not match. Return into to signal to the
+         --  caller that another value needs to be generated.
 
          Push_Match_False;
 
-         return Into;
+         if Visit_Decision = Unknown then
+            Visit_Decision := Into;
+         end if;
+      elsif Top_Context.Yield_Callback = null then
+         --  We don't need to generate values, push the result and stop the
+         --  search.
+
+         Push_Object (Real_Generated);
+
+         if Visit_Decision = Unknown then
+            Visit_Decision := Stop;
+         end if;
+      else
+         --  When evaluating a yield callback in a browsing call, we need to
+         --  first deactivate yield in the expression itself. We also we need
+         --  to remove potential name capture, as it would override the one we
+         --  are capturing in this browsing iteration.
+
+         Push_Frame_Context_Parameter;
+         Top_Context.Name_Captured  := To_Unbounded_Text ("");
+         Top_Context.Visit_Decision := Visit_Decision'Unchecked_Access;
+
+         --  Then call yield
+
+         Push_Implicit_It (Real_Generated);
+         Call_Yield;
+
+         --  Pop frame context. This will in particular restore the name
+         --  catpure, which we're using as the accumulator.
+
+         Pop_Frame_Context;
+
+         --  If there's an name to store the result, store it there.
+
+         if Top_Context.Name_Captured /= "" then
+            Include_Symbol (To_Text (Top_Context.Name_Captured), Top_Object);
+         end if;
+
+         --  The result of the expansion can be calls to wrap functions,
+         --  and one of this wrap function may be a visit decision. If
+         --  that's the case, take it into account and reset the flag.
+
+         if Visit_Decision = Unknown then
+            Visit_Decision := Into;
+         end if;
       end if;
+
+      return Visit_Decision;
    end Process_Generated_Value;
 
    ------------------
