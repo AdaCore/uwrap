@@ -24,7 +24,9 @@ with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 
 package body Wrapping.Semantic.Structure is
 
-   procedure Compute_Closure (Root : T_Entity; Closure : in out Text_Sets.Set);
+   procedure Compute_Closure (Root : T_Entity; Closure : out Text_Sets.Set);
+   --  List in the Closure parameter all symbols that will need to be retreived
+   --  upon capture.
 
    function Get_Static_Entity_By_Name
      (Current_Scope : T_Entity; Name : Selector) return T_Entity;
@@ -472,18 +474,32 @@ package body Wrapping.Semantic.Structure is
    -- Compute_Closure --
    ---------------------
 
-   procedure Compute_Closure (Root : T_Entity; Closure : in out Text_Sets.Set)
-   is
+   procedure Compute_Closure (Root : T_Entity; Closure : out Text_Sets.Set) is
 
       procedure Capture (Name : Text_Type);
-
-      Local_Symbols : Text_Sets.Set;
-
-      procedure Not_Capture_Identifiers (Expr : T_Expr);
-
-      procedure Capture_Identifiers (Expr : T_Expr);
+      --  Adds a symbol to the list of symbols to capture, no-op if this symbol
+      --  is already captured.
 
       procedure Capture_Identifiers_In_Expressions (Entity : T_Entity);
+      --  Visit all the expressions accessible from the entity in parameter,
+      --  and captures identifiers necessary to compute those.
+
+      procedure Capture_Identifiers (Expr : T_Expr);
+      --  Captures identifiers necessary to compute this expression.
+
+      procedure Capture_Identifiers_Except_First_Level (Expr : T_Expr);
+      --  Captures identifiers necessary to compute this expression excepts the
+      --  ones at the root of the expression. This is typically used in a
+      --  selector, e.g.:
+      --     a.b.c (d, e).f
+      --  Capture identifiers would have captured a. b, c and f should not
+      --  be captured (they are at the first level of the expression), but d
+      --  and e will need to be.
+
+      Local_Symbols : Text_Sets.Set;
+      --  List of local symbols created in the entity being captured - these
+      --  typically don't need to be captured (they will be valuated by
+      --  the entity).
 
       -------------
       -- Capture --
@@ -512,35 +528,53 @@ package body Wrapping.Semantic.Structure is
 
          case Expr.Kind is
             when Template_Selector =>
+               --  We are on a selector. Capture the root of the selector,
+               --  but don't capture the suffix.
+
                Capture_Identifiers (Expr.Selector_Left);
-               Not_Capture_Identifiers (Expr.Selector_Right);
+               Capture_Identifiers_Except_First_Level (Expr.Selector_Right);
 
             when Template_Token_Identifier | Template_Identifier =>
+               --  We are on an identifier, capture it.
+
                Capture (Expr.Node.Text);
 
             when others =>
-               Not_Capture_Identifiers (Expr);
+               --  Otherwise, capture everything except the first level
+               --  identifiers (which have been taken into account in this
+               --  case).
+
+               Capture_Identifiers_Except_First_Level (Expr);
          end case;
 
          Pop_Error_Location;
       end Capture_Identifiers;
 
-      -----------------------------
-      -- Not_Capture_Identifiers --
-      -----------------------------
+      --------------------------------------------
+      -- Capture_Identifiers_Except_First_Level --
+      --------------------------------------------
 
-      procedure Not_Capture_Identifiers (Expr : T_Expr) is
+      procedure Capture_Identifiers_Except_First_Level (Expr : T_Expr) is
       begin
          Push_Error_Location (Expr.Node);
 
          case Expr.Kind is
-            when Template_Token_Identifier | Template_Identifier |
-              Template_Literal | Template_Number | Template_At_Ref |
-              Template_Reg_Expr_Anchor =>
+            when Template_Token_Identifier | Template_Identifier =>
+               --  We specifically asked to ignore these by calling this
+               --  version of Capture_Identifiers.
+
+               null;
+
+            when Template_Literal | Template_Number | Template_At_Ref |
+                 Template_Reg_Expr_Anchor =>
+               -- There's no symbol associated with these.
 
                null;
 
             when Template_Match_Capture =>
+               --  Match capture is creating a symbol. Add it to the list
+               --  of local symbols for the sub tree analysis.
+
                declare
                   Name : constant Text_Type :=
                     Expr.Node.As_Match_Capture.F_Captured.Text;
@@ -559,10 +593,9 @@ package body Wrapping.Semantic.Structure is
                   end if;
                end;
             when Template_Str =>
-               --  Analyze_Replace_String ABI is expecting that capturing an
-               --  expression pushes a value on the stack (it's going to get
-               --  popped. So use Capture_Expression_And_Push_Dummy in order
-               --  to avoid popping the top of the stack.
+               --  Look at all the part of the string, identify the
+               --  expressions and capture the identifiers necessary to value
+               --  those expressions.
 
                for S of Expr.Str loop
                   case S.Kind is
@@ -578,10 +611,13 @@ package body Wrapping.Semantic.Structure is
                end loop;
 
             when Template_Binary_Expr | Template_Unary_Expr |
-              Template_Qualified_Match | Template_All_Expr |
-              Template_Fold_Expr | Template_Filter_Expr | Template_Defer_Expr |
-              Template_Call_Expr | Template_New_Expr | Template_Reg_Expr |
-              Template_Reg_Expr_Quantifier | Template_Match_Expr =>
+                 Template_Qualified_Match | Template_All_Expr |
+                 Template_Fold_Expr | Template_Filter_Expr |
+                 Template_Defer_Expr | Template_Call_Expr | Template_New_Expr |
+                 Template_Reg_Expr | Template_Reg_Expr_Quantifier |
+                 Template_Match_Expr =>
+               --  The expressions above have sub expressions and possibly
+               --  arguments. Capture what's needed to value them.
 
                for C of Expr.Children_Ordered loop
                   if C.all in T_Expr_Type'Class then
@@ -598,7 +634,7 @@ package body Wrapping.Semantic.Structure is
          end case;
 
          Pop_Error_Location;
-      end Not_Capture_Identifiers;
+      end Capture_Identifiers_Except_First_Level;
 
       ----------------------------------------
       -- Capture_Identifiers_In_Expressions --
