@@ -90,7 +90,6 @@ package body Wrapping.Runtime.Structure is
      (Generated        : access W_Object_Type'Class;
       Match_Expression : T_Expr := null) return Visit_Action
    is
-
       Visit_Decision : aliased Visit_Action := Unknown;
 
       Real_Generated : W_Object := W_Object (Generated);
@@ -98,7 +97,6 @@ package body Wrapping.Runtime.Structure is
       --  there's an allocation.
 
       Expression_Result : W_Object;
-
    begin
       --  First, process the match expression, or just run the outer action if
       --  there's no expression to process.
@@ -134,13 +132,10 @@ package body Wrapping.Runtime.Structure is
          --  group would be deleted upon frame popped).
          Push_Implicit_It (Real_Generated);
 
-         Evaluate_Expression (Match_Expression);
-
-         Pop_Frame_Context;
-
-         Expression_Result := Pop_Object;
+         Expression_Result := Evaluate_Expression (Match_Expression);
 
          Pop_Object;
+         Pop_Frame_Context;
 
          if Expression_Result.all in W_Reference_Type'Class
            and then W_Reference (Expression_Result).Is_Allocated
