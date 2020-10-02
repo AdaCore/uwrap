@@ -1,0 +1,5 @@
+A has base types: 
+B has base types: A
+I1 has base types: 
+F has base types: A, I1
+
