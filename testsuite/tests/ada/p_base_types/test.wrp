@@ -1,0 +1,2 @@
+match p_base_types ()
+weave standard.out (@ & it.p_defining_name () & " has base types: " & p_base_types ().foreach ().fold ("", @ & p_defining_name (), @ & ", ") & "\n");
