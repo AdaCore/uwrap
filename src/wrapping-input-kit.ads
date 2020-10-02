@@ -26,7 +26,6 @@ with Ada.Containers.Vectors;
 with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
 with Langkit_Support.Slocs;       use Langkit_Support.Slocs;
 
-with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Nodes;      use Wrapping.Runtime.Nodes;
 with Wrapping.Runtime.Strings;    use Wrapping.Runtime.Strings;
@@ -44,12 +43,6 @@ generic
    type Analysis_Context is tagged private;
    type Grammar_Rule is (<>);
    type Unit_Provider_Reference is private;
-   type Any_Value_Kind is (<>);
-   type Value_Type is private;
-   type Value_Array is array (Positive range <>) of Value_Type;
-   type Value_Constraint is private;
-   type Value_Constraint_Array is
-     array (Positive range <>) of Value_Constraint;
    type Token_Reference is private;
    type Token_Data_Type is private;
    type Token_Kind is (<>);
@@ -61,11 +54,10 @@ generic
    No_Unit_Provider_Reference : Unit_Provider_Reference;
    No_Node_Type_Id : Any_Node_Type_Id;
 
-   Text_Type_Value : Any_Value_Kind;
-   Node_Value : Any_Value_Kind;
-   Boolean_Value : Any_Value_Kind;
    No_Token : Token_Reference;
 
+   with function Get_Property
+     (Node : Kit_Node; Name : Text_Type) return W_Object;
    with function Children (Node : Kit_Node'Class) return Kit_Node_Array is <>;
    with function Parent (Node : Kit_Node'Class) return Kit_Node is <>;
    with function Hash (Node : Kit_Node) return Ada.Containers.Hash_Type is <>;
@@ -98,18 +90,6 @@ generic
    with function Lookup_DSL_Name (Name : String) return Any_Node_Type_Id is <>;
    with function Is_Derived_From
      (Id, Parent : Any_Node_Type_Id) return Boolean is <>;
-   with function Eval_Property
-     (Node      : Kit_Node'Class; Property : Any_Node_Data_Reference;
-      Arguments : Value_Array) return Value_Type is <>;
-   with function Kind (Self : Value_Type) return Any_Value_Kind is <>;
-   with function As_Text_Type (Self : Value_Type) return Text_Type is <>;
-   with function As_Node (Self : Value_Type) return Kit_Node is <>;
-   with function As_Boolean (Self : Value_Type) return Boolean is <>;
-   with function Property_Argument_Types
-     (Property : Any_Node_Data_Reference) return Value_Constraint_Array is <>;
-   with function Property_Argument_Default_Value
-     (Property : Any_Node_Data_Reference; Argument_Number : Positive)
-      return Value_Type is <>;
    with function Full_Sloc_Image
      (Node : Kit_Node'Class) return Text_Type is <>;
    with function Sloc_Range
@@ -136,9 +116,6 @@ package Wrapping.Input.Kit is
 
    type W_Kit_Node_Type;
    type W_Kit_Node is access all W_Kit_Node_Type'Class;
-
-   type W_Property_Type;
-   type W_Property is access all W_Property_Type'Class;
 
    type W_Kit_Node_Token_Type;
    type W_Kit_Node_Token is access all W_Kit_Node_Token_Type'Class;
@@ -213,20 +190,9 @@ package Wrapping.Input.Kit is
      (Language_Name);
    --  See parent documentation
 
-   ----------------
-   -- W_Property --
-   ----------------
-
-   type W_Property_Type is new W_Object_Type with record
-      Property_Node : Any_Node_Data_Reference;
-   end record;
-   --  Holds a reference to a specific property to be called.
-
-   overriding procedure Push_Call_Result
-     (An_Entity : access W_Property_Type;
-      Params    : T_Arg_Vectors.Vector);
-   --  Calls the property with the parameters in copy and pushes the result on
-   --  the stack.
+   function Get_Entity_For_Node (Node : Kit_Node'Class) return W_Kit_Node;
+   --  Returns the unique W_Kit_Node corresponding to the unique node in
+   --  parameter, creates one if none.
 
    ----------------------
    -- W_Kit_Token_Node --

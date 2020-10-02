@@ -23,16 +23,15 @@ with Ada.Containers;                    use Ada.Containers;
 with Ada.Characters.Conversions;        use Ada.Characters.Conversions;
 with Ada.Wide_Wide_Characters.Handling; use Ada.Wide_Wide_Characters.Handling;
 
-with Wrapping.Runtime.Commands; use Wrapping.Runtime.Commands;
-with Wrapping.Runtime.Matching; use Wrapping.Runtime.Matching;
-with Wrapping.Runtime.Frames;   use Wrapping.Runtime.Frames;
-with Wrapping.Runtime.Objects;  use Wrapping.Runtime.Objects;
+with Wrapping.Runtime.Commands;   use Wrapping.Runtime.Commands;
+with Wrapping.Runtime.Matching;   use Wrapping.Runtime.Matching;
+with Wrapping.Runtime.Frames;     use Wrapping.Runtime.Frames;
+with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
+with Wrapping.Semantic.Structure; use Wrapping.Semantic.Structure;
 
 package body Wrapping.Input.Kit is
 
    Global_Node_Registry : W_Kit_Node_Entity_Node_Maps.Map;
-
-   function Get_Entity_For_Node (Node : Kit_Node) return W_Kit_Node;
 
    procedure Create_Tokens (Node : W_Kit_Node);
 
@@ -40,8 +39,6 @@ package body Wrapping.Input.Kit is
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
 
    function Eval_Field (Node : Kit_Node; Name : Text_Type) return W_Object;
-
-   function Eval_Property (Node : Kit_Node; Name : Text_Type) return W_Object;
 
    ------------------
    -- Analyze_File --
@@ -304,57 +301,31 @@ package body Wrapping.Input.Kit is
    -- Get_Entity_For_Node --
    -------------------------
 
-   function Get_Entity_For_Node (Node : Kit_Node) return W_Kit_Node is
+   function Get_Entity_For_Node (Node : Kit_Node'Class) return W_Kit_Node is
       Parent     : W_Kit_Node;
       New_Entity : W_Kit_Node;
+      K_Node     : Kit_Node renames Kit_Node (Node);
    begin
-      if Global_Node_Registry.Contains (Node) then
-         return Global_Node_Registry.Element (Node);
+      if Global_Node_Registry.Contains (K_Node) then
+         return Global_Node_Registry.Element (K_Node);
       elsif not Node.Parent.Is_Null then
          Parent := Get_Entity_For_Node (Node.Parent);
          Parent.Pre_Visit;
 
-         return W_Kit_Node_Type (Parent.all).Children_By_Node.Element (Node);
+         return W_Kit_Node_Type (Parent.all).Children_By_Node.Element (K_Node);
       else
          New_Entity :=
            new W_Kit_Node_Type'
-             (Node          => Node,
+             (Node          => K_Node,
               Tokens        => new W_Kit_Node_Vectors.Vector,
               Trivia_Tokens => new W_Kit_Node_Vectors.Vector,
               others        => <>);
 
-         Global_Node_Registry.Insert (Node, New_Entity);
+         Global_Node_Registry.Insert (K_Node, New_Entity);
 
          return New_Entity;
       end if;
    end Get_Entity_For_Node;
-
-   -------------------
-   -- Eval_Property --
-   -------------------
-
-   function Eval_Property (Node : Kit_Node; Name : Text_Type) return W_Object
-   is
-      Property_Node : Any_Node_Data_Reference;
-   begin
-      if Name'Length > 2 and then Name (Name'First .. Name'First + 1) = "p_"
-      then
-         declare
-            P_Name : constant Text_Type :=
-              To_Lower (Name (Name'First + 2 .. Name'Last));
-         begin
-            Property_Node :=
-              Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (P_Name));
-
-            if Property_Node /= None then
-               return new W_Property_Type'
-                 (Property_Node => Property_Node);
-            end if;
-         end;
-      end if;
-
-      return null;
-   end Eval_Property;
 
    ----------------
    -- Push_Value --
@@ -414,7 +385,7 @@ package body Wrapping.Input.Kit is
          Result := Eval_Field (An_Entity.Node, Name);
 
          if Result = null then
-            Result := Eval_Property (An_Entity.Node, Name);
+            Result := Get_Property (An_Entity.Node, Name);
          end if;
 
          if Result /= null then
@@ -463,54 +434,6 @@ package body Wrapping.Input.Kit is
 
       return Buffer.Str (Slice.First.Offset .. Slice.Last.Offset);
    end To_Debug_String;
-
-   ----------------------
-   -- Push_Call_Result --
-   ----------------------
-
-   overriding procedure Push_Call_Result
-     (An_Entity : access W_Property_Type;
-      Params    : T_Arg_Vectors.Vector)
-   is
-      Result : Value_Type;
-      Values : Value_Array
-        (1 .. Property_Argument_Types (An_Entity.Property_Node)'Last);
-      Node : constant W_Kit_Node := W_Kit_Node (Top_Object.Dereference);
-   begin
-      if Params.Length > 0 then
-         Error ("parameters not currently supported in property calls");
-      end if;
-
-      for I in Values'Range loop
-         Values (I) :=
-           Property_Argument_Default_Value (An_Entity.Property_Node, I);
-      end loop;
-
-      Result := Eval_Property
-        (Node.Node, An_Entity.Property_Node, Values);
-
-      if Kind (Result) = Text_Type_Value then
-         Push_Object (To_W_String (As_Text_Type (Result)));
-      elsif Kind (Result) = Node_Value then
-         if As_Node (Result).Is_Null then
-            Push_Match_False;
-         else
-            Push_Object (Get_Entity_For_Node (As_Node (Result)));
-         end if;
-      elsif Kind (Result) = Boolean_Value then
-         if As_Boolean (Result) then
-            --  TODO: We should probably have a proper true boolean
-            --  here instead.
-            Push_Object (W_Object'(new W_Integer_Type'(Value => 1)));
-         else
-            Push_Match_False;
-         end if;
-      else
-         Error
-           ("unsupported property kind: " &
-              Any_Value_Kind'Wide_Wide_Image (Kind (Result)));
-      end if;
-   end Push_Call_Result;
 
    ----------------
    -- Push_Value --
