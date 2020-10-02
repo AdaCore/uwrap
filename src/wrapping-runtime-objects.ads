@@ -40,6 +40,9 @@ package Wrapping.Runtime.Objects is
    package W_Reference_Vectors is new Ada.Containers.Vectors
      (Positive, W_Reference);
 
+   type W_Container_Type;
+   type W_Container is access all W_Container_Type'Class;
+
    type W_Vector_Type;
    type W_Vector is access all W_Vector_Type'Class;
    package W_Vector_Maps is new Ada.Containers.Indefinite_Ordered_Maps
@@ -145,7 +148,15 @@ package Wrapping.Runtime.Objects is
    procedure Generate_Values (Object : access W_Reference_Type; Expr : T_Expr);
    --  Pass through to the Value primitive.
 
-   type W_Vector_Type is new W_Object_Type with record
+   type W_Container_Type is new W_Object_Type with record
+      null;
+   end record;
+
+   overriding function Push_Value
+     (An_Entity : access W_Container_Type; Name : Text_Type) return Boolean;
+   --  Pushes intrinsic functions for all containers, or parent entities
+
+   type W_Vector_Type is new W_Container_Type with record
       A_Vector : W_Object_Vectors.Vector;
    end record;
    --  Holds a vector of runtime objects.
@@ -163,7 +174,7 @@ package Wrapping.Runtime.Objects is
    --  Generates values for all objects contained in the vector that match the
    --  expression given in parameter
 
-   type W_Set_Type is new W_Object_Type with record
+   type W_Set_Type is new W_Container_Type with record
       A_Set : W_Object_Sets.Set;
    end record;
    --  Holds a set of runtime objects.
@@ -177,7 +188,7 @@ package Wrapping.Runtime.Objects is
    --  Generates values for all objects contained in the set that match the
    --  expression given in parameter
 
-   type W_Map_Type is new W_Object_Type with record
+   type W_Map_Type is new W_Container_Type with record
       A_Map : W_Object_Any_Maps.Map;
    end record;
    --  Holds a set of runtime objects.

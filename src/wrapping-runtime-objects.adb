@@ -44,6 +44,10 @@ package body Wrapping.Runtime.Objects is
      (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
    --  Calls intrinsinc "get" function on relevant containers
 
+   procedure Call_Foreach
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector);
+   --  Calls intrinsinc "foreach" function on relevant containers
+
    -----------------
    -- Call_Insert --
    -----------------
@@ -184,6 +188,21 @@ package body Wrapping.Runtime.Objects is
       end if;
    end Call_Get;
 
+   ------------------
+   -- Call_Foreach --
+   ------------------
+
+   procedure Call_Foreach
+     (Object : access W_Object_Type'Class; Params : T_Arg_Vectors.Vector)
+   is
+   begin
+      if Params.Length /= 0 then
+         Error ("foreach expects no parameter");
+      end if;
+
+      Object.Generate_Values (null);
+   end Call_Foreach;
+
    ----------------------
    -- Push_Call_Result --
    ----------------------
@@ -249,6 +268,37 @@ package body Wrapping.Runtime.Objects is
       Object.Value.Generate_Values (Expr);
    end Generate_Values;
 
+   -----------------
+   -- Push_Values --
+   -----------------
+
+   overriding function Push_Value
+     (An_Entity : access W_Container_Type; Name : Text_Type) return Boolean
+   is
+      Call : Call_Access;
+      Is_Generator : Boolean := False;
+   begin
+      if Name = "get" then
+         Call := Call_Get'Access;
+      elsif Name = "foreach" then
+         Call := Call_Foreach'Access;
+         Is_Generator := True;
+      end if;
+
+      if Call /= null then
+         Push_Object
+           (W_Object'
+              (new W_Intrinsic_Function_Type'
+                   (Prefix    => W_Object (An_Entity),
+                    Call      => Call,
+                    Generator => Is_Generator)));
+
+         return True;
+      else
+         return False;
+      end if;
+   end Push_Value;
+
    ----------------
    -- Push_Value --
    ----------------
@@ -258,9 +308,11 @@ package body Wrapping.Runtime.Objects is
    is
       Call : Call_Access;
    begin
-      if Name = "get" then
-         Call := Call_Get'Access;
-      elsif Name = "append" then
+      if W_Container_Type (An_Entity.all).Push_Value (Name) then
+         return True;
+      end if;
+
+      if Name = "append" then
          Call := Call_Append'Access;
       end if;
 
@@ -269,7 +321,7 @@ package body Wrapping.Runtime.Objects is
            (W_Object'
               (new W_Intrinsic_Function_Type'
                    (Prefix => W_Object (An_Entity),
-                    Call => Call,
+                    Call   => Call,
                     others => <>)));
 
          return True;
@@ -331,12 +383,14 @@ package body Wrapping.Runtime.Objects is
    is
       Call : Call_Access;
    begin
+      if W_Container_Type (An_Entity.all).Push_Value (Name) then
+         return True;
+      end if;
+
       if Name = "insert" then
          Call := Call_Insert'Access;
       elsif Name = "include" then
          Call := Call_Include'Access;
-      elsif Name = "get" then
-         Call := Call_Get'Access;
       end if;
 
       if Call /= null then
@@ -380,14 +434,16 @@ package body Wrapping.Runtime.Objects is
    overriding function Push_Value
      (An_Entity : access W_Map_Type; Name : Text_Type) return Boolean
    is
-      Call : Call_Access;
+      Call         : Call_Access;
    begin
+      if W_Container_Type (An_Entity.all).Push_Value (Name) then
+         return True;
+      end if;
+
       if Name = "insert" then
          Call := Call_Insert'Access;
       elsif Name = "include" then
          Call := Call_Include'Access;
-      elsif Name = "get" then
-         Call := Call_Get'Access;
       end if;
 
       if Call /= null then
