@@ -30,18 +30,18 @@ with Wrapping.Runtime.Strings;     use Wrapping.Runtime.Strings;
 
 package body Wrapping.Input.Ada is
 
-   type Actual_Parameter is record
+   type Actual_To_Formal_Assoc is record
       Actual_Expr  : T_Expr;
       Formal_Index : Integer;
       Formal_Type  : Value_Constraint;
    end record;
 
-   type Actual_Parameter_Array is array
-     (Positive range <>) of Actual_Parameter;
+   type Actual_To_Formal_Assoc_Array is array
+     (Positive range <>) of Actual_To_Formal_Assoc;
 
    function Match_Params
      (Profile : Any_Node_Data_Reference; Args : T_Arg_Vectors.Vector)
-      return Actual_Parameter_Array;
+      return Actual_To_Formal_Assoc_Array;
    --  Match parameters in the profile against the arg in parameters, and set
    --  the corresponding actual expressions
 
@@ -83,7 +83,7 @@ package body Wrapping.Input.Ada is
       Params    : T_Arg_Vectors.Vector)
    is
 
-      function Eval_Param (Actual : Actual_Parameter)
+      function Eval_Param (Actual : Actual_To_Formal_Assoc)
          return Libadalang.Introspection.Value_Type;
       --  Evaluate the parameter at the index in parameter with the actual
       --  provided. Will use default value if actual is null, raising an
@@ -93,12 +93,10 @@ package body Wrapping.Input.Ada is
       -- Eval_Param --
       ----------------
 
-      Params_Types : constant Value_Constraint_Array :=
-        Property_Argument_Types (An_Entity.Property_Node);
       Slice : Buffer_Slice;
 
       function Eval_Param
-        (Actual : Actual_Parameter)
+        (Actual : Actual_To_Formal_Assoc)
          return Libadalang.Introspection.Value_Type
       is
          Object : W_Object;
@@ -200,15 +198,17 @@ package body Wrapping.Input.Ada is
          return No_Value;
       end Eval_Param;
 
-      Result       : Any_Value_Type;
-      Values       : Value_Array (1 .. Params_Types'Last);
-      Node : constant W_Kit_Node := W_Kit_Node (Top_Object.Dereference);
+      Actuals : constant Actual_To_Formal_Assoc_Array :=
+        Match_Params (An_Entity.Property_Node, Params);
+      Result  : Any_Value_Type;
+      Values  : Value_Array (1 .. Actuals'Last);
+      Node    : constant W_Kit_Node := W_Kit_Node (Top_Object.Dereference);
 
       Vector : W_Vector;
    begin
       --  Go through the parameters given and value the Values array
 
-      for E of Match_Params (An_Entity.Property_Node, Params) loop
+      for E of Actuals loop
          Values (E.Formal_Index) := Eval_Param (E);
       end loop;
 
@@ -368,11 +368,11 @@ package body Wrapping.Input.Ada is
 
    function Match_Params
      (Profile : Any_Node_Data_Reference; Args : T_Arg_Vectors.Vector)
-      return Actual_Parameter_Array
+      return Actual_To_Formal_Assoc_Array
    is
       Params_Types : constant Value_Constraint_Array :=
         Property_Argument_Types (Profile);
-      Result : Actual_Parameter_Array (1 .. Params_Types'Length);
+      Result : Actual_To_Formal_Assoc_Array (1 .. Params_Types'Length);
 
       In_Named_Section : Boolean := False;
       Index : Integer := 1;
