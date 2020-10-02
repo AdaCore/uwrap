@@ -22,6 +22,17 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with GNATCOLL.Opt_Parse;
 
 with Libadalang.Helpers; use Libadalang.Helpers;
+with Libtestlang.Analysis;
+with Libtestlang.Common;
+with Libtestlang.Introspection;
+
+with Libadalang.Analysis;
+with Libadalang.Common;
+with Libadalang.Introspection;
+
+with Wrapping.Input.Kit;
+with Wrapping.Input.Ada;         use Wrapping.Input.Ada;
+with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 
 package Wrapping.Run is
 
@@ -50,5 +61,79 @@ package Wrapping.Run is
          Arg_Type => Unbounded_String, Accumulate => True);
 
    end Args;
+
+   function Dummy_Get_Property
+     (Node : Libtestlang.Analysis.Test_Node;
+      Name : Text_Type) return W_Object;
+
+   package Testlang is
+      use Libtestlang.Analysis;
+      use Libtestlang.Common;
+      use Libtestlang.Introspection;
+
+      package Input is new Wrapping.Input.Kit
+        (Language_Name              => "test",
+         Kit_Node                   => Libtestlang.Analysis.Test_Node,
+         Kit_Unit                   => Libtestlang.Analysis.Analysis_Unit,
+         Kit_Node_Array             => Libtestlang.Analysis.Test_Node_Array,
+         Any_Node_Data_Reference    =>
+            Libtestlang.Common.Any_Node_Data_Reference,
+         Any_Node_Type_Id           => Libtestlang.Common.Any_Node_Type_Id,
+         Kit_Node_Kind_Type         => Libtestlang.Common.Test_Node_Kind_Type,
+         Analysis_Unit              => Libtestlang.Analysis.Analysis_Unit,
+         Analysis_Context           => Libtestlang.Analysis.Analysis_Context,
+         Grammar_Rule               => Libtestlang.Common.Grammar_Rule,
+         Unit_Provider_Reference    =>
+            Libtestlang.Analysis.Unit_Provider_Reference,
+         Token_Reference            => Libtestlang.Common.Token_Reference,
+         Token_Data_Type            => Libtestlang.Common.Token_Data_Type,
+         Token_Kind                 => Libtestlang.Common.Token_Kind,
+         Token_Index                =>
+            Libtestlang.Common.Token_Data_Handlers.Token_Index,
+         None                       => Libtestlang.Common.None,
+         Default_Grammar_Rule       => Libtestlang.Common.Default_Grammar_Rule,
+         Default_Charset            => Libtestlang.Common.Default_Charset,
+         No_Unit_Provider_Reference =>
+            Libtestlang.Analysis.No_Unit_Provider_Reference,
+         No_Node_Type_Id            => Libtestlang.Common.None,
+         Root                       => Libtestlang.Analysis.Root,
+         No_Token                   => Libtestlang.Common.No_Token,
+         Get_Property               => Dummy_Get_Property);
+   end Testlang;
+
+   package Adalang is
+      use Libadalang.Analysis;
+      use Libadalang.Common;
+      use Libadalang.Introspection;
+
+      package Input is new Wrapping.Input.Kit
+        (Language_Name              => "ada",
+         Kit_Node                   => Libadalang.Analysis.Ada_Node,
+         Kit_Unit                   => Libadalang.Analysis.Analysis_Unit,
+         Kit_Node_Array             => Libadalang.Analysis.Ada_Node_Array,
+         Any_Node_Data_Reference    =>
+            Libadalang.Common.Any_Node_Data_Reference,
+         Any_Node_Type_Id           => Libadalang.Common.Any_Node_Type_Id,
+         Kit_Node_Kind_Type         => Libadalang.Common.Ada_Node_Kind_Type,
+         Analysis_Unit              => Libadalang.Analysis.Analysis_Unit,
+         Analysis_Context           => Libadalang.Analysis.Analysis_Context,
+         Grammar_Rule               => Libadalang.Common.Grammar_Rule,
+         Unit_Provider_Reference    =>
+            Libadalang.Analysis.Unit_Provider_Reference,
+         Token_Reference            => Libadalang.Common.Token_Reference,
+         Token_Data_Type            => Libadalang.Common.Token_Data_Type,
+         Token_Kind                 => Libadalang.Common.Token_Kind,
+         Token_Index                =>
+            Libadalang.Common.Token_Data_Handlers.Token_Index,
+         None                       => Libadalang.Common.None,
+         Default_Grammar_Rule       => Libadalang.Common.Default_Grammar_Rule,
+         Default_Charset            => Libadalang.Common.Default_Charset,
+         No_Unit_Provider_Reference =>
+            Libadalang.Analysis.No_Unit_Provider_Reference,
+         No_Node_Type_Id            => Libadalang.Common.None,
+         Root                       => Libadalang.Analysis.Root,
+         No_Token                   => Libadalang.Common.No_Token,
+         Get_Property               => Wrapping.Input.Ada.Get_Property);
+   end Adalang;
 
 end Wrapping.Run;

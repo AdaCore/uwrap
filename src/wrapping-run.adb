@@ -25,109 +25,13 @@ with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNATCOLL.OS.Constants; use GNATCOLL.OS.Constants;
 with GNATCOLL.Utils;        use GNATCOLL.Utils;
 
-with Libtestlang.Analysis;
-with Libtestlang.Common;
-with Libtestlang.Introspection;
-
-with Libadalang.Analysis;
-with Libadalang.Common;
-with Libadalang.Introspection;
-
 with Wrapping.Semantic;          use Wrapping.Semantic;
 with Wrapping.Semantic.Analysis; use Wrapping.Semantic.Analysis;
 with Wrapping.Runtime.Commands;  use Wrapping.Runtime.Commands;
-with Wrapping.Input.Kit;
 with Wrapping.Input.JSON;        use Wrapping.Input.JSON;
 with Wrapping.Runtime.Strings;   use Wrapping.Runtime.Strings;
 
 package body Wrapping.Run is
-
-   package Testlang is
-      use Libtestlang.Analysis;
-      use Libtestlang.Common;
-      use Libtestlang.Introspection;
-
-      package Input is new Wrapping.Input.Kit
-        (Language_Name              => "test",
-         Kit_Node                   => Libtestlang.Analysis.Test_Node,
-         Kit_Unit                   => Libtestlang.Analysis.Analysis_Unit,
-         Kit_Node_Array             => Libtestlang.Analysis.Test_Node_Array,
-         Any_Node_Data_Reference    =>
-            Libtestlang.Common.Any_Node_Data_Reference,
-         Any_Node_Type_Id           => Libtestlang.Common.Any_Node_Type_Id,
-         Kit_Node_Kind_Type         => Libtestlang.Common.Test_Node_Kind_Type,
-         Analysis_Unit              => Libtestlang.Analysis.Analysis_Unit,
-         Analysis_Context           => Libtestlang.Analysis.Analysis_Context,
-         Grammar_Rule               => Libtestlang.Common.Grammar_Rule,
-         Unit_Provider_Reference    =>
-            Libtestlang.Analysis.Unit_Provider_Reference,
-         Token_Reference            => Libtestlang.Common.Token_Reference,
-         Token_Data_Type            => Libtestlang.Common.Token_Data_Type,
-         Token_Kind                 => Libtestlang.Common.Token_Kind,
-         Token_Index                =>
-            Libtestlang.Common.Token_Data_Handlers.Token_Index,
-         None                       => Libtestlang.Common.None,
-         Default_Grammar_Rule       => Libtestlang.Common.Default_Grammar_Rule,
-         Default_Charset            => Libtestlang.Common.Default_Charset,
-         No_Unit_Provider_Reference =>
-            Libtestlang.Analysis.No_Unit_Provider_Reference,
-         No_Node_Type_Id            => Libtestlang.Common.None,
-         Any_Value_Kind             => Libtestlang.Common.Any_Value_Kind,
-         Value_Type                 =>
-            Libtestlang.Introspection.Any_Value_Type,
-         Value_Array                => Libtestlang.Introspection.Value_Array,
-         Root                       => Libtestlang.Analysis.Root,
-         Text_Type_Value            => Libtestlang.Common.Text_Type_Value,
-         Node_Value                 => Libtestlang.Common.Node_Value,
-         Boolean_Value              => Libtestlang.Common.Boolean_Value,
-         No_Token                   => Libtestlang.Common.No_Token,
-         Value_Constraint           => Libtestlang.Common.Value_Constraint,
-         Value_Constraint_Array     =>
-            Libtestlang.Common.Value_Constraint_Array);
-   end Testlang;
-
-   package Adalang is
-      use Libadalang.Analysis;
-      use Libadalang.Common;
-      use Libadalang.Introspection;
-
-      package Input is new Wrapping.Input.Kit
-        (Language_Name              => "ada",
-         Kit_Node                   => Libadalang.Analysis.Ada_Node,
-         Kit_Unit                   => Libadalang.Analysis.Analysis_Unit,
-         Kit_Node_Array             => Libadalang.Analysis.Ada_Node_Array,
-         Any_Node_Data_Reference    =>
-            Libadalang.Common.Any_Node_Data_Reference,
-         Any_Node_Type_Id           => Libadalang.Common.Any_Node_Type_Id,
-         Kit_Node_Kind_Type         => Libadalang.Common.Ada_Node_Kind_Type,
-         Analysis_Unit              => Libadalang.Analysis.Analysis_Unit,
-         Analysis_Context           => Libadalang.Analysis.Analysis_Context,
-         Grammar_Rule               => Libadalang.Common.Grammar_Rule,
-         Unit_Provider_Reference    =>
-            Libadalang.Analysis.Unit_Provider_Reference,
-         Token_Reference            => Libadalang.Common.Token_Reference,
-         Token_Data_Type            => Libadalang.Common.Token_Data_Type,
-         Token_Kind                 => Libadalang.Common.Token_Kind,
-         Token_Index                =>
-            Libadalang.Common.Token_Data_Handlers.Token_Index,
-         None                       => Libadalang.Common.None,
-         Default_Grammar_Rule       => Libadalang.Common.Default_Grammar_Rule,
-         Default_Charset            => Libadalang.Common.Default_Charset,
-         No_Unit_Provider_Reference =>
-            Libadalang.Analysis.No_Unit_Provider_Reference,
-         No_Node_Type_Id            => Libadalang.Common.None,
-         Any_Value_Kind             => Libadalang.Common.Any_Value_Kind,
-         Value_Type                 => Libadalang.Introspection.Any_Value_Type,
-         Value_Array                => Libadalang.Introspection.Value_Array,
-         Root                       => Libadalang.Analysis.Root,
-         Text_Type_Value            => Libadalang.Common.Text_Type_Value,
-         Node_Value                 => Libadalang.Common.Node_Value,
-         Boolean_Value              => Libadalang.Common.Boolean_Value,
-         No_Token                   => Libadalang.Common.No_Token,
-         Value_Constraint           => Libadalang.Common.Value_Constraint,
-         Value_Constraint_Array     =>
-            Libadalang.Common.Value_Constraint_Array);
-   end Adalang;
 
    ----------------------
    -- App_Post_Process --
@@ -259,5 +163,18 @@ package body Wrapping.Run is
          Analyzed_Deferred;
       end;
    end App_Post_Process;
+
+   -------------------------
+   -- Dummy_Eval_Property --
+   -------------------------
+
+   function Dummy_Get_Property
+     (Node : Libtestlang.Analysis.Test_Node;
+      Name : Text_Type) return W_Object
+   is
+      pragma Unreferenced (Name, Node);
+   begin
+      return null;
+   end Dummy_Get_Property;
 
 end Wrapping.Run;
