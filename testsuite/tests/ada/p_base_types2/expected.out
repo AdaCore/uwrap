@@ -1,0 +1,3 @@
+type F1 is new A and I2 with null record; has two direct parents
+type F2 is new B and I1 with null record; has two direct parents
+

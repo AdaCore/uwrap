@@ -1,0 +1,6 @@
+function x () do
+    pick p_base_types ().foreach ().all ();
+end;
+
+match p_base_types () and x ().filter (many (AdaNode (), 2))
+weave standard.out (@ & it & " has two direct parents\n");
