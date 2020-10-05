@@ -1,2 +1,6 @@
+# this test checks that libadalang properties returning arrays of nodes are 
+# supported, and that the values of the resulting array can be folded in a
+# string.
+
 match p_base_types ()
 weave standard.out (@ & it.p_defining_name () & " has base types: " & p_base_types ().foreach ().fold ("", @ & p_defining_name (), @ & ", ") & "\n");
