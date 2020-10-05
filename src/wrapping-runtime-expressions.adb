@@ -696,7 +696,9 @@ package body Wrapping.Runtime.Expressions is
             Push_Match_False;
             return;
          else
-            Error ("'" & Name & "' not found");
+            Error
+              ("'" & Name & "' not found in object of type '"
+               & Get_Implicit_It.Dereference.Type_Name & "'");
          end if;
       else
          --  We're on a selection. Retreives the prefix and try to resolve
@@ -705,7 +707,8 @@ package body Wrapping.Runtime.Expressions is
          Prefix_Entity := Top_Object.Dereference;
 
          if Prefix_Entity = Match_False then
-            Error ("prefix not found");
+            Error ("prefix not found in object of type '"
+                   & Top_Object.Dereference.Type_Name & "'");
          end if;
 
          if Prefix_Entity.Push_Value (Name) then
@@ -1127,7 +1130,9 @@ package body Wrapping.Runtime.Expressions is
 
          Push_Frame_Context;
          Top_Context.Left_Value := Current_Expression;
+         Push_Implicit_It (Top_Object);
          Evaluate_Expression (Fold_Expr.Fold_Combine);
+         Pop_Underneath_Top;
          Current_Expression := Top_Object;
          Pop_Frame_Context;
       end Yield_Callback;
