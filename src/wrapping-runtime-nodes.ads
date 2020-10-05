@@ -91,6 +91,15 @@ package Wrapping.Runtime.Nodes is
    --  derived in various types that implement specific capabilites. In
    --  particular, input languages have all their own derivation of node.
 
+   function Language (An_Entity : W_Node_Type) return Text_Type is ("");
+   --  Provides a name for the language that this node represents. Retreived
+   --  from the language intrinsic field.
+
+   overriding function Type_Name
+     (Object : W_Node_Type) return Text_Type is
+     ("node (" & W_Node_Type'Class (Object).Language & ")");
+   --  See parent documentation
+
    procedure Add_Child (Parent, Child : access W_Node_Type'Class);
    --  Connects Parent and Child with a "child" relationship. Child is
    --  nameless.
@@ -179,10 +188,6 @@ package Wrapping.Runtime.Nodes is
      (An_Entity : W_Node_Type) return Buffer_Slice is (Get_Empty_Slice);
    --  See parent documentation.
 
-   function Language (An_Entity : W_Node_Type) return Text_Type is ("");
-   --  Provides a name for the language that this node represents. Retreived
-   --  from the language intrinsic field.
-
    type W_Template_Instance_Type is new W_Node_Type with record
       Defining_Entity : T_Entity;
       --  References the entity from which this template has been instantiated
@@ -220,6 +225,11 @@ package Wrapping.Runtime.Nodes is
    --  Template instances are a specific kind of node that represent the
    --  instantiation of a user defined template. It could be created either
    --  through a wrap / weave clause, or a new () allocator.
+
+   overriding function Type_Name
+     (Object : W_Template_Instance_Type)
+      return Text_Type is ("template instance");
+   --  See parent documentation
 
    function Create_Template_Instance
      (A_Template : T_Template;
@@ -284,6 +294,11 @@ package Wrapping.Runtime.Nodes is
    --  B is actually creating a hollow node under the current entity, wrapped
    --  with B. This structure is necessary to enable browsing of the wrapping
    --  tree, which is based on browsing the original input tree.
+
+   overriding function Type_Name
+     (Object : W_Hollow_Node_Type)
+      return Text_Type is ("hollow node");
+   --  See parent documentation
 
    overriding function Language
      (An_Entity : W_Hollow_Node_Type) return Text_Type is ("hollow");

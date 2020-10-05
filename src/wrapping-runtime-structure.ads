@@ -64,6 +64,10 @@ package Wrapping.Runtime.Structure is
    end record;
    --  This is the root type of all values that are manipulated by expressions
 
+   function Type_Name (Object : W_Object_Type) return Text_Type is ("root");
+   --  Returns a human readble version of a type name, to be used in e.g.
+   --  error messages.
+
    procedure Include_Symbol (Name : Text_Type; Object : not null W_Object);
    --  Adds or replace a symbol of a given name in the current frame.
 

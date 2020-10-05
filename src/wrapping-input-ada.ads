@@ -41,6 +41,10 @@ package Wrapping.Input.Ada is
    end record;
    --  Holds a reference to a specific property to be called.
 
+   overriding function Type_Name
+     (Object : W_Property_Type) return Text_Type is ("property");
+   --  See parent documentation
+
    overriding procedure Push_Call_Result
      (An_Entity : access W_Property_Type;
       Params    : T_Arg_Vectors.Vector);
@@ -52,5 +56,10 @@ package Wrapping.Input.Ada is
    end record;
    --  This type is used for types that we're not directly handling in UWrap
    --  but that can be used passing data from and to properties.
+
+   overriding function Type_Name
+     (Object : W_Unhandled_Value_Type) return Text_Type is
+     ("unhandled property value");
+   --  See parent documentation
 
 end Wrapping.Input.Ada;

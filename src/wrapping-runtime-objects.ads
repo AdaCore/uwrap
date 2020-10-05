@@ -96,6 +96,10 @@ package Wrapping.Runtime.Objects is
    --  possibly decorate this indirection with specific flags. All primitive
    --  are pass through.
 
+   overriding function Type_Name
+     (Object : W_Reference_Type) return Text_Type is ("reference");
+   --  See parent documentation.
+
    overriding function Push_Value
      (An_Entity : access W_Reference_Type; Name : Text_Type) return Boolean is
      (An_Entity.Value.Push_Value (Name));
@@ -152,6 +156,11 @@ package Wrapping.Runtime.Objects is
       null;
    end record;
 
+   overriding function Type_Name
+     (Object : W_Container_Type)
+      return Text_Type is ("container");
+   --  See parent documentation.
+
    overriding function Push_Value
      (An_Entity : access W_Container_Type; Name : Text_Type) return Boolean;
    --  Pushes intrinsic functions for all containers, or parent entities
@@ -160,6 +169,10 @@ package Wrapping.Runtime.Objects is
       A_Vector : W_Object_Vectors.Vector;
    end record;
    --  Holds a vector of runtime objects.
+
+   overriding function Type_Name (Object : W_Vector_Type) return Text_Type is
+     ("vector");
+   --  See parent documentation
 
    overriding function Push_Value
      (An_Entity : access W_Vector_Type; Name : Text_Type) return Boolean;
@@ -178,6 +191,9 @@ package Wrapping.Runtime.Objects is
       A_Set : W_Object_Sets.Set;
    end record;
    --  Holds a set of runtime objects.
+
+   function Type_Name (Object : W_Set_Type) return Text_Type is ("set");
+   --  See parent documentation
 
    overriding function Push_Value
      (An_Entity : access W_Set_Type; Name : Text_Type) return Boolean;
@@ -207,6 +223,10 @@ package Wrapping.Runtime.Objects is
    end record;
    --  Holds an integer string
 
+   overriding function Type_Name (Object : W_Integer_Type) return Text_Type is
+     ("integer");
+   --  See parent documentation
+
    overriding function Write_String
      (Object : W_Integer_Type) return Buffer_Slice;
    --  Converts integer to string
@@ -215,6 +235,10 @@ package Wrapping.Runtime.Objects is
       null;
    end record;
    --  Root type to types that are variants of string objects
+
+   overriding function Type_Name
+     (Object : W_Text_Expression_Type) return Text_Type is ("expression");
+   --  See parent documentation
 
    overriding procedure Push_Call_Result
      (An_Entity : access W_Text_Expression_Type;
@@ -225,6 +249,10 @@ package Wrapping.Runtime.Objects is
       Value : Unbounded_Text_Type;
    end record;
    --  Models a simple string
+
+   overriding function Type_Name
+     (Object : W_String_Type) return Text_Type is ("string");
+   --  See parent documentation
 
    overriding function Write_String
      (Object : W_String_Type) return Buffer_Slice;
@@ -251,6 +279,10 @@ package Wrapping.Runtime.Objects is
    end record;
    --  Holds a regular expression
 
+   overriding function Type_Name
+     (Object : W_Regexp_Type) return Text_Type is ("regular expression");
+   --  See parent documentation
+
    overriding function Write_String
      (Object : W_Regexp_Type) return Buffer_Slice;
    --  Writes the content of the regular expression in the buffer
@@ -273,6 +305,11 @@ package Wrapping.Runtime.Objects is
    end record;
    --  Models an intrinsic call and the object to call it on
 
+   overriding function Type_Name
+     (Object : W_Intrinsic_Function_Type) return Text_Type is
+     ("intrinsic function");
+   --  See parent documentation
+
    overriding procedure Push_Call_Result
      (An_Entity : access W_Intrinsic_Function_Type;
       Params    : T_Arg_Vectors.Vector);
@@ -292,6 +329,10 @@ package Wrapping.Runtime.Objects is
    end record;
    --  Models a user-defined function
 
+   overriding function Type_Name
+     (Object : W_Function_Type) return Text_Type is ("function");
+   --  See parent documentation
+
    overriding procedure Push_Call_Result
      (An_Entity : access W_Function_Type; Params : T_Arg_Vectors.Vector);
    --  Pushes a frame and evaluate the function referenced by this object on
@@ -308,6 +349,11 @@ package Wrapping.Runtime.Objects is
    end record;
    --  References a static entity, for example a module prefix in a module
    --  expression.
+
+   overriding function Type_Name
+     (Object : W_Static_Entity_Type) return Text_Type is
+     ("static entity reference");
+   --  See parent documentation
 
    overriding function Push_Value
      (An_Entity : access W_Static_Entity_Type; Name : Text_Type)
@@ -333,6 +379,11 @@ package Wrapping.Runtime.Objects is
    --  as possible, during the Write_String calls. The environment is captured
    --  at creation time to that the expression can be valuated later on.
 
+   overriding function Type_Name
+     (Object : W_Deferred_Expr_Type) return Text_Type is
+     ("deferred expression");
+   --  See parent documentation
+
    overriding function Write_String
      (Object : W_Deferred_Expr_Type) return Buffer_Slice;
    --  Restores the closure in a new frame, evaluates the stored expression and
@@ -354,6 +405,11 @@ package Wrapping.Runtime.Objects is
    --  that were captured by this expression. By default, all primitives
    --  of this types behave as if it were a reference to the last element,
    --  except for generation that generate values for all elements.
+
+   overriding function Type_Name
+     (Object : W_Regexpr_Result_Type) return Text_Type is
+     ("regular expression result");
+   --  Captures the deferred environment related to this expression.
 
    overriding procedure Generate_Values
      (Object : access W_Regexpr_Result_Type; Expr : T_Expr);
