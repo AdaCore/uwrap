@@ -202,10 +202,17 @@ package body Wrapping.Input.Ada is
         Match_Params (An_Entity.Property_Node, Params);
       Result  : Any_Value_Type;
       Values  : Value_Array (1 .. Actuals'Last);
-      Node    : constant W_Kit_Node := W_Kit_Node (Top_Object.Dereference);
+      Node    : W_Kit_Node;
 
       Vector : W_Vector;
    begin
+      if Top_Object.Dereference.all not in W_Kit_Node_Type'Class then
+         Error
+           ("expected node (ada), found " & Top_Object.Dereference.Type_Name);
+      end if;
+
+      Node := W_Kit_Node (Top_Object.Dereference);
+
       --  Go through the parameters given and value the Values array
 
       for E of Actuals loop
