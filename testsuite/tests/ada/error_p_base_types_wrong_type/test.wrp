@@ -1,0 +1,8 @@
+# this test checks that proper error is raised when trying to call 
+# p_defining_name () on a vector instead of a node on line 7.
+
+match p_base_types ()
+weave standard.out (
+    p_base_types ().fold (
+        "", @ & p_defining_name ())
+);
