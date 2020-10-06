@@ -20,6 +20,7 @@
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
 with GNATCOLL.Opt_Parse;
+with Langkit_Support.Token_Data_Handlers;
 
 with Libadalang.Helpers; use Libadalang.Helpers;
 with Libtestlang.Analysis;
@@ -89,7 +90,7 @@ package Wrapping.Run is
          Token_Data_Type            => Libtestlang.Common.Token_Data_Type,
          Token_Kind                 => Libtestlang.Common.Token_Kind,
          Token_Index                =>
-            Libtestlang.Common.Token_Data_Handlers.Token_Index,
+            Langkit_Support.Token_Data_Handlers.Token_Index,
          None                       => Libtestlang.Common.None,
          Default_Grammar_Rule       => Libtestlang.Common.Default_Grammar_Rule,
          Default_Charset            => Libtestlang.Common.Default_Charset,
@@ -124,7 +125,7 @@ package Wrapping.Run is
          Token_Data_Type            => Libadalang.Common.Token_Data_Type,
          Token_Kind                 => Libadalang.Common.Token_Kind,
          Token_Index                =>
-            Libadalang.Common.Token_Data_Handlers.Token_Index,
+            Langkit_Support.Token_Data_Handlers.Token_Index,
          None                       => Libadalang.Common.None,
          Default_Grammar_Rule       => Libadalang.Common.Default_Grammar_Rule,
          Default_Charset            => Libadalang.Common.Default_Charset,
