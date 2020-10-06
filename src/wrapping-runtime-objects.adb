@@ -709,12 +709,14 @@ package body Wrapping.Runtime.Objects is
 
             Visit_Decision := Process_Generated_Value (Prev_Top);
 
-            if Top_Context.Visit_Decision /= null then
-               Top_Context.Visit_Decision.all := Visit_Decision;
-            end if;
-
             Last_Result := Pop_Object;
             Pop_Frame;
+
+            if Top_Context.Visit_Decision /= null
+              and then Visit_Decision /= Unknown
+            then
+               Top_Context.Visit_Decision.all := Visit_Decision;
+            end if;
          end if;
       end Result_Callback;
 
