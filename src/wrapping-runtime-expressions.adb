@@ -1303,6 +1303,10 @@ package body Wrapping.Runtime.Expressions is
          --  prefix can't be found.
 
          Match_Mode := Match_Has;
+      else
+         --  Otherwise, don't change the match mode.
+
+         Match_Mode := Top_Context.Match_Mode;
       end if;
 
       Push_Frame_Context_No_Match;

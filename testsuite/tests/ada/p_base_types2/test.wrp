@@ -1,0 +1,12 @@
+# this test checks that it's possible to iterate over all the element of an
+# array in a function, and to use such function in a filter recursively
+# calling that function at least twice. We want to verify in particular that
+# iteration control from the filter works propertly, e.g. that when a matching
+# value is found, the iteration in the function stops.
+
+function x () do
+    pick p_base_types ().foreach ().all ();
+end;
+
+match p_base_types () and x ().filter (many (AdaNode (), 2))
+weave standard.out (@ & it & " has an ascendance depth of at least two\n");
