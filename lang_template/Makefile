@@ -1,5 +1,5 @@
 build: force
-	rm -rf build/ && ./manage.py --no-langkit-support --library-types static make
+	rm -rf build/ && ./manage.py make --library-types static
 
 parse: force
 	rm -rf build/ && ./manage.py make
