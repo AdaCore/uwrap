@@ -40,10 +40,10 @@ package Wrapping.Runtime.Objects is
    package W_Reference_Vectors is new Ada.Containers.Vectors
      (Positive, W_Reference);
 
-   type W_Container_Type;
+   type W_Container_Type is tagged;
    type W_Container is access all W_Container_Type'Class;
 
-   type W_Vector_Type;
+   type W_Vector_Type is tagged;
    type W_Vector is access all W_Vector_Type'Class;
    package W_Vector_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, W_Vector);
@@ -54,33 +54,33 @@ package Wrapping.Runtime.Objects is
    type W_Map_Type;
    type W_Map is access all W_Map_Type;
 
-   type W_Integer_Type;
+   type W_Integer_Type is tagged;
    type W_Integer is access all W_Integer_Type'Class;
 
-   type W_Text_Expression_Type;
+   type W_Text_Expression_Type is tagged;
    type W_Text_Expression is access all W_Text_Expression_Type'Class;
    package W_Text_Expression_Vectors is new Ada.Containers.Vectors
      (Positive, W_Text_Expression);
 
-   type W_String_Type;
+   type W_String_Type is tagged;
    type W_String is access all W_String_Type'Class;
 
-   type W_Regexp_Type;
+   type W_Regexp_Type is tagged;
    type W_Regexp is access all W_Regexp_Type'Class;
 
-   type W_Intrinsic_Function_Type;
+   type W_Intrinsic_Function_Type is tagged;
    type W_Intrinsic_Function is access all W_Intrinsic_Function_Type'Class;
 
-   type W_Function_Type;
+   type W_Function_Type is tagged;
    type W_Function is access all W_Function_Type'Class;
 
-   type W_Static_Entity_Type;
+   type W_Static_Entity_Type is tagged;
    type W_Static_Entity is access all W_Static_Entity_Type'Class;
 
-   type W_Deferred_Expr_Type;
+   type W_Deferred_Expr_Type is tagged;
    type W_Deferred_Expr is access all W_Deferred_Expr_Type'Class;
 
-   type W_Regexpr_Result_Type;
+   type W_Regexpr_Result_Type is tagged;
    type W_Regexpr_Result is access all W_Regexpr_Result_Type'Class;
 
    type W_Reference_Type is new W_Object_Type with record

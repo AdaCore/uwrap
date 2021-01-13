@@ -33,7 +33,7 @@ package Wrapping.Semantic.Structure is
    type Visit_Action is (Over, Into, Into_Override_Anchor, Stop, Unknown);
    type Visit_Action_Ptr is access all Visit_Action;
 
-   type T_Entity_Type;
+   type T_Entity_Type is tagged;
    type T_Entity is access all T_Entity_Type'Class;
    package T_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Entity);
@@ -41,28 +41,28 @@ package Wrapping.Semantic.Structure is
    package T_Entity_Vectors is new Ada.Containers.Vectors (Positive, T_Entity);
    use T_Entity_Vectors;
 
-   type T_Named_Entity_Type;
+   type T_Named_Entity_Type is tagged;
    type T_Named_Entity is access all T_Named_Entity_Type'Class;
    package T_Named_Entity_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Named_Entity);
    package T_Named_Entity_Vectors is new Ada.Containers.Vectors
      (Positive, T_Named_Entity);
 
-   type T_Namespace_Type;
+   type T_Namespace_Type is tagged;
    type T_Namespace is access all T_Namespace_Type'Class;
    package T_Namespace_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Namespace);
    package T_Namespace_Vectors is new Ada.Containers.Vectors
      (Positive, T_Namespace);
 
-   type T_Module_Type;
+   type T_Module_Type is tagged;
    type T_Module is access all T_Module_Type'Class;
    package T_Module_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Module);
    use T_Module_Maps;
    package T_Module_Vectors is new Ada.Containers.Vectors (Positive, T_Module);
 
-   type T_Template_Type;
+   type T_Template_Type is tagged;
    type T_Template is access all T_Template_Type'Class;
    package T_Template_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Template);
@@ -70,7 +70,7 @@ package Wrapping.Semantic.Structure is
    package T_Template_Vectors is new Ada.Containers.Vectors
      (Positive, T_Template);
 
-   type T_Var_Type;
+   type T_Var_Type is tagged;
    type T_Var is access all T_Var_Type'Class;
    package T_Var_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Var);
@@ -78,49 +78,49 @@ package Wrapping.Semantic.Structure is
    package T_Var_Vectors is new Ada.Containers.Vectors (Positive, T_Var);
    use T_Var_Vectors;
 
-   type T_Command_Sequence_Type;
+   type T_Command_Sequence_Type is tagged;
    type T_Command_Sequence is access all T_Command_Sequence_Type'Class;
    package Command_Sequence_Vectors is new Ada.Containers.Vectors
      (Positive, T_Command_Sequence);
 
-   type T_Command_Sequence_Element_Type;
+   type T_Command_Sequence_Element_Type is tagged;
    type T_Command_Sequence_Element is
      access all T_Command_Sequence_Element_Type'Class;
    package Command_Sequence_Element_Vectors is new Ada.Containers.Vectors
      (Positive, T_Command_Sequence_Element);
 
-   type T_Template_Call_Type;
+   type T_Template_Call_Type is tagged;
    type T_Template_Call is access all T_Template_Call_Type'Class;
 
-   type T_Template_Section_Type;
+   type T_Template_Section_Type is tagged;
    type T_Template_Section is access all T_Template_Section_Type'Class;
    package T_Template_Section_Vectors is new Ada.Containers.Vectors
      (Positive, T_Template_Section);
 
-   type T_Command_Type;
+   type T_Command_Type is tagged;
    type T_Command is access all T_Command_Type'Class;
    package T_Command_Vectors is new Ada.Containers.Vectors
      (Positive, T_Command);
    use T_Command_Vectors;
 
-   type T_Function_Type;
+   type T_Function_Type is tagged;
    type T_Function is access all T_Function_Type'Class;
    package T_Function_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Function);
    package T_Function_Vectors is new Ada.Containers.Vectors
      (Positive, T_Function);
 
-   type T_Expr_Type (Kind : Template_Node_Kind_Type);
+   type T_Expr_Type (Kind : Template_Node_Kind_Type) is tagged;
    type T_Expr is access all T_Expr_Type'Class;
    package T_Expr_Vectors is new Ada.Containers.Vectors (Positive, T_Expr);
    package T_Expr_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, T_Expr);
 
-   type T_Arg_Type;
+   type T_Arg_Type is tagged;
    type T_Arg is access all T_Arg_Type'Class;
    package T_Arg_Vectors is new Ada.Containers.Vectors (Positive, T_Arg);
 
-   type T_Create_Tree_Type;
+   type T_Create_Tree_Type is tagged;
    type T_Create_Tree is access all T_Create_Tree_Type'Class;
    package T_Create_Tree_Vectors is new Ada.Containers.Vectors
      (Positive, T_Create_Tree);

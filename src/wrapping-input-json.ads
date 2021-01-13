@@ -27,7 +27,7 @@ with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 
 package Wrapping.Input.JSON is
 
-   type W_JSON_Node_Type;
+   type W_JSON_Node_Type is tagged;
    type W_JSON_Node is access all W_JSON_Node_Type'Class;
 
    type W_JSON_Node_Type is new W_Node_Type with record

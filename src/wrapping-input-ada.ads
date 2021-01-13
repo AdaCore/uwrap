@@ -26,10 +26,10 @@ with Wrapping.Runtime.Structure; use Wrapping.Runtime.Structure;
 
 package Wrapping.Input.Ada is
 
-   type W_Property_Type;
+   type W_Property_Type is tagged;
    type W_Property is access all W_Property_Type'Class;
 
-   type W_Unhandled_Value_Type;
+   type W_Unhandled_Value_Type is tagged;
    type W_Unhandled_Value is access all W_Unhandled_Value_Type'Class;
 
    function Get_Property (Node : Ada_Node; Name : Text_Type) return W_Object;
@@ -37,7 +37,7 @@ package Wrapping.Input.Ada is
    --  ada node in parameter, null if not found.
 
    type W_Property_Type is new W_Object_Type with record
-      Property_Node : Any_Node_Data_Reference;
+      Property_Node : Any_Member_Reference;
    end record;
    --  Holds a reference to a specific property to be called.
 

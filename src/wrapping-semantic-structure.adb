@@ -567,7 +567,7 @@ package body Wrapping.Semantic.Structure is
 
             when Template_Literal | Template_Number | Template_At_Ref |
                  Template_Reg_Expr_Anchor =>
-               -- There's no symbol associated with these.
+               --  There's no symbol associated with these.
 
                null;
 

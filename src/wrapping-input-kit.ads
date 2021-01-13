@@ -36,7 +36,7 @@ generic
    type Kit_Node is tagged private;
    type Kit_Unit is tagged private;
    type Kit_Node_Array is array (Positive range <>) of Kit_Node;
-   type Any_Node_Data_Reference is (<>);
+   type Any_Member_Reference is (<>);
    type Any_Node_Type_Id is (<>);
    type Kit_Node_Kind_Type is (<>);
    type Analysis_Unit is tagged private;
@@ -48,7 +48,7 @@ generic
    type Token_Kind is (<>);
    type Token_Index is range <>;
 
-   None : Any_Node_Data_Reference;
+   None : Any_Member_Reference;
    Default_Grammar_Rule : Grammar_Rule;
    Default_Charset : String;
    No_Unit_Provider_Reference : Unit_Provider_Reference;
@@ -61,13 +61,13 @@ generic
    with function Children (Node : Kit_Node'Class) return Kit_Node_Array is <>;
    with function Parent (Node : Kit_Node'Class) return Kit_Node is <>;
    with function Hash (Node : Kit_Node) return Ada.Containers.Hash_Type is <>;
-   with function Lookup_Node_Data
+   with function Lookup_Member
      (Id : Any_Node_Type_Id; Name : String)
-      return Any_Node_Data_Reference is <>;
+      return Any_Member_Reference is <>;
    with function Id_For_Kind
      (Kind : Kit_Node_Kind_Type) return Any_Node_Type_Id is <>;
-   with function Eval_Field
-     (Node : Kit_Node'Class; Field : Any_Node_Data_Reference)
+   with function Eval_Syntax_Field
+     (Node : Kit_Node'Class; Field : Any_Member_Reference)
       return Kit_Node is <>;
    with function Kind (Node : Kit_Node'Class) return Kit_Node_Kind_Type is <>;
    with function Is_Null (Node : Kit_Node'Class) return Boolean is <>;
@@ -114,10 +114,10 @@ generic
    with function Index (Token : Token_Reference) return Token_Index is <>;
 package Wrapping.Input.Kit is
 
-   type W_Kit_Node_Type;
+   type W_Kit_Node_Type is tagged;
    type W_Kit_Node is access all W_Kit_Node_Type'Class;
 
-   type W_Kit_Node_Token_Type;
+   type W_Kit_Node_Token_Type is tagged;
    type W_Kit_Node_Token is access all W_Kit_Node_Token_Type'Class;
    package W_Kit_Node_Vectors is new Ada.Containers.Vectors
      (Token_Index, W_Kit_Node_Token);
@@ -226,7 +226,7 @@ package Wrapping.Input.Kit is
    -- W_Source_Node --
    -------------------
 
-   type W_Source_Node_Type;
+   type W_Source_Node_Type is tagged;
    type W_Source_Node is access all W_Source_Node_Type'Class;
 
    type W_Source_Node_Type is new W_Object_Type with record

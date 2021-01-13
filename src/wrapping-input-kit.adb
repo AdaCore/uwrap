@@ -275,7 +275,7 @@ package body Wrapping.Input.Kit is
    ----------------
 
    function Eval_Field (Node : Kit_Node; Name : Text_Type) return W_Object is
-      Field_Node : Any_Node_Data_Reference;
+      Field_Node : Any_Member_Reference;
    begin
       if Name'Length > 2 and then Name (Name'First .. Name'First + 1) = "f_"
       then
@@ -284,12 +284,12 @@ package body Wrapping.Input.Kit is
               To_Lower (Name (Name'First + 2 .. Name'Last));
          begin
             Field_Node :=
-              Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (F_Name));
+              Lookup_Member (Id_For_Kind (Node.Kind), To_String (F_Name));
 
             if Field_Node /= None then
                return
                  new W_Source_Node_Type'
-                   (A_Node => Eval_Field (Node, Field_Node));
+                   (A_Node => Eval_Syntax_Field (Node, Field_Node));
             end if;
          end;
       end if;

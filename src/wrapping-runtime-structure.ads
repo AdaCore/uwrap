@@ -31,7 +31,7 @@ with Wrapping.Utils;              use Wrapping.Utils;
 
 package Wrapping.Runtime.Structure is
 
-   type W_Object_Type;
+   type W_Object_Type is tagged;
    type W_Object is access all W_Object_Type'Class;
 
    function Lt_Wrapper (Left, Right : W_Object) return Boolean;

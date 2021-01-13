@@ -33,14 +33,14 @@ package body Wrapping.Input.Ada is
    type Actual_To_Formal_Assoc is record
       Actual_Expr  : T_Expr;
       Formal_Index : Integer;
-      Formal_Type  : Value_Constraint;
+      Formal_Type  : Type_Constraint;
    end record;
 
    type Actual_To_Formal_Assoc_Array is array
      (Positive range <>) of Actual_To_Formal_Assoc;
 
    function Match_Params
-     (Profile : Any_Node_Data_Reference; Args : T_Arg_Vectors.Vector)
+     (Profile : Any_Member_Reference; Args : T_Arg_Vectors.Vector)
       return Actual_To_Formal_Assoc_Array;
    --  Match parameters in the profile against the arg in parameters, and set
    --  the corresponding actual expressions
@@ -51,7 +51,7 @@ package body Wrapping.Input.Ada is
 
    function Get_Property (Node : Ada_Node; Name : Text_Type) return W_Object
    is
-      Property_Node : Any_Node_Data_Reference;
+      Property_Node : Any_Member_Reference;
    begin
       --  Check if we're on the name of a property (by convention, a name of
       --  the form p_<property_name>), and return it if that's the case.
@@ -63,7 +63,7 @@ package body Wrapping.Input.Ada is
             P_Name : constant Text_Type := Name (Name'First + 2 .. Name'Last);
          begin
             Property_Node :=
-              Lookup_Node_Data (Id_For_Kind (Node.Kind), To_String (P_Name));
+              Lookup_Member (Id_For_Kind (Node.Kind), To_String (P_Name));
 
             if Property_Node /= None then
                return new W_Property_Type'(Property_Node => Property_Node);
@@ -374,10 +374,10 @@ package body Wrapping.Input.Ada is
    ------------------
 
    function Match_Params
-     (Profile : Any_Node_Data_Reference; Args : T_Arg_Vectors.Vector)
+     (Profile : Any_Member_Reference; Args : T_Arg_Vectors.Vector)
       return Actual_To_Formal_Assoc_Array
    is
-      Params_Types : constant Value_Constraint_Array :=
+      Params_Types : constant Type_Constraint_Array :=
         Property_Argument_Types (Profile);
       Result : Actual_To_Formal_Assoc_Array (1 .. Params_Types'Length);
 

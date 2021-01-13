@@ -29,7 +29,7 @@ with Wrapping.Runtime.Objects;    use Wrapping.Runtime.Objects;
 
 package Wrapping.Runtime.Nodes is
 
-   type W_Node_Type;
+   type W_Node_Type is tagged;
    type W_Node is access all W_Node_Type'Class;
    package W_Node_Maps is new Ada.Containers.Indefinite_Ordered_Maps
      (Text_Type, W_Node);
@@ -37,7 +37,7 @@ package Wrapping.Runtime.Nodes is
    package W_Node_Vectors is new Ada.Containers.Vectors (Positive, W_Node);
    use W_Node_Vectors;
 
-   type W_Template_Instance_Type;
+   type W_Template_Instance_Type is tagged;
    type W_Template_Instance is access all W_Template_Instance_Type'Class;
    package W_Template_Instance_Maps is new Ada.Containers
      .Indefinite_Ordered_Maps
@@ -47,7 +47,7 @@ package Wrapping.Runtime.Nodes is
      (Positive, W_Template_Instance);
    use W_Template_Instance_Vectors;
 
-   type W_Hollow_Node_Type;
+   type W_Hollow_Node_Type is tagged;
    type W_Hollow_Node is access all W_Hollow_Node_Type'Class;
 
    type W_Node_Type is new W_Object_Type with record

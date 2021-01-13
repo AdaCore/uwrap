@@ -77,8 +77,8 @@ package Wrapping.Run is
          Kit_Node                   => Libtestlang.Analysis.Test_Node,
          Kit_Unit                   => Libtestlang.Analysis.Analysis_Unit,
          Kit_Node_Array             => Libtestlang.Analysis.Test_Node_Array,
-         Any_Node_Data_Reference    =>
-            Libtestlang.Common.Any_Node_Data_Reference,
+         Any_Member_Reference    =>
+            Libtestlang.Common.Any_Member_Reference,
          Any_Node_Type_Id           => Libtestlang.Common.Any_Node_Type_Id,
          Kit_Node_Kind_Type         => Libtestlang.Common.Test_Node_Kind_Type,
          Analysis_Unit              => Libtestlang.Analysis.Analysis_Unit,
@@ -112,8 +112,8 @@ package Wrapping.Run is
          Kit_Node                   => Libadalang.Analysis.Ada_Node,
          Kit_Unit                   => Libadalang.Analysis.Analysis_Unit,
          Kit_Node_Array             => Libadalang.Analysis.Ada_Node_Array,
-         Any_Node_Data_Reference    =>
-            Libadalang.Common.Any_Node_Data_Reference,
+         Any_Member_Reference    =>
+            Libadalang.Common.Any_Member_Reference,
          Any_Node_Type_Id           => Libadalang.Common.Any_Node_Type_Id,
          Kit_Node_Kind_Type         => Libadalang.Common.Ada_Node_Kind_Type,
          Analysis_Unit              => Libadalang.Analysis.Analysis_Unit,
