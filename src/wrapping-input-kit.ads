@@ -62,7 +62,7 @@ generic
    with function Parent (Node : Kit_Node'Class) return Kit_Node is <>;
    with function Hash (Node : Kit_Node) return Ada.Containers.Hash_Type is <>;
    with function Lookup_Member
-     (Id : Any_Node_Type_Id; Name : String)
+     (Id : Any_Node_Type_Id; Name : Text_Type)
       return Any_Member_Reference is <>;
    with function Id_For_Kind
      (Kind : Kit_Node_Kind_Type) return Any_Node_Type_Id is <>;
@@ -87,7 +87,8 @@ generic
    with function Diagnostics
      (Unit : Analysis_Unit'Class) return Diagnostics_Array is <>;
    with function Root (Unit : Analysis_Unit'Class) return Kit_Node is <>;
-   with function Lookup_DSL_Name (Name : String) return Any_Node_Type_Id is <>;
+   with function Lookup_DSL_Name
+     (Name : Text_Type) return Any_Node_Type_Id is <>;
    with function Is_Derived_From
      (Id, Parent : Any_Node_Type_Id) return Boolean is <>;
    with function Full_Sloc_Image
