@@ -284,7 +284,7 @@ package body Wrapping.Input.Kit is
               To_Lower (Name (Name'First + 2 .. Name'Last));
          begin
             Field_Node :=
-              Lookup_Member (Id_For_Kind (Node.Kind), To_String (F_Name));
+              Lookup_Member (Id_For_Kind (Node.Kind), F_Name);
 
             if Field_Node /= None then
                return
@@ -365,7 +365,7 @@ package body Wrapping.Input.Kit is
          return True;
       end if;
 
-      Id := Lookup_DSL_Name (To_String (Name));
+      Id := Lookup_DSL_Name (Name);
 
       if Id /= No_Node_Type_Id
         and then Is_Derived_From (Id_For_Kind (An_Entity.Node.Kind), Id)

@@ -17,8 +17,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Characters.Conversions; use Ada.Characters.Conversions;
-
 with Wrapping.Run;              use Wrapping.Run;
 use Wrapping.Run.Adalang.Input;
 with Wrapping.Semantic.Analysis;   use Wrapping.Semantic.Analysis;
@@ -63,7 +61,7 @@ package body Wrapping.Input.Ada is
             P_Name : constant Text_Type := Name (Name'First + 2 .. Name'Last);
          begin
             Property_Node :=
-              Lookup_Member (Id_For_Kind (Node.Kind), To_String (P_Name));
+              Lookup_Member (Id_For_Kind (Node.Kind), P_Name);
 
             if Property_Node /= None then
                return new W_Property_Type'(Property_Node => Property_Node);
@@ -186,9 +184,8 @@ package body Wrapping.Input.Ada is
                if Default = No_Value then
                   Error
                     ("value missing for parameter "
-                     & To_Wide_Wide_String
-                       (Property_Argument_Name
-                            (An_Entity.Property_Node, Actual.Formal_Index)));
+                     & Property_Argument_Name
+                            (An_Entity.Property_Node, Actual.Formal_Index));
                else
                   return Default;
                end if;
@@ -396,7 +393,7 @@ package body Wrapping.Input.Ada is
          Push_Error_Location (Arg.Node);
 
          declare
-            Name_Str : constant String := To_String (Arg.Name_Node.Text);
+            Name_Str : constant Text_Type := Arg.Name_Node.Text;
          begin
             --  There is a name for that parameter, retrieves the index.
 
