@@ -23,8 +23,9 @@
 with Ada.Containers.Indefinite_Ordered_Maps;
 with Ada.Containers.Vectors;
 
-with Langkit_Support.Diagnostics; use Langkit_Support.Diagnostics;
-with Langkit_Support.Slocs;       use Langkit_Support.Slocs;
+with Langkit_Support.Diagnostics;  use Langkit_Support.Diagnostics;
+with Langkit_Support.Slocs;        use Langkit_Support.Slocs;
+with Langkit_Support.File_Readers; use Langkit_Support.File_Readers;
 
 with Wrapping.Runtime.Structure;  use Wrapping.Runtime.Structure;
 with Wrapping.Runtime.Nodes;      use Wrapping.Runtime.Nodes;
@@ -53,7 +54,6 @@ generic
    Default_Charset : String;
    No_Unit_Provider_Reference : Unit_Provider_Reference;
    No_Node_Type_Id : Any_Node_Type_Id;
-
    No_Token : Token_Reference;
 
    with function Get_Property
@@ -75,6 +75,7 @@ generic
    with function Text (Node : Kit_Node'Class) return Text_Type is <>;
    with function Create_Context
      (Charset       : String                  := Default_Charset;
+      File_Reader   : File_Reader_Reference   := No_File_Reader_Reference;
       Unit_Provider : Unit_Provider_Reference := No_Unit_Provider_Reference;
       With_Trivia   : Boolean := True; Tab_Stop : Positive := 8)
       return Analysis_Context is <>;
