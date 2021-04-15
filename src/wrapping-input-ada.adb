@@ -58,7 +58,7 @@ package body Wrapping.Input.Ada is
         and then Name (Name'First .. Name'First + 1) = "p_"
       then
          declare
-            P_Name : constant Text_Type := Name (Name'First + 2 .. Name'Last);
+            P_Name : constant Text_Type := Name (Name'First .. Name'Last);
          begin
             Property_Node :=
               Lookup_Member (Id_For_Kind (Node.Kind), P_Name);
