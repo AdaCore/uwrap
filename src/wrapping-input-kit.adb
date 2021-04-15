@@ -281,7 +281,7 @@ package body Wrapping.Input.Kit is
       then
          declare
             F_Name : constant Text_Type :=
-              To_Lower (Name (Name'First + 2 .. Name'Last));
+              To_Lower (Name (Name'First .. Name'Last));
          begin
             Field_Node :=
               Lookup_Member (Id_For_Kind (Node.Kind), F_Name);
