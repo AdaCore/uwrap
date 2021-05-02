@@ -1,16 +1,30 @@
 import ada.wrappers;
 
 template access_into_out pick origin do
+   var return_type: object => "";
+
    match ParamSpec(x"access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
    wrap w: w_ParamSpecCall (
-      pre_call_decl => defer ("""\e<sb.tmp ("call")> : aliased \e<te.child (TypeExpr ())> with Address => \e<w.name>'Address, Import;"""),
+      pre_call_decl => defer ("""\e<sb.tmp ("call")> : aliased \e<
+         (match return_type ("")
+            pick te.child (TypeExpr ())
+          else
+            pick return_type)
+      > with Address => \e<w.name>'Address, Import;"""),
       actual_value => defer ("""\e<sb.tmp ("call")>'Unchecked_Access"""),
       mode => "out",
-      type_expr => defer (w.child (w_TypeExpr()).child (w_TypeExpr ()).txt)
+      type_expr => defer (
+         (match return_type ("")
+            pick w.child (w_TypeExpr()).child (w_TypeExpr ()).txt
+         else
+            pick return_type)
+      )
    );
 end;
 
 template access_into_return pick origin do
+   var return_type: object => "";
+
    match child (TypeExpr (child (te: TypeExpr ()))) do
       match parent (wrapper (w: w_SubpDeclCall ()))
       pick w weave (subp_kind => "function");
@@ -20,10 +34,20 @@ template access_into_return pick origin do
          actual_value => defer ("""\e<tmp("call")>'Unchecked_Access"""),
          pre_call_decl => defer ("""
             \e<tmp("call")> : aliased \e<te>;
-            \e<tmp("ret")>  : aliased \e<n.result_type_expr> with Address => \e<tmp("call")>'Address, Import;
+            \e<tmp("ret")>  : aliased \e<
+               (match return_type ("") 
+                  pick n.result_type_expr
+               else
+                  pick return_type)
+            > with Address => \e<tmp("call")>'Address, Import;
             """),
          return_stmt => defer ("""return \e<tmp("ret")>;"""),
-         result_type_expr => defer (te.wrapper (w_TypeExpr()).txt));
+         result_type_expr => defer (
+            (match return_type ("")
+               pick te.wrapper (w_TypeExpr()).txt 
+            else 
+               pick return_type))
+      );
    end;
 end;
 
@@ -164,8 +188,8 @@ template into_explicit_conversion pick origin do
    match ParamSpec() and parent (sb: SubpDecl ())
    wrap w: w_ParamSpecCall(
       type_expr => type_name,
-      actual_value => "\e<p_type_expression ()> (\e<w.name>)"
-   );
+      actual_value => defer ("\e<p_type_expression ()> (\e<w.name>)")
+   );   
 end;
 
 template parameter_into_computed_expression pick origin do
