@@ -22,6 +22,28 @@ template access_into_out pick origin do
    );
 end;
 
+template access_into_in pick origin do
+   var return_type: object => "";
+
+   match ParamSpec(x"access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
+   wrap w: w_ParamSpecCall (
+      pre_call_decl => defer ("""\e<sb.tmp ("call")> : aliased constant \e<
+         (match return_type ("")
+            pick te.child (TypeExpr ())
+          else
+            pick return_type)
+      > with Address => \e<w.name>'Address, Import;"""),
+      actual_value => defer ("""\e<sb.tmp ("call")>'Unchecked_Access"""),
+      mode => "",
+      type_expr => defer (
+         (match return_type ("")
+            pick w.child (w_TypeExpr()).child (w_TypeExpr ()).txt
+         else
+            pick return_type)
+      )
+   );
+end;
+
 template access_into_return pick origin do
    var return_type: object => "";
 
