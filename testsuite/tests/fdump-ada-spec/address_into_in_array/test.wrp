@@ -1,0 +1,17 @@
+import ada.wrappers;
+import ada.transformations;
+
+walk wrap_ada_specs ();
+
+match DefiningName (x"(.*)_h")
+wrap w_DefiningName ("\1_Wrapped");
+
+match ParamSpec(x"A")
+wrap address_into_in_array ("Int_Ptr_Array", next (ParamSpec(x"size")));
+
+match PackageDecl (p_defining_name ().filter (x"test_h"))
+weave w_PackageDecl (
+    spec_content => @ & i"""
+        type Int_Ptr is access all Integer with Convention => C;
+        type Int_Ptr_Array is array (Integer range <>) of Int_Ptr with Convention => C;\n\n"""
+);

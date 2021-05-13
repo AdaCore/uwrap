@@ -90,6 +90,23 @@ template address_into_return pick origin do
       result_type_expr => result_type);
 end;
 
+template address_into_in_array pick origin do
+   var array_type: object;
+   var size_var: object;
+
+   match o: it () # TODO: should be able to write pick o: origin on the template
+   pick size_var
+   wrap w_ParamSpecCall (
+      generate_formal => "NO",
+      actual_value => defer ("""\e<o.wrapper (w_ParamSpecCall).name>'Length""")
+   );
+
+   wrap w: w_ParamSpecCall (
+      actual_value => defer ("""\e<w.name>'Address"""),
+      type_expr => array_type
+   );
+end;
+
 template constant_into_enumeration pick origin do
    var type_name: object;
    var lit_name: object;
