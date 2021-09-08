@@ -91,6 +91,8 @@ package Wrapping.Run is
          Token_Kind                 => Libtestlang.Common.Token_Kind,
          Token_Index                =>
             Langkit_Support.Token_Data_Handlers.Token_Index,
+         Event_Handler_Reference    =>
+            Libtestlang.Analysis.Event_Handler_Reference,
          None                       => Libtestlang.Common.None,
          Default_Grammar_Rule       => Libtestlang.Common.Default_Grammar_Rule,
          Default_Charset            => Libtestlang.Common.Default_Charset,
@@ -99,6 +101,8 @@ package Wrapping.Run is
          No_Node_Type_Id            => Libtestlang.Common.None,
          Root                       => Libtestlang.Analysis.Root,
          No_Token                   => Libtestlang.Common.No_Token,
+         No_Event_Handler_Ref       =>
+            Libtestlang.Analysis.No_Event_Handler_Ref,
          Get_Property               => Dummy_Get_Property);
    end Testlang;
 
@@ -126,6 +130,8 @@ package Wrapping.Run is
          Token_Kind                 => Libadalang.Common.Token_Kind,
          Token_Index                =>
             Langkit_Support.Token_Data_Handlers.Token_Index,
+         Event_Handler_Reference    =>
+            Libadalang.Analysis.Event_Handler_Reference,
          None                       => Libadalang.Common.None,
          Default_Grammar_Rule       => Libadalang.Common.Default_Grammar_Rule,
          Default_Charset            => Libadalang.Common.Default_Charset,
@@ -134,6 +140,8 @@ package Wrapping.Run is
          No_Node_Type_Id            => Libadalang.Common.None,
          Root                       => Libadalang.Analysis.Root,
          No_Token                   => Libadalang.Common.No_Token,
+         No_Event_Handler_Ref       =>
+            Libadalang.Analysis.No_Event_Handler_Ref,
          Get_Property               => Wrapping.Input.Ada.Get_Property);
    end Adalang;
 

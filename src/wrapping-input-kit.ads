@@ -48,6 +48,7 @@ generic
    type Token_Data_Type is private;
    type Token_Kind is (<>);
    type Token_Index is range <>;
+   type Event_Handler_Reference is private;
 
    None : Any_Member_Reference;
    Default_Grammar_Rule : Grammar_Rule;
@@ -55,6 +56,7 @@ generic
    No_Unit_Provider_Reference : Unit_Provider_Reference;
    No_Node_Type_Id : Any_Node_Type_Id;
    No_Token : Token_Reference;
+   No_Event_Handler_Ref : Event_Handler_Reference;
 
    with function Get_Property
      (Node : Kit_Node; Name : Text_Type) return W_Object;
@@ -77,6 +79,7 @@ generic
      (Charset       : String                  := Default_Charset;
       File_Reader   : File_Reader_Reference   := No_File_Reader_Reference;
       Unit_Provider : Unit_Provider_Reference := No_Unit_Provider_Reference;
+      Event_Handler : Event_Handler_Reference := No_Event_Handler_Ref;
       With_Trivia   : Boolean := True; Tab_Stop : Positive := 8)
       return Analysis_Context is <>;
    with function Get_From_File
