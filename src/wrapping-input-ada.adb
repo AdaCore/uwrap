@@ -26,6 +26,8 @@ with Wrapping.Runtime.Matching;    use Wrapping.Runtime.Matching;
 with Wrapping.Runtime.Expressions; use Wrapping.Runtime.Expressions;
 with Wrapping.Runtime.Strings;     use Wrapping.Runtime.Strings;
 
+with Ada.Wide_Wide_Text_IO; use Ada.Wide_Wide_Text_IO;
+
 package body Wrapping.Input.Ada is
 
    type Actual_To_Formal_Assoc is record
@@ -53,6 +55,17 @@ package body Wrapping.Input.Ada is
    begin
       --  Check if we're on the name of a property (by convention, a name of
       --  the form p_<property_name>), and return it if that's the case.
+
+      if Name = "p_fully_qualified_name" then
+         --  libadalang is wrongly providing the property
+         --  "p_fully_qualified_name" for anonymous types, which by definition
+         --  don't have a name. This doesn't seem easy to fix in libadalang,
+         --  so inserting a workaround here. See also UA21-025.
+
+         if Node.Kind = Ada_Anonymous_Type_Decl then
+            return null;
+         end if;
+      end if;
 
       if Name'Length > 2
         and then Name (Name'First .. Name'First + 1) = "p_"
