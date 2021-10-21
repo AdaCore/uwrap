@@ -133,14 +133,14 @@ package body Wrapping.Input.Ada is
                      Error ("node value expected");
                   end if;
 
-               when Text_Type_Value =>
+               when String_Value =>
                   --  We can always convert an object to a text value.
 
                   Push_Buffer_Cursor;
                   Slice := Object.Write_String;
                   Pop_Buffer_Cursor;
 
-                  return Create_Text_Type
+                  return Create_String
                     (Buffer.Str (Slice.First.Offset .. Slice.Last.Offset));
 
                when Ada_Node_Array_Value |
@@ -258,10 +258,10 @@ package body Wrapping.Input.Ada is
                Push_Object (Get_Entity_For_Node (As_Node (Result)));
             end if;
 
-         when Text_Type_Value =>
+         when String_Value =>
             --  We retrieved a text, convert into a W_String object
 
-            Push_Object (To_W_String (As_Text_Type (Result)));
+            Push_Object (To_W_String (As_String (Result)));
 
          when Ada_Node_Array_Value |
               Base_Formal_Param_Decl_Array_Value |
