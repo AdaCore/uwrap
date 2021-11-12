@@ -6,5 +6,5 @@ walk wrap_ada_specs ();
 match DefiningName (x"(.*)_h")
 wrap w_DefiningName ("\1_Wrapped");
 
-match d: ObjectDecl(child (n: DefiningName (x"(.*)Error")))
+match d: ObjectDecl(child (n: DefiningName (x"Error_(.+)Error")))
 walk error_code_into_exception ("Test_Exceptions", "My_Registry", "\1"); 
