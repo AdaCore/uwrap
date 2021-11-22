@@ -526,8 +526,40 @@ template wrappers_post_process pick origin do
    end;
 
    match top: w_TypeDecl () do
-      match origin (t: child (TypeAccessDef ())) do
-         weave (definition => defer (@ & " access \e<child (w_TypeExpr ()).txt>"));
+      match origin (t: child (RecordTypeDef ())) do
+         match child (w_ComponentDecl()) do
+            weave (definition => defer (@ & i"""
+               record
+                  \e<content_definition>
+               end record"""));
+         else
+            weave (definition => defer (@ & "null record"));
+         end;
+      elsmatch origin (t: child (TypeAccessDef () or AccessToSubpDef ())) do
+         match t (TypeAccessDef ()) do
+            weave (definition => defer (@ & " access \e<child (w_TypeExpr ()).txt>"));
+         else
+            match origin (child (t: TypeDef ()))
+            weave (definition => defer (@ & "\e<t>"));
+
+            match child (cl: w_SubpDeclCall ()) and child (cb: w_SubpDeclCallback ())
+               and parent (p: w_PackageDecl())
+               and ncall: top.tmp ("Call")
+            do
+               pick cl weave (name => ncall);
+               pick cb weave (
+                  name => top.name & "_Gen",
+                  call_name => ncall);
+
+               pick p weave (
+                  spec_content => defer (@ & i"""
+                     generic 
+                        with \e<cl.profile>;
+                     \e<cb.profile>;
+                     """),
+                  body_content => defer (@ & """\e<cb.body>"""));
+            end;
+         end;
       elsmatch origin (t: child (DerivedTypeDef ())) do
          weave (definition => defer (@ & "new \e<child (w_TypeExpr ()).txt>"));
       elsmatch origin (
@@ -538,35 +570,6 @@ template wrappers_post_process pick origin do
             weave (definition => defer (@ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>"));
          else
             weave (definition => defer (@ & "array (\e<t.child(ConstraintList ())>) of \e<child (w_TypeExpr ()).txt>"));
-         end;
-      elsmatch origin (child (AccessToSubpDef ())) do
-         match origin (child (t: TypeDef ())) 
-         weave (definition => defer (@ & "\e<t>"));
-
-         match child (cl: w_SubpDeclCall ()) and child (cb: w_SubpDeclCallback ()) 
-            and parent (p: w_PackageDecl()) 
-            and ncall: top.tmp ("Call")
-         do 
-            pick cl weave (name => ncall);
-            pick cb weave (
-               name => top.name & "_Gen", 
-               call_name => ncall);
-
-            pick p weave (
-               spec_content => defer (@ & i"""
-                  generic 
-                     with \e<cl.profile>;
-                  \e<cb.profile>;"""),
-               body_content => defer (@ & """\e<cb.body>"""));
-         end;
-      elsmatch origin (child (RecordTypeDef ())) do
-         match child (w_ComponentDecl()) do
-            weave (definition => defer (@ & i"""
-               record
-                  \e<content_definition>
-               end record"""));
-         else
-            weave (definition => defer (@ & "null record"));
          end;
       elsmatch type_kind ("enumeration") do # TODO: this whole test should be using enumeration instead
          weave (definition => defer (@ & "(\e<content_definition>)"));

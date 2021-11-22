@@ -1,0 +1,16 @@
+import ada.wrappers;
+import ada.transformations;
+
+walk wrap_ada_specs ();
+
+match DefiningName ("Func")
+wrap w_DefiningName ("W_Func");
+
+match p: ParamSpec(x": access Interfaces.C.int")
+wrap into_binary_compatible ("access W_Integer");
+
+match PackageDecl (p_defining_name ().filter (x"Pck"))
+weave w_PackageDecl (
+    spec_content => @ & i"""
+        type W_Integer is new Interfaces.C.int;
+    """);
