@@ -585,6 +585,15 @@ template wrappers_post_process pick origin do
          else
             weave (definition => defer (@ & "null record"));
          end;
+      elsmatch origin (
+            t: child (ArrayTypeDef (
+            i: child (UnconstrainedArrayIndex () or ConstrainedArrayIndices)))) 
+      do
+         match i (UnconstrainedArrayIndex ()) and i.child (wrapper (w1 : w_TypeExpr ())) do
+            weave (definition => defer (@ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>"));
+         else
+            weave (definition => defer (@ & "array (\e<t.child(ConstraintList ())>) of \e<child (w_TypeExpr ()).txt>"));
+         end;         
       elsmatch origin (t: child (TypeAccessDef () or AccessToSubpDef ())) do
          match t (TypeAccessDef ()) do
             weave (definition => defer (@ & " access \e<child (w_TypeExpr ()).txt>"));
@@ -612,16 +621,7 @@ template wrappers_post_process pick origin do
             end;
          end;
       elsmatch origin (t: child (DerivedTypeDef ())) do
-         weave (definition => defer (@ & "new \e<child (w_TypeExpr ()).txt>"));
-      elsmatch origin (
-            t: child (ArrayTypeDef (
-            i: child (UnconstrainedArrayIndex () or ConstrainedArrayIndices)))) 
-      do
-         match i (UnconstrainedArrayIndex ()) and i.child (wrapper (w1 : w_TypeExpr ())) do
-            weave (definition => defer (@ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>"));
-         else
-            weave (definition => defer (@ & "array (\e<t.child(ConstraintList ())>) of \e<child (w_TypeExpr ()).txt>"));
-         end;
+         weave (definition => defer (@ & "new \e<child (w_TypeExpr ()).txt>"));      
       elsmatch type_kind ("enumeration") do # TODO: this whole test should be using enumeration instead
          weave (definition => defer (@ & "(\e<content_definition>)"));
       elsmatch origin (child (t: TypeDef ())) do
