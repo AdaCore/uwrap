@@ -202,12 +202,19 @@ end;
 template into_binary_compatible pick origin do
    var type_name: object;
 
-   match ParamSpec() and parent (sb: SubpDecl ())
-   wrap w: w_ParamSpecCall(
-      type_expr => type_name,
-      pre_call_decl => defer ("""\e<sb.tmp ("local")> : aliased \e<p_type_expression ()> with Address => \e<w.name>'Address, Import;\n"""),
-      actual_value => sb.tmp ("local")
-   );
+   match ParamSpec() and sb: parent (SubpDecl () or AccessToSubpDef ()) do
+      wrap w: w_ParamSpecCall(
+         type_expr => type_name,
+         pre_call_decl => defer ("""\e<sb.tmp ("local")> : aliased \e<p_type_expression ()> with Address => \e<w.name>'Address, Import;\n"""),
+         actual_value => sb.tmp ("local")
+      );
+
+      wrap n: w_ParamSpecCallback (
+         type_expr => p_type_expression (),
+         pre_call_decl => defer ("""\e<sb.tmp ("local")> : aliased \e<type_name> with Address => \e<n.name>'Address, Import;\n"""),
+         actual_value => sb.tmp ("local")
+      );
+   end;
 
    match child (f_subp_kind ("function")) and child (te: TypeExpr()) 
    wrap w: w_SubpDeclCall

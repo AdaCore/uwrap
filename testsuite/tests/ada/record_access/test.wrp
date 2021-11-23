@@ -1,0 +1,6 @@
+import ada.wrappers;
+
+walk wrap_ada_specs ();
+
+match DefiningName ("Rec")
+wrap w_DefiningName ("W_Rec");
