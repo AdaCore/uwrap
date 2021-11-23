@@ -273,6 +273,56 @@ function build_type_expr (from) do
    pick build_type_expr_gen (from).fold ("", @ & it);
 end;
 
+function fully_qualified_identifier (from) do   
+   pick from do
+      match i: it()
+            and x: p_referenced_decl ()
+            and t: x.child (DefiningName ())
+      do
+         match p: x.parent (PackageDecl()).p_fully_qualified_name()
+         pick " " & p & "." & t;
+      else
+         pick " " & i;
+      end;
+   end;
+end;
+
+function fully_qualified_build_dotted_name (from) do
+   pick from do
+      match s: it () and c: child (DottedName ()) do
+         pick fully_qualified_identifier (s.child (Identifier()));
+      else
+         match child (i1: Identifier() and next (i2: Identifier()))
+         pick " " & fully_qualified_identifier (i2);
+      end;
+   end;
+end;
+
+function fully_qualified_expr_gen (from) do
+   pick from.child(\ true).all () do
+      match d: DottedName () do
+         pick fully_qualified_build_dotted_name (it);
+      elsmatch i: Identifier () do
+         pick fully_qualified_identifier (it);     
+      elsmatch RangeSpec () do
+         pick " range" & fully_qualified_expr (it);
+      elsmatch TypeAccessDef () do
+         pick " access" & fully_qualified_expr (it);
+      elsmatch s: it () and SingleTokNode() do
+         pick " \e<s>" & fully_qualified_expr (it);
+      elsmatch s: IndexConstraint () do
+         pick " (" & fully_qualified_expr (it) & " )";
+      else
+         pick fully_qualified_expr (it);
+      end;
+   end;
+end;
+
+function fully_qualified_expr (from) do
+   pick fully_qualified_expr_gen (from).fold ("", @ & it);
+end;
+
+
 template build_subprogram pick origin do
    var sb: object;
 
@@ -322,12 +372,12 @@ template ada_to_wrappers pick origin do
       match parent (sb: (SubpDecl () or AccessToSubpDef ())) do
          wrap n: w_ParamSpecCall (
             type_expr => defer (n.child (w_TypeExpr()).txt),
-            pre_call_decl => defer ("""\e<sb.tmp ("local")> : aliased \e<p_type_expression ()> with Address => \e<n.name>'Address, Import;\n"""),
+            pre_call_decl => defer ("""\e<sb.tmp ("local")> : aliased \e<fully_qualified_expr (p_type_expression ())> with Address => \e<n.name>'Address, Import;\n"""),
             actual_value => sb.tmp ("local")
          );
 
          wrap n: w_ParamSpecCallback (
-            type_expr => p_type_expression (),
+            type_expr => fully_qualified_expr(p_type_expression ()),
             pre_call_decl => defer ("""\e<sb.tmp ("local")> : aliased \e<defer (n.child (w_TypeExpr()).txt)> with Address => \e<n.name>'Address, Import;\n"""),
             actual_value => sb.tmp ("local")
          );
