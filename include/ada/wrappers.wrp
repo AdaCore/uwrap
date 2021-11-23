@@ -322,7 +322,6 @@ function fully_qualified_expr (from) do
    pick fully_qualified_expr_gen (from).fold ("", @ & it);
 end;
 
-
 template build_subprogram pick origin do
    var sb: object;
 
@@ -576,6 +575,7 @@ template wrappers_post_process pick origin do
    end;
 
    match top: w_TypeDecl () do
+
       match origin (t: child (RecordTypeDef ())) do
          match child (w_ComponentDecl()) do
             weave (definition => defer (@ & i"""
@@ -589,8 +589,9 @@ template wrappers_post_process pick origin do
          match t (TypeAccessDef ()) do
             weave (definition => defer (@ & " access \e<child (w_TypeExpr ()).txt>"));
          else
-            match origin (child (t: TypeDef ()))
-            weave (definition => defer (@ & "\e<t>"));
+            weave (
+               definition => defer (@ & "new \e<top.origin().parent (PackageDecl()).p_fully_qualified_name()>.\e<top.origin().child (DefiningName())>")
+            );
 
             match child (cl: w_SubpDeclCall ()) and child (cb: w_SubpDeclCallback ())
                and parent (p: w_PackageDecl())
@@ -648,6 +649,7 @@ template wrappers_post_process pick origin do
 
          match p.origin ()
          pick u weave (
+            spec_with_clauses => defer (@ & "with \e<p.original_name>;\n"),
             body_with_clauses => defer (@ & "with \e<p.original_name>;\n"),
             body_use_clauses => defer (@ & "use \e<p.original_name>;\n")
          );         
