@@ -1,0 +1,6 @@
+import ada.wrappers;
+
+walk wrap_ada_specs ();
+
+match DefiningName ("Proc_A")
+wrap w_DefiningName ("W_Proc_A");
