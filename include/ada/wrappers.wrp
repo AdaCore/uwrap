@@ -93,24 +93,121 @@ template w_SubpDecl extends w_NamedEntity do
    ---
 
    \e<profile> is
-      \e<pre_call_decl>
-   begin
-      \e<pre_call_stmt>
-      declare
-         \e<call_decl>
-      begin
-         \e<call_stmt>
+   \e<pre_block>
+   end \e<name>;
+
+   """);
+
+   var pre_block: text => defer (
+      (match pre_call_decl ("") and pre_call_stmt ("")
+         pick main_block_in_decl
+       else match pre_call_decl ("")
+         pick i"""
+            \e<pre_call_stmt>
+            \e<main_block_in_stmt>"""
+       else match pre_call_stmt ("")
+         pick i"""
+            \e<pre_call_decl>
+            \e<main_block_in_decl>"""
+       else
+         pick i"""
+            \e<pre_call_decl>
+         begin
+            \e<main_block_in_stmt>
+         end;"""
+      )
+   );
+
+   var main_block_in_decl: text => defer (
+      (match call_decl ("") and call_stmt ("")
+         pick post_block_in_decl
+       else match call_decl ("")
+         pick i"""
+         begin
+            \e<call_stmt>
+            \e<post_block_in_stmt>"""
+       else match call_stmt ("")
+         pick i"""
+            \e<call_decl>
+            \e<post_block_in_decl>"""
+       else
+         pick i"""
+            \e<call_decl>
+         begin
+            \e<call_stmt>
+            \e<post_block_in_stmt>"""
+      )
+   );
+
+   var main_block_in_stmt: text => defer (
+      (match call_decl ("") and call_stmt ("")
+         pick post_block_in_stmt
+       else match call_decl ("")
+         pick i"""
+         begin
+            \e<call_stmt>
+            \e<post_block_in_stmt>"""
+       else match call_stmt ("")
+         pick i"""
+         declare
+            \e<call_decl>
+            \e<post_block_in_decl>
+         end;"""
+       else
+         pick i"""
+         declare
+            \e<call_decl>
+         begin
+            \e<call_stmt>
+            \e<post_block_in_stmt>
+         end;"""
+      )
+   );
+
+   var post_block_in_decl: text => defer (
+      (match post_call_decl ("") and post_call_stmt ("") and return_stmt ("")
+         pick ""
+      else match post_call_decl ("")
+      pick i"""
+         begin
+            \e<post_call_stmt>
+            \e<return_stmt>"""
+      else match post_call_stmt ("") and return_stmt ("")
+         pick i"""
+            \e<post_call_decl>"""
+      else
+         pick i"""
+            \e<post_call_decl>
+         begin
+            \e<post_call_stmt>
+            \e<return_stmt>"""
+      )
+   );
+
+   var post_block_in_stmt: text => defer (
+      (match post_call_decl ("") and post_call_stmt ("") and return_stmt ("")
+         pick ""
+       else match post_call_decl ("")
+       pick i"""
+         \e<post_call_stmt>
+         \e<return_stmt>"""
+       else match post_call_stmt ("") and return_stmt ("")
+         pick i"""
          declare
             \e<post_call_decl>
          begin
             null;
+         end;"""
+       else
+         pick i"""
+         declare
+            \e<post_call_decl>
+         begin
             \e<post_call_stmt>
             \e<return_stmt>
-         end;
-      end;
-   end \e<name>;
-   
-   """); 
+         end;"""
+      )
+   );
 end;
 
 template w_SubpDeclCall extends w_SubpDecl do
@@ -332,12 +429,12 @@ template build_subprogram pick origin do
          post_call_decl => defer (i"""
             \e<sb.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
             with Address => \e<it.tmp ("result_orig")>'Address, Import;\n"""),
-         call_stmt => "null;", 
+         call_stmt => "",
          return_stmt => defer ("""return \e<sb.tmp ("result_wrapped")>;"""));
    else
       weave (
          call_stmt => defer ("\e<call>;"), 
-         return_stmt => "null;",
+         return_stmt => "",
          subp_kind => "procedure");
    end;
 end;
