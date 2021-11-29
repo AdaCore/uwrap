@@ -425,7 +425,7 @@ template build_subprogram pick origin do
    match sb.child (f_subp_kind ("function")) and sb.child (te: TypeExpr()) do
       weave (
          subp_kind => "function",
-         call_decl => defer ("""\e<it.tmp ("result_orig")> : aliased \e<te> := \e<call>;\n"""),
+         call_decl => defer ("""\e<it.tmp ("result_orig")> : aliased \e<fully_qualified_expr(te)> := \e<call>;\n"""),
          post_call_decl => defer (i"""
             \e<sb.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
             with Address => \e<it.tmp ("result_orig")>'Address, Import;\n"""),
