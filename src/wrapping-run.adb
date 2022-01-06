@@ -18,6 +18,7 @@
 ------------------------------------------------------------------------------
 
 with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Characters.Conversions; use Ada.Characters.Conversions;
 with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
@@ -113,7 +114,8 @@ package body Wrapping.Run is
             Close (Dir);
          exception
             when GNAT.Directory_Operations.Directory_Error =>
-               Warning ("Cannot find the uwrap runtime");
+               Warning ("Cannot find the uwrap runtime under "
+                        & To_Wide_Wide_String (Dir_Path));
          end Analyze_Directory;
 
       begin
