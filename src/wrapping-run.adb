@@ -65,6 +65,39 @@ package body Wrapping.Run is
          Input_Directories : constant Args.Input_Directories.Result_Array :=
            Args.Input_Directories.Get;
 
+         --------------------------
+         -- Excecutable_Location --
+         --------------------------
+
+         function Executable_Location return String;
+         --  Returns the name of the parent directory where the executable is
+         --  stored (so if you are running "prefix/my_exe", you would get
+         --  "prefix/"). This is the same implementation as GNATColl.Utils,
+         --  without the special case for bin directory, as to allow it to work
+         --  no matter where the executable is located.
+
+         function Executable_Location return String is
+            Exec_Path : constant String := Executable_Path;
+            Path_Last : Integer := -1;
+         begin
+            --  Find the directory containing the executable
+            for J in reverse Exec_Path'Range loop
+               if Is_Directory_Separator (Exec_Path (J)) then
+                  Path_Last := J - 1;
+                  exit;
+               end if;
+            end loop;
+
+            --  Handle special case for which we did not find any directory
+            --  (can occur for some platforms if the path to the executable
+            --  can not be found).
+            if Path_Last = -1 then
+               return "";
+            end if;
+
+            return Exec_Path (Exec_Path'First .. Path_Last + 1);
+         end Executable_Location;
+
          -----------------------
          -- Analyze_Directory --
          -----------------------
@@ -125,7 +158,7 @@ package body Wrapping.Run is
          --  to do something more clever than this at some stage.
          Analyze_Directory
            ("",
-            GNATCOLL.Utils.Executable_Location & ".."
+            Executable_Location & ".."
             & GNATCOLL.OS.Constants.Dir_Sep & "include"
             & GNATCOLL.OS.Constants.Dir_Sep);
 
