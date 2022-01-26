@@ -26,8 +26,10 @@ project UWrap is
 
          when "prod" =>
             --  Debug information is useful even with optimization for
-            --  profiling, for instance.
-            for Default_Switches ("Ada") use ("-g", "-Ofast", "-gnatp");
+            --  profiling, for instance. -gnatp triggers a
+            --  compiler bug causing finalization issues, so
+            --  we purposedly avoid it.
+            for Default_Switches ("Ada") use ("-g", "-Ofast");
       end case;
    end Compiler;
 
