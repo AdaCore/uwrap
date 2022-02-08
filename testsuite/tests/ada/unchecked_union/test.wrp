@@ -1,0 +1,9 @@
+import ada.wrappers;
+
+walk wrap_ada_specs ();
+
+match DefiningName ()
+wrap w_DefiningName (normalize_ada_name (it));
+
+match DefiningName (x"Pck")
+wrap w_DefiningName ("Pck_Wrapped");
