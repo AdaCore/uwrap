@@ -655,10 +655,37 @@ template wrappers_post_process pick origin do
    match s: w_ObjectDecl() and parent (p : w_PackageDecl()) and child (te: w_TypeExpr ())
    pick p weave (spec_content => defer (@ & "\e<s.name> : \e<te.txt>;\n"));
 
-   match s: w_ComponentDecl () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ())
-   pick t weave (
-      content_definition => defer (@ & "\e<s.name> : \e<te.txt>;\n")
-   );
+   match s: w_VariantPart () and t: parent (w_TypeDecl) do
+      pick t
+      weave (
+         content_definition => defer (@ & i"""
+            case \e<s.origin.f_discr_name.p_referenced_decl().wrapper (w_NamedEntity()).name> is
+               \e<s.content_definition>
+            end case;""")
+      );
+   end;
+
+   match s: w_Variant () and t: parent (w_VariantPart) do
+   pick t
+      weave (
+         content_definition => defer (@ & i"""
+            when \e<s.origin.f_choices> =>
+               \e<s.content_definition>""")
+      );
+   end;
+
+   match s: w_ComponentDecl () and t: parent (w_TypeDecl () or w_Variant ()) and child (te: w_TypeExpr ()) do
+      match t (w_TypeDecl ())
+      pick t
+      weave (
+         content_definition => defer (@ & "\e<s.name> : \e<te.txt>;\n")
+      );
+
+      match t (w_Variant ()) and t2: parent (w_TypeDecl ())
+      pick t weave (
+         content_definition => defer (@ & "\e<s.name> : \e<te.txt>; -- VARIANT\n")
+      );
+   end;
 
    match s: w_DiscriminantSpec () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ()) do
       match prev (w_DiscriminantSpec ()) do
