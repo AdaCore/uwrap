@@ -274,6 +274,14 @@ template w_TypeDecl extends w_NamedEntity do
          pick "type \e<name>\e<discriminant_decl> is \e<definition>\e<aspects_declaration>;\n\e<rep_declaration>"));
 end;
 
+template w_VariantPart extends w_Ada do
+   var content_definition: text;
+end;
+
+template w_Variant extends w_Ada do
+   var content_definition: text;
+end;
+
 template w_Aspect extends w_Ada do
    var txt: text;
 end;
@@ -489,6 +497,12 @@ template ada_to_wrappers pick origin do
    match BaseTypeDecl () 
    wrap w_TypeDecl ();
 
+   match VariantPart ()
+   wrap w_VariantPart ();
+
+   match Variant ()
+   wrap w_Variant ();
+
    match TypeDecl () and child (EnumTypeDef ()) do
       wrap w_TypeDecl (
          type_kind => "enumeration"
@@ -655,10 +669,37 @@ template wrappers_post_process pick origin do
    match s: w_ObjectDecl() and parent (p : w_PackageDecl()) and child (te: w_TypeExpr ())
    pick p weave (spec_content => defer (@ & "\e<s.name> : \e<te.txt>;\n"));
 
-   match s: w_ComponentDecl () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ())
-   pick t weave (
-      content_definition => defer (@ & "\e<s.name> : \e<te.txt>;\n")
-   );
+   match s: w_VariantPart () and t: parent (w_TypeDecl) do
+      pick t
+      weave (
+         content_definition => defer (@ & i"""
+            case something is
+               \e<s.content_definition>
+            end case;""")
+      );
+   end;
+
+   match s: w_Variant () and t: parent (w_VariantPart) do
+   pick t
+      weave (
+         content_definition => defer (@ & i"""
+            when something =>
+               \e<s.content_definition>""")
+      );
+   end;
+
+   match s: w_ComponentDecl () and t: parent (w_TypeDecl () or w_Variant ()) and child (te: w_TypeExpr ()) do
+      match t (w_TypeDecl ())
+      pick t
+      weave (
+         content_definition => defer (@ & "\e<s.name> : \e<te.txt>;\n")
+      );
+
+      match t (w_Variant ()) and t2: parent (w_TypeDecl ())
+      pick t weave (
+         content_definition => defer (@ & "\e<s.name> : \e<te.txt>; -- VARIANT\n")
+      );
+   end;
 
    match s: w_DiscriminantSpec () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ()) do
       match prev (w_DiscriminantSpec ()) do
