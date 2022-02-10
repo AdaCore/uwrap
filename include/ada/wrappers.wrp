@@ -274,6 +274,14 @@ template w_TypeDecl extends w_NamedEntity do
          pick "type \e<name>\e<discriminant_decl> is \e<definition>\e<aspects_declaration>;\n\e<rep_declaration>"));
 end;
 
+template w_VariantPart extends w_Ada do
+   var content_definition: text;
+end;
+
+template w_Variant extends w_Ada do
+   var content_definition: text;
+end;
+
 template w_Aspect extends w_Ada do
    var txt: text;
 end;
@@ -488,6 +496,12 @@ template ada_to_wrappers pick origin do
    
    match BaseTypeDecl () 
    wrap w_TypeDecl ();
+
+   match VariantPart ()
+   wrap w_VariantPart ();
+
+   match Variant ()
+   wrap w_Variant ();
 
    match TypeDecl () and child (EnumTypeDef ()) do
       wrap w_TypeDecl (
