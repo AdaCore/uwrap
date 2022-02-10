@@ -673,7 +673,7 @@ template wrappers_post_process pick origin do
       pick t
       weave (
          content_definition => defer (@ & i"""
-            case something is
+            case \e<s.origin.f_discr_name.p_referenced_decl().wrapper (w_NamedEntity()).name> is
                \e<s.content_definition>
             end case;""")
       );
@@ -683,7 +683,7 @@ template wrappers_post_process pick origin do
    pick t
       weave (
          content_definition => defer (@ & i"""
-            when something =>
+            when \e<s.origin.f_choices> =>
                \e<s.content_definition>""")
       );
    end;
