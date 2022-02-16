@@ -704,11 +704,11 @@ template wrappers_post_process pick origin do
    match s: w_DiscriminantSpec () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ()) do
       match prev (w_DiscriminantSpec ()) do
          pick t weave (
-            discriminant_list => defer (@ & "; \e<s.name> : \e<te.txt>")
+            discriminant_list => defer (@ & "; \e<s.name> : \e<te.txt> := \e<s.origin.f_default_expr>")
          );
       else
          pick t weave (
-            discriminant_list => defer (@ & "\e<s.name> : \e<te.txt>")
+            discriminant_list => defer (@ & "\e<s.name> : \e<te.txt> := \e<s.origin.f_default_expr>")
          );
       end;
    end;   
