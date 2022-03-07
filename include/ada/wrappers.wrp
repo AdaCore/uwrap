@@ -299,6 +299,10 @@ template w_ComponentDecl extends w_NamedEntity do
   
 end;
 
+template w_NullComponentDecl extends w_Ada do
+
+end;
+
 template w_DiscriminantSpec extends w_NamedEntity do
   
 end;
@@ -518,6 +522,9 @@ template ada_to_wrappers pick origin do
    match ComponentDecl ()
    wrap w_ComponentDecl ();
 
+   match NullComponentDecl ()
+   wrap w_NullComponentDecl ();
+
    match DiscriminantSpec ()
    wrap w_DiscriminantSpec ();
 
@@ -697,8 +704,16 @@ template wrappers_post_process pick origin do
 
       match t (w_Variant ()) and t2: parent (w_TypeDecl ())
       pick t weave (
-         content_definition => defer (@ & "\e<s.name> : \e<te.txt>; -- VARIANT\n")
+         content_definition => defer (@ & "\e<s.name> : \e<te.txt>;\n")
       );
+   end;
+
+   match w_NullComponentDecl () and t: parent (w_TypeDecl () or w_Variant ()) do
+      match t (w_Variant ()) and t2: parent (w_TypeDecl ()) do
+      pick t weave (
+         content_definition => defer (@ & "null;\n")
+      );
+      end;
    end;
 
    match s: w_DiscriminantSpec () and parent (t: w_TypeDecl ()) and child (te: w_TypeExpr ()) do
