@@ -312,7 +312,7 @@ template w_NumberDecl extends w_NamedEntity do
 end;
 
 template w_ObjectDecl extends w_NamedEntity do
-  
+
 end;
 
 template spec_file extends standard.file do
@@ -674,7 +674,7 @@ template wrappers_post_process pick origin do
    end;
 
    match s: w_ObjectDecl() and parent (p : w_PackageDecl()) and child (te: w_TypeExpr ())
-   pick p weave (spec_content => defer (@ & "\e<s.name> : \e<te.txt>;\n"));
+   pick p weave (spec_content => defer (@ & "\e<s.name> : \e<te.txt> renames \e<s.origin.p_fully_qualified_name()>;\n"));
 
    match s: w_VariantPart () and t: parent (w_TypeDecl) do
       pick t
