@@ -3,23 +3,51 @@ import ada.wrappers;
 template access_into_out pick origin do
    var return_type: object => "";
 
-   match ParamSpec(x"access .*") and parent (sb: SubpDecl()) and child (te: TypeExpr ())
-   wrap w: w_ParamSpecCall (
-      pre_call_decl => defer ("""\e<sb.tmp ("call")> : aliased \e<
-         (match return_type ("")
-            pick te.child (TypeExpr ())
-          else
-            pick return_type)
-      > with Address => \e<w.name>'Address, Import;"""),
-      actual_value => defer ("""\e<sb.tmp ("call")>'Unchecked_Access"""),
-      mode => "out",
-      type_expr => defer (
-         (match return_type ("")
-            pick w.child (w_TypeExpr()).child (w_TypeExpr ()).txt
-         else
-            pick return_type)
-      )
-   );
+   match ParamSpec(x"access .*") and sb: parent(SubpDecl () or AccessToSubpDef ()) and child (te: TypeExpr ()) do
+      match sb (SubpDecl ())
+      wrap w: w_ParamSpecCall (
+         pre_call_decl => defer ("""\e<sb.tmp ("call")> : aliased \e<
+            (match return_type ("")
+               pick te.child (TypeExpr ())
+            else
+               pick return_type)
+         > with Address => \e<w.name>'Address, Import;"""),
+         actual_value => defer ("""\e<sb.tmp ("call")>'Unchecked_Access"""),
+         mode => "out",
+         type_expr => defer (
+            (match return_type ("")
+               pick w.child (w_TypeExpr()).child (w_TypeExpr ()).txt
+            else
+               pick return_type)
+         )
+      );
+
+      match sb (AccessToSubpDef ()) do
+      wrap w: w_ParamSpecCall (
+         pre_call_decl => defer ("""\e<sb.tmp ("call")> : aliased \e<
+            (match return_type ("")
+               pick w.child (w_TypeExpr()).child (w_TypeExpr ()).txt
+            else
+               pick return_type)
+         > with Address => \e<w.name>.all'Address, Import;"""),
+         actual_value => defer ("""\e<sb.tmp ("call")>.all """),
+         mode => "out",
+         type_expr => defer (
+            (match return_type ("")
+               pick te.child (TypeExpr ())
+            else
+               pick return_type)
+         )
+      );
+
+      wrap n: w_ParamSpecCallback (
+         type_expr => fully_qualified_expr(p_type_expression ()),
+         pre_call_decl => defer ("""\e<sb.tmp ("local")> : aliased \e<defer (n.child (w_TypeExpr()).txt)> with Address => \e<n.name>'Address, Import;\n"""),
+         actual_value => sb.tmp ("local") & ".all"
+      );
+
+      end;
+   end;
 end;
 
 template access_into_in pick origin do

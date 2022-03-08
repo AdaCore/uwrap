@@ -1,0 +1,7 @@
+import ada.wrappers;
+import ada.transformations;
+
+walk wrap_ada_specs ();
+
+match ParamSpec (x"X : access Some_Int")
+wrap access_into_out ();
