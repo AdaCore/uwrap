@@ -441,11 +441,22 @@ template build_subprogram pick origin do
    var sb: object;
 
    match sb.child (f_subp_kind ("function")) and sb.child (te: TypeExpr()) do
+      match sb (SubpDecl())
       weave (
          subp_kind => "function",
          call_decl => defer ("""\e<it.tmp ("result_orig")> : aliased \e<fully_qualified_expr(te)> := \e<call>;\n"""),
          post_call_decl => defer (i"""
             \e<sb.tmp ("result_wrapped")> : aliased \e<result_type_expr> 
+            with Address => \e<it.tmp ("result_orig")>'Address, Import;\n"""),
+         call_stmt => "",
+         return_stmt => defer ("""return \e<sb.tmp ("result_wrapped")>;"""));
+
+      match sb (AccessToSubpDef ())
+      weave (
+         subp_kind => "function",
+         call_decl => defer ("""\e<it.tmp ("result_orig")> : aliased \e<result_type_expr> := \e<call>;\n"""),
+         post_call_decl => defer (i"""
+            \e<sb.tmp ("result_wrapped")> : aliased \e<fully_qualified_expr(te)>
             with Address => \e<it.tmp ("result_orig")>'Address, Import;\n"""),
          call_stmt => "",
          return_stmt => defer ("""return \e<sb.tmp ("result_wrapped")>;"""));
@@ -596,8 +607,8 @@ template wrappers_post_process pick origin do
    match sb: w_SubpDeclCallback() 
       and parent (p : w_PackageDecl ()) 
    do   
-      match subp_kind ("function")
-      weave (return_spec => defer ("return \e<result_type_expr>"));
+      match subp_kind ("function") and sb.origin.child (te: TypeExpr())
+      weave (return_spec => defer ("return \e<fully_qualified_expr(te)>"));
 
       match v: origin.p_fully_qualified_name ()
       weave (call_name => v);
