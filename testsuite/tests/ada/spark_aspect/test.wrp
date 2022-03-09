@@ -1,0 +1,9 @@
+import ada.wrappers;
+import ada.transformations;
+
+walk wrap_ada_specs ();
+
+match PackageDecl(x"Pck")
+walk package_spec_spark();
+
+

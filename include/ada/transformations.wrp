@@ -305,3 +305,20 @@ template return_into_exception pick origin do
       """)
    );
 end;
+
+template package_spec_spark pick origin do
+   match PackageDecl() do
+      defer 
+      match wrapper (w: w_PackageDecl ()) do
+         pick w.child (w_AspectsSpec() or new (w_AspectsSpec()))
+         do
+            pick child (new (w_Aspect ("SPARK_Mode => On")));        
+         end;
+
+         pick w.child (w_AspectsBody() or new (w_AspectsBody()))
+         do
+            pick child (new (w_Aspect ("SPARK_Mode => Off")));        
+         end;
+      end;
+   end;
+end;
