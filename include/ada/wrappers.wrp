@@ -42,20 +42,30 @@ template w_PackageDecl extends w_NamedEntity do
    var body_content: text;
    var stmt: text;
    var elaborate_body: text;
+   var aspects_spec: text;
+   var aspects_body: text;
 
    var spec: text => defer (i"""
-      package \e<name> is
+      package \e<name> \e<aspects_spec>is
         \e<elaborate_body>
         \e<spec_content>
       end \e<name>;""");
 
    var body: text => defer (i"""
-      package body \e<name> is
+      package body \e<name> \e<aspects_body>is
         \e<body_content>
       begin
         null;
         \e<stmt>
       end \e<name>;""");
+end;
+
+template w_AspectsSpec do
+
+end;
+
+template w_AspectsBody do
+
 end;
 
 template w_SubpDecl extends w_NamedEntity do
@@ -851,6 +861,22 @@ template wrappers_post_process pick origin do
             spec_content => defer (@ & p.spec),
             body_content => defer (@ & p.body)
          );      
+      end;
+
+      match child (s: w_AspectsSpec ()) do
+         pick p
+         weave (aspects_spec => defer (i"""
+            with 
+               \e<s.child (w_Aspect ()).fold ("\n", @ & txt, @ & ",\n")>
+         """));     
+      end;
+
+      match child (s: w_AspectsBody ()) do
+         pick p
+         weave (aspects_body => defer (i"""
+            with 
+               \e<s.child (w_Aspect ()).fold ("\n", @ & txt, @ & ",\n")>
+         """));     
       end;
    end;
 
