@@ -401,19 +401,25 @@ package body Wrapping.Semantic.Analysis is
                     Build_Expr (Node.As_Defer_Section.F_Expression);
                end if;
 
-               Node.As_Defer_Section.F_Actions.Traverse (Visit'Access);
+               if not Node.As_Defer_Section.F_Actions.Is_Null then
+                  Node.As_Defer_Section.F_Actions.Traverse (Visit'Access);
+               end if;
 
             when Template_Match_Section =>
                A_Command.Match_Expression :=
                  Build_Expr (Node.As_Match_Section.F_Expression);
 
-               Node.As_Match_Section.F_Actions.Traverse (Visit'Access);
+               if not Node.As_Match_Section.F_Actions.Is_Null then
+                  Node.As_Match_Section.F_Actions.Traverse (Visit'Access);
+               end if;
 
             when Template_Pick_Section =>
                A_Command.Pick_Expression :=
                  Build_Expr (Node.As_Pick_Section.F_Expression);
 
-               Node.As_Pick_Section.F_Actions.Traverse (Visit'Access);
+               if not Node.As_Pick_Section.F_Actions.Is_Null then
+                  Node.As_Pick_Section.F_Actions.Traverse (Visit'Access);
+               end if;
 
             when Template_Wrap_Section | Template_Weave_Section |
               Template_Walk_Section =>
@@ -471,7 +477,9 @@ package body Wrapping.Semantic.Analysis is
       Push_Entity (A_Command, Node);
 
       for C of Node.Children loop
-         C.Traverse (Visit'Access);
+         if not C.Is_Null then
+            C.Traverse (Visit'Access);
+         end if;
       end loop;
 
       Pop_Entity;
