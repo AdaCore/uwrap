@@ -652,7 +652,7 @@ package body Wrapping.Semantic.Analysis is
          when Template_Literal =>
             null;
 
-         when Template_Token_Identifier | Template_Identifier =>
+         when Template_Identifier =>
             null;
 
          when Template_Number =>

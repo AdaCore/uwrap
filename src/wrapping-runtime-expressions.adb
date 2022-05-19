@@ -333,7 +333,7 @@ package body Wrapping.Runtime.Expressions is
                Error ("unkown literal '" & Expr.Node.Text & "'");
             end if;
 
-         when Template_Token_Identifier | Template_Identifier =>
+         when Template_Identifier =>
             Push_Frame_Context_No_Outer;
             Handle_Identifier (Expr.Node.Text);
             Pop_Frame_Context;

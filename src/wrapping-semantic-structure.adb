@@ -534,7 +534,7 @@ package body Wrapping.Semantic.Structure is
                Capture_Identifiers (Expr.Selector_Left);
                Capture_Identifiers_Except_First_Level (Expr.Selector_Right);
 
-            when Template_Token_Identifier | Template_Identifier =>
+            when Template_Identifier =>
                --  We are on an identifier, capture it.
 
                Capture (Expr.Node.Text);
@@ -559,7 +559,7 @@ package body Wrapping.Semantic.Structure is
          Push_Error_Location (Expr.Node);
 
          case Expr.Kind is
-            when Template_Token_Identifier | Template_Identifier =>
+            when Template_Identifier =>
                --  We specifically asked to ignore these by calling this
                --  version of Capture_Identifiers.
 
