@@ -65,9 +65,6 @@ class MatchCapture(TemplateNode):
    captured = Field()
    expression = Field()
 
-class TokenIdentifier(TemplateNode):
-   token_node = True
-
 @abstract
 class Expr(TemplateNode):
    pass
