@@ -386,7 +386,7 @@ function build_type_expr_gen (from) do
          pick " access" & build_type_expr (it);
       elsmatch s: it () and SingleTokNode() do
          pick " \e<s>" & build_type_expr (it);
-      elsmatch s: IndexConstraint () do
+      elsmatch s: IndexConstraint () or CompositeConstraint () do
          pick " (" & build_type_expr (it) & " )";
       else
          pick build_type_expr (it);
@@ -435,7 +435,7 @@ function fully_qualified_expr_gen (from) do
          pick " access" & fully_qualified_expr (it);
       elsmatch s: it () and SingleTokNode() do
          pick " \e<s>" & fully_qualified_expr (it);
-      elsmatch s: IndexConstraint () do
+      elsmatch s: IndexConstraint () or CompositeConstraint () do
          pick " (" & fully_qualified_expr (it) & " )";
       else
          pick fully_qualified_expr (it);
@@ -790,13 +790,13 @@ template wrappers_post_process pick origin do
          end;
       elsmatch origin (
             t: child (ArrayTypeDef (
-            i: child (UnconstrainedArrayIndex () or ConstrainedArrayIndices)))) 
+            i: child (UnconstrainedArrayIndex () or IndexConstraint() or CompositeConstraint() or ConstrainedArrayIndices()))))
       do
          match i (UnconstrainedArrayIndex ()) and i.child (wrapper (w1 : w_TypeExpr ())) do
             weave (definition => defer (@ & "array (\e<w1.txt> range <>) of \e<child (w_TypeExpr ()).txt>"));
          else
             weave (definition => defer (@ & "array (\e<t.child(ConstraintList ())>) of \e<child (w_TypeExpr ()).txt>"));
-         end;         
+         end;
       elsmatch origin (t: child (TypeAccessDef () or AccessToSubpDef ())) do
          match t (TypeAccessDef ()) do
             weave (definition => defer (@ & " access \e<child (w_TypeExpr ()).txt>"));
