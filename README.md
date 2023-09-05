@@ -20,7 +20,7 @@ incorrect structures. The testsuite, however, is up to date and can be used
 as a reference.
 
 Full documentation is currently work in progress. However, a 
-[tutorial](https://github.com/AdaCore/uwrap/tree/master/documentation/tutorial) is 
+[tutorial](https://github.com/AdaCore/uwrap/blob/master/documentation/source/tutorial/tutorial.rst) is 
 available to provide basic concepts from a user point of view.
 
 Build
